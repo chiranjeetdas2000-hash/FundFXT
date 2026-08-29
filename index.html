@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Trading Terminal</title>
+    <link rel="stylesheet" href="style.css">
+    <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+</head>
+<body>
+
+    <!-- TOP BAR -->
+    <header class="top-bar">
+        <div class="logo">Fund<span>FXT</span></div>
+        <div class="account-info">
+            <div class="holder-details">
+                <span class="label">Holder:</span> Trader_123
+            </div>
+            <div class="account-details" id="accountDropBtn" onclick="toggleAccountDropdown()">
+                <span class="label">Account:</span> <strong id="accountId">ACC-1001</strong> ▾
+                <div class="dropdown-menu" id="accountMenu">
+                    <div onclick="switchAccount('ACC-1001')">ACC-1001</div>
+                    <div onclick="switchAccount('ACC-1002')">ACC-1002</div>
+                    <div class="add-account-btn" onclick="addNewAccount()">+ Add New Account</div>
+                </div>
+            </div>
+            <div class="account-stats">
+                <div class="stat"><span class="label">Balance:</span> <span id="balance">$5,000.00</span></div>
+                <div class="stat"><span class="label">Equity:</span> <span id="equity">$5,000.00</span></div>
+                <div class="stat"><span class="label">Avail. DD:</span> <span id="availDD">$100.00</span></div>
+                <div class="stat"><span class="label">Max DD:</span> <span id="maxDD">$400.00</span></div>
+                <div class="stat"><span class="label">Consistency:</span> <span id="consistencyScore">0%</span></div>
+                <div class="stat"><span class="label">Trades:</span> <span id="tradesToday">0/3</span></div>
+            </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">Logout</button>
+    </header>
+
+<!-- Restore Buttons (Hidden Sections ko wapas lana) -->
+<!-- Restore Buttons (Side-wise) -->
+<div class="restore-btn-container" id="restoreLeftContainer" style="display:none;">
+    <button class="restore-btn restore-btn-left" onclick="restorePanel('left')">👈 Left Panel</button>
+</div>
+
+<div class="restore-btn-container" id="restoreRightContainer" style="display:none;">
+    <button class="restore-btn restore-btn-right" onclick="restorePanel('right')">Right Panel 👉</button>
+</div>
+
+<div class="restore-btn-container" id="restoreBottomContainer" style="display:none;">
+    <button class="restore-btn restore-btn-bottom" onclick="restorePanel('bottom')">👇 Bottom Panel</button>
+</div>
+
+    <!-- MAIN LAYOUT -->
+    <div class="main-layout">
+        <!-- Left Sidebar -->
+        <div class="left-sidebar">
+    <div class="sidebar-header">
+        <span>Pairs</span>
+        <button class="toggle-btn" onclick="togglePanel('left')">👈 Hide</button>
+    </div>
+    <div class="search-wrap">
+        <input type="text" id="searchPair" placeholder="Search pairs..." oninput="filterPairs()">
+        <!-- Provider Toggle -->
+        <div class="provider-toggle">
+            <button class="provider-btn active" onclick="setChartProvider('OANDA')">OANDA</button>
+            <button class="provider-btn" onclick="setChartProvider('FXCM')">FXCM</button>
+        </div>
+    </div>
+    <ul id="pairList" class="pair-list"></ul>
+</div>
+
+        <!-- Center Chart -->
+        <div class="center-chart">
+            <div id="tradingview_chart"></div>
+        </div>
+
+        <!-- Right Order Panel -->
+        <div class="right-sidebar">
+    <div class="sidebar-header">
+        <h3>Order Execution</h3>
+        <button class="toggle-btn" onclick="togglePanel('right')">👉 Hide</button>
+    </div>
+    
+    <div class="order-type-list">
+        <div class="type-item active" onclick="setOrderType(this, 'market')">Market Execution</div>
+        <div class="type-item" onclick="setOrderType(this, 'pending')">Pending Order</div>
+    </div>
+
+            <!-- Market Execution Fields -->
+            <div id="marketExecFields" class="order-fields">
+                <label>Stop Loss (SL)</label>
+                <input type="number" id="mktSL" step="0.00001" placeholder="0.00000">
+                <label>Take Profit (TP)</label>
+                <input type="number" id="lotSize" 
+       min="0.01" 
+       max="2" 
+       step="0.01" 
+       value="1.00" 
+       oninput="validateLotSize(this)">
+                <label>Lot Size</label>
+                <input type="text" id="mktLots" value="1.00" oninput="validateLotSize(this)" placeholder="0.01 - 2.00">
+                <div class="buy-sell-btn">
+                    <button class="btn-buy" onclick="executeOrder('buy')">BUY</button>
+                    <button class="btn-sell" onclick="executeOrder('sell')">SELL</button>
+                </div>
+            </div>
+
+            <!-- Pending Order Fields -->
+            <div id="pendingExecFields" class="order-fields" style="display:none;">
+                <label>Order Type</label>
+                <select id="pendingType">
+                    <option value="buy_limit">Buy Limit</option>
+                    <option value="buy_stop">Buy Stop</option>
+                    <option value="sell_limit">Sell Limit</option>
+                    <option value="sell_stop">Sell Stop</option>
+                </select>
+                <label>Price</label>
+                <input type="number" id="pendingPrice" step="0.00001" placeholder="0.00000">
+                <label>Stop Loss (SL)</label>
+                <input type="number" id="pendSL" step="0.00001" placeholder="0.00000">
+                <label>Take Profit (TP)</label>
+                <input type="number" id="pendTP" step="0.00001" placeholder="0.00000">
+                <label>Lot Size</label>
+                <input type="text" id="pendLots" value="1.00" oninput="validateLotSize(this)" placeholder="0.01 - 2.00">
+                <button class="btn-exec" onclick="placePendingOrder()">Place Pending Order</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- BOTTOM SECTION -->
+   <div class="bottom-section" id="bottomSection">
+    <div class="tabs-container">
+        <div class="tabs">
+            <div class="tab active" onclick="switchTab(this, 'open')">Open Positions</div>
+            <div class="tab" onclick="switchTab(this, 'pending')">Pending Orders</div>
+            <div class="tab" onclick="switchTab(this, 'closed')">Closed Trades</div>
+        </div>
+        <button class="toggle-btn" onclick="togglePanel('bottom')">👇 Hide</button>
+    </div>
+    <div class="table-container">
+        <table>
+            <thead><tr id="tableHead"></tr></thead>
+            <tbody id="tableBody"></tbody>
+        </table>
+    </div>
+</div>
+
+
+    <script src="script.js"></script>
+</body>
+</html>
