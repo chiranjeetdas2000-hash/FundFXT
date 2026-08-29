@@ -203,7 +203,7 @@ function executeOrder(side) {
     const token = localStorage.getItem('fundfxt_token');
     const accountCode = "ACC-XXXX";  // 👈 Yahan apna actual account code daalo
 
-    fetch('http://localhost:3000/api/trades/execute', {
+    fetch('https://fundfxt.onrender.com/api/trades/execute', {
         method: 'POST',
         headers: { 
             'Content-Type': 'application/json',
