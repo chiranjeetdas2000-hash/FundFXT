@@ -31,7 +31,7 @@ function closeForgetPassword() {
 // Step 1: Send OTP
 async function sendOTP() {
     try {
-        const response = await fetch('http://localhost:3000/api/forgot-password', {
+        const response = await fetch('https://fundfxt.onrender.com/api/forgot-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: document.getElementById('fp_email').value })
@@ -81,7 +81,7 @@ async function resetPassword() {
     }
     
     try {
-        const response = await fetch('http://localhost:3000/api/reset-password', {
+        const response = await fetch('https://fundfxt.onrender.com/api/reset-password', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: document.getElementById('fp_email').value, password: newPass })
@@ -122,7 +122,7 @@ async function handleRegister(event) {
     const password = document.getElementById('reg_password').value;
 
     try {
-        const response = await fetch('http://localhost:3000/api/register', {
+        const response = await fetch('https://fundfxt.onrender.com/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ trader_id, email, phone: '', password })
@@ -148,7 +148,7 @@ async function handleLogin(event) {
     const trimmedPassword = password.trim();
 
     try {
-        const response = await fetch('http://localhost:3000/api/login', {
+        const response = await fetch('https://fundfxt.onrender.com/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ identifier, password: trimmedPassword })
