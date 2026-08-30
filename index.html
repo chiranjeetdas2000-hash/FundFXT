@@ -4,190 +4,288 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FundFXT | Direct Funded Trading & Challenges</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background: #f8fafc; color: #0f172a; }
+        body { background: #f8fafc; color: #0f172a; overflow-x: hidden; }
         a { text-decoration: none; color: inherit; }
         ul { list-style: none; }
 
-        /* ===== NAVBAR ===== */
+        /* ===== FLOATING BACKGROUND BLOBS ===== */
+        .bg-blobs {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; overflow: hidden;
+        }
+        .blob {
+            position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0.4; animation: blobFloat 12s infinite alternate ease-in-out;
+        }
+        .blob-1 { width: 500px; height: 500px; background: rgba(0,181,106,0.2); top: 20%; left: -10%; }
+        .blob-2 { width: 400px; height: 400px; background: rgba(59,130,246,0.2); bottom: 10%; right: -10%; animation-delay: 3s; }
+        .blob-3 { width: 300px; height: 300px; background: rgba(245,158,11,0.2); top: 60%; left: 30%; animation-delay: 6s; }
+        @keyframes blobFloat {
+            0% { transform: translate(0,0) scale(1); }
+            100% { transform: translate(50px, -50px) scale(1.1); }
+        }
+
+        /* ===== NAVBAR (Fixed + Glassy) ===== */
         .navbar {
             position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
-            background: rgba(11, 14, 20, 0.98); backdrop-filter: blur(10px);
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 30px; border-bottom: 1px solid #2a3444;
+            background: rgba(11, 14, 20, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+            border-bottom: 1px solid rgba(42,52,68,0.5);
+            transition: all 0.3s;
         }
-        .logo { font-size: 24px; font-weight: 800; color: #fff; }
+        .navbar.scrolled { box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .nav-inner { max-width: 1300px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; padding: 18px 30px; transition: padding 0.3s; }
+        .navbar.scrolled .nav-inner { padding: 12px 30px; }
+        .logo { font-size: 24px; font-weight: 900; color: #fff; cursor: pointer; transition: transform 0.3s; }
         .logo span { color: #00b56a; }
-        .nav-links { display: flex; gap: 30px; }
-        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: 0.3s; }
+        .logo:hover { transform: scale(1.05); }
+        .nav-links { display: flex; gap: 35px; }
+        .nav-links li { position: relative; }
+        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: color 0.3s; }
+        .nav-links a::after { content: ''; position: absolute; bottom: -5px; left: 0; width: 0; height: 2px; background: #00b56a; transition: width 0.3s; }
         .nav-links a:hover { color: #00b56a; }
+        .nav-links a:hover::after { width: 100%; }
         .nav-btns { display: flex; gap: 12px; }
-        .btn-outline { padding: 8px 18px; border-radius: 6px; color: #fff; border: 2px solid #4b5563; font-weight: 500; }
-        .btn-outline:hover { border-color: #00b56a; color: #00b56a; }
-        .btn-solid { padding: 8px 18px; border-radius: 6px; background: #00b56a; color: #fff; font-weight: 600; }
+        .btn-outline { padding: 9px 20px; border-radius: 8px; color: #fff; border: 2px solid #64748b; font-weight: 500; transition: all 0.3s; }
+        .btn-outline:hover { border-color: #00b56a; color: #00b56a; transform: translateY(-2px); }
+        .btn-solid { padding: 9px 20px; border-radius: 8px; background: #00b56a; color: #fff; font-weight: 700; transition: all 0.3s; box-shadow: 0 4px 15px rgba(0,181,106,0.3); }
+        .btn-solid:hover { transform: translateY(-2px) scale(1.03); box-shadow: 0 8px 25px rgba(0,181,106,0.5); }
 
-        /* ===== HERO SECTION ===== */
+        /* ===== HERO ===== */
         .hero {
-            background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
-            color: #fff; padding: 140px 20px 80px; text-align: center;
+            position: relative; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+            background: radial-gradient(circle at 20% 30%, rgba(0,181,106,0.15), transparent 50%),
+                        radial-gradient(circle at 80% 70%, rgba(59,130,246,0.15), transparent 50%);
+            text-align: center; padding: 120px 20px 80px;
         }
-        .hero h1 { font-size: 56px; margin-bottom: 20px; background: linear-gradient(90deg, #fff, #00b56a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .hero p { font-size: 18px; max-width: 600px; margin: 0 auto 30px; color: #94a3b8; line-height: 1.6; }
-        .hero-btn { padding: 16px 40px; background: #00b56a; border-radius: 50px; font-size: 16px; font-weight: 700; color: #fff; display: inline-block; }
-        .hero-btn:hover { box-shadow: 0 10px 20px rgba(0,181,106,0.3); transform: translateY(-2px); }
-        .hero-badge { display: inline-block; padding: 6px 14px; background: rgba(0,181,106,0.15); border: 1px solid #00b56a; color: #00b56a; border-radius: 20px; margin-bottom: 20px; font-size: 13px; font-weight: 600; }
+        .hero-content { max-width: 900px; }
+        .hero-badge { display: inline-block; padding: 8px 18px; background: rgba(0,181,106,0.1); border: 1px solid rgba(0,181,106,0.5); color: #00b56a; border-radius: 30px; margin-bottom: 30px; font-size: 14px; font-weight: 600; animation: fadeInDown 1s ease; }
+        .hero h1 { font-size: 70px; font-weight: 900; line-height: 1.1; margin-bottom: 20px; background: linear-gradient(135deg, #0f172a, #00b56a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; animation: fadeInUp 1s 0.2s ease; }
+        .hero p { font-size: 18px; max-width: 650px; margin: 0 auto 40px; color: #64748b; line-height: 1.7; animation: fadeInUp 1s 0.4s ease; }
+        .hero-btns { display: flex; justify-content: center; gap: 15px; animation: fadeInUp 1s 0.6s ease; }
+        .hero-btn { padding: 16px 40px; background: #00b56a; border-radius: 50px; font-size: 16px; font-weight: 700; color: #fff; display: inline-block; transition: all 0.3s; box-shadow: 0 10px 30px rgba(0,181,106,0.4); }
+        .hero-btn:hover { transform: translateY(-4px); box-shadow: 0 15px 45px rgba(0,181,106,0.6); }
+        .hero-btn-outline { padding: 16px 40px; border: 2px solid #64748b; border-radius: 50px; font-size: 16px; font-weight: 600; color: #0f172a; display: inline-block; transition: all 0.3s; }
+        .hero-btn-outline:hover { border-color: #00b56a; color: #00b56a; transform: translateY(-2px); }
 
-        /* ===== COMMON SECTION STYLES ===== */
-        .section { padding: 80px 20px; max-width: 1200px; margin: 0 auto; }
-        .section-title { text-align: center; font-size: 36px; font-weight: 800; margin-bottom: 10px; }
-        .section-subtitle { text-align: center; color: #64748b; font-size: 16px; margin-bottom: 50px; }
+        /* ===== SCROLL REVEAL ANIMATION ===== */
+        .reveal { opacity: 0; transform: translateY(60px); transition: opacity 0.8s ease, transform 0.8s ease; }
+        .reveal.visible { opacity: 1; transform: translateY(0); }
 
-        /* ===== CHALLENGES CARDS ===== */
+        /* ===== COUNTERS ===== */
+        .counters-strip { background: #0d1117; padding: 30px 20px; display: flex; justify-content: center; gap: 50px; border-radius: 20px; margin: 40px 0; }
+        .counter-item { text-align: center; }
+        .counter-value { font-size: 36px; font-weight: 900; color: #00b56a; }
+        .counter-label { font-size: 14px; color: #94a3b8; }
+
+        /* ===== COMMON SECTION ===== */
+        .section { padding: 100px 20px; max-width: 1200px; margin: 0 auto; }
+        .section-title { text-align: center; font-size: 40px; font-weight: 900; margin-bottom: 10px; }
+        .section-subtitle { text-align: center; color: #64748b; font-size: 17px; margin-bottom: 60px; }
+
+        /* ===== CHALLENGE CARDS (Interactive) ===== */
         .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; }
         .challenge-card {
-            background: #fff; border-radius: 16px; padding: 30px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 2px solid transparent; transition: 0.3s;
+            background: #fff; border-radius: 20px; padding: 40px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 2px solid #e2e8f0;
+            transition: all 0.4s; cursor: pointer; position: relative; overflow: hidden;
         }
-        .challenge-card:hover { transform: translateY(-5px); border-color: #00b56a; }
-        .challenge-card.premium { border-color: #00b56a; background: #f0fdf4; }
-        .card-badge { display: inline-block; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; margin-bottom: 15px; }
+        .challenge-card::before { content: ''; position: absolute; top: 0; left: -100%; width: 100%; height: 100%; background: linear-gradient(90deg, transparent, rgba(0,181,106,0.08), transparent); transition: left 0.5s; }
+        .challenge-card:hover::before { left: 100%; }
+        .challenge-card:hover { transform: translateY(-10px); border-color: #00b56a; box-shadow: 0 15px 40px rgba(0,181,106,0.15); }
+        .challenge-card.selected { border-color: #00b56a; background: #f0fdf4; box-shadow: 0 10px 40px rgba(0,181,106,0.3); }
+        .card-badge { display: inline-block; padding: 6px 14px; border-radius: 20px; font-size: 13px; font-weight: 700; margin-bottom: 20px; transition: all 0.3s; }
         .badge-green { background: rgba(0,181,106,0.15); color: #00b56a; }
         .badge-blue { background: rgba(59,130,246,0.15); color: #2563eb; }
-        .challenge-card h3 { font-size: 22px; margin-bottom: 5px; }
-        .price-line { font-size: 42px; font-weight: 800; margin-bottom: 10px; }
-        .price-note { font-size: 14px; color: #64748b; margin-bottom: 20px; }
-        .feature-list { margin-bottom: 20px; }
-        .feature-list li { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; font-size: 14px; color: #475569; }
+        .challenge-card h3 { font-size: 24px; font-weight: 800; margin-bottom: 10px; }
+        .price-line { font-size: 52px; font-weight: 900; margin-bottom: 10px; transition: transform 0.3s; }
+        .challenge-card:hover .price-line { transform: scale(1.05); }
+        .price-note { font-size: 14px; color: #64748b; margin-bottom: 30px; }
+        .feature-list { margin-bottom: 30px; }
+        .feature-list li { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; font-size: 15px; color: #475569; transition: transform 0.2s; }
+        .feature-list li:hover { transform: translateX(5px); }
         .check { color: #00b56a; font-weight: 700; }
-        .cta-btn { padding: 14px 30px; border-radius: 50px; text-align: center; font-weight: 600; display: block; }
-        .cta-green { background: #00b56a; color: #fff; }
+        .cta-btn { padding: 16px 30px; border-radius: 50px; text-align: center; font-weight: 700; display: block; transition: all 0.3s; }
+        .cta-green { background: #00b56a; color: #fff; box-shadow: 0 5px 20px rgba(0,181,106,0.3); }
+        .challenge-card:hover .cta-btn { transform: scale(1.03); box-shadow: 0 10px 30px rgba(0,181,106,0.4); }
+
+        /* ===== BENEFITS ===== */
+        .benefits-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 30px; }
+        .benefit-card { background: #fff; border-radius: 20px; padding: 30px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); transition: all 0.4s; position: relative; overflow: hidden; }
+        .benefit-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #00b56a; transform: scaleX(0); transition: transform 0.3s; }
+        .benefit-card:hover { transform: translateY(-10px); box-shadow: 0 15px 40px rgba(0,0,0,0.1); }
+        .benefit-card:hover::before { transform: scaleX(1); }
+        .benefit-icon { font-size: 50px; margin-bottom: 20px; display: inline-block; transition: transform 0.3s; }
+        .benefit-card:hover .benefit-icon { transform: rotate(10deg) scale(1.1); }
+        .benefit-card h4 { font-size: 20px; font-weight: 700; margin-bottom: 10px; }
+        .benefit-card p { color: #64748b; font-size: 14px; }
 
         /* ===== COMPARISON TABLE ===== */
-        .compare-table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 8px 30px rgba(0,0,0,0.08); }
-        .compare-table th, .compare-table td { padding: 16px; text-align: left; border-bottom: 1px solid #f1f5f9; }
-        .compare-table th { background: #f8fafc; font-size: 14px; color: #64748b; }
-        .compare-table td { font-size: 14px; }
+        .table-wrap { background: #fff; border-radius: 20px; box-shadow: 0 8px 30px rgba(0,0,0,0.08); overflow: hidden; }
+        .compare-table { width: 100%; border-collapse: collapse; }
+        .compare-table th { background: #f8fafc; padding: 20px; text-align: left; font-size: 15px; color: #64748b; }
+        .compare-table td { padding: 18px; border-bottom: 1px solid #f1f5f9; font-size: 15px; }
+        .compare-table tr:last-child td { border-bottom: none; }
+        .compare-table tr { transition: background 0.2s; }
+        .compare-table tr:hover { background: #f8fafc; }
         .highlight-green { color: #00b56a; font-weight: 700; }
-        .highlight-red { color: #ef4444; font-weight: 700; }
 
         /* ===== AFFILIATE ===== */
-        .affiliate-box { background: linear-gradient(135deg, #fef3c7, #fffbeb); border-radius: 20px; padding: 50px; text-align: center; border: 2px solid #f59e0b; }
-        .affiliate-box h2 { font-size: 32px; color: #b45309; margin-bottom: 10px; }
-        .affiliate-box p { color: #92400e; font-size: 16px; margin-bottom: 20px; }
+        .affiliate-box { background: linear-gradient(135deg, #fef3c7, #fffbeb); border-radius: 25px; padding: 60px; text-align: center; border: 2px solid #f59e0b; position: relative; overflow: hidden; }
+        .affiliate-box::before { content: ''; position: absolute; top: -50%; left: -50%; width: 200%; height: 200%; background: radial-gradient(circle, rgba(245,158,11,0.1), transparent 50%); animation: rotateBackground 15s linear infinite; }
+        @keyframes rotateBackground { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .affiliate-box h2 { font-size: 36px; color: #b45309; margin-bottom: 15px; position: relative; }
+        .affiliate-box p { color: #92400e; font-size: 17px; margin-bottom: 20px; position: relative; }
         .affiliate-box strong { color: #b45309; }
 
         /* ===== FOOTER ===== */
-        .footer { background: #0d1117; color: #94a3b8; padding: 60px 20px 20px; }
-        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 40px; margin-bottom: 40px; }
-        .footer h4 { color: #fff; font-size: 16px; margin-bottom: 15px; }
-        .footer a { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 8px; }
-        .footer a:hover { color: #00b56a; }
-        .footer-bottom { text-align: center; border-top: 1px solid #1a2332; padding-top: 20px; font-size: 13px; }
+        .footer { background: #0d1117; color: #94a3b8; padding: 60px 20px 20px; position: relative; overflow: hidden; }
+        .footer::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: linear-gradient(90deg, #00b56a, transparent); }
+        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; margin-bottom: 40px; }
+        .footer h4 { color: #fff; font-size: 18px; margin-bottom: 15px; }
+        .footer a { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 10px; transition: all 0.3s; }
+        .footer a:hover { color: #00b56a; transform: translateX(5px); }
+        .footer-bottom { text-align: center; border-top: 1px solid rgba(26,35,50,0.5); padding-top: 20px; font-size: 13px; }
+
+        /* ===== ANIMATIONS ===== */
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
 
         /* ===== RESPONSIVE ===== */
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
             .nav-links { display: none; }
-            .hero h1 { font-size: 36px; }
-            .section-title { font-size: 28px; }
+            .hero h1 { font-size: 40px; }
+            .hero-btns { flex-direction: column; align-items: center; }
+            .cards-grid { grid-template-columns: 1fr; }
         }
     </style>
 </head>
 <body>
 
-    <!-- NAVBAR -->
-    <nav class="navbar">
-        <div class="logo">Fund<span>FXT</span></div>
-        <ul class="nav-links">
-            <a href="#about">About</a>
-            <a href="#challenges">Challenges</a>
-            <a href="#benefits">Benefits</a>
-            <a href="#compare">Compare</a>
-            <a href="#affiliate">Affiliate</a>
-            <a href="/faq.html">FAQ</a>
-        </ul>
-        <div class="nav-btns">
-            <a href="auth.html" class="btn-outline">Login</a>
-            <a href="buy-challenge.html" class="btn-solid">Get Funded</a>
+    <!-- Floating Background -->
+    <div class="bg-blobs">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+        <div class="blob blob-3"></div>
+    </div>
+
+    <!-- NAVBAR (Interactive) -->
+    <nav class="navbar" id="navbar">
+        <div class="nav-inner">
+            <div class="logo">Fund<span>FXT</span></div>
+            <ul class="nav-links">
+                <li><a href="#about">About</a></li>
+                <li><a href="#challenges">Challenges</a></li>
+                <li><a href="#benefits">Benefits</a></li>
+                <li><a href="#compare">Compare</a></li>
+                <li><a href="#affiliate">Affiliate</a></li>
+                <li><a href="/faq.html">FAQ</a></li>
+            </ul>
+            <div class="nav-btns">
+                <a href="/Auth.html" class="btn-outline">Login</a>
+                <a href="buy-challenge.html" class="btn-solid">Get Funded</a>
+            </div>
         </div>
     </nav>
 
     <!-- HERO -->
     <section class="hero">
-        <div class="hero-badge">🔥 Limited Launch (Prototype)</div>
-        <h1>Building Trust. Backed by Math.</h1>
-        <p>Join FundFXT's limited prototype. Direct Funded accounts or 2-Step Challenges — you trade, we handle the rest.</p>
-        <a href="/Auth.html" class="hero-btn">Get Funded Now</a>
+        <div class="hero-content">
+            <div class="hero-badge">🔥 Limited Launch (Prototype)</div>
+            <h1>Building Trust. Backed by Math.</h1>
+            <p>Join FundFXT's limited prototype. Direct Funded accounts or 2-Step Challenges — you trade, we handle the rest.</p>
+            <div class="hero-btns">
+                <a href="/Auth.html" class="hero-btn">Get Funded Now</a>
+                <a href="#challenges" class="hero-btn-outline">Explore Models</a>
+            </div>
+        </div>
     </section>
 
-    <!-- ABOUT COMPANY -->
-    <section id="about" class="section">
+    <!-- STATS COUNTERS -->
+    <div class="section" style="padding-top: 0;">
+        <div class="counters-strip">
+            <div class="counter-item">
+                <div class="counter-value" data-target="5000">0</div>
+                <div class="counter-label">Accounts Funded</div>
+            </div>
+            <div class="counter-item">
+                <div class="counter-value" data-target="1000000">0</div>
+                <div class="counter-label">Total Payouts ($)</div>
+            </div>
+            <div class="counter-item">
+                <div class="counter-value" data-target="98">0</div>
+                <div class="counter-label">Success Rate (%)</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ABOUT -->
+    <section id="about" class="section reveal">
         <h2 class="section-title">Why FundFXT?</h2>
         <p class="section-subtitle">A modern prop firm built for traders, by traders.</p>
-        <div class="about-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:center;">
-            <div class="about-text">
-                <h2>Your Trading Journey Starts Here</h2>
-                <p>FundFXT provides a professional simulated trading environment. We are launching a limited prototype to test our infrastructure. Choose between our Direct Funded account or the 2-Step Challenge, and start earning from your trading skills.</p>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:50px; align-items:center;">
+            <div>
+                <h2 style="font-size:32px; margin-bottom:20px;">Your Trading Journey Starts Here</h2>
+                <p style="color:#475569; line-height:1.8;">FundFXT provides a professional simulated trading environment. We are launching a limited prototype to test our infrastructure. Choose between our Direct Funded account or the 2-Step Challenge, and start earning from your trading skills.</p>
             </div>
-            <div class="about-img" style="background: linear-gradient(135deg, #00b56a, #00e68a); border-radius: 20px; padding: 40px; color: #fff; text-align: center; font-size: 48px;">
+            <div style="background: linear-gradient(135deg, #00b56a, #00e68a); border-radius: 20px; padding: 40px; color: #fff; text-align: center; font-size: 70px; box-shadow: 0 20px 50px rgba(0,181,106,0.3);">
                 <i class="fas fa-chart-line"></i>
             </div>
         </div>
     </section>
 
-    <!-- CHALLENGES -->
-    <section id="challenges" class="section">
+    <!-- CHALLENGES (Interactive Selection) -->
+    <section id="challenges" class="section reveal">
         <h2 class="section-title">Choose Your Model</h2>
-        <p class="section-subtitle">Two distinct funded account models.</p>
-        <div class="cards-grid">
-            <div class="challenge-card">
+        <p class="section-subtitle">Click on a card to select your preferred model.</p>
+        <div class="cards-grid" id="cardsGrid">
+            <div class="challenge-card" onclick="selectCard(this)">
                 <div class="card-badge badge-green">Direct Funded</div>
                 <h3>5K Prototype</h3>
                 <div class="price-line">$10</div>
-                <div class="price-note">Affiliate code se price kam ho sakta hai</div>
+                <div class="price-note">No evaluation phases</div>
                 <ul class="feature-list">
                     <li><span class="check">✅</span> Account Size: $5,000</li>
                     <li><span class="check">✅</span> No Challenge Phases</li>
                     <li><span class="check">✅</span> Max Payout: $100</li>
                     <li><span class="check">✅</span> Direct Trade</li>
                 </ul>
-                <a href="/Auth.html" class="cta-btn cta-green">Get Funded</a>
+                <a href="buy-challenge.html?model=direct" class="cta-btn cta-green">Get Funded</a>
             </div>
-            <div class="challenge-card premium">
+            <div class="challenge-card" onclick="selectCard(this)">
                 <div class="card-badge badge-blue">2-Step Challenge</div>
                 <h3>5K Challenge</h3>
                 <div class="price-line">$29</div>
-                <div class="price-note">Affiliate code se price kam ho sakta hai</div>
+                <div class="price-note">Evaluation & scaling</div>
                 <ul class="feature-list">
                     <li><span class="check">✅</span> Account Size: $5,000</li>
                     <li><span class="check">✅</span> 2 Steps ($400 + $250)</li>
                     <li><span class="check">✅</span> Max Payout: $200+</li>
                     <li><span class="check">✅</span> Scaling Withdrawals</li>
                 </ul>
-                <a href="/Auth.html" class="cta-btn cta-green">Start Challenge</a>
+                <a href="buy-challenge.html?model=challenge" class="cta-btn cta-green">Start Challenge</a>
             </div>
         </div>
     </section>
 
-    <!-- TRADER BENEFITS -->
-    <section id="benefits" class="section">
+    <!-- BENEFITS -->
+    <section id="benefits" class="section reveal">
         <h2 class="section-title">Trader Benefits</h2>
         <p class="section-subtitle">Why thousands of traders choose FundFXT.</p>
-        <div class="benefits-grid" style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:30px;">
-            <div class="benefit-card" style="background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); text-align: center;">
-                <div class="benefit-icon" style="font-size: 40px; margin-bottom: 15px;">🎯</div>
+        <div class="benefits-grid">
+            <div class="benefit-card">
+                <div class="benefit-icon">🎯</div>
                 <h4>Direct Funded</h4>
                 <p>Get a funded account instantly without any evaluation phases.</p>
             </div>
-            <div class="benefit-card" style="background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); text-align: center;">
-                <div class="benefit-icon" style="font-size: 40px; margin-bottom: 15px;">💸</div>
+            <div class="benefit-card">
+                <div class="benefit-icon">💸</div>
                 <h4>Scaling Payouts</h4>
                 <p>Withdraw up to $1000 as you prove your consistency.</p>
             </div>
-            <div class="benefit-card" style="background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); text-align: center;">
-                <div class="benefit-icon" style="font-size: 40px; margin-bottom: 15px;">🚀</div>
+            <div class="benefit-card">
+                <div class="benefit-icon">🚀</div>
                 <h4>Fast Payouts</h4>
                 <p>Withdraw 7 days after your trading cycle ends.</p>
             </div>
@@ -195,25 +293,27 @@
     </section>
 
     <!-- COMPARISON -->
-    <section id="compare" class="section">
+    <section id="compare" class="section reveal">
         <h2 class="section-title">Challenge Comparison</h2>
         <p class="section-subtitle">Direct Funded vs 2-Step Challenge.</p>
-        <table class="compare-table">
-            <thead>
-                <tr><th>Feature</th><th>Direct Funded</th><th>2-Step Challenge</th></tr>
-            </thead>
-            <tbody>
-                <tr><td>Account Size</td><td>$5,000</td><td>$5,000</td></tr>
-                <tr><td>Entry Fee</td><td>$10</td><td>$29</td></tr>
-                <tr><td>Steps</td><td>No Challenge</td><td>2 Steps</td></tr>
-                <tr><td>Max Withdrawal</td><td>$100 (1 Time)</td><td>$200 → $500 → $1000</td></tr>
-                <tr><td>Payout Time</td><td>7 Days</td><td>7 Days</td></tr>
-            </tbody>
-        </table>
+        <div class="table-wrap">
+            <table class="compare-table">
+                <thead>
+                    <tr><th>Feature</th><th>Direct Funded</th><th>2-Step Challenge</th></tr>
+                </thead>
+                <tbody>
+                    <tr><td>Account Size</td><td>$5,000</td><td>$5,000</td></tr>
+                    <tr><td>Entry Fee</td><td>$10</td><td>$29</td></tr>
+                    <tr><td>Steps</td><td>No Challenge</td><td>2 Steps</td></tr>
+                    <tr><td>Max Withdrawal</td><td>$100 (1 Time)</td><td>$200 → $500 → $1000</td></tr>
+                    <tr><td>Payout Time</td><td>7 Days</td><td>7 Days</td></tr>
+                </tbody>
+            </table>
+        </div>
     </section>
 
     <!-- AFFILIATE -->
-    <section id="affiliate" class="section">
+    <section id="affiliate" class="section reveal">
         <h2 class="section-title">Become an Affiliate</h2>
         <p class="section-subtitle">Earn from every verified sale.</p>
         <div class="affiliate-box">
@@ -236,6 +336,7 @@
                 <a href="/Auth.html">Login</a>
                 <a href="/Auth.html">Register</a>
                 <a href="/faq.html">FAQ</a>
+                <a href="buy-challenge.html">Buy Challenge</a>
             </div>
             <div>
                 <h4>Legal</h4>
@@ -247,5 +348,55 @@
         <div class="footer-bottom">© 2026 FundFXT. All rights reserved.</div>
     </footer>
 
+    <script>
+        // ===== NAVBAR SCROLL EFFECT =====
+        const navbar = document.getElementById('navbar');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) navbar.classList.add('scrolled');
+            else navbar.classList.remove('scrolled');
+        });
+
+        // ===== SCROLL REVEAL =====
+        const revealElements = document.querySelectorAll('.reveal');
+        const revealObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) entry.target.classList.add('visible');
+            });
+        }, { threshold: 0.2 });
+        revealElements.forEach(el => revealObserver.observe(el));
+
+        // ===== COUNTER ANIMATION =====
+        const counters = document.querySelectorAll('.counter-value');
+        const counterObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const counter = entry.target;
+                    const target = +counter.getAttribute('data-target');
+                    let count = 0;
+                    const duration = 2000;
+                    const step = target / (duration / 16);
+                    const updateCounter = () => {
+                        count += step;
+                        if (count < target) {
+                            counter.textContent = Math.floor(count).toLocaleString() + (counter.getAttribute('data-target') == '1000000' ? '+' : '');
+                            setTimeout(updateCounter, 16);
+                        } else {
+                            counter.textContent = target.toLocaleString() + (counter.getAttribute('data-target') == '1000000' ? '+' : '');
+                        }
+                    };
+                    updateCounter();
+                    counterObserver.unobserve(counter);
+                }
+            });
+        }, { threshold: 0.5 });
+        counters.forEach(el => counterObserver.observe(el));
+
+        // ===== CHALLENGE CARD SELECTION =====
+        function selectCard(card) {
+            const allCards = document.querySelectorAll('.challenge-card');
+            allCards.forEach(c => c.classList.remove('selected'));
+            card.classList.add('selected');
+        }
+    </script>
 </body>
 </html>
