@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #f8fafc; color: #0f172a; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+            background: rgba(11, 14, 20, 0.98); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 30px; border-bottom: 1px solid #2a3444;
+        }
+        .logo { font-size: 24px; font-weight: 800; color: #fff; }
+        .logo span { color: #00b56a; }
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: 0.3s; }
+        .nav-links a:hover { color: #00b56a; }
+        .nav-btns { display: flex; gap: 12px; }
+        .btn-outline { padding: 8px 18px; border-radius: 6px; color: #fff; border: 2px solid #4b5563; font-weight: 500; }
+        .btn-outline:hover { border-color: #00b56a; color: #00b56a; }
+        .btn-solid { padding: 8px 18px; border-radius: 6px; background: #00b56a; color: #fff; font-weight: 600; }
+
+        /* ===== DASHBOARD MAIN ===== */
+        .dashboard-container { padding: 100px 20px 40px; max-width: 1200px; margin: 0 auto; }
+        .welcome-text { font-size: 28px; font-weight: 800; margin-bottom: 30px; }
+        .status-badge { display: inline-block; padding: 6px 12px; background: #d1fae5; color: #065f46; border-radius: 20px; font-size: 12px; font-weight: 600; margin-left: 10px; vertical-align: middle; }
+
+        /* ===== ACCOUNT CARDS ===== */
+        .cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 30px; margin-bottom: 40px; }
+        .account-card {
+            background: #fff; border-radius: 16px; padding: 25px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); border: 2px solid transparent; transition: 0.3s; cursor: pointer;
+        }
+        .account-card:hover { transform: translateY(-5px); border-color: #00b56a; }
+        .account-card.gold { border-color: #f59e0b; background: #fffbeb; }
+        .acc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .acc-code { font-weight: 700; font-size: 16px; }
+        .acc-status { padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+        .status-active { background: #d1fae5; color: #065f46; }
+        .status-breached { background: #fee2e2; color: #991b1b; }
+        .acc-balance { font-size: 32px; font-weight: 800; color: #00b56a; margin-bottom: 5px; }
+        .acc-meta { font-size: 14px; color: #64748b; }
+
+        /* ===== SECTIONS ===== */
+        .section-title { font-size: 22px; font-weight: 700; margin-bottom: 20px; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; }
+        .content-box { background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 40px; }
+        
+        /* Affiliate Locked/Unlocked */
+        .affiliate-locked { background: #f1f5f9; padding: 20px; border-radius: 10px; color: #64748b; }
+        .progress-bar { background: #e2e8f0; height: 8px; border-radius: 20px; margin-top: 10px; overflow: hidden; }
+        .progress-fill { height: 100%; width: 30%; background: #00b56a; border-radius: 20px; }
+
+        /* Footer */
+        .footer { background: #0d1117; color: #94a3b8; padding: 30px 20px 15px; }
+        .footer-bottom { text-align: center; font-size: 13px; padding-top: 15px; border-top: 1px solid #1a2332; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .welcome-text { font-size: 22px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR (Connected to Home & Trading Terminal) -->
+    <nav class="navbar">
+        <div class="logo">Fund<span>FXT</span></div>
+        <ul class="nav-links">
+            <a href="home.html">Home</a>
+            <a href="index.html">Trading Terminal</a>
+            <a href="faq.html">FAQ</a>
+            <a href="contact.html">Contact</a>
+        </ul>
+        <div class="nav-btns">
+            <a href="home.html" class="btn-outline">Logout</a>
+            <a href="index.html" class="btn-solid">Trade Now</a>
+        </div>
+    </nav>
+
+    <!-- DASHBOARD MAIN -->
+    <div class="dashboard-container">
+        <div class="welcome-text">
+            Welcome back, Trader! 
+            <span class="status-badge">Active</span>
+        </div>
+
+        <!-- ACCOUNT CARDS -->
+        <div class="cards-grid">
+            <!-- Account 1 -->
+            <div class="account-card" onclick="window.location.href='index.html'">
+                <div class="acc-header">
+                    <span class="acc-code">ACC-1001</span>
+                    <span class="acc-status status-active">Active</span>
+                </div>
+                <div class="acc-balance">$5,000.00</div>
+                <div class="acc-meta">Equity: $5,000.00 | Profit: $0.00</div>
+            </div>
+            <!-- Account 2 (Example of another account) -->
+            <div class="account-card" onclick="window.location.href='index.html'">
+                <div class="acc-header">
+                    <span class="acc-code">ACC-1002</span>
+                    <span class="acc-status status-breached">Breached</span>
+                </div>
+                <div class="acc-balance">$4,200.00</div>
+                <div class="acc-meta">Equity: $4,200.00 | Profit: -$800.00</div>
+            </div>
+        </div>
+
+        <!-- AFFILIATE SECTION -->
+        <h3 class="section-title">Affiliate Program</h3>
+        <div class="content-box">
+            <!-- Locked State (Example: 25/50 referrals) -->
+            <div class="affiliate-locked">
+                <strong>🔒 Affiliate Program Locked</strong>
+                <p>To become an affiliate, you need to refer 50 traders. You currently have 25 referrals.</p>
+                <div class="progress-bar"><div class="progress-fill"></div></div>
+                <p style="font-size: 12px; margin-top: 5px;">Minimum Payout: $100</p>
+            </div>
+        </div>
+
+        <!-- PAYOUT SECTION -->
+        <h3 class="section-title">Payout</h3>
+        <div class="content-box">
+            <p>Eligibility: <strong style="color: #00b56a;">Eligible after 15 days</strong></p>
+            <p>Max Payout: <strong>$100</strong> (Direct Funded)</p>
+            <a href="index.html" class="btn-solid" style="display:inline-block; margin-top:15px;">Go to Trading Terminal</a>
+        </div>
+
+    </div>
+
+    <!-- FOOTER (Connected to Legal) -->
+    <footer class="footer">
+        <div class="footer-bottom">
+            © 2026 FundFXT. All rights reserved. | <a href="privacy.html" style="color:#00b56a;">Privacy</a> | <a href="terms.html" style="color:#00b56a;">Terms</a>
+        </div>
+    </footer>
+
+</body>
+</html>
