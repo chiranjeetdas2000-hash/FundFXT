@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Frequently Asked Questions</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #f8fafc; color: #0f172a; line-height: 1.6; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+            background: rgba(11, 14, 20, 0.98); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 30px; border-bottom: 1px solid #2a3444;
+        }
+        .logo { font-size: 24px; font-weight: 800; color: #fff; }
+        .logo span { color: #00b56a; }
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: 0.3s; }
+        .nav-links a:hover { color: #00b56a; }
+        .nav-btns { display: flex; gap: 12px; }
+        .btn-outline { padding: 8px 18px; border-radius: 6px; color: #fff; border: 2px solid #4b5563; font-weight: 500; }
+        .btn-outline:hover { border-color: #00b56a; color: #00b56a; }
+        .btn-solid { padding: 8px 18px; border-radius: 6px; background: #00b56a; color: #fff; font-weight: 600; }
+
+        /* ===== PAGE HEADER ===== */
+        .page-header {
+            background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
+            color: #fff; padding: 140px 20px 80px; text-align: center;
+        }
+        .page-header h1 { font-size: 56px; margin-bottom: 20px; background: linear-gradient(90deg, #fff, #00b56a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .page-header p { font-size: 18px; max-width: 700px; margin: 0 auto; color: #94a3b8; }
+
+        /* ===== FAQ CONTAINER ===== */
+        .faq-container { max-width: 900px; margin: 60px auto; padding: 0 20px; }
+        .faq-category { margin-bottom: 50px; }
+        .category-title { font-size: 28px; font-weight: 800; margin-bottom: 30px; padding-bottom: 10px; border-bottom: 3px solid #00b56a; color: #0f172a; }
+
+        /* FAQ Item */
+        .faq-item {
+            background: #fff; border-radius: 12px; margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0; overflow: hidden;
+        }
+        .faq-question {
+            padding: 20px 25px; cursor: pointer; font-weight: 600; font-size: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            background: #fff; transition: 0.2s;
+        }
+        .faq-question:hover { background: #f8fafc; }
+        .faq-question i { font-size: 14px; color: #00b56a; transition: transform 0.3s; }
+        .faq-item.active .faq-question i { transform: rotate(180deg); }
+        .faq-answer {
+            padding: 0 25px; max-height: 0; overflow: hidden; transition: max-height 0.4s ease, padding 0.3s;
+            color: #475569; font-size: 15px;
+        }
+        .faq-item.active .faq-answer { padding: 0 25px 25px; max-height: 1000px; }
+
+        /* ===== FOOTER ===== */
+        .footer { background: #0d1117; color: #94a3b8; padding: 50px 20px 20px; }
+        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; margin-bottom: 40px; }
+        .footer h4 { color: #fff; font-size: 16px; margin-bottom: 15px; }
+        .footer a { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 8px; }
+        .footer a:hover { color: #00b56a; }
+        .footer-bottom { text-align: center; border-top: 1px solid #1a2332; padding-top: 20px; font-size: 13px; }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .page-header h1 { font-size: 36px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="logo">Fund<span>FXT</span></div>
+        <ul class="nav-links">
+            <a href="home.html">Home</a>
+            <a href="home.html#challenges">Challenges</a>
+            <a href="dashboard.html">Dashboard</a>
+            <a href="faq.html" style="color:#00b56a;">FAQ</a>
+            <a href="contact.html">Contact</a>
+        </ul>
+        <div class="nav-btns">
+            <a href="Auth.html" class="btn-outline">Login</a>
+            <a href="Auth.html" class="btn-solid">Get Funded</a>
+        </div>
+    </nav>
+
+    <!-- PAGE HEADER -->
+    <section class="page-header">
+        <h1>Frequently Asked Questions</h1>
+        <p>Comprehensive information regarding trading rules, payouts, affiliate system, and everything else you need to know about FundFXT.</p>
+    </section>
+
+    <!-- FAQ CONTENT -->
+    <div class="faq-container">
+
+        <!-- Category 1: Direct Funded Model -->
+        <div class="faq-category">
+            <h2 class="category-title">Direct Funded Model (5K Prototype)</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What is the Direct Funded Model? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The Direct Funded Model provides traders with immediate access to a $5,000 virtual account without requiring any evaluation phases. This is a limited prototype. You purchase the account, trade following the rules, and can withdraw profits after the trading cycle.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">How much is the entry fee for Direct Funded? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The standard entry fee is $10. However, if you use a valid affiliate coupon code, the price may be reduced (up to $5 off). The final price is determined by the coupon applied.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What are the trading rules for the Direct Funded account? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">To keep the account active and eligible for payout, you must adhere to the following rules:
+                    <ul>
+                        <li>Account Size: $5,000</li>
+                        <li>Daily Drawdown: 2% ($100) based on balance</li>
+                        <li>Max Floating Drawdown: 5% ($250)</li>
+                        <li>Max Trades per Day: 3</li>
+                        <li>Max Lot Size: 1.00</li>
+                        <li>Minimum Trading Days: 10</li>
+                        <li>News Trading: Not Allowed</li>
+                        <li>Max Open Position: 1 at a time</li>
+                        <li>Consistency Score: 35%</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">When can I withdraw my profits? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The trading period lasts 30 days. Once the 30-day cycle ends, you can request a payout within 7 days if you remain eligible. The maximum withdrawal is $100, and it is allowed only once per account. After this payout, the account is closed.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What happens after I receive my payout? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The account is permanently closed after the single payout. Future prototype models may have different caps and rules, adjusted based on liquidity. New accounts can be purchased for new cycles.</div>
+            </div>
+        </div>
+
+        <!-- Category 2: 2-Step Challenge Model -->
+        <div class="faq-category">
+            <h2 class="category-title">2-Step Challenge Model</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What is the 2-Step Challenge? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The 2-Step Challenge is a funded account program designed for disciplined traders. You must complete two evaluation phases to earn a funded account.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What are the challenge phases? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">
+                    <ul>
+                        <li>Step 1: Profit Target $400</li>
+                        <li>Step 2: Profit Target $250</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">How much is the entry fee for the 2-Step Challenge? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The standard entry fee is $29. If you use a valid affiliate coupon code, the price may be reduced (up to $20). The final price is determined by the coupon applied.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What are the rules for both challenge phases? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">
+                    <ul>
+                        <li>Account Size: $5,000</li>
+                        <li>Daily Drawdown: $250 based on balance</li>
+                        <li>Max Drawdown: $400 based on balance</li>
+                        <li>Max Lot Size: 1.00</li>
+                        <li>Minimum Trading Days: 5 per step</li>
+                        <li>News Trading: Not Allowed</li>
+                        <li>Max Open Position: 1 at a time</li>
+                        <li>Consistency Score: 45% (Challenge Phase)</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">When can I withdraw after completing the challenge? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">Payouts are allowed 7 days after the first trade on your funded account. The withdrawal limit scales with performance: $200 (first 3), $500 (next 3), and $1000 (subsequent).</div>
+            </div>
+        </div>
+
+        <!-- Category 3: Payouts & Withdrawals -->
+        <div class="faq-category">
+            <h2 class="category-title">Payouts & Withdrawals</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What is the minimum payout amount? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">There is no minimum payout threshold for traders. However, for affiliates, the minimum payout is $100.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">How are payouts processed? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">Payouts are processed manually within 2-3 business days after your request. Funds can be transferred via UPI, Crypto, or Bank Transfer, depending on your selected method.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">Why is my account closed after the Direct Funded payout? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">The Direct Funded prototype is designed as a single-cycle test. The account closes after the one-time payout to manage risk and liquidity. Future models will have different caps and cycle structures.</div>
+            </div>
+        </div>
+
+        <!-- Category 4: Affiliate Program -->
+        <div class="faq-category">
+            <h2 class="category-title">Affiliate Program</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">How do I become an affiliate? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">All users automatically become eligible to refer others. Your affiliate section becomes fully active once you reach 50 verified sales.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">How much can I earn per sale? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">You earn a fixed commission on every verified sale:
+                    <ul>
+                        <li>Direct Funded Model: $2 per sale</li>
+                        <li>2-Step Challenge Model: $5 per sale</li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What is the minimum payout for affiliates? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">Affiliate commissions are paid out once the minimum threshold of $100 is reached.</div>
+            </div>
+        </div>
+
+        <!-- Category 5: General & Platform -->
+        <div class="faq-category">
+            <h2 class="category-title">General & Platform</h2>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">Is FundFXT a real broker? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">No. FundFXT is a simulated trading environment. We provide virtual capital to traders and manage payouts from our internal reserve pool. We do not execute trades on real markets.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">Can I trade during news events? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">No. News trading is strictly prohibited for both the Direct Funded and 2-Step Challenge models.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">What happens if I breach a rule? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">If you breach any trading rule (such as exceeding the max drawdown or daily loss), your account will be permanently closed and you will not be eligible for any payout.</div>
+            </div>
+
+            <div class="faq-item">
+                <div class="faq-question" onclick="toggleFaq(this)">Can I have multiple accounts? <i class="fas fa-chevron-down"></i></div>
+                <div class="faq-answer">No. Each user is limited to one active account per model (Direct Funded or 2-Step Challenge). This ensures fair trading and prevents abuse.</div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <h4>FundFXT</h4>
+                <p>Building Trust. Backed by Math.</p>
+            </div>
+            <div>
+                <h4>Quick Links</h4>
+                <a href="home.html">Home</a>
+                <a href="Auth.html">Register</a>
+                <a href="dashboard.html">Dashboard</a>
+            </div>
+            <div>
+                <h4>Legal</h4>
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="terms.html">Terms & Conditions</a>
+                <a href="contact.html">Contact</a>
+            </div>
+        </div>
+        <div class="footer-bottom">© 2026 FundFXT. All rights reserved.</div>
+    </footer>
+
+    <script>
+        function toggleFaq(element) {
+            const item = element.parentElement;
+            item.classList.toggle('active');
+        }
+    </script>
+</body>
+</html>
