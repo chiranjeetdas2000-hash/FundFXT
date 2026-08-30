@@ -63,7 +63,7 @@ function initTradingView(symbol) {
 
 // ===================== WEBSOCKET (MT5 Bridge) =====================
 function connectWebSocket() {
-    const ws = new WebSocket("ws://127.0.0.1:8765");
+    const ws = new WebSocket("wss://fundfxt.onrender.com");
     ws.onopen = () => console.log("✅ Connected to MT5 Bridge");
     ws.onmessage = (event) => {
         const data = JSON.parse(event.data);
