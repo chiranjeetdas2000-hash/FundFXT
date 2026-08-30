@@ -160,17 +160,13 @@ const fcsSocket = new WebSocket(`wss://ws-v4.fcsapi.com/ws?access_key=${fcsApiKe
 fcsSocket.on('open', () => {
     console.log('✅ FCS API WebSocket Connected');
     
-    // 24 pairs subscribe karo
     const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
                      'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'GBPJPY', 'GBPCHF', 'GBPCAD',
                      'AUDJPY', 'AUDCAD', 'AUDCHF', 'CADJPY', 'CHFJPY', 'NZDJPY', 'NZDCAD', 'NZDCHF',
                      'XAUUSD', 'XAGUSD'];
 
     symbols.forEach(symbol => {
-        fcsSocket.send(JSON.stringify({
-            action: 'subscribe',
-            symbol: symbol
-        }));
+        fcsSocket.send(JSON.stringify({ action: 'subscribe', symbol: symbol }));
     });
 });
 
@@ -183,7 +179,13 @@ fcsSocket.on('error', (err) => {
     console.error('FCS WebSocket Error:', err);
 });
 
-// ==================== FRONTEND WEBSOCKET (Browser ke liye) ====================
+// ==================== START SERVER (Ye sabse pehle define hoga) ====================
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => {
+    console.log(`Server running on port ${PORT}`);
+});
+
+// ==================== FRONTEND WEBSOCKET (Browser ke liye - Ab server define ho chuka hai) ====================
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
 wss.on('connection', (clientSocket) => {
@@ -193,10 +195,4 @@ wss.on('connection', (clientSocket) => {
         const tick = JSON.parse(data.toString());
         clientSocket.send(JSON.stringify(tick));
     });
-});
-
-// ==================== START SERVER ====================
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
 });
