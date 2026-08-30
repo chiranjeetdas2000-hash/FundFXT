@@ -1,3 +1,4 @@
+const WebSocket = require('ws');
 const express = require('express');
 const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
@@ -152,6 +153,49 @@ app.post('/api/change-password', authenticateToken, async (req, res) => {
     }
 });
 
+// ==================== FCS API WEBSOCKET (Live Prices) ====================
+const fcsApiKey = process.env.FCS_API_KEY;
+const fcsSocket = new WebSocket(`wss://ws-v4.fcsapi.com/ws?access_key=${fcsApiKey}`);
+
+fcsSocket.on('open', () => {
+    console.log('✅ FCS API WebSocket Connected');
+    
+    // 24 pairs subscribe karo
+    const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
+                     'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'GBPJPY', 'GBPCHF', 'GBPCAD',
+                     'AUDJPY', 'AUDCAD', 'AUDCHF', 'CADJPY', 'CHFJPY', 'NZDJPY', 'NZDCAD', 'NZDCHF',
+                     'XAUUSD', 'XAGUSD'];
+
+    symbols.forEach(symbol => {
+        fcsSocket.send(JSON.stringify({
+            action: 'subscribe',
+            symbol: symbol
+        }));
+    });
+});
+
+fcsSocket.on('message', (data) => {
+    const tick = JSON.parse(data.toString());
+    console.log('Live data:', tick);
+});
+
+fcsSocket.on('error', (err) => {
+    console.error('FCS WebSocket Error:', err);
+});
+
+// ==================== FRONTEND WEBSOCKET (Browser ke liye) ====================
+const wss = new WebSocket.Server({ server, path: '/ws' });
+
+wss.on('connection', (clientSocket) => {
+    console.log('Frontend connected to WebSocket');
+    
+    fcsSocket.on('message', (data) => {
+        const tick = JSON.parse(data.toString());
+        clientSocket.send(JSON.stringify(tick));
+    });
+});
+
+// ==================== START SERVER ====================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
