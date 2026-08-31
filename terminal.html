@@ -2,150 +2,548 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FundFXT | Trading Terminal</title>
-    <link rel="stylesheet" href="style.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FundFXT | Pro Trading Terminal</title>
+    
     <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+    
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg-dark: #0b0e14; --bg-panel: #151924; --bg-hover: #1e222d;
+            --text-main: #d1d4dc; --text-muted: #787b86;
+            --accent-green: #089981; --accent-red: #f23645; --accent-blue: #2962ff;
+            --border-color: #2a2e39;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Inter', sans-serif; }
+        
+        body { 
+            background: var(--bg-dark); color: var(--text-main); 
+            height: 100vh; display: flex; flex-direction: column; 
+            overflow: hidden; overscroll-behavior: none;
+        }
+        
+        .top-bar { display: flex; justify-content: space-between; align-items: center; background: var(--bg-panel); padding: 10px 20px; border-bottom: 1px solid var(--border-color); flex-wrap: wrap; gap: 10px; z-index: 100;}
+        .logo { font-size: 20px; font-weight: 700; color: #fff; }
+        .logo span { color: var(--accent-green); }
+        .account-info { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }
+        
+        .account-details { position: relative; cursor: pointer; padding: 5px 10px; background: var(--bg-hover); border-radius: 4px;}
+        .dropdown-menu { display: none; position: absolute; top: 100%; left: 0; background: var(--bg-panel); border: 1px solid var(--border-color); width: 150px; z-index: 10; border-radius: 4px; overflow: hidden;}
+        .account-details.active .dropdown-menu { display: block; }
+        .dropdown-menu div { padding: 10px; border-bottom: 1px solid var(--border-color); font-size: 13px;}
+        .dropdown-menu div:hover { background: var(--bg-hover); }
+        .add-account-btn { color: var(--accent-blue); font-weight: 600; }
+        
+        .account-stats { display: flex; gap: 15px; font-size: 13px; align-items: center;}
+        .stat .label { color: var(--text-muted); margin-right: 5px; }
+        .stat span:not(.label) { font-weight: 600; color: #fff; }
+        
+        #apiStatus { font-size: 11px; padding: 4px 8px; border-radius: 4px; font-weight: 600; background: rgba(242, 54, 69, 0.2); color: var(--accent-red); display: flex; align-items: center; gap: 5px; }
+        #apiStatus.connected { background: rgba(8, 153, 129, 0.2); color: var(--accent-green); }
+
+        .logout-btn { background: var(--accent-red); color: #fff; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; }
+
+        .restore-btn-container { position: absolute; z-index: 50; }
+        #restoreLeftContainer { left: 0; top: 50%; transform: translateY(-50%); }
+        #restoreRightContainer { right: 0; top: 50%; transform: translateY(-50%); }
+        #restoreBottomContainer { bottom: 0; left: 50%; transform: translateX(-50%); }
+        .restore-btn { background: var(--accent-blue); color: white; border: none; padding: 8px 12px; cursor: pointer; font-weight: 600; border-radius: 4px;}
+
+        .main-wrapper { display: flex; flex-direction: column; flex-grow: 1; height: calc(100vh - 60px); overflow: hidden; position: relative;}
+        .main-layout { display: flex; flex-grow: 1; overflow: hidden; }
+        
+        /* FIX: overflow hidden & min-width 0 prevents flexbox bleeding */
+        .panel { background: var(--bg-panel); display: flex; flex-direction: column; transition: width 0.3s ease; overflow: hidden; min-width: 0; }
+        .left-sidebar { width: 300px; min-width: 250px; border-right: 1px solid var(--border-color); }
+        .center-chart { flex-grow: 1; min-width: 300px; position: relative; }
+        .right-sidebar { width: 300px; min-width: 250px; border-left: 1px solid var(--border-color); }
+        
+        .resizer { width: 5px; background: var(--bg-dark); cursor: col-resize; z-index: 10; transition: background 0.2s; }
+        .resizer:hover, .resizer.active { background: var(--accent-blue); }
+
+        .sidebar-header { padding: 15px; font-weight: 600; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;}
+        .toggle-btn { background: transparent; border: 1px solid var(--border-color); color: var(--text-muted); padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 12px;}
+        .toggle-btn:hover { background: var(--bg-hover); color: #fff;}
+        
+        .search-wrap { padding: 10px; }
+        .search-wrap input { width: 100%; padding: 8px; background: var(--bg-dark); border: 1px solid var(--border-color); color: #fff; border-radius: 4px; outline: none; margin-bottom: 10px;}
+        .provider-toggle { display: flex; gap: 5px; }
+        .provider-btn { flex: 1; padding: 6px; background: var(--bg-dark); border: 1px solid var(--border-color); color: var(--text-muted); cursor: pointer; font-weight: 600;}
+        .provider-btn.active { background: var(--accent-green); color: #fff; border-color: var(--accent-green); }
+        
+        .pair-list-container { flex-grow: 1; overflow-y: auto; }
+        .folder-header { padding: 10px 15px; background: var(--bg-dark); color: var(--text-muted); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; justify-content: space-between; border-bottom: 1px solid var(--border-color);}
+        .folder-content { list-style: none; display: block; }
+        .folder-content.collapsed { display: none; }
+        
+        .pair-item { padding: 12px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; display: flex; flex-direction: column; gap: 5px; }
+        .pair-item:hover { background: var(--bg-hover); }
+        
+        .pair-top { display: flex; justify-content: space-between; font-weight: 600; align-items: center;}
+        .fav-star-icon { font-size: 16px; cursor: pointer; color: var(--text-muted); transition: 0.2s; margin-left: 10px; }
+        .fav-star-icon:hover { color: #f5b041; transform: scale(1.1); }
+        .fav-star-icon.active { color: #f5b041; }
+        
+        .pair-prices { display: flex; justify-content: space-between; font-size: 13px; margin-top: 4px;}
+        .pair-meta { display: flex; justify-content: center; font-size: 11px; color: var(--text-muted); margin-top: 4px; border-top: 1px solid var(--border-color); padding-top: 4px;}
+        .price-up { color: var(--accent-green); }
+        .price-down { color: var(--accent-red); }
+
+        .order-type-list { display: flex; border-bottom: 1px solid var(--border-color); }
+        .type-item { flex: 1; text-align: center; padding: 12px; cursor: pointer; color: var(--text-muted); font-size: 14px; font-weight: 600;}
+        .type-item.active { color: var(--accent-blue); border-bottom: 2px solid var(--accent-blue); }
+        .order-fields { padding: 20px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto;}
+        .order-fields label { font-size: 12px; color: var(--text-muted); margin-bottom: -5px;}
+        .order-fields input, .order-fields select { width: 100%; padding: 10px; background: var(--bg-dark); border: 1px solid var(--border-color); color: #fff; border-radius: 4px; outline: none; }
+        .buy-sell-btn { display: flex; gap: 10px; margin-top: 10px; }
+        .buy-sell-btn button { flex: 1; padding: 15px; border: none; border-radius: 4px; font-weight: 700; color: #fff; cursor: pointer; font-size: 16px; transition: opacity 0.2s; }
+        .buy-sell-btn button:hover { opacity: 0.9; }
+        .btn-buy { background: var(--accent-green); }
+        .btn-sell { background: var(--accent-red); }
+        .btn-exec { background: var(--accent-blue); width: 100%; padding: 15px; border: none; border-radius: 4px; font-weight: 700; color: #fff; cursor: pointer; font-size: 16px;}
+
+        .bottom-section { height: 250px; background: var(--bg-panel); border-top: 1px solid var(--border-color); display: flex; flex-direction: column; transition: height 0.3s ease; overflow: hidden; min-height: 0;}
+        .tabs-container { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); padding-right: 15px;}
+        .tabs { display: flex; }
+        .tab { padding: 10px 20px; cursor: pointer; color: var(--text-muted); font-size: 13px; font-weight: 600;}
+        .tab.active { color: #fff; border-bottom: 2px solid var(--accent-blue); }
+        .table-container { flex-grow: 1; overflow-y: auto; padding: 10px; }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 13px;}
+        th, td { padding: 8px 10px; border-bottom: 1px solid var(--border-color); }
+        th { color: var(--text-muted); font-weight: 500; }
+
+        /* =========================================
+           APP-LIKE MOBILE & TABLET RESPONSIVE CSS
+           ========================================= */
+        .mobile-nav { display: none; }
+
+        /* 1100px covers iPad Pro, Surface Pro, and all mobiles */
+        @media (max-width: 1100px) {
+            .top-bar { padding: 10px; }
+            .account-stats { display: none; } 
+            .logout-btn { padding: 4px 8px; font-size: 12px; }
+
+            .mobile-nav {
+                display: flex; position: fixed; bottom: 0; left: 0; right: 0;
+                background: var(--bg-panel); border-top: 1px solid var(--border-color);
+                z-index: 1000; justify-content: space-around; padding: 8px 0 15px 0;
+            }
+            .mobile-nav .nav-item {
+                color: var(--text-muted); font-size: 11px; text-align: center;
+                display: flex; flex-direction: column; gap: 4px; cursor: pointer; flex: 1;
+            }
+            .mobile-nav .nav-item i { font-size: 20px; margin-bottom: 2px;}
+            .mobile-nav .nav-item.active { color: var(--accent-blue); }
+
+            /* !important to override any JS inline styles */
+            .main-wrapper { height: calc(100vh - 110px) !important; display: block !important; overflow: hidden !important; }
+            .main-layout { flex-direction: column !important; height: 100% !important; }
+            
+            .panel { width: 100% !important; height: 100% !important; border: none !important; display: none !important; min-width: unset !important; }
+            .bottom-section { display: none !important; height: 100% !important; }
+            
+            .panel.active-mobile, .bottom-section.active-mobile { display: flex !important; }
+            
+            .resizer { display: none !important; }
+            .restore-btn-container { display: none !important; }
+            .sidebar-header .toggle-btn { display: none !important; }
+        }
+    </style>
 </head>
 <body>
 
-    <!-- TOP BAR -->
     <header class="top-bar">
         <div class="logo">Fund<span>FXT</span></div>
         <div class="account-info">
-            <div class="holder-details">
-                <span class="label">Holder:</span> Trader_123
-            </div>
             <div class="account-details" id="accountDropBtn" onclick="toggleAccountDropdown()">
-                <span class="label">Account:</span> <strong id="accountId">ACC-1001</strong> ▾
+                <strong id="accountId">ACC-1001</strong> ▾
                 <div class="dropdown-menu" id="accountMenu">
                     <div onclick="switchAccount('ACC-1001')">ACC-1001</div>
-                    <div onclick="switchAccount('ACC-1002')">ACC-1002</div>
-                    <div class="add-account-btn" onclick="addNewAccount()">+ Add New Account</div>
+                    <div class="add-account-btn">+ Add Account</div>
                 </div>
             </div>
             <div class="account-stats">
-                <div class="stat"><span class="label">Balance:</span> <span id="balance">$5,000.00</span></div>
-                <div class="stat"><span class="label">Equity:</span> <span id="equity">$5,000.00</span></div>
-                <div class="stat"><span class="label">Avail. DD:</span> <span id="availDD">$100.00</span></div>
-                <div class="stat"><span class="label">Max DD:</span> <span id="maxDD">$400.00</span></div>
-                <div class="stat"><span class="label">Consistency:</span> <span id="consistencyScore">0%</span></div>
-                <div class="stat"><span class="label">Trades:</span> <span id="tradesToday">0/3</span></div>
+                <div class="stat"><span class="label">Bal:</span> <span id="balance">$5,000.00</span></div>
+                <div id="apiStatus"><i class="fa-solid fa-circle"></i> Connecting...</div>
             </div>
         </div>
         <button class="logout-btn" onclick="logout()">Logout</button>
     </header>
 
-<!-- Restore Buttons (Hidden Sections ko wapas lana) -->
-<!-- Restore Buttons (Side-wise) -->
-<div class="restore-btn-container" id="restoreLeftContainer" style="display:none;">
-    <button class="restore-btn restore-btn-left" onclick="restorePanel('left')">👈 Left Panel</button>
-</div>
+    <div class="restore-btn-container" id="restoreLeftContainer" style="display:none;"><button class="restore-btn" onclick="restorePanel('left')">👈 Show Pairs</button></div>
+    <div class="restore-btn-container" id="restoreRightContainer" style="display:none;"><button class="restore-btn" onclick="restorePanel('right')">Show Execution 👉</button></div>
+    <div class="restore-btn-container" id="restoreBottomContainer" style="display:none;"><button class="restore-btn" onclick="restorePanel('bottom')">👇 Show Trades</button></div>
 
-<div class="restore-btn-container" id="restoreRightContainer" style="display:none;">
-    <button class="restore-btn restore-btn-right" onclick="restorePanel('right')">Right Panel 👉</button>
-</div>
+    <div class="main-wrapper">
+        <div class="main-layout" id="mainLayout">
+            <!-- PAIRS PANEL -->
+            <div class="panel left-sidebar active-mobile" id="leftPanel">
+                <div class="sidebar-header">
+                    <span>Market Pairs</span>
+                    <button class="toggle-btn" onclick="togglePanel('left')">👈 Hide</button>
+                </div>
+                <div class="search-wrap">
+                    <input type="text" id="searchPair" placeholder="Search pairs..." oninput="filterPairs()">
+                    <div class="provider-toggle">
+                        <button class="provider-btn active" id="btn-OANDA" onclick="setChartProvider('OANDA')">OANDA</button>
+                        <button class="provider-btn" id="btn-FXCM" onclick="setChartProvider('FXCM')">FXCM</button>
+                    </div>
+                </div>
+                <div class="pair-list-container" id="foldersContainer"></div>
+            </div>
 
-<div class="restore-btn-container" id="restoreBottomContainer" style="display:none;">
-    <button class="restore-btn restore-btn-bottom" onclick="restorePanel('bottom')">👇 Bottom Panel</button>
-</div>
+            <div class="resizer" id="resizerLeft"></div>
 
-    <!-- MAIN LAYOUT -->
-    <div class="main-layout">
-        <!-- Left Sidebar -->
-        <div class="left-sidebar">
-    <div class="sidebar-header">
-        <span>Pairs</span>
-        <button class="toggle-btn" onclick="togglePanel('left')">👈 Hide</button>
-    </div>
-    <div class="search-wrap">
-        <input type="text" id="searchPair" placeholder="Search pairs..." oninput="filterPairs()">
-        <!-- Provider Toggle -->
-        <div class="provider-toggle">
-            <button class="provider-btn active" onclick="setChartProvider('OANDA')">OANDA</button>
-            <button class="provider-btn" onclick="setChartProvider('FXCM')">FXCM</button>
-        </div>
-    </div>
-    <ul id="pairList" class="pair-list"></ul>
-</div>
+            <!-- CHART PANEL -->
+            <div class="panel center-chart" id="centerPanel">
+                <div id="tradingview_chart" style="height: 100%; width: 100%;"></div>
+            </div>
 
-        <!-- Center Chart -->
-        <div class="center-chart">
-            <div id="tradingview_chart"></div>
-        </div>
+            <div class="resizer" id="resizerRight"></div>
 
-        <!-- Right Order Panel -->
-        <div class="right-sidebar">
-    <div class="sidebar-header">
-        <h3>Order Execution</h3>
-        <button class="toggle-btn" onclick="togglePanel('right')">👉 Hide</button>
-    </div>
-    
-    <div class="order-type-list">
-        <div class="type-item active" onclick="setOrderType(this, 'market')">Market Execution</div>
-        <div class="type-item" onclick="setOrderType(this, 'pending')">Pending Order</div>
-    </div>
-
-            <!-- Market Execution Fields -->
-            <div id="marketExecFields" class="order-fields">
-                <label>Stop Loss (SL)</label>
-                <input type="number" id="mktSL" step="0.00001" placeholder="0.00000">
-                <label>Take Profit (TP)</label>
-                <input type="number" id="lotSize" 
-       min="0.01" 
-       max="2" 
-       step="0.01" 
-       value="1.00" 
-       oninput="validateLotSize(this)">
-                <label>Lot Size</label>
-                <input type="text" id="mktLots" value="1.00" oninput="validateLotSize(this)" placeholder="0.01 - 2.00">
-                <div class="buy-sell-btn">
-                    <button class="btn-buy" onclick="executeOrder('buy')">BUY</button>
-                    <button class="btn-sell" onclick="executeOrder('sell')">SELL</button>
+            <!-- TRADE PANEL -->
+            <div class="panel right-sidebar" id="rightPanel">
+                <div class="sidebar-header">
+                    <h3>Order Execution</h3>
+                    <button class="toggle-btn" onclick="togglePanel('right')">👉 Hide</button>
+                </div>
+                <div class="order-type-list">
+                    <div class="type-item active" onclick="setOrderType(this, 'market')">Market</div>
+                    <div class="type-item" onclick="setOrderType(this, 'pending')">Pending</div>
+                </div>
+                <div id="marketExecFields" class="order-fields">
+                    <div><label>Lot Size</label><input type="number" id="mktLots" step="0.01" value="1.00"></div>
+                    <div><label>Stop Loss (SL)</label><input type="number" id="mktSL" step="0.00001" placeholder="0.00000"></div>
+                    <div><label>Take Profit (TP)</label><input type="number" id="mktTP" step="0.00001" placeholder="0.00000"></div>
+                    <div class="buy-sell-btn">
+                        <button class="btn-buy" onclick="executeOrder('buy')">BUY</button>
+                        <button class="btn-sell" onclick="executeOrder('sell')">SELL</button>
+                    </div>
                 </div>
             </div>
+        </div>
 
-            <!-- Pending Order Fields -->
-            <div id="pendingExecFields" class="order-fields" style="display:none;">
-                <label>Order Type</label>
-                <select id="pendingType">
-                    <option value="buy_limit">Buy Limit</option>
-                    <option value="buy_stop">Buy Stop</option>
-                    <option value="sell_limit">Sell Limit</option>
-                    <option value="sell_stop">Sell Stop</option>
-                </select>
-                <label>Price</label>
-                <input type="number" id="pendingPrice" step="0.00001" placeholder="0.00000">
-                <label>Stop Loss (SL)</label>
-                <input type="number" id="pendSL" step="0.00001" placeholder="0.00000">
-                <label>Take Profit (TP)</label>
-                <input type="number" id="pendTP" step="0.00001" placeholder="0.00000">
-                <label>Lot Size</label>
-                <input type="text" id="pendLots" value="1.00" oninput="validateLotSize(this)" placeholder="0.01 - 2.00">
-                <button class="btn-exec" onclick="placePendingOrder()">Place Pending Order</button>
+        <!-- PORTFOLIO PANEL -->
+        <div class="bottom-section" id="bottomSection">
+            <div class="tabs-container">
+                <div class="tabs">
+                    <div class="tab active" onclick="switchTab(this, 'open')">Open</div>
+                    <div class="tab" onclick="switchTab(this, 'pending')">Pending</div>
+                    <div class="tab" onclick="switchTab(this, 'closed')">Closed</div>
+                </div>
+                <button class="toggle-btn" style="background: transparent; border: 1px solid #2a2e39; color:#787b86; border-radius:4px; padding: 2px 8px;" onclick="togglePanel('bottom')">👇 Hide</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr id="tableHead"><th>Symbol</th><th>Type</th><th>Size</th><th>Open</th><th>Current</th><th>P/L</th></tr></thead>
+                    <tbody id="tableBody"><tr><td colspan="6" style="text-align: center; color: var(--text-muted); padding: 20px;">Fetching...</td></tr></tbody>
+                </table>
             </div>
         </div>
     </div>
 
-    <!-- BOTTOM SECTION -->
-   <div class="bottom-section" id="bottomSection">
-    <div class="tabs-container">
-        <div class="tabs">
-            <div class="tab active" onclick="switchTab(this, 'open')">Open Positions</div>
-            <div class="tab" onclick="switchTab(this, 'pending')">Pending Orders</div>
-            <div class="tab" onclick="switchTab(this, 'closed')">Closed Trades</div>
+    <!-- MOBILE NAVIGATION BOTTOM BAR -->
+    <div class="mobile-nav">
+        <div class="nav-item active" onclick="switchMobileTab('pairs', this)">
+            <i class="fa-solid fa-list"></i><span>Pairs</span>
         </div>
-        <button class="toggle-btn" onclick="togglePanel('bottom')">👇 Hide</button>
+        <div class="nav-item" onclick="switchMobileTab('chart', this)">
+            <i class="fa-solid fa-chart-line"></i><span>Chart</span>
+        </div>
+        <div class="nav-item" onclick="switchMobileTab('trade', this)">
+            <i class="fa-solid fa-bolt"></i><span>Trade</span>
+        </div>
+        <div class="nav-item" onclick="switchMobileTab('positions', this)">
+            <i class="fa-solid fa-briefcase"></i><span>Portfolio</span>
+        </div>
     </div>
-    <div class="table-container">
-        <table>
-            <thead><tr id="tableHead"></tr></thead>
-            <tbody id="tableBody"></tbody>
-        </table>
-    </div>
-</div>
 
+    <script>
+        // ==========================================
+        // STATE & UI MANAGEMENT
+        // ==========================================
+        let currentProvider = 'OANDA';
+        let currentSymbol = 'EURUSD';
+        let widget = null; 
+        
+        const pairCategories = {
+            "Forex Majors": ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "AUDUSD", "USDCAD", "NZDUSD"],
+            "Forex Minors": ["EURGBP", "EURJPY", "GBPJPY", "AUDJPY", "EURAUD", "GBPAUD", "CADJPY", "CHFJPY", "NZDJPY", "GBPCAD", "AUDCAD", "EURNZD", "AUDNZD", "GBPNZD", "EURCAD"],
+            "Metals": ["XAUUSD", "XAGUSD"]
+        };
 
-    <script src="script.js"></script>
+        let favorites = JSON.parse(localStorage.getItem('fundfxt_favorites')) || [];
+
+        function renderPairs() {
+            const container = document.getElementById('foldersContainer');
+            container.innerHTML = ''; 
+            const searchQuery = document.getElementById('searchPair').value.toUpperCase();
+
+            const filteredFavs = favorites.filter(p => p.includes(searchQuery));
+            container.innerHTML += createFolderHTML('Favorites', filteredFavs, true);
+
+            for (const [category, pairs] of Object.entries(pairCategories)) {
+                const filteredPairs = pairs.filter(p => p.includes(searchQuery));
+                if (filteredPairs.length > 0) {
+                    container.innerHTML += createFolderHTML(category, filteredPairs, false);
+                }
+            }
+        }
+
+        function createFolderHTML(folderName, pairsArr, isFavFolder) {
+            let html = `
+                <div class="folder-header" onclick="toggleFolder('${folderName.replace(/\s/g, '')}')">
+                    <span><i class="fa-solid ${isFavFolder ? 'fa-star' : 'fa-folder-open'}" style="margin-right:5px; color:${isFavFolder ? '#f5b041' : 'var(--text-muted)'}"></i> ${folderName}</span>
+                    <i class="fa-solid fa-chevron-down"></i>
+                </div>
+                <ul class="folder-content" id="folder-${folderName.replace(/\s/g, '')}">
+            `;
+            if (isFavFolder && pairsArr.length === 0) html += `<li style="padding: 10px 15px; font-size: 11px; color: var(--text-muted); text-align: center;">No favorites yet</li>`;
+
+            pairsArr.forEach(sym => {
+                const isFav = favorites.includes(sym);
+                const starClass = isFav ? 'fa-solid fa-star fav-star-icon active' : 'fa-regular fa-star fav-star-icon';
+                
+                html += `
+                    <li class="pair-item" onclick="selectPair('${sym}')">
+                        <div class="pair-top">
+                            <span>${sym} <span style="font-size:10px; color:var(--text-muted);">${currentProvider}</span></span>
+                            <div>
+                                <span class="pct-change" id="pct-${sym}">0.00%</span>
+                                <i class="${starClass}" onclick="toggleFavorite(event, '${sym}')"></i>
+                            </div>
+                        </div>
+                        <div class="pair-prices">
+                            <div style="color:var(--text-muted);">BID: <strong style="color:#fff;" id="bid-${sym}">--</strong></div>
+                            <div style="color:var(--text-muted);">ASK: <strong style="color:#fff;" id="ask-${sym}">--</strong></div>
+                        </div>
+                        <div class="pair-meta">
+                            <span>Spread: <strong id="spread-${sym}">--</strong></span>
+                        </div>
+                    </li>
+                `;
+            });
+            html += `</ul>`;
+            return html;
+        }
+
+        function toggleFolder(folderId) {
+            const el = document.getElementById(`folder-${folderId}`);
+            if(el) el.classList.toggle('collapsed');
+        }
+
+        function filterPairs() { renderPairs(); }
+
+        function toggleFavorite(event, symbol) {
+            event.stopPropagation(); 
+            if (favorites.includes(symbol)) favorites = favorites.filter(s => s !== symbol);
+            else favorites.push(symbol);
+            localStorage.setItem('fundfxt_favorites', JSON.stringify(favorites));
+            renderPairs(); 
+        }
+
+        function setChartProvider(provider) {
+            currentProvider = provider;
+            document.querySelectorAll('.provider-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${provider}`).classList.add('active');
+            renderPairs(); updateChart(); 
+        }
+
+        function selectPair(symbol) {
+            currentSymbol = symbol;
+            updateChart();
+            if(window.innerWidth <= 1100) {
+                const chartNavBtn = document.querySelectorAll('.mobile-nav .nav-item')[1];
+                switchMobileTab('chart', chartNavBtn);
+            }
+        }
+
+        function updateChart() {
+            const chartContainer = document.getElementById('tradingview_chart');
+            chartContainer.innerHTML = ''; 
+            const tvPrefix = currentProvider === 'FXCM' ? 'FX' : 'OANDA';
+            
+            widget = new TradingView.widget({
+                "autosize": true,
+                "symbol": `${tvPrefix}:${currentSymbol}`,
+                "interval": "15",
+                "timezone": "Etc/UTC",
+                "theme": "dark",
+                "style": "1",
+                "locale": "en",
+                "enable_publishing": false,
+                "hide_side_toolbar": false,
+                "allow_symbol_change": true,
+                "backgroundColor": "#151924",
+                "gridColor": "#2a2e39",
+                "container_id": "tradingview_chart"
+            });
+        }
+
+        function toggleAccountDropdown() { document.getElementById('accountDropBtn').classList.toggle('active'); }
+        function switchAccount(accName) { document.getElementById('accountId').innerText = accName; }
+        function logout() { window.location.href = "auth.html"; }
+
+        function setOrderType(element, type) {
+            document.querySelectorAll('.type-item').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+            document.getElementById('marketExecFields').style.display = type === 'market' ? 'flex' : 'none';
+        }
+
+        function switchTab(element, tabName) {
+            document.querySelectorAll('.tabs .tab').forEach(el => el.classList.remove('active'));
+            element.classList.add('active');
+        }
+
+        // --- MOBILE TAB SWITCHER LOGIC ---
+        function switchMobileTab(tabId, navElement) {
+            if (window.innerWidth > 1100) return;
+            
+            document.querySelectorAll('.panel, .bottom-section').forEach(el => el.classList.remove('active-mobile'));
+            document.querySelectorAll('.mobile-nav .nav-item').forEach(el => el.classList.remove('active'));
+            
+            if(tabId === 'pairs') document.getElementById('leftPanel').classList.add('active-mobile');
+            if(tabId === 'chart') document.getElementById('centerPanel').classList.add('active-mobile');
+            if(tabId === 'trade') document.getElementById('rightPanel').classList.add('active-mobile');
+            if(tabId === 'positions') document.getElementById('bottomSection').classList.add('active-mobile');
+            
+            navElement.classList.add('active');
+        }
+
+        function initResizer(resizerId, leftPanelId, rightPanelId, isLeftResizer) {
+            const resizer = document.getElementById(resizerId);
+            const leftPanel = document.getElementById(leftPanelId);
+            const rightPanel = document.getElementById(rightPanelId);
+            if(!resizer || !leftPanel || !rightPanel) return;
+            
+            let isResizing = false;
+            resizer.addEventListener('mousedown', () => { isResizing = true; document.body.style.cursor = 'col-resize'; resizer.classList.add('active');});
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                if (isLeftResizer) {
+                    const newWidth = e.clientX;
+                    if (newWidth > 200 && newWidth < window.innerWidth / 2) leftPanel.style.width = newWidth + 'px';
+                } else {
+                    const newWidth = window.innerWidth - e.clientX;
+                    if (newWidth > 250 && newWidth < window.innerWidth / 2) rightPanel.style.width = newWidth + 'px';
+                }
+            });
+            document.addEventListener('mouseup', () => { isResizing = false; document.body.style.cursor = 'default'; resizer.classList.remove('active');});
+        }
+
+        function togglePanel(panel) { 
+            if(window.innerWidth <= 1100) return;
+            const map = { 'left': { p: 'leftPanel', r: 'resizerLeft', b: 'restoreLeftContainer' }, 'right': { p: 'rightPanel', r: 'resizerRight', b: 'restoreRightContainer' }, 'bottom': { p: 'bottomSection', r: null, b: 'restoreBottomContainer' } };
+            const t = map[panel];
+            document.getElementById(t.p).style.display = 'none';
+            if(t.r) document.getElementById(t.r).style.display = 'none';
+            document.getElementById(t.b).style.display = 'block';
+        }
+
+        function restorePanel(panel) { 
+            if(window.innerWidth <= 1100) return;
+            const map = { 'left': { p: 'leftPanel', r: 'resizerLeft', b: 'restoreLeftContainer' }, 'right': { p: 'rightPanel', r: 'resizerRight', b: 'restoreRightContainer' }, 'bottom': { p: 'bottomSection', r: null, b: 'restoreBottomContainer' } };
+            const t = map[panel];
+            document.getElementById(t.p).style.display = 'flex';
+            if(t.r) document.getElementById(t.r).style.display = 'block';
+            document.getElementById(t.b).style.display = 'none';
+        }
+
+        // ==========================================
+        // KRAKEN WEBSOCKET 
+        // ==========================================
+        let krakenSocket;
+        window.krakenToSymbol = {};
+
+        const krakenSupportedPairs = {
+            "EURUSD": "EUR/USD", "GBPUSD": "GBP/USD", "USDJPY": "USD/JPY", "USDCHF": "USD/CHF",
+            "AUDUSD": "AUD/USD", "USDCAD": "USD/CAD", "NZDUSD": "NZ/USD", "EURGBP": "EUR/GBP",
+            "EURJPY": "EUR/JPY", "GBPJPY": "GBP/JPY", "AUDJPY": "AUD/JPY", "EURAUD": "EUR/AUD",
+            "CADJPY": "CAD/JPY", "CHFJPY": "CHF/JPY", "EURCAD": "EUR/CAD", "XAUUSD": "PAXG/USD"
+        };
+
+        function connectKraken() {
+            krakenSocket = new WebSocket('wss://ws.kraken.com');
+
+            krakenSocket.onopen = () => {
+                const statusBadge = document.getElementById('apiStatus');
+                if (statusBadge) {
+                    statusBadge.classList.add('connected');
+                    statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> Live Connected';
+                }
+                
+                const krakenRequestPairs = [];
+                for (const [sym, kPair] of Object.entries(krakenSupportedPairs)) {
+                    krakenRequestPairs.push(kPair);
+                    window.krakenToSymbol[kPair] = sym; 
+                }
+
+                krakenSocket.send(JSON.stringify({
+                    event: "subscribe",
+                    pair: krakenRequestPairs,
+                    subscription: { name: "ticker" }
+                }));
+            };
+
+            krakenSocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (!Array.isArray(data) || data[2] !== "ticker") return;
+                
+                const krakenPair = data[3]; 
+                const tick = data[1]; 
+                
+                const sym = window.krakenToSymbol[krakenPair];
+                if (!sym) return;
+
+                const ask = parseFloat(tick.a[0]);
+                const bid = parseFloat(tick.b[0]);
+                const current = parseFloat(tick.c[0]);
+                const open24 = parseFloat(tick.o[1] || tick.o[0]); 
+                
+                let spreadValue = ask - bid;
+                if (spreadValue < 0) spreadValue = 0; 
+                
+                let pctChange = 0;
+                if (open24 > 0) pctChange = ((current - open24) / open24) * 100;
+                
+                const decimals = sym.includes('JPY') ? 3 : 5;
+                const bidFormatted = bid.toFixed(decimals);
+                const askFormatted = ask.toFixed(decimals);
+                const spreadFormatted = spreadValue.toFixed(decimals);
+                const pctFormatted = pctChange.toFixed(2);
+
+                const bidEls = document.querySelectorAll(`[id="bid-${sym}"]`);
+                const askEls = document.querySelectorAll(`[id="ask-${sym}"]`);
+                const spreadEls = document.querySelectorAll(`[id="spread-${sym}"]`);
+                const pctEls = document.querySelectorAll(`[id="pct-${sym}"]`);
+
+                bidEls.forEach(el => el.innerText = bidFormatted);
+                askEls.forEach(el => el.innerText = askFormatted);
+                spreadEls.forEach(el => el.innerText = spreadFormatted);
+                pctEls.forEach(el => {
+                    el.innerText = `${pctChange > 0 ? '+' : ''}${pctFormatted}%`;
+                    el.className = `pct-change ${pctChange >= 0 ? 'price-up' : 'price-down'}`;
+                });
+            };
+
+            krakenSocket.onclose = () => { setTimeout(connectKraken, 5000); };
+        }
+
+        setInterval(() => { if(krakenSocket && krakenSocket.readyState === 1) krakenSocket.send(JSON.stringify({ event: "ping" })); }, 25000);
+
+        window.onload = () => {
+            renderPairs();
+            updateChart();
+            connectKraken(); 
+            
+            if (window.innerWidth > 1100) {
+                initResizer('resizerLeft', 'leftPanel', 'centerPanel', true);
+                initResizer('resizerRight', 'centerPanel', 'rightPanel', false);
+            }
+        };
+    </script>
 </body>
 </html>
