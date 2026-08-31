@@ -411,27 +411,31 @@
             document.getElementById(t.b).style.display = 'none';
         }
 
-        // ==========================================
-        // OFFICIAL FCS CLIENT LIBRARY INTEGRATION
+       // ==========================================
+        // OFFICIAL FCS CLIENT LIBRARY INTEGRATION (WITH LIVE DEBUGGER)
         // ==========================================
         const WEBSOCKET_KEY = "6XyjcQ5zkhYlujcMgFin4kN2zXAFWRy7"; 
         let fcsClient;
 
         function initFCSClient() {
+            const statusBadge = document.getElementById('apiStatus');
+            
             try {
-                // Using FCSClient as per documentation
+                statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> Connecting...';
+                
                 fcsClient = new FCSClient(WEBSOCKET_KEY);
                 
                 fcsClient.connect().then(() => {
                     console.log("Connection established");
                 }).catch((err) => {
                     console.error("Connection failed:", err);
+                    statusBadge.style.background = 'rgba(242, 54, 69, 0.2)';
+                    statusBadge.style.color = 'var(--accent-red)';
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> Err: ${err.message || 'Failed'}`;
                 });
 
-                // Always subscribe to symbols inside onconnected callback as per documentation
                 fcsClient.onconnected = () => {
                     console.log("Connected and authenticated");
-                    const statusBadge = document.getElementById('apiStatus');
                     statusBadge.classList.add('connected');
                     statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> FCS Connected';
                     
@@ -446,17 +450,21 @@
                 };
 
                 fcsClient.onclose = (event) => {
-                    console.log("Disconnected:", event.reason);
-                    const statusBadge = document.getElementById('apiStatus');
+                    console.log("Disconnected:", event);
                     statusBadge.classList.remove('connected');
-                    statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> FCS Disconnected';
+                    statusBadge.style.background = 'rgba(242, 54, 69, 0.2)';
+                    statusBadge.style.color = 'var(--accent-red)';
+                    // UI par exact close reason dikhayega
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> Closed: ${event.reason || event.code || 'Unknown'}`;
                 };
 
                 fcsClient.onerror = (err) => {
                     console.error("WebSocket error:", err);
+                    statusBadge.style.background = 'rgba(242, 54, 69, 0.2)';
+                    statusBadge.style.color = 'var(--accent-red)';
+                    statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> WS Error`;
                 };
 
-                // Message handling structured as instructed in documentation
                 fcsClient.onmessage = (data) => {
                     if (data.type === "price") {
                         const sym = data.symbol.replace('FX:', '');
@@ -492,14 +500,17 @@
                                 }
                             }
                         }
+                    } else if (data.type === "error") {
+                        console.error("Server Error Message:", data.message);
+                        statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> API: ${data.message}`;
                     }
                 };
 
             } catch (e) {
                 console.error("FCS Initialization Failed:", e);
+                statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> Init Error`;
             }
         }
-
         window.onload = () => {
             renderPairs();
             updateChart();
