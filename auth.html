@@ -21,23 +21,33 @@
             justify-content: center;
             align-items: center;
             min-height: 100vh;
-            background: #ffffff;
-            padding: 20px; /* Added padding for mobile safety */
+            background: #ffffff; 
+            padding: 20px;
+            overflow-x: hidden;
+            position: relative;
         }
 
         /* ============ GLOW WRAPPER & CONTAINER ============ */
         .border-glow-wrapper {
             position: relative;
             width: 100%;
-            max-width: 850px; /* Responsive Width */
-            min-height: 500px;
+            max-width: 900px; 
+            min-height: 650px; /* Generous height for desktop */
             border-radius: 32px;
             overflow: hidden;
             display: flex;
             justify-content: center;
             align-items: center;
+            /* Container Bounce Animation */
+            animation: floatContainer 4s ease-in-out infinite;
         }
 
+        @keyframes floatContainer {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-8px); }
+        }
+
+        /* Rotating green border */
         .border-glow-wrapper::before {
             content: '';
             position: absolute;
@@ -54,31 +64,30 @@
 
         .container {
             position: absolute;
-            inset: 3px;
+            inset: 3px; /* Creates the border width */
             background: #ffffff;
             border-radius: 30px;
-            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.05);
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
             overflow: hidden;
             z-index: 1;
         }
 
-        /* ============ HIDE FORMS (For Forgot Password) ============ */
+        /* ============ BACK BUTTON & FORGET PASSWORD ============ */
         .container.hide-forms .form-box,
         .container.hide-forms .toggle-box {
-            display: none;
+            display: none !important;
         }
 
-        /* ============ BACK BUTTON ============ */
         .back-btn {
             position: absolute;
-            top: 15px;
-            left: 15px;
+            top: 20px;
+            left: 20px;
             z-index: 999;
             background: transparent;
             border: none;
             color: #555;
-            font-size: 16px; /* Optimized size */
-            font-weight: 500;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
             display: none;
             align-items: center;
@@ -93,20 +102,20 @@
             color: #00b56a;
         }
 
-        /* ============ FORGET PASSWORD MODAL ============ */
         .forget-password-overlay {
-            position: fixed; /* Changed to fixed for better mobile scrolling */
+            position: fixed;
             top: 0;
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.5);
+            background: rgba(0, 0, 0, 0.6);
             display: flex;
             justify-content: center;
             align-items: center;
             z-index: 9999;
             display: none;
             padding: 20px;
+            backdrop-filter: blur(5px);
         }
 
         .forget-password-box {
@@ -119,44 +128,38 @@
             box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
         }
 
-        .forget-password-box h3 {
-            font-size: 20px;
-            margin-bottom: 15px;
-            text-align: center;
-        }
-
-        .modal-close {
-            position: absolute;
-            top: 10px;
-            right: 15px;
-            background: transparent;
-            border: none;
-            font-size: 20px;
-            cursor: pointer;
-            color: #555;
-        }
-
+        .forget-password-box h3 { font-size: 20px; margin-bottom: 15px; text-align: center; }
+        .modal-close { position: absolute; top: 10px; right: 15px; background: transparent; border: none; font-size: 20px; cursor: pointer; color: #555; }
         .forget-step { display: block; }
         .forget-step .btn { margin-top: 10px; }
 
-        /* ============ FORM STYLES ============ */
+        /* ============ FORM STYLES (DESKTOP) ============ */
         .form-box {
             position: absolute;
             top: 0;
             width: 50%;
             height: 100%;
             display: flex;
+            flex-direction: column;
             align-items: center;
-            justify-content: center; /* Centered internally */
+            justify-content: center;
             text-align: center;
-            padding: 30px 40px;
+            padding: 40px;
             z-index: 20;
-            transition: all 0.6s ease-in-out;
+            transition: all 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            overflow-y: auto; 
+            
+            /* Hide scrollbar */
+            -ms-overflow-style: none;
+            scrollbar-width: none;
         }
 
-        .form-box form { width: 100%; max-width: 320px; } /* Prevent form from stretching */
+        .form-box::-webkit-scrollbar { display: none; }
+        .form-box form { width: 100%; max-width: 340px; margin: auto; }
+        .form-box h1 { margin-bottom: 20px; font-size: 26px; color: #333; }
 
-        .form-box.login { right: 0; }
+        /* Desktop Form Sliding Logic */
+        .form-box.login { right: 0; opacity: 1; visibility: visible; }
         .container.active .form-box.login { right: -50%; opacity: 0; visibility: hidden; }
 
         .form-box.register { left: -50%; opacity: 0; visibility: hidden; z-index: 25; }
@@ -166,81 +169,102 @@
         .input-box {
             position: relative;
             width: 100%;
-            margin: 10px 0;
+            margin-bottom: 16px; 
         }
 
-        .input-box input {
+        .input-box input, .input-box textarea {
             width: 100%;
-            padding: 12px 40px 12px 15px;
+            padding: 14px 40px 14px 15px;
             background: #f4f4f4;
-            border-radius: 8px;
+            border-radius: 10px;
             border: 1px solid #ccc;
             outline: none;
             font-size: 13.5px;
-            color: #000000;
+            color: #333;
             font-weight: 500;
-            transition: border 0.3s;
+            transition: border 0.3s, box-shadow 0.3s, background 0.3s;
         }
-        .input-box input:focus { border-color: #00b56a; }
-        .input-box input::placeholder { color: #777; font-weight: 400; }
+        
+        .input-box textarea { resize: none; height: 65px; padding-right: 15px; font-family: 'Poppins', sans-serif; }
+        .input-box input:focus, .input-box textarea:focus { 
+            border-color: #00b56a; 
+            box-shadow: 0 0 5px rgba(0, 181, 106, 0.2);
+            background: #ffffff;
+        }
+        .input-box input::placeholder, .input-box textarea::placeholder { color: #888; font-weight: 400; }
 
         .input-box i {
             position: absolute;
             right: 15px;
             top: 50%;
             transform: translateY(-50%);
-            font-size: 15px;
-            color: #555;
+            font-size: 16px;
+            color: #666;
             cursor: pointer;
         }
+        
+        .input-box textarea + i { top: 32px; }
+        .input-box:has(.input-hint) i { top: 24px; }
+        .input-box:has(.input-hint) textarea + i { top: 32px; }
 
-        .forgot-link { margin: -3px 0 10px; text-align: right; }
-        .forgot-link a { font-size: 12.5px; color: #555; text-decoration: none; font-weight: 500; }
+        .input-hint {
+            display: block;
+            font-size: 10.5px;
+            color: #777;
+            text-align: left;
+            margin-top: 5px;
+            padding-left: 5px;
+            line-height: 1.2;
+        }
+
+        .forgot-link { margin: -5px 0 15px; text-align: right; }
+        .forgot-link a { font-size: 13px; color: #555; text-decoration: none; font-weight: 500; }
         .forgot-link a:hover { color: #00b56a; text-decoration: underline; }
 
         .btn {
             width: 100%;
-            height: 42px;
+            height: 46px;
             background: #00b56a;
-            border-radius: 8px;
+            border-radius: 10px;
             border: none;
             outline: none;
             cursor: pointer;
-            font-size: 14.5px;
+            font-size: 15px;
             color: #fff;
             font-weight: 600;
             transition: 0.3s;
-            box-shadow: 0 4px 10px rgba(0,181,106,0.2);
+            box-shadow: 0 4px 10px rgba(0,181,106,0.3);
+            margin-top: 5px;
         }
-        .btn:hover { background: #009a5b; transform: translateY(-1px); }
+        .btn:hover { background: #009a5b; transform: translateY(-2px); box-shadow: 0 6px 15px rgba(0,181,106,0.4); }
 
-        form p { margin: 15px 0 10px; font-size: 12.5px; color: #666; }
+        form p { margin: 18px 0 12px; font-size: 13px; color: #666; }
 
         /* ============ SOCIAL ICONS ============ */
-        .social-icons { display: flex; justify-content: center; gap: 8px; margin-top: 6px; flex-wrap: wrap; }
+        .social-icons { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; margin-bottom: 15px;}
         .social-icons a {
             display: inline-flex;
             justify-content: center;
             align-items: center;
-            width: 34px;
-            height: 34px;
+            width: 38px;
+            height: 38px;
             background: transparent;
             border: 2px solid #ddd;
             border-radius: 50%;
-            font-size: 14px;
-            color: #333;
+            font-size: 15px;
+            color: #444;
             text-decoration: none;
             transition: 0.3s;
         }
-        .social-icons a:hover { border-color: transparent; color: #fff; transform: translateY(-2px); }
-        .social-icons a.fa-google:hover { background: #DB4437; }
-        .social-icons a.fa-facebook-f:hover { background: #1877F2; }
-        .social-icons a.fa-github:hover { background: #333333; }
-        .social-icons a.fa-linkedin-in:hover { background: #0077B5; }
-        .social-icons a.fa-instagram:hover { background: #E4405F; }
-        .social-icons a.fa-x-twitter:hover { background: #000000; }
+        .social-icons a:hover { border-color: transparent; color: #fff; transform: translateY(-3px); }
+        .social-icons a.fa-google:hover { background: #DB4437; box-shadow: 0 4px 8px rgba(219,68,55,0.3); }
+        .social-icons a.fa-facebook-f:hover { background: #1877F2; box-shadow: 0 4px 8px rgba(24,119,242,0.3); }
+        .social-icons a.fa-github:hover { background: #333333; box-shadow: 0 4px 8px rgba(51,51,51,0.3); }
+        .social-icons a.fa-linkedin-in:hover { background: #0077B5; box-shadow: 0 4px 8px rgba(0,119,181,0.3); }
+        .social-icons a.fa-instagram:hover { background: #E4405F; box-shadow: 0 4px 8px rgba(228,64,95,0.3); }
+        .social-icons a.fa-x-twitter:hover { background: #000000; box-shadow: 0 4px 8px rgba(0,0,0,0.3); }
 
-        /* ============ TOGGLE BOX ANIMATION ============ */
+        /* ============ TOGGLE BOX ANIMATION (DESKTOP) ============ */
         .toggle-box {
             position: absolute;
             top: 0;
@@ -266,10 +290,7 @@
             transition: all 1.2s cubic-bezier(0.68, -0.55, 0.265, 1.55);
             pointer-events: auto;
         }
-        .container.active .toggle-box::before {
-            left: 50%;
-            border-radius: 150px 0 0 150px;
-        }
+        .container.active .toggle-box::before { left: 50%; border-radius: 150px 0 0 150px; }
 
         .toggle-panel {
             position: absolute;
@@ -287,8 +308,8 @@
             text-align: center;
             padding: 0 30px;
         }
-        .toggle-panel h1 { font-size: clamp(22px, 3vw, 28px); margin-bottom: 10px; color: #fff;}
-        .toggle-panel p { color: #fff; font-size: 14px; margin-bottom: 15px; }
+        .toggle-panel h1 { font-size: clamp(24px, 3vw, 32px); margin-bottom: 12px; color: #fff;}
+        .toggle-panel p { color: #fff; font-size: 15px; margin-bottom: 20px; }
 
         .toggle-panel.toggle-left { left: 0; transition-delay: 0.4s; }
         .container.active .toggle-panel.toggle-left { left: -50%; transition-delay: 0.1s; }
@@ -297,7 +318,7 @@
         .container.active .toggle-panel.toggle-right { right: 0; transition-delay: 0.4s; }
 
         .toggle-panel .btn {
-            width: 140px;
+            width: 150px;
             background: transparent;
             border: 2px solid #fff;
             margin-top: 10px;
@@ -305,49 +326,75 @@
         }
         .toggle-panel .btn:hover { background: #fff; color: #00b56a; }
 
-
         /* ==========================================================
-           📱 RESPONSIVE MOBILE VIEW (VERTICAL SLIDE ANIMATION) 
+           📱 RESPONSIVE MOBILE VIEW (SMOOTH FADE, NO FLIP, NO LINE BLEED) 
            ========================================================== */
         @media (max-width: 768px) {
-            .border-glow-wrapper { min-height: 650px; }
+            body { padding: 15px; padding-top: 5vh; background: #f8f9fa; align-items: flex-start; }
             
-            /* Forms stack vertically */
-            .form-box { width: 100%; height: 60%; padding: 25px 20px; }
+            .border-glow-wrapper { 
+                /* Lock height on mobile so forms fit perfectly without overlap */
+                height: 800px; 
+                min-height: 800px;
+                margin: 0 auto 30px;
+                animation: none; /* Stop bounce on mobile */
+            }
+
+            .container { inset: 2px; } /* Reduce border inset slightly for mobile */
             
-            /* Login Form at Bottom */
-            .form-box.login { top: 40%; right: auto; left: 0; }
-            .container.active .form-box.login { top: 40%; right: auto; left: 0; opacity: 0; visibility: hidden; }
-
-            /* Register Form at Top */
-            .form-box.register { left: 0; top: 0; height: 65%; }
-            .container.active .form-box.register { left: 0; top: 0; }
-
-            /* Toggle Box slides Top to Bottom instead of Left to Right */
-            .toggle-box::before {
+            /* Remove horizontal sliding, use smooth Fade In/Out with slight scale */
+            .form-box { 
                 width: 100%; 
-                height: 40%; 
-                top: 0; 
-                left: 0; 
-                border-radius: 0 0 100px 100px;
+                height: 100%; 
+                padding: 35px 25px; 
+                transition: opacity 0.4s ease, transform 0.4s ease, visibility 0.4s; 
             }
-            .container.active .toggle-box::before {
-                left: 0; 
-                top: 60%; 
-                border-radius: 100px 100px 0 0;
-            }
-
-            /* Adjust Toggle Panels */
-            .toggle-panel { width: 100%; height: 40%; padding: 0 20px; }
             
-            /* Toggle Left (Register Message) at Top */
-            .toggle-panel.toggle-left { left: 0; top: 0; right: auto; }
-            .container.active .toggle-panel.toggle-left { left: 0; top: -40%; } /* Slides Up */
+            .form-box.login { 
+                right: 0; /* Keep it positioned full width */
+                transform: scale(1);
+                opacity: 1;
+                visibility: visible;
+                z-index: 10;
+            }
+            .container.active .form-box.login { 
+                right: 0; /* Override desktop slide */
+                transform: scale(0.95);
+                opacity: 0; 
+                visibility: hidden; 
+                z-index: 1;
+            }
 
-            /* Toggle Right (Login Message) at Bottom */
-            .toggle-panel.toggle-right { right: auto; left: 0; bottom: -40%; top: auto; }
-            .container.active .toggle-panel.toggle-right { right: auto; left: 0; bottom: 0; top: auto; }
+            .form-box.register { 
+                left: 0; /* Keep it positioned full width */
+                transform: scale(0.95);
+                opacity: 0;
+                visibility: hidden;
+                z-index: 1;
+            }
+            .container.active .form-box.register { 
+                left: 0; /* Override desktop slide */
+                transform: scale(1);
+                opacity: 1;
+                visibility: visible;
+                z-index: 10;
+            }
+            
+            .toggle-box { display: none; }
+            
+            .mobile-toggle {
+                display: block;
+                margin-top: 25px;
+                font-size: 14.5px;
+                color: #555;
+                text-align: center;
+                padding-bottom: 20px;
+            }
+            
+            .mobile-toggle a { color: #00b56a; font-weight: 600; text-decoration: none; margin-left: 5px; }
         }
+        
+        @media (min-width: 769px) { .mobile-toggle { display: none; } }
     </style>
 </head>
 <body>
@@ -383,6 +430,11 @@
                         <a href="#" class="fa-brands fa-instagram"></a>
                         <a href="#" class="fa-brands fa-x-twitter"></a>
                     </div>
+                    
+                    <!-- Mobile specific toggle -->
+                    <div class="mobile-toggle">
+                        Don't have an account?<a href="#" id="mobileRegisterToggle">Register here</a>
+                    </div>
                 </form>
             </div>
 
@@ -390,42 +442,64 @@
             <div class="form-box register">
                 <form id="registerForm" onsubmit="handleRegister(event)">
                     <h1>Registration</h1>
+                    
+                    <div class="input-box">
+                        <input type="text" id="reg_legal_name" placeholder="Legal Name" required>
+                        <i class="fa-solid fa-id-card"></i>
+                    </div>
+                    
                     <div class="input-box">
                         <input type="text" id="reg_username" placeholder="Username" required>
                         <i class="fa-solid fa-user"></i>
                     </div>
+                    
                     <div class="input-box">
                         <input type="email" id="reg_email" placeholder="Email" required>
                         <i class="fa-solid fa-envelope"></i>
                     </div>
+                    
+                    <div class="input-box">
+                        <input type="tel" id="reg_phone" placeholder="Phone Number" required>
+                        <span class="input-hint">Will be verified during payout processing</span>
+                        <i class="fa-solid fa-phone"></i>
+                    </div>
+                    
+                    <div class="input-box">
+                        <textarea id="reg_address" placeholder="Legal Address" required></textarea>
+                        <span class="input-hint">Must match your legal address proof</span>
+                    </div>
+                    
                     <div class="input-box">
                         <input type="password" id="reg_password" placeholder="Password" required>
                         <i class="fa-solid fa-lock" style="right: 40px;"></i>
                         <i class="fa-solid fa-eye" id="toggleRegPassword" onclick="togglePassword('reg_password', 'toggleRegPassword')"></i>
                     </div>
+                    
+                    <div class="input-box">
+                        <input type="password" id="reg_confirm_password" placeholder="Confirm Password" required>
+                        <i class="fa-solid fa-lock" style="right: 40px;"></i>
+                        <i class="fa-solid fa-eye" id="toggleRegConfirmPassword" onclick="togglePassword('reg_confirm_password', 'toggleRegConfirmPassword')"></i>
+                    </div>
+                    
                     <button type="submit" class="btn">Register</button>
-                    <p>or register with social platforms</p>
-                    <div class="social-icons">
-                        <a href="#" class="fa-brands fa-google"></a>
-                        <a href="#" class="fa-brands fa-facebook-f"></a>
-                        <a href="#" class="fa-brands fa-github"></a>
-                        <a href="#" class="fa-brands fa-linkedin-in"></a>
-                        <a href="#" class="fa-brands fa-instagram"></a>
-                        <a href="#" class="fa-brands fa-x-twitter"></a>
+                    
+                    <!-- Mobile specific toggle -->
+                    <div class="mobile-toggle">
+                        Already have an account?<a href="#" id="mobileLoginToggle">Login here</a>
                     </div>
                 </form>
             </div>
 
-            <!-- Toggle Box -->
+            <!-- Desktop Toggle Box -->
             <div class="toggle-box">
                 <div class="toggle-panel toggle-left">
                     <h1>Hello, Welcome!</h1>
-                    <p>Don't have an account?</p>
+                    <p>Join us to unlock premium features and start your journey.</p>
                     <button class="btn register-btn" id="registerToggle">Register</button>
                 </div>
                 <div class="toggle-panel toggle-right">
                     <h1>Welcome Back!</h1>
-                    <p>Already have an account?</p>
+                    <p>Already have an account? Login to access your dashboard.</p>
                     <button class="btn login-btn" id="loginToggle">Login</button>
                 </div>
             </div>
@@ -434,21 +508,18 @@
             <div class="forget-password-overlay" id="forgetOverlay" style="display:none;">
                 <div class="forget-password-box">
                     <h3>Reset Password</h3>
-                    <!-- Step 1: Email -->
                     <div id="step1" class="forget-step">
                         <div class="input-box">
                             <input type="email" id="fp_email" placeholder="Enter Registered Email" required>
                         </div>
                         <button class="btn" onclick="sendOTP()">Send OTP</button>
                     </div>
-                    <!-- Step 2: OTP -->
                     <div id="step2" class="forget-step" style="display:none;">
                         <div class="input-box">
                             <input type="text" id="fp_otp" placeholder="Enter 6-digit OTP" required>
                         </div>
                         <button class="btn" onclick="verifyOTP()">Verify OTP</button>
                     </div>
-                    <!-- Step 3: New Password -->
                     <div id="step3" class="forget-step" style="display:none;">
                         <div class="input-box">
                             <input type="password" id="fp_new_password" placeholder="New Password" required>
@@ -467,35 +538,45 @@
     <script>
         // ============ TOGGLE LOGIC ============
         const container = document.getElementById('container');
+        
+        // Desktop toggles
         const registerBtn = document.querySelector('.register-btn');
         const loginBtn = document.querySelector('.login-btn');
 
-        registerBtn.addEventListener('click', () => {
+        // Mobile toggles
+        const mobileRegisterBtn = document.getElementById('mobileRegisterToggle');
+        const mobileLoginBtn = document.getElementById('mobileLoginToggle');
+
+        registerBtn.addEventListener('click', () => container.classList.add('active'));
+        loginBtn.addEventListener('click', () => container.classList.remove('active'));
+        
+        mobileRegisterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             container.classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top smoothly
         });
 
-        loginBtn.addEventListener('click', () => {
+        mobileLoginBtn.addEventListener('click', (e) => {
+            e.preventDefault();
             container.classList.remove('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' }); // Scroll to top smoothly
         });
 
         // ============ FORGET PASSWORD LOGIC ============
         const forgetOverlay = document.getElementById('forgetOverlay');
         const forgotLink = document.getElementById('forgotLink');
 
-        // Open forget password (login/register forms hide honge)
         forgotLink.addEventListener('click', function(e) {
             e.preventDefault();
             container.classList.add('hide-forms');
             forgetOverlay.style.display = 'flex';
         });
 
-        // Close forget password (wapas login/register par)
         function closeForgetPassword() {
             container.classList.remove('hide-forms');
             forgetOverlay.style.display = 'none';
         }
 
-        // Step 1: Send OTP
         async function sendOTP() {
             try {
                 const response = await fetch('https://fundfxt.onrender.com/api/forgot-password', {
@@ -505,22 +586,18 @@
                 });
                 const data = await response.json();
                 if (data.success) {
-                    console.log('OTP:', data.otp);
-                    alert('OTP sent to your email! (Check console)');
+                    alert('OTP sent to your email!');
                     document.getElementById('step1').style.display = 'none';
                     document.getElementById('step2').style.display = 'block';
                 } else {
                     alert(data.error || 'Email not found');
                 }
-            } catch (error) {
-                alert('Server connection error!');
-            }
+            } catch (error) { alert('Server connection error!'); }
         }
 
-        // Step 2: Verify OTP
         async function verifyOTP() {
             try {
-                const response = await fetch('http://localhost:3000/api/verify-otp', {
+                const response = await fetch('https://fundfxt.onrender.com/api/verify-otp', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email: document.getElementById('fp_email').value, otp: document.getElementById('fp_otp').value })
@@ -532,21 +609,13 @@
                 } else {
                     alert(data.error || 'Invalid OTP');
                 }
-            } catch (error) {
-                alert('Server connection error!');
-            }
+            } catch (error) { alert('Server connection error!'); }
         }
 
-        // Step 3: Reset Password
         async function resetPassword() {
             const newPass = document.getElementById('fp_new_password').value;
             const confirmPass = document.getElementById('fp_confirm_password').value;
-            
-            if (newPass !== confirmPass) {
-                alert('Passwords do not match!');
-                return;
-            }
-            
+            if (newPass !== confirmPass) return alert('Passwords do not match!');
             try {
                 const response = await fetch('https://fundfxt.onrender.com/api/reset-password', {
                     method: 'POST',
@@ -557,19 +626,14 @@
                 if (data.success) {
                     alert('Password reset successfully!');
                     closeForgetPassword();
-                } else {
-                    alert(data.error || 'Password reset failed!');
-                }
-            } catch (error) {
-                alert('Server connection error!');
-            }
+                } else { alert(data.error || 'Password reset failed!'); }
+            } catch (error) { alert('Server connection error!'); }
         }
 
         // ============ PASSWORD VIEW/HIDE ============
         function togglePassword(inputId, iconId) {
             const input = document.getElementById(inputId);
             const icon = document.getElementById(iconId);
-
             if (input.type === 'password') {
                 input.type = 'text';
                 icon.classList.remove('fa-eye');
@@ -581,56 +645,52 @@
             }
         }
 
-        // ============ REGISTER BACKEND ============
+        // ============ REGISTER & LOGIN ============
         async function handleRegister(event) {
             event.preventDefault();
+            const legalName = document.getElementById('reg_legal_name').value;
+            const phone = document.getElementById('reg_phone').value;
+            const address = document.getElementById('reg_address').value;
+            const password = document.getElementById('reg_password').value;
+            const confirmPassword = document.getElementById('reg_confirm_password').value;
             const trader_id = document.getElementById('reg_username').value;
             const email = document.getElementById('reg_email').value;
-            const password = document.getElementById('reg_password').value;
+
+            if (password !== confirmPassword) return alert("Passwords do not match!");
 
             try {
                 const response = await fetch('https://fundfxt.onrender.com/api/register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trader_id, email, phone: '', password })
+                    body: JSON.stringify({ trader_id, email, phone, password, legal_name: legalName, address })
                 });
                 const data = await response.json();
                 if (data.success) {
                     localStorage.setItem('fundfxt_token', data.token);
                     alert('Registration Successful!');
                     window.location.href = '/dashboard.html';
-                } else {
-                    alert(data.error || 'Registration failed!');
-                }
-            } catch (error) {
-                alert('Server connection error!');
-            }
+                } else { alert(data.error || 'Registration failed!'); }
+            } catch (error) { alert('Server connection error!'); }
         }
 
-        // ============ LOGIN BACKEND ============
         async function handleLogin(event) {
             event.preventDefault();
             const identifier = document.getElementById('login_username').value;
-            const password = document.getElementById('login_password').value;
-            const trimmedPassword = password.trim();
+            const password = document.getElementById('login_password').value.trim();
 
             try {
                 const response = await fetch('https://fundfxt.onrender.com/api/login', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ identifier, password: trimmedPassword })
+                    body: JSON.stringify({ identifier, password })
                 });
                 const data = await response.json();
                 if (data.success) {
                     localStorage.setItem('fundfxt_token', data.token);
                     alert('Login Successful!');
                     window.location.href = '/dashboard.html';
-                } else {
-                    alert(data.error || 'Login failed!');
-                }
-            } catch (error) {
-                alert('Server connection error!');
-            }
+                } else { alert(data.error || 'Login failed!'); }
+            } catch (error) { alert('Server connection error!'); }
         }
     </script>
 </body>
