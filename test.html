@@ -1,0 +1,116 @@
+// ==========================================
+        // FCS DIRECT NATIVE WEBSOCKET (NO LIBRARY REQUIRED)
+        // ==========================================
+        
+        // 🔴 YAHAN APNI ASLI WEBSOCKET KEY DALO 👇
+        const WEBSOCKET_KEY = "6XyjcQ5zkhYlujcMgFin4kN2zXAFWRy7"; 
+        
+        let fcsSocket;
+
+        function connectFCS() {
+            // FIX: Use the variable name WEBSOCKET_KEY here
+            const wsUrl = `wss://ws-v4.fcsapi.com/ws?access_key=${WEBSOCKET_KEY}`;
+            fcsSocket = new WebSocket(wsUrl);
+
+            fcsSocket.onopen = () => {
+                console.log("Native FCS WebSocket Connected!");
+                const statusBadge = document.getElementById('apiStatus');
+                statusBadge.classList.add('connected');
+                statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> FCS Connected';
+                
+                // Subscribe to all pairs
+                const allSymbols = [...pairCategories["Forex Majors"], ...pairCategories["Forex Minors"], ...pairCategories["Metals"]];
+                allSymbols.forEach(sym => {
+                    // Send Join Request as per FCS Native Format
+                    fcsSocket.send(JSON.stringify({ type: 'join_symbol', symbol: `FX:${sym}`, timeframe: "15" }));
+                });
+            };
+
+            fcsSocket.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                
+                // Keep connection alive
+                if(data.type === 'ping') {
+                    fcsSocket.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
+                    return;
+                }
+                
+                if (data.type === "error") {
+                    console.error("FCS API ERROR:", data.message);
+                    return;
+                }
+
+                if (data.type === "price" && data.prices) {
+                    hasReceivedRealData = true;
+                    
+                    const sym = data.symbol.replace('FX:', '');
+                    const prices = data.prices;
+                    
+                    if(prices.c) {
+                        const currentPrice = parseFloat(prices.c);
+                        const spreadValue = sym.includes('JPY') ? 0.015 : 0.00015; 
+                        
+                        const bid = currentPrice;
+                        const ask = bid + spreadValue;
+                        
+                        // Calculate % Change manually if API doesn't send it directly
+                        let pctChange = 0;
+                        if(prices.o) {
+                            pctChange = ((currentPrice - parseFloat(prices.o)) / parseFloat(prices.o)) * 100;
+                        } else if(prices.chp) {
+                            pctChange = parseFloat(prices.chp);
+                        }
+                        
+                        const decimals = sym.includes('JPY') ? 3 : 5;
+                        const bidFormatted = bid.toFixed(decimals);
+                        const askFormatted = ask.toFixed(decimals);
+                        const spreadFormatted = spreadValue.toFixed(decimals);
+                        const pctFormatted = pctChange.toFixed(2);
+
+                        const bidEl = document.getElementById(`bid-${sym}`);
+                        const askEl = document.getElementById(`ask-${sym}`);
+                        const pctEl = document.getElementById(`pct-${sym}`);
+                        const spreadEl = document.getElementById(`spread-${sym}`);
+
+                        if (bidEl && askEl) {
+                            bidEl.innerText = bidFormatted;
+                            askEl.innerText = askFormatted;
+                            if(spreadEl) spreadEl.innerText = spreadFormatted;
+                            
+                            if (pctEl) {
+                                pctEl.innerText = `${pctChange > 0 ? '+' : ''}${pctFormatted}%`;
+                                pctEl.className = `pct-change ${pctChange >= 0 ? 'price-up' : 'price-down'}`;
+                            }
+                        }
+                    }
+                }
+            };
+
+            fcsSocket.onerror = (err) => console.error("WebSocket Error:", err);
+            
+            fcsSocket.onclose = () => {
+                console.log("WebSocket Disconnected, trying to reconnect...");
+                const statusBadge = document.getElementById('apiStatus');
+                statusBadge.classList.remove('connected');
+                statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> FCS Disconnected';
+                setTimeout(connectFCS, 5000); // Auto reconnect
+            };
+        }
+
+        // Heartbeat to keep connection alive
+        setInterval(() => {
+            if(fcsSocket && fcsSocket.readyState === 1) {
+                fcsSocket.send(JSON.stringify({ type: 'ping', timestamp: Date.now() }));
+            }
+        }, 25000);
+
+        window.onload = () => {
+            renderPairs();
+            updateChart();
+            loadTrades();
+            connectFCS(); // Start API Connection
+            if (window.innerWidth > 900) {
+                initResizer('resizerLeft', 'leftPanel', 'centerPanel', true);
+                initResizer('resizerRight', 'centerPanel', 'rightPanel', false);
+            }
+        };
