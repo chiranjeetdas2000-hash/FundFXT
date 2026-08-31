@@ -412,57 +412,35 @@
         }
 
        // ==========================================
-        // OFFICIAL FCS CLIENT LIBRARY INTEGRATION (WITH LIVE DEBUGGER)
+        // FIXED FCS API: JOIN ONLY ACTIVE & LIMITED PAIRS (To avoid limit error)
         // ==========================================
-        const WEBSOCKET_KEY = "fcs_socket_demo"; 
+        const WEBSOCKET_KEY = "6XyjcQ5zkhYlujcMgFin4kN2zXAFWRy7"; 
         let fcsClient;
 
         function initFCSClient() {
             const statusBadge = document.getElementById('apiStatus');
             
             try {
-                statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> Connecting...';
-                
                 fcsClient = new FCSClient(WEBSOCKET_KEY);
                 
                 fcsClient.connect().then(() => {
                     console.log("Connection established");
                 }).catch((err) => {
                     console.error("Connection failed:", err);
-                    statusBadge.style.background = 'rgba(242, 54, 69, 0.2)';
-                    statusBadge.style.color = 'var(--accent-red)';
-                    statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> Err: ${err.message || 'Failed'}`;
                 });
 
                 fcsClient.onconnected = () => {
-                    console.log("Connected and authenticated");
                     statusBadge.classList.add('connected');
                     statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> FCS Connected';
                     
-                    const allSymbols = [...pairCategories["Forex Majors"], ...pairCategories["Forex Minors"], ...pairCategories["Metals"]];
-                    allSymbols.forEach(sym => {
+                    // ⚠️ FIX: Max limit 5 symbols join karenge taaki "Maximum subscription limit reached" error na aaye
+                    const topPairs = ["EURUSD", "GBPUSD", "USDJPY", "XAUUSD", "AUDUSD"];
+                    topPairs.forEach(sym => {
                         fcsClient.join(`FX:${sym}`, "15");
                     });
-                };
-
-                fcsClient.onreconnect = () => {
-                    console.log("Reconnected successfully");
-                };
-
-                fcsClient.onclose = (event) => {
-                    console.log("Disconnected:", event);
-                    statusBadge.classList.remove('connected');
-                    statusBadge.style.background = 'rgba(242, 54, 69, 0.2)';
-                    statusBadge.style.color = 'var(--accent-red)';
-                    // UI par exact close reason dikhayega
-                    statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> Closed: ${event.reason || event.code || 'Unknown'}`;
-                };
-
-                fcsClient.onerror = (err) => {
-                    console.error("WebSocket error:", err);
-                    statusBadge.style.background = 'rgba(242, 54, 69, 0.2)';
-                    statusBadge.style.color = 'var(--accent-red)';
-                    statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> WS Error`;
+                    
+                    // Jo current symbol chart par khula hai, use bhi turant join karo
+                    fcsClient.join(`FX:${currentSymbol}`, "15");
                 };
 
                 fcsClient.onmessage = (data) => {
@@ -501,14 +479,75 @@
                             }
                         }
                     } else if (data.type === "error") {
-                        console.error("Server Error Message:", data.message);
-                        statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> API: ${data.message}`;
+                        console.warn("FCS Server Notice:", data.message);
+                        statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> ${data.message}`;
                     }
                 };
 
+                fcsClient.onclose = (event) => {
+                    statusBadge.classList.remove('connected');
+                    statusBadge.innerHTML = '<i class="fa-solid fa-circle"></i> FCS Disconnected';
+                };
+
             } catch (e) {
-                console.error("FCS Initialization Failed:", e);
-                statusBadge.innerHTML = `<i class="fa-solid fa-circle"></i> Init Error`;
+                console.error("FCS Init Error:", e);
+            }
+        }
+
+        // ==========================================
+        // SECURE TRADE EXECUTION & BACKEND REGISTRATION
+        // ==========================================
+        async function executeOrder(direction) {
+            const lot = document.getElementById('mktLots').value;
+            const sl = document.getElementById('mktSL').value || null;
+            const tp = document.getElementById('mktTP').value || null;
+            const accountId = document.getElementById('accountId').innerText;
+            
+            // Live Price DOM se fetch karna (Jo websocket se update ho raha hai)
+            const priceElementId = direction === 'buy' ? `ask-${currentSymbol}` : `bid-${currentSymbol}`;
+            const entryPrice = document.getElementById(priceElementId)?.innerText;
+
+            if (!entryPrice || entryPrice === '--') {
+                alert("Live price is still syncing. Please wait a second.");
+                return;
+            }
+
+            // Backend Database ke liye complete trade payload
+            const tradePayload = {
+                tradeId: 'TR-' + Math.floor(100000 + Math.random() * 900000), // Unique Trade ID
+                account: accountId,
+                symbol: currentSymbol,
+                provider: currentProvider,
+                type: direction.toUpperCase(), // BUY / SELL
+                lotSize: parseFloat(lot),
+                entryPrice: parseFloat(entryPrice),
+                sl: sl ? parseFloat(sl) : null,
+                tp: tp ? parseFloat(tp) : null,
+                status: 'OPEN', // Open position
+                openTime: new Date().toISOString()
+            };
+
+            try {
+                // Tumhare Node.js backend par data send karne ka route
+                const response = await fetch('https://YOUR-BACKEND-URL.onrender.com/api/trades/execute', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json', 
+                        'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` 
+                    },
+                    body: JSON.stringify(tradePayload)
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert(`Trade Executed! ID: ${tradePayload.tradeId} | Price: ${entryPrice}`);
+                    loadTrades(); // Refresh bottom open positions table
+                } else {
+                    alert(result.error || "Trade execution failed on backend.");
+                }
+            } catch (err) {
+                console.error("Backend error:", err);
+                alert("Order placed locally, but backend sync failed.");
             }
         }
         window.onload = () => {
