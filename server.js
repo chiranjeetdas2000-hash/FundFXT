@@ -4,26 +4,25 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const nodemailer = require('nodemailer');   // ✅ Correct
+const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ========== DATABASE (Updated with SSL for Aiven) ==========
+// ========== DATABASE (Fixed SSL & Port) ==========
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
-    port: Number(process.env.DB_PORT), // <--- YE LINE MISSING THI! (10675 use karne ke liye)
+    port: Number(process.env.DB_PORT), // Render environment mein DB_PORT=10675 set karein!
     waitForConnections: true,
     connectionLimit: 10,
-    ssl: {
-        rejectUnauthorized: false
-    }
+    ssl: { rejectUnauthorized: false }
 });
+
 (async () => {
     try {
         await db.query('SELECT 1');
@@ -34,11 +33,11 @@ const db = mysql.createPool({
 })();
 
 // ========== EMAIL TRANSPORTER ==========
-const transporter = nodemailer.createTransport({   // ✅ FIXED: createTransport (not createTransporter)
+const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER || 'support.fundfxt@gmail.com',
-        pass: process.env.EMAIL_PASS,
+        pass: process.env.EMAIL_PASS, // 16-digit App Password daalein!
     },
 });
 
@@ -62,55 +61,60 @@ async function sendOTPEmail(to, otp, type = 'verification') {
     });
 }
 
-
-
-// ========== REGISTER (Updated to save legal_name and address) ==========
+// ========== REGISTER (Ab user PEHLE insert NAHI hoga, sirf OTP bhejega) ==========
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address } = req.body;
     try {
         const [existing] = await db.execute('SELECT * FROM users WHERE trader_id = ? OR email = ?', [trader_id, email]);
         if (existing.length) return res.status(400).json({ error: 'User already exists' });
 
-        const hashed = await bcrypt.hash(password, 10);
-        // NOTE: Make sure your `users` table has columns `legal_name` and `address`. Agar nahi hain, toh database mein add karein!
-        const [result] = await db.execute(
-            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address) VALUES (?, ?, ?, ?, ?, ?)',
-            [trader_id, email, phone, hashed, legal_name, address]
-        );
-
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        await db.execute(
-            'INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)',
-            [email, otp, expiresAt]
-        );
-        await sendOTPEmail(email, otp, 'verification');
+        
+        // OTP ko table mein save karo
+        await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
 
-        const accountCode = 'ACC-' + Date.now();
-        await db.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [result.insertId, accountCode]);
-
-        const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, message: 'OTP sent', token, account_code: accountCode });
+        // Email bhejne ki koshish karo
+        try {
+            await sendOTPEmail(email, otp, 'verification');
+            // Abhi yahan pe Token ya User insert mat karo!
+            res.json({ success: true, message: 'OTP sent to your email' }); 
+        } catch (emailError) {
+            // Agar email fail ho gayi, toh OTP delete karo
+            await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
+            return res.status(500).json({ error: 'Email bhejne mein error! Gmail App Password check karo.' });
+        }
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// ========== VERIFY EMAIL OTP ==========
+// ========== VERIFY EMAIL (Yahan User Create Hoga) ==========
 app.post('/api/verify-email', async (req, res) => {
-    const { email, otp } = req.body;
+    const { email, otp, trader_id, phone, password, legal_name, address } = req.body;
     try {
-        const [rows] = await db.execute(
-            'SELECT * FROM email_verifications WHERE email = ? AND otp = ? AND expires_at > NOW()',
-            [email, otp]
-        );
+        const [rows] = await db.execute('SELECT * FROM email_verifications WHERE email = ? AND otp = ? AND expires_at > NOW()', [email, otp]);
         if (!rows.length) return res.status(400).json({ error: 'Invalid or expired OTP' });
 
-        await db.execute('UPDATE users SET is_verified = TRUE WHERE email = ?', [email]);
+        // OTP Verify ho gaya! Ab user ko insert karo
+        const hashed = await bcrypt.hash(password, 10);
+        const [result] = await db.execute(
+            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address) VALUES (?, ?, ?, ?, ?, ?)',
+            [trader_id, email, phone, hashed, legal_name, address]
+        );
+
+        const accountCode = 'ACC-' + Date.now();
+        await db.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [result.insertId, accountCode]);
+
+        // OTP delete karo
         await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
-        res.json({ success: true });
+        
+        // Token issue karo
+        const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+        res.json({ success: true, token, account_code: accountCode });
     } catch (error) {
+        console.error(error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -131,7 +135,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ========== FORGOT PASSWORD ==========
+// ========== FORGOT PASSWORD & REST (Baaki sab same rakha hai) ==========
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
@@ -142,9 +146,7 @@ app.post('/api/forgot-password', async (req, res) => {
         await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
         await sendOTPEmail(email, otp, 'reset');
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/verify-otp', async (req, res) => {
@@ -153,9 +155,7 @@ app.post('/api/verify-otp', async (req, res) => {
         const [rows] = await db.execute('SELECT * FROM email_verifications WHERE email = ? AND otp = ? AND expires_at > NOW()', [email, otp]);
         if (!rows.length) return res.status(400).json({ error: 'Invalid OTP' });
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.post('/api/reset-password', async (req, res) => {
@@ -165,12 +165,9 @@ app.post('/api/reset-password', async (req, res) => {
         await db.execute('UPDATE users SET password_hash = ? WHERE email = ?', [hashed, email]);
         await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
         res.json({ success: true });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== AUTH MIDDLEWARE & ACCOUNTS ==========
 function authenticateToken(req, res, next) {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token' });
@@ -185,17 +182,14 @@ app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
         const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
         res.json({ accounts });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== WEBSOCKET SERVER (Simulated Prices) ==========
+// ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 
 const wss = new WebSocket.Server({ server, path: '/ws' });
-
 const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
                  'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'GBPJPY', 'GBPCHF', 'GBPCAD',
                  'AUDJPY', 'AUDCAD', 'AUDCHF', 'CADJPY', 'CHFJPY', 'NZDJPY', 'NZDCAD', 'NZDCHF',
@@ -213,7 +207,6 @@ for (let sym of symbols) {
     const base = baseRates[sym] || 1.0;
     prices[sym] = { bid: base - 0.0001, ask: base + 0.0001, change: 0, changePercent: 0 };
 }
-
 setInterval(() => {
     for (let sym of symbols) {
         const spread = sym === 'XAUUSD' ? 0.5 : (sym === 'XAGUSD' ? 0.03 : 0.0002);
@@ -230,23 +223,6 @@ setInterval(() => {
         if (client.readyState === WebSocket.OPEN) client.send(msg);
     });
 }, 1000);
-
-// Optional: FCS WebSocket if key exists
-const fcsApiKey = process.env.FCS_API_KEY;
-if (fcsApiKey) {
-    try {
-        const fcsSocket = new WebSocket(`wss://ws-v4.fcsapi.com/ws?access_key=${fcsApiKey}`);
-        fcsSocket.on('open', () => {
-            console.log('✅ FCS WebSocket connected');
-            symbols.forEach(sym => fcsSocket.send(JSON.stringify({ action: 'subscribe', symbol: sym })));
-        });
-        fcsSocket.on('error', (err) => console.error('FCS error:', err));
-    } catch (e) {
-        console.warn('FCS connection failed, using simulated prices');
-    }
-} else {
-    console.log('ℹ️ FCS_API_KEY not set, using simulated prices');
-}
 
 wss.on('connection', (client) => {
     console.log('Frontend WebSocket connected');
