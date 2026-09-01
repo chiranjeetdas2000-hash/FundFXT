@@ -35,8 +35,12 @@ const db = mysql.createPool({
 // ========== EMAIL TRANSPORTER ==========
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 465,
-    secure: true, // true for 465, false for other ports
+    port: 587,             // Port 587 use karo (465 ki jagah)
+    secure: false,         // 465 ke liye true hota hai, 587 ke liye false
+    requireTLS: true,      // TLS secure connection force karo
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
     auth: {
         user: process.env.EMAIL_USER || 'support.fundfxt@gmail.com',
         pass: process.env.EMAIL_PASS,
