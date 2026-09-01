@@ -31,7 +31,7 @@ const db = mysql.createPool({
 })();
 
 // ========== EMAIL TRANSPORTER ==========
-const transporter = nodemailer.createTransporter({
+const transporter = nodemailer.createTransport({   // ✅ FIXED: createTransport (not createTransporter)
     service: 'gmail',
     auth: {
         user: process.env.EMAIL_USER || 'support.fundfxt@gmail.com',
