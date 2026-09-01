@@ -11,7 +11,18 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ========== DATABASE ==========
+// ========== DATABASE (Updated with SSL for Aiven) ==========
+const db = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
 (async () => {
     try {
         await db.query('SELECT 1');
@@ -50,18 +61,7 @@ async function sendOTPEmail(to, otp, type = 'verification') {
     });
 }
 
-// ========== DATABASE (Updated with SSL for Aiven) ==========
-const db = mysql.createPool({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME,
-    waitForConnections: true,
-    connectionLimit: 10,
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+
 
 // ========== REGISTER (Updated to save legal_name and address) ==========
 app.post('/api/register', async (req, res) => {
