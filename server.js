@@ -34,10 +34,12 @@ const db = mysql.createPool({
 
 // ========== EMAIL TRANSPORTER ==========
 const transporter = nodemailer.createTransport({
-    service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 465,
+    secure: true, // true for 465, false for other ports
     auth: {
         user: process.env.EMAIL_USER || 'support.fundfxt@gmail.com',
-        pass: process.env.EMAIL_PASS, // 16-digit App Password daalein!
+        pass: process.env.EMAIL_PASS,
     },
 });
 
