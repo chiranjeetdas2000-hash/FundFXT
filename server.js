@@ -31,17 +31,19 @@ const db = mysql.createPool({
     }
 })();
 
-// ========== EMAIL VIA RESEND API (No SMTP Needed) ==========
-async function sendOTPEmail(to, otp, type = 'verification') {
-    const subject = type === 'verification' ? 'Verify Your Email' : 'Reset Password';
+// ========== EMAIL VIA RESEND API (SIRF FORGOT PASSWORD KE LIYE) ==========
+// Ab yeh email user ko nahi, ADMIN ko jayegi (Manual Support ke liye)
+async function sendOTPEmail(userEmail, otp) {
+    const ADMIN_EMAIL = 'support.fundfxt@gmail.com'; // Yahan apna Admin email daalo!
+    
+    const subject = `Password Reset OTP for ${userEmail}`;
     const html = `
         <div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-            <h2 style="color: #00b56a;">FundFXT</h2>
-            <p>Your OTP for ${type === 'verification' ? 'email verification' : 'password reset'}:</p>
-            <h1 style="font-size: 36px; color: #00b56a; letter-spacing: 4px;">${otp}</h1>
-            <p style="color: #666;">Valid for 10 minutes.</p>
-            <hr>
-            <p style="color: #aaa; font-size: 11px;">FundFXT Support</p>
+            <h2 style="color: #00b56a;">FundFXT Support</h2>
+            <p>User ne password reset ka request bheja hai.</p>
+            <p><strong>User Email:</strong> ${userEmail}</p>
+            <p><strong>OTP:</strong> ${otp}</p>
+            <p style="color: #666;">Is OTP ko user ko manually bhej dein.</p>
         </div>
     `;
 
@@ -56,7 +58,7 @@ async function sendOTPEmail(to, otp, type = 'verification') {
         },
         body: JSON.stringify({
             from: FROM_EMAIL,
-            to: [to],
+            to: [ADMIN_EMAIL], // Email ADMIN ko jayegi, user ko nahi!
             subject: subject,
             html: html
         })
@@ -93,7 +95,7 @@ app.post('/api/register', async (req, res) => {
     }
 });
 
-// ========== VERIFY EMAIL ==========
+// ========== VERIFY EMAIL (NOT USED IN REGISTRATION NOW, BUT KEEPING FOR BACKWARD COMPAT) ==========
 app.post('/api/verify-email', async (req, res) => {
     const { email, otp, trader_id, phone, password, legal_name, address } = req.body;
     try {
@@ -135,7 +137,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ========== FORGOT PASSWORD ==========
+// ========== FORGOT PASSWORD (AB OTP ADMIN KO JAYEGI) ==========
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
@@ -145,7 +147,9 @@ app.post('/api/forgot-password', async (req, res) => {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
         
-        sendOTPEmail(email, otp, 'reset').catch(err => console.log("Reset Email Failed:", err.message));
+        // Ab email user ko nahi, ADMIN ko jayegi
+        sendOTPEmail(email, otp).catch(err => console.log("Email failed:", err.message));
+        
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
