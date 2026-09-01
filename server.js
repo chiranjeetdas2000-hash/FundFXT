@@ -40,10 +40,9 @@ async function sendOTPEmail(userEmail, otp) {
     const html = `
         <div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
             <h2 style="color: #00b56a;">FundFXT Support</h2>
-            <p>User ne password reset ka request bheja hai.</p>
+            <p>Please use this OTP to verify your identity and complete the password reset process</p>
             <p><strong>User Email:</strong> ${userEmail}</p>
             <p><strong>OTP:</strong> ${otp}</p>
-            <p style="color: #666;">Is OTP ko user ko manually bhej dein.</p>
         </div>
     `;
 
