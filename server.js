@@ -68,26 +68,25 @@ async function sendOTPEmail(to, otp, type = 'verification') {
     }
 }
 
-// ========== REGISTER ==========
+// ========== DIRECT REGISTRATION (NO OTP) ==========
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address } = req.body;
     try {
         const [existing] = await db.execute('SELECT * FROM users WHERE trader_id = ? OR email = ?', [trader_id, email]);
         if (existing.length) return res.status(400).json({ error: 'User already exists' });
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString();
-        const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
-        
-        await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
+        const hashed = await bcrypt.hash(password, 10);
+        // is_verified = 1 (TRUE) se direct user banao
+        const [result] = await db.execute(
+            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified) VALUES (?, ?, ?, ?, ?, ?, 1)',
+            [trader_id, email, phone, hashed, legal_name, address]
+        );
 
-        // Email background mein send karo (Response turant jayega)
-        sendOTPEmail(email, otp, 'verification').catch(emailError => {
-            console.error("❌ Email send failed:", emailError.message);
-            console.log(`>>> TEST OTP for ${email} is: ${otp}`);
-        });
+        const accountCode = 'ACC-' + Date.now();
+        await db.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [result.insertId, accountCode]);
 
-        res.json({ success: true, message: 'OTP generated' });
-
+        const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+        res.json({ success: true, token, account_code: accountCode });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
