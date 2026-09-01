@@ -17,6 +17,7 @@ const db = mysql.createPool({
     user: process.env.DB_USER,
     password: process.env.DB_PASSWORD,
     database: process.env.DB_NAME,
+    port: Number(process.env.DB_PORT), // <--- YE LINE MISSING THI! (10675 use karne ke liye)
     waitForConnections: true,
     connectionLimit: 10,
     ssl: {
