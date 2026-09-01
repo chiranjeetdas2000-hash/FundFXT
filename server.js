@@ -35,16 +35,13 @@ const db = mysql.createPool({
 // ========== EMAIL TRANSPORTER ==========
 const transporter = nodemailer.createTransport({
     host: 'smtp.gmail.com',
-    port: 587,             // Port 587 use karo (465 ki jagah)
-    secure: false,         // 465 ke liye true hota hai, 587 ke liye false
-    requireTLS: true,      // TLS secure connection force karo
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
+    port: 587,
+    secure: false,
+    requireTLS: true,
     auth: {
-        user: process.env.EMAIL_USER || 'support.fundfxt@gmail.com',
-        pass: process.env.EMAIL_PASS,
-    },
+        user: process.env.EMAIL_USER,  // Render se milega
+        pass: process.env.EMAIL_PASS   // Render se milega
+    }
 });
 
 async function sendOTPEmail(to, otp, type = 'verification') {
