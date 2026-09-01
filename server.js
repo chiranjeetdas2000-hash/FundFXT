@@ -34,13 +34,15 @@ const db = mysql.createPool({
 
 // ========== EMAIL TRANSPORTER ==========
 const transporter = nodemailer.createTransport({
-    host: 'smtp.gmail.com',
-    port: 587,
-    secure: false,
-    requireTLS: true,
+    host: 'smtp.resend.com',   // Gmail nahi, Resend use karo
+    port: 465,
+    secure: true,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000,
     auth: {
-        user: process.env.EMAIL_USER,  // Render se milega
-        pass: process.env.EMAIL_PASS   // Render se milega
+        user: process.env.EMAIL_USER,  // Render se 'resend' aayega
+        pass: process.env.EMAIL_PASS   // Render se API Key aayegi
     }
 });
 
