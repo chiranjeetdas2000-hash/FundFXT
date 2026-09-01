@@ -12,15 +12,6 @@ app.use(express.json());
 app.use(cors());
 
 // ========== DATABASE ==========
-const db = mysql.createPool({
-    host: process.env.DB_HOST || 'localhost',
-    user: process.env.DB_USER || 'root',
-    password: process.env.DB_PASSWORD || '',
-    database: process.env.DB_NAME || 'fundfxt',
-    waitForConnections: true,
-    connectionLimit: 10,
-});
-
 (async () => {
     try {
         await db.query('SELECT 1');
