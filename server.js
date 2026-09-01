@@ -32,19 +32,46 @@ const db = mysql.createPool({
     }
 })();
 
-// ========== EMAIL TRANSPORTER ==========
-const transporter = nodemailer.createTransport({
-    host: 'smtp.resend.com',   // <--- YE CHANGE KARO (Gmail nahi)
-    port: 465,
-    secure: true,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-    auth: {
-        user: process.env.EMAIL_USER,  // Render se 'resend' aayega
-        pass: process.env.EMAIL_PASS   // Render se Resend API Key aayegi
+// ========== EMAIL SENDING VIA RESEND HTTP API (No SMTP Needed) ==========
+async function sendOTPEmail(to, otp, type = 'verification') {
+    const subject = type === 'verification' ? 'Verify Your Email' : 'Reset Password';
+    const html = `
+        <div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+            <h2 style="color: #00b56a;">FundFXT</h2>
+            <p>Your OTP for ${type === 'verification' ? 'email verification' : 'password reset'}:</p>
+            <h1 style="font-size: 36px; color: #00b56a; letter-spacing: 4px;">${otp}</h1>
+            <p style="color: #666;">Valid for 10 minutes.</p>
+            <hr>
+            <p style="color: #aaa; font-size: 11px;">FundFXT Support</p>
+        </div>
+    `;
+
+    // Render ke Environment se API Key (EMAIL_PASS) utha rahe hain
+    const API_KEY = process.env.EMAIL_PASS; 
+    
+    // Resend ke free tier par jab tak aap domain verify nahi karte, 
+    // emails sirf 'onboarding@resend.dev' se aur sirf aapke khud ke email par hi ja sakti hain.
+    const FROM_EMAIL = "FundFXT <onboarding@resend.dev>"; 
+
+    const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            from: FROM_EMAIL,
+            to: [to],
+            subject: subject,
+            html: html
+        })
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Resend API Error');
     }
-});
+}
 
 
 async function sendOTPEmail(to, otp, type = 'verification') {
