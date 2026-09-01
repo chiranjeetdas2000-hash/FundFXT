@@ -7,52 +7,190 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-
-    <div class="dashboard-layout">
-        <!-- SIDEBAR -->
+    <div class="layout">
+        <!-- SIDEBAR (Menu Click Par Section Change Hoga) -->
         <aside class="sidebar" id="sidebar">
             <div class="logo">FundFXT</div>
             <nav>
-                <a href="dashboard.html" class="active"><i class="fa-solid fa-house"></i> Dashboard</a>
-                <a href="#"><i class="fa-solid fa-wallet"></i> My Accounts</a>
-                <a href="#"><i class="fa-solid fa-store"></i> Marketplace</a>
-                <a href="#"><i class="fa-solid fa-share-nodes"></i> Affiliate</a>
-                <a href="#"><i class="fa-solid fa-gear"></i> Settings</a>
+                <a href="javascript:void(0)" class="active" data-section="dashboard" onclick="showSection('dashboard')"><i class="fa-solid fa-house"></i> User Dashboard</a>
+                <a href="javascript:void(0)" data-section="account" onclick="showSection('account')"><i class="fa-solid fa-wallet"></i> My Accounts</a>
+                <a href="javascript:void(0)" data-section="marketplace" onclick="showSection('marketplace')"><i class="fa-solid fa-store"></i> Marketplace</a>
+                <a href="javascript:void(0)" data-section="affiliate" onclick="showSection('affiliate')"><i class="fa-solid fa-share-nodes"></i> Affiliate</a>
+                <a href="javascript:void(0)" data-section="settings" onclick="showSection('settings')"><i class="fa-solid fa-gear"></i> Settings</a>
             </nav>
-            
-            <div class="profile-card">
-                <i class="fa-solid fa-user-circle" style="font-size: 40px; color: var(--primary);"></i>
-                <div>
-                    <h4 id="sidebar-user-name">User</h4>
-                    <p>KYC: <span id="sidebar-kyc-status">Pending</span></p>
-                </div>
+            <div class="sidebar-footer">
+                <div class="user"><i class="fa-solid fa-user-circle"></i><div><h4 id="sb-name">User</h4><p>KYC: <span id="sb-kyc">Pending</span></p></div></div>
+                <button onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
             </div>
-            <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
         </aside>
 
-        <!-- MAIN CONTENT -->
+        <!-- MAIN CONTENT (Dynamic Sections) -->
         <main class="main-content">
-            <!-- HEADER -->
-            <div class="header">
-                <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
-                <h1>My Accounts</h1>
-                <div class="header-right">
-                    <div class="notification-icon"><i class="fa-regular fa-bell"></i></div>
-                    <span id="header-user-name">User</span>
+            
+            <!-- SECTION 1: USER DASHBOARD (Home) -->
+            <div id="view-dashboard" class="view-section">
+                <div class="top-header">
+                    <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
+                    <div class="ticker" id="ticker"></div>
+                    <div class="header-actions">
+                        <i class="fa-regular fa-bell"></i>
+                        <i class="fa-solid fa-user-circle" style="font-size: 30px; color: var(--primary);"></i>
+                        <span id="header-name">User</span>
+                    </div>
+                </div>
+
+                <div class="profile-card card">
+                    <div class="avatar"><i class="fa-solid fa-user-circle"></i></div>
+                    <div class="details"><span>Legal Name</span><strong id="p-name">Trader</strong></div>
+                    <div class="details"><span>Email</span><strong id="p-email">trader@fundfxt.com</strong></div>
+                    <div class="details"><span>Phone</span><strong id="p-phone">+91 0000000000</strong></div>
+                    <div class="details"><span>Status</span><strong>Active</strong> <span class="kyc-badge">KYC Approved</span></div>
+                </div>
+
+                <h2 style="margin-bottom: 20px;">My Accounts</h2>
+                <div id="accounts-container" class="grid-4"></div>
+
+                <button class="btn" style="margin-top: 20px;" onclick="showSection('marketplace')"><i class="fa-solid fa-cart-shopping"></i> Buy New Challenge</button>
+            </div>
+
+            <!-- SECTION 2: ACCOUNT DASHBOARD (Click on Account Card se khulega) -->
+            <div id="view-account" class="view-section" style="display: none;">
+                <div class="top-header">
+                    <i class="fa-solid fa-arrow-left" style="cursor: pointer; font-size: 20px;" onclick="showSection('dashboard')"></i>
+                    <div><h1 style="font-size: 24px;">Account Dashboard</h1><p style="color: var(--muted); font-size: 14px;" id="acc-id-display">ACC-123456</p></div>
+                    <div class="header-actions"><i class="fa-regular fa-bell"></i><i class="fa-solid fa-gear"></i></div>
+                </div>
+
+                <div class="grid-4">
+                    <div class="card"><h3>BALANCE & EQUITY</h3><div class="value" id="acc-balance">$25,000.00</div><p style="color: var(--muted); font-size: 13px;">Equity: $25,000.00</p></div>
+                    <div class="card"><h3>PROFIT TARGET</h3><div class="value">60%</div><p style="color: var(--muted); font-size: 13px;">Target: $2,000.00 | Progress: $1,200.00</p><div class="progress"><div class="progress-bar" style="width: 60%;"></div></div></div>
+                    <div class="card"><h3>DAILY DRAWDOWN</h3><div class="value">30%</div><p style="color: var(--muted); font-size: 13px;">Loss Limit: $500.00 | Used: $150.00</p><div class="progress"><div class="progress-bar red" style="width: 30%;"></div></div></div>
+                    <div class="card"><h3>TOTAL P/L</h3><div class="value" style="color: var(--primary);">+$1,250.00</div><p style="color: var(--muted); font-size: 13px;">+5.26% Overall</p></div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card"><h3>LIFETIME EQUITY CURVE</h3><canvas id="equityChart"></canvas></div>
+                    <div class="card"><h3>MONTHLY P/L</h3><canvas id="monthlyChart"></canvas></div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>TRADE HISTORY</h3>
+                        <div class="table-container">
+                            <table><thead><tr><th>Date</th><th>Symbol</th><th>Side</th><th>Lot Size</th><th>P/L</th></tr></thead><tbody id="trade-history-body"></tbody></table>
+                        </div>
+                    </div>
+                    <div class="card"><h3>PERFORMANCE OVERVIEW</h3>
+                        <div style="margin-top: 20px;">
+                            <p>Total Trades: <strong>152</strong></p>
+                            <p>Win Rate: <strong style="color: var(--primary);">65%</strong></p>
+                            <p>Avg Profit: <strong style="color: var(--primary);">$250</strong></p>
+                            <p>Avg Loss: <strong style="color: var(--danger);">$180</strong></p>
+                            <p>Profit Factor: <strong>1.85</strong></p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <!-- DYNAMIC ACCOUNT GRID -->
-            <div class="dashboard-content">
-                <div id="accounts-container" class="grid-container">
-                    <!-- JS se Accounts yahan aayenge -->
+            <!-- SECTION 3: MARKETPLACE (Placeholder) -->
+            <div id="view-marketplace" class="view-section" style="display: none;">
+                <div class="top-header">
+                     <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
+                     <h1 style="font-size: 24px;">Marketplace</h1>
+                </div>
+                <div class="card" style="padding: 50px; text-align: center;">
+                    <h2>Get Funded Today!</h2>
+                    <p style="color: var(--muted);">Select a challenge package to get started.</p>
+                    <!-- Yahan aapke Challenges cards aayenge -->
                 </div>
             </div>
+
+            <!-- SECTION 4: AFFILIATE -->
+            <div id="view-affiliate" class="view-section" style="display: none;">
+                <div class="top-header">
+                    <div class="ticker" id="ticker-affiliate"></div>
+                    <div class="header-actions"><i class="fa-regular fa-bell"></i></div>
+                </div>
+
+                <div class="grid-4">
+                    <div class="card"><h3>Total Referrals</h3><div class="value">45</div><p style="color: var(--muted);">All-time referred users</p></div>
+                    <div class="card"><h3>Active Traders</h3><div class="value">12</div><p style="color: var(--muted);">Currently active traders</p></div>
+                    <div class="card"><h3>Total Commission Earned</h3><div class="value" style="color: var(--primary);">$2,500</div><p style="color: var(--muted);">All-time earnings</p></div>
+                    <div class="card"><h3>Pending Payouts</h3><div class="value" style="color: var(--danger);">$350</div><p style="color: var(--muted);">Awaiting approval</p></div>
+                </div>
+
+                <div class="card" style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3>Your Affiliate Code</h3>
+                        <h1 style="color: var(--primary); letter-spacing: 2px; font-size: 32px;" id="aff-code">FUNDXT-CHIRANJEET</h1>
+                        <p style="color: var(--muted);">Share your code and earn up to 20% commission on every purchase made by your referrals.</p>
+                    </div>
+                    <button class="btn" style="width: auto; padding: 12px 24px;" onclick="navigator.clipboard.writeText(document.getElementById('aff-code').innerText)"><i class="fa-regular fa-copy"></i> Copy Code</button>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Marketing Tools</h3>
+                        <div style="display: flex; gap: 15px; margin-top: 20px;">
+                            <div class="card"><i class="fa-solid fa-image" style="font-size: 30px; color: var(--primary);"></i><h4>Banners</h4></div>
+                            <div class="card"><i class="fa-solid fa-message" style="font-size: 30px; color: var(--primary);"></i><h4>Text</h4></div>
+                            <div class="card"><i class="fa-brands fa-whatsapp" style="font-size: 30px; color: var(--primary);"></i><h4>Share</h4></div>
+                        </div>
+                    </div>
+                    <div class="card">
+                        <h3>Commission History</h3>
+                        <div class="table-container">
+                            <table><thead><tr><th>Date</th><th>Referred User</th><th>Status</th><th>Amount</th></tr></thead><tbody id="commission-body"></tbody></table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SECTION 5: SETTINGS -->
+            <div id="view-settings" class="view-section" style="display: none;">
+                <div class="top-header">
+                    <i class="fa-solid fa-arrow-left" style="cursor: pointer; font-size: 20px;" onclick="showSection('dashboard')"></i>
+                    <h1 style="font-size: 24px;">Settings</h1>
+                    <div class="header-actions"><i class="fa-regular fa-bell"></i><i class="fa-solid fa-gear"></i></div>
+                </div>
+
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Profile Information</h3>
+                        <p style="color: var(--muted); font-size: 13px; margin-bottom: 20px;">Manage your personal information and account details</p>
+                        
+                        <label>Legal Name</label>
+                        <input type="text" id="set-name" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
+                        
+                        <label>Email Address</label>
+                        <input type="email" id="set-email" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
+                        
+                        <label>Phone Number</label>
+                        <input type="text" id="set-phone" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
+                        
+                        <label>Address</label>
+                        <textarea id="set-address" rows="3" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 20px;"></textarea>
+
+                        <button class="btn" onclick="updateProfile()"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
+                    </div>
+
+                    <div class="card">
+                        <h3>Profile Summary</h3>
+                        <div style="text-align: center; margin-top: 20px;">
+                            <i class="fa-solid fa-user-circle" style="font-size: 80px; color: var(--primary);"></i>
+                            <h2 id="sum-name">User</h2>
+                            <p style="color: var(--muted);">Member since May 2025</p>
+                            <span class="kyc-badge">Pro Trader</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
         </main>
     </div>
-
     <script src="dashboard.js"></script>
 </body>
 </html>
