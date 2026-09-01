@@ -63,7 +63,7 @@ async function sendOTPEmail(to, otp, type = 'verification') {
     });
 }
 
-// ========== REGISTER (Ab user PEHLE insert NAHI hoga, sirf OTP bhejega) ==========
+// ========== REGISTER (Email fail hone par bhi popup aayega) ==========
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address } = req.body;
     try {
@@ -73,19 +73,21 @@ app.post('/api/register', async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         
-        // OTP ko table mein save karo
+        // 1. OTP database mein save karo
         await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
 
-        // Email bhejne ki koshish karo
+        // 2. Email bhejne ki koshish karo, lekin fail hone par bhi popup block mat karo!
         try {
             await sendOTPEmail(email, otp, 'verification');
-            // Abhi yahan pe Token ya User insert mat karo!
-            res.json({ success: true, message: 'OTP sent to your email' }); 
         } catch (emailError) {
-            // Agar email fail ho gayi, toh OTP delete karo
-            await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
-            return res.status(500).json({ error: 'Email bhejne mein error! Gmail App Password check karo.' });
+            console.error("❌ Email send failed:", emailError.message);
+            // Render ke Logs mein OTP print ho jayegi
+            console.log(`>>> TEST OTP for ${email} is: ${otp}`);
         }
+
+        // 3. Hamesha success return karo taaki frontend popup dikha sake
+        res.json({ success: true, message: 'OTP generated' });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
