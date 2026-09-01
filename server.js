@@ -34,7 +34,7 @@ const db = mysql.createPool({
 
 // ========== EMAIL TRANSPORTER ==========
 const transporter = nodemailer.createTransport({
-    host: 'smtp.resend.com',   // Gmail nahi, Resend use karo
+    host: 'smtp.resend.com',   // <--- YE CHANGE KARO (Gmail nahi)
     port: 465,
     secure: true,
     connectionTimeout: 10000,
@@ -42,9 +42,10 @@ const transporter = nodemailer.createTransport({
     socketTimeout: 10000,
     auth: {
         user: process.env.EMAIL_USER,  // Render se 'resend' aayega
-        pass: process.env.EMAIL_PASS   // Render se API Key aayegi
+        pass: process.env.EMAIL_PASS   // Render se Resend API Key aayegi
     }
 });
+
 
 async function sendOTPEmail(to, otp, type = 'verification') {
     const subject = type === 'verification' ? 'Verify Your Email' : 'Reset Password';
