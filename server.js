@@ -59,17 +59,31 @@ async function sendOTPEmail(to, otp, type = 'verification') {
     });
 }
 
-// ========== REGISTER ==========
+// ========== DATABASE (Updated with SSL for Aiven) ==========
+const db = mysql.createPool({
+    host: process.env.DB_HOST,
+    user: process.env.DB_USER,
+    password: process.env.DB_PASSWORD,
+    database: process.env.DB_NAME,
+    waitForConnections: true,
+    connectionLimit: 10,
+    ssl: {
+        rejectUnauthorized: false
+    }
+});
+
+// ========== REGISTER (Updated to save legal_name and address) ==========
 app.post('/api/register', async (req, res) => {
-    const { trader_id, email, phone, password } = req.body;
+    const { trader_id, email, phone, password, legal_name, address } = req.body;
     try {
         const [existing] = await db.execute('SELECT * FROM users WHERE trader_id = ? OR email = ?', [trader_id, email]);
         if (existing.length) return res.status(400).json({ error: 'User already exists' });
 
         const hashed = await bcrypt.hash(password, 10);
+        // NOTE: Make sure your `users` table has columns `legal_name` and `address`. Agar nahi hain, toh database mein add karein!
         const [result] = await db.execute(
-            'INSERT INTO users (trader_id, email, phone, password_hash) VALUES (?, ?, ?, ?)',
-            [trader_id, email, phone, hashed]
+            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address) VALUES (?, ?, ?, ?, ?, ?)',
+            [trader_id, email, phone, hashed, legal_name, address]
         );
 
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
