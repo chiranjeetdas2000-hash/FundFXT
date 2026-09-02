@@ -152,7 +152,117 @@
                         </table>
                     </div>
                 </section>
+<!-- SECTION 3: MARKETPLACE -->
+<div id="view-marketplace" class="view-section" style="display: none;">
+    <div class="top-header">
+        <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
+        <h1 style="font-size: 24px;">Marketplace</h1>
+    </div>
+    <div style="text-align: center; margin-bottom: 30px;">
+        <h2>Get Funded Today!</h2>
+        <p style="color: var(--muted);">Select a challenge package to get started.</p>
+    </div>
+    
+    <div class="marketplace-grid">
+        <!-- Direct Funded 5K Package -->
+        <div class="package-card">
+            <div class="badge">Best Value</div>
+            <h2>Direct Funded 5K</h2>
+            <div class="price">$10</div>
+            <ul>
+                <li><i class="fa-solid fa-check"></i> Trade Immediately</li>
+                <li><i class="fa-solid fa-check"></i> No Phases Required</li>
+                <li><i class="fa-solid fa-check"></i> Instant Funding</li>
+                <li><i class="fa-solid fa-check"></i> 90% Profit Split</li>
+            </ul>
+            <button class="btn" onclick="selectPackage('Direct Funded 5K', 10)">Buy Challenge</button>
+        </div>
 
+        <!-- Two Step Challenge 5K Package -->
+        <div class="package-card">
+            <div class="badge">Popular</div>
+            <h2>Two Step Challenge 5K</h2>
+            <div class="price">$29</div>
+            <ul>
+                <li><i class="fa-solid fa-check"></i> Phase 1 & Phase 2</li>
+                <li><i class="fa-solid fa-check"></i> Profit Target 8%</li>
+                <li><i class="fa-solid fa-check"></i> Max Drawdown 10%</li>
+                <li><i class="fa-solid fa-check"></i> 80% Profit Split</li>
+            </ul>
+            <button class="btn" onclick="selectPackage('Two Step Challenge 5K', 29)">Buy Challenge</button>
+        </div>
+    </div>
+</div>
+
+<!-- SECTION 5.5: CHECKOUT (Naya Section) -->
+<div id="view-checkout" class="view-section" style="display: none;">
+    <div class="top-header">
+        <i class="fa-solid fa-arrow-left" style="cursor: pointer; font-size: 20px;" onclick="showSection('marketplace')"></i>
+        <h1 style="font-size: 24px;">Checkout</h1>
+    </div>
+
+    <div class="checkout-layout">
+        <!-- Left: User Details Form -->
+        <div class="card checkout-form">
+            <h3 style="margin-bottom: 20px;">Account Details</h3>
+            
+            <div class="input-group">
+                <label>Enter your registered Email</label>
+                <input type="email" id="checkout-email" placeholder="user@example.com">
+                <button class="btn" style="margin-top: 10px;" onclick="fetchCheckoutDetails()">Fetch Details</button>
+            </div>
+
+            <div class="input-group">
+                <label>Legal Name</label>
+                <input type="text" id="checkout-name" placeholder="Your Name" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Phone Number (Masked)</label>
+                <input type="text" id="checkout-phone" placeholder="98****03" readonly>
+            </div>
+
+            <div class="input-group">
+                <label>Address (Masked)</label>
+                <input type="text" id="checkout-address" placeholder="Mall Road... 201014" readonly>
+            </div>
+        </div>
+
+        <!-- Right: Order Summary & Payment -->
+        <div class="card">
+            <h3 style="margin-bottom: 20px;">Order Summary</h3>
+            <div id="checkout-package-name" style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">Package: None Selected</div>
+
+            <div class="input-group">
+                <label>Affiliate Code (Optional)</label>
+                <input type="text" id="affiliate-code" placeholder="AB12@CD34#">
+                <button class="btn" style="margin-top: 10px; background: var(--primary);" onclick="verifyAffiliateCode()">Verify Code</button>
+                <p id="affiliate-msg" style="font-size: 12px; margin-top: 5px;"></p>
+            </div>
+
+            <div class="payment-summary">
+                <div class="summary-row">
+                    <span>Original Price</span>
+                    <span id="base-price">$0</span>
+                </div>
+                <div class="summary-row discount-row">
+                    <span>Affiliate Discount</span>
+                    <span id="discount-amount">-$0</span>
+                </div>
+                <div class="summary-row total">
+                    <span>Total Amount</span>
+                    <span id="final-price">$0</span>
+                </div>
+            </div>
+
+            <p id="commission-note" style="font-size: 12px; color: var(--muted); margin-top: 10px;"></p>
+
+            <button class="btn" style="margin-top: 20px;" onclick="makePayment()">
+                <i class="fa-solid fa-lock"></i> Make Payment via Razorpay
+            </button>
+        </div>
+    </div>
+</div>
                 <!-- ============================================================ -->
                 <!-- SECTION: AFFILIATE -->
                 <!-- ============================================================ -->
