@@ -4,13 +4,13 @@ const mysql = require('mysql2/promise');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const crypto = require('crypto');
 require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ========== DATABASE (Fixed SSL & Port) ==========
 const db = mysql.createPool({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
@@ -31,61 +31,43 @@ const db = mysql.createPool({
     }
 })();
 
-// ========== EMAIL VIA RESEND API (SIRF FORGOT PASSWORD KE LIYE) ==========
 async function sendOTPEmail(userEmail, otp) {
-    const ADMIN_EMAIL = 'support.fundfxt@gmail.com'; 
+    const ADMIN_EMAIL = 'support.fundfxt@gmail.com';
     const subject = `Password Reset OTP for ${userEmail}`;
-    const html = `
-        <div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
+    const html = `<div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
             <h2 style="color: #00b56a;">FundFXT Support</h2>
             <p>Please use this OTP to verify your identity and complete the password reset process</p>
             <p><strong>User Email:</strong> ${userEmail}</p>
             <p><strong>OTP:</strong> ${otp}</p>
-        </div>
-    `;
+        </div>`;
 
-    const API_KEY = process.env.EMAIL_PASS; 
-    const FROM_EMAIL = "FundFXT <onboarding@resend.dev>"; 
+    const API_KEY = process.env.EMAIL_PASS;
+    const FROM_EMAIL = "FundFXT <onboarding@resend.dev>";
 
     const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-            from: FROM_EMAIL,
-            to: [ADMIN_EMAIL],
-            subject: subject,
-            html: html
-        })
+        headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: FROM_EMAIL, to: [ADMIN_EMAIL], subject: subject, html: html })
     });
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Resend API Error');
-    }
+    if (!response.ok) throw new Error('Resend API Error');
 }
 
-// ========== NEW: GENERATE UNIQUE AFFILIATE CODE (3 Capital, 2 Small, 3 Numbers, 1 @, 1 #) ==========
 function generateAffiliateCode() {
     const upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
     const lowerChars = 'abcdefghijklmnopqrstuvwxyz';
     const numChars = '0123456789';
     const symbols = ['@', '#'];
-
     let chars = [];
     for (let i = 0; i < 3; i++) chars.push(upperChars[Math.floor(Math.random() * upperChars.length)]);
     for (let i = 0; i < 2; i++) chars.push(lowerChars[Math.floor(Math.random() * lowerChars.length)]);
     for (let i = 0; i < 3; i++) chars.push(numChars[Math.floor(Math.random() * numChars.length)]);
     chars.push('@');
     chars.push('#');
-
     for (let i = chars.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];
     }
-
     return chars.join('');
 }
 
@@ -99,7 +81,7 @@ async function getUniqueAffiliateCode() {
     return code;
 }
 
-// ========== DIRECT REGISTRATION (NO OTP) ==========
+// ========== REGISTER ==========
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address } = req.body;
     try {
@@ -114,31 +96,6 @@ app.post('/api/register', async (req, res) => {
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
-        const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ error: error.message });
-    }
-});
-
-// ========== VERIFY EMAIL (NOT USED IN REGISTRATION NOW, BUT KEEPING FOR BACKWARD COMPAT) ==========
-app.post('/api/verify-email', async (req, res) => {
-    const { email, otp, trader_id, phone, password, legal_name, address } = req.body;
-    try {
-        const [rows] = await db.execute('SELECT * FROM email_verifications WHERE email = ? AND otp = ? AND expires_at > NOW()', [email, otp]);
-        if (!rows.length) return res.status(400).json({ error: 'Invalid or expired OTP' });
-
-        const hashed = await bcrypt.hash(password, 10);
-        const newAffiliateCode = await getUniqueAffiliateCode();
-
-        const [result] = await db.execute(
-            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, affiliate_code) VALUES (?, ?, ?, ?, ?, ?, ?)',
-            [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
-        );
-
-        await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
-        
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
     } catch (error) {
@@ -163,7 +120,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ========== FORGOT PASSWORD (AB OTP ADMIN KO JAYEGI) ==========
+// ========== FORGOT PASSWORD ==========
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
@@ -172,9 +129,7 @@ app.post('/api/forgot-password', async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
-        
         sendOTPEmail(email, otp).catch(err => console.log("Email failed:", err.message));
-        
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -198,7 +153,6 @@ app.post('/api/reset-password', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== AUTH MIDDLEWARE & ACCOUNTS ==========
 function authenticateToken(req, res, next) {
     const token = req.headers['authorization']?.split(' ')[1];
     if (!token) return res.status(401).json({ error: 'No token' });
@@ -209,62 +163,36 @@ function authenticateToken(req, res, next) {
     });
 }
 
-app.get('/api/accounts', authenticateToken, async (req, res) => {
+// ========== USER PROFILE (With Dynamic Affiliate Code) ==========
+app.get('/api/user/profile', authenticateToken, async (req, res) => {
     try {
-        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
-        res.json({ accounts });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// ========== WEBSOCKET SERVER ==========
-const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
-
-const wss = new WebSocket.Server({ server, path: '/ws' });
-const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD',
-                 'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'GBPJPY', 'GBPCHF', 'GBPCAD',
-                 'AUDJPY', 'AUDCAD', 'AUDCHF', 'CADJPY', 'CHFJPY', 'NZDJPY', 'NZDCAD', 'NZDCHF',
-                 'XAUUSD', 'XAGUSD'];
-const baseRates = {
-    EURUSD: 1.1234, GBPUSD: 1.3120, USDJPY: 148.50, USDCHF: 0.9140,
-    AUDUSD: 0.6540, USDCAD: 1.3670, NZDUSD: 0.5970, EURGBP: 0.8560,
-    EURJPY: 166.80, EURCHF: 1.0270, EURCAD: 1.5360, GBPJPY: 194.50,
-    GBPCHF: 1.2000, GBPCAD: 1.7940, AUDJPY: 97.00, AUDCAD: 0.8940,
-    AUDCHF: 0.5970, CADJPY: 108.70, CHFJPY: 162.50, NZDJPY: 88.70,
-    NZDCAD: 0.8160, NZDCHF: 0.5460, XAUUSD: 2035.00, XAGUSD: 23.50
-};
-let prices = {};
-for (let sym of symbols) {
-    const base = baseRates[sym] || 1.0;
-    prices[sym] = { bid: base - 0.0001, ask: base + 0.0001, change: 0, changePercent: 0 };
-}
-setInterval(() => {
-    for (let sym of symbols) {
-        const spread = sym === 'XAUUSD' ? 0.5 : (sym === 'XAGUSD' ? 0.03 : 0.0002);
-        const move = (Math.random() - 0.5) * spread * 0.1;
-        const mid = (prices[sym].bid + prices[sym].ask) / 2;
-        const newMid = mid + move;
-        prices[sym].bid = newMid - spread / 2;
-        prices[sym].ask = newMid + spread / 2;
-        prices[sym].change = move;
-        prices[sym].changePercent = (move / newMid) * 100;
+        const [rows] = await db.execute(
+            `SELECT id, trader_id, legal_name, email, phone, address,
+                    COALESCE(kyc_status, 'Pending') AS kyc_status,
+                    affiliate_code
+             FROM users WHERE id = ? LIMIT 1`,
+            [req.userId]
+        );
+        if (!rows.length) return res.status(404).json({ error: 'User not found' });
+        const user = rows[0];
+        res.json({
+            legal_name: user.legal_name,
+            email: user.email,
+            phone: user.phone,
+            address: user.address,
+            kyc_status: user.kyc_status,
+            affiliate_code: user.affiliate_code || null
+        });
+    } catch (error) {
+        console.error('Profile DB Error:', error.message);
+        res.status(500).json({ error: 'Column missing in database. Please run ALTER TABLE.' });
     }
-    const msg = JSON.stringify({ type: 'price', data: prices });
-    wss.clients.forEach(client => {
-        if (client.readyState === WebSocket.OPEN) client.send(msg);
-    });
-}, 1000);
-
-wss.on('connection', (client) => {
-    console.log('Frontend WebSocket connected');
-    client.send(JSON.stringify({ type: 'price', data: prices }));
 });
 
-// ========== GET USER BY EMAIL (For Buy Challenge Page) ==========
+// ========== GET USER BY EMAIL (PUBLIC FOR BUY CHALLENGE) ==========
 app.get('/api/get-user-by-email', async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
-
     try {
         const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE email = ?', [email]);
         if (rows.length > 0) {
@@ -279,129 +207,24 @@ app.get('/api/get-user-by-email', async (req, res) => {
     }
 });
 
-// ========== USER PROFILE ==========
-app.get('/api/user/profile', authenticateToken, async (req, res) => {
+// ========== ACCOUNTS ==========
+app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await db.execute(
-            `SELECT id, trader_id, legal_name, email, phone, address,
-                    COALESCE(kyc_status, 'Pending') AS kyc_status,
-                    affiliate_code
-             FROM users WHERE id = ? LIMIT 1`,
-            [req.userId]
-        );
-
-        if (!rows.length) return res.status(404).json({ error: 'User not found' });
-
-        const user = rows[0];
-        res.json({
-            legal_name: user.legal_name,
-            email: user.email,
-            phone: user.phone,
-            address: user.address,
-            kyc_status: user.kyc_status,
-            affiliate_code: user.affiliate_code || null
-        });
-    } catch (error) {
-        try {
-            const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE id = ? LIMIT 1', [req.userId]);
-            if (!rows.length) return res.status(404).json({ error: 'User not found' });
-            res.json({
-                legal_name: rows[0].legal_name,
-                email: rows[0].email,
-                phone: rows[0].phone,
-                address: rows[0].address,
-                kyc_status: 'Pending',
-                affiliate_code: null
-            });
-        } catch (fallbackError) {
-            console.error('Profile error:', fallbackError.message);
-            res.status(500).json({ error: 'Unable to load profile' });
-        }
-    }
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
+        res.json({ accounts });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== UPDATE PROFILE ==========
-app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
-    const { legal_name, phone } = req.body;
-    if (!legal_name || !String(legal_name).trim()) {
-        return res.status(400).json({ error: 'Name is required' });
-    }
-    try {
-        await db.execute('UPDATE users SET legal_name = ?, phone = ? WHERE id = ?', [String(legal_name).trim(), phone ? String(phone).trim() : null, req.userId]);
-        res.json({ success: true, message: 'Profile updated successfully' });
-    } catch (error) {
-        console.error('Update profile error:', error.message);
-        res.status(500).json({ error: 'Unable to update profile' });
-    }
-});
-
-// ========== SECURE PAYMENT ENGINE ==========
-const crypto = require('crypto');
-
-// ===== NAYA PRICING LOGIC (Updated: $40 / 50% Discount) =====
+// ========== SECURE PAYMENT ENGINE (DYNAMIC AFFILIATE LOGIC) ==========
 const CHALLENGE_PRICES_CENTS = {
     direct: 1000,       // $10.00
     two_step: 4000      // $40.00
 };
 
-// Affiliate Code - 50% Discount logic:
-const AFFILIATE_DISCOUNTS_CENTS = {
-    'XN45DH@d#2': {
-        direct: 500,     // 50% of $10
-        two_step: 2000   // 50% of $40
-    }
-};
-
 const PAYMENT_CURRENCY = String(process.env.PAYMENT_CURRENCY || 'USD').toUpperCase();
 
-let razorpay = null;
-if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-    try {
-        const Razorpay = require('razorpay');
-        razorpay = new Razorpay({
-            key_id: process.env.RAZORPAY_KEY_ID,
-            key_secret: process.env.RAZORPAY_KEY_SECRET
-        });
-        console.log('✅ Razorpay configured');
-    } catch (err) {
-        console.error('❌ Razorpay package/config error:', err.message);
-    }
-} else {
-    console.warn('⚠️ Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
-}
-
-async function ensurePaymentOrdersTable() {
-    await db.query(`
-        CREATE TABLE IF NOT EXISTS payment_orders (
-            id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-            user_id BIGINT NOT NULL,
-            provider VARCHAR(30) NOT NULL DEFAULT 'razorpay',
-            provider_order_id VARCHAR(100) NOT NULL,
-            provider_payment_id VARCHAR(100) NULL,
-            model VARCHAR(50) NOT NULL,
-            affiliate_code VARCHAR(100) NULL,
-            original_amount_cents INT UNSIGNED NOT NULL,
-            discount_amount_cents INT UNSIGNED NOT NULL DEFAULT 0,
-            final_amount_cents INT UNSIGNED NOT NULL,
-            currency VARCHAR(10) NOT NULL DEFAULT 'USD',
-            status ENUM('created','paid','failed','cancelled') NOT NULL DEFAULT 'created',
-            account_code VARCHAR(100) NULL,
-            created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-            paid_at TIMESTAMP NULL,
-            PRIMARY KEY (id),
-            UNIQUE KEY uq_provider_order (provider_order_id),
-            UNIQUE KEY uq_provider_payment (provider_payment_id),
-            KEY idx_payment_user (user_id),
-            KEY idx_payment_status (status)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-    `);
-}
-
-ensurePaymentOrdersTable()
-    .then(() => console.log('✅ Payment orders table ready'))
-    .catch(err => console.error('❌ Payment table setup failed:', err.message));
-
-function calculateServerPrice(model, affiliateCode) {
+// Dynamic Affiliate Lookup & Pricing
+async function calculateServerPrice(model, affiliateCode) {
     const normalizedModel = String(model || '').trim().toLowerCase();
     const original = CHALLENGE_PRICES_CENTS[normalizedModel];
 
@@ -411,60 +234,104 @@ function calculateServerPrice(model, affiliateCode) {
         throw error;
     }
 
-    const code = String(affiliateCode || '').trim();
-    const modelDiscounts = AFFILIATE_DISCOUNTS_CENTS[code];
-    const discount = modelDiscounts?.[normalizedModel] || 0;
-    const finalAmount = Math.max(original - discount, 0);
+    let discountAmountCents = 0;
+    let affiliateUserId = null;
+    let affiliateApplied = false;
+
+    // 1. Check if affiliate code exists in the database
+    if (affiliateCode) {
+        const [affiliateRows] = await db.execute(
+            'SELECT id, user_id, affiliate_code FROM users WHERE affiliate_code = ? LIMIT 1',
+            [String(affiliateCode).trim()]
+        );
+
+        if (affiliateRows.length > 0) {
+            const affiliate = affiliateRows[0];
+            affiliateUserId = affiliate.user_id; // This is the owner!
+            
+            // 2. Apply 50% discount for ANY valid affiliate code
+            discountAmountCents = Math.floor(original * 0.5);
+            affiliateApplied = true;
+        }
+    }
+
+    const finalAmount = Math.max(original - discountAmountCents, 0);
 
     return {
         model: normalizedModel,
         originalAmountCents: original,
-        discountAmountCents: discount,
+        discountAmountCents: discountAmountCents,
         finalAmountCents: finalAmount,
         currency: PAYMENT_CURRENCY,
-        affiliateApplied: Boolean(discount)
+        affiliateApplied: affiliateApplied,
+        affiliate_user_id: affiliateUserId // Return the owner ID
     };
 }
 
-// Frontend can request the server's quote for display.
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    try {
+        const Razorpay = require('razorpay');
+        razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+        console.log('✅ Razorpay configured');
+    } catch (err) { console.error('❌ Razorpay error:', err.message); }
+} else {
+    console.warn('⚠️ Razorpay is not configured.');
+}
+
+async function ensurePaymentOrdersTable() {
+    await db.query(`CREATE TABLE IF NOT EXISTS payment_orders (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id BIGINT NOT NULL,
+        provider VARCHAR(30) NOT NULL DEFAULT 'razorpay',
+        provider_order_id VARCHAR(100) NOT NULL,
+        provider_payment_id VARCHAR(100) NULL,
+        model VARCHAR(50) NOT NULL,
+        affiliate_code VARCHAR(100) NULL,
+        original_amount_cents INT UNSIGNED NOT NULL,
+        discount_amount_cents INT UNSIGNED NOT NULL DEFAULT 0,
+        final_amount_cents INT UNSIGNED NOT NULL,
+        currency VARCHAR(10) NOT NULL DEFAULT 'USD',
+        status ENUM('created','paid','failed','cancelled') NOT NULL DEFAULT 'created',
+        account_code VARCHAR(100) NULL,
+        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        paid_at TIMESTAMP NULL,
+        PRIMARY KEY (id),
+        UNIQUE KEY uq_provider_order (provider_order_id),
+        UNIQUE KEY uq_provider_payment (provider_payment_id),
+        KEY idx_payment_user (user_id),
+        KEY idx_payment_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`);
+}
+
+ensurePaymentOrdersTable()
+    .then(() => console.log('✅ Payment orders table ready'))
+    .catch(err => console.error('❌ Payment table setup failed:', err.message));
+
+// ========== QUOTE ROUTE ==========
 app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     try {
-        const pricing = calculateServerPrice(req.body.model, req.body.affiliate_code);
+        const pricing = await calculateServerPrice(req.body.model, req.body.affiliate_code);
         res.json({ success: true, pricing });
     } catch (error) {
         res.status(error.statusCode || 500).json({ error: error.message || 'Unable to calculate price' });
     }
 });
 
-// Create Razorpay order using ONLY server-calculated pricing.
+// ========== CREATE ORDER ==========
 app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
-    if (!razorpay) {
-        return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
-    }
+    if (!razorpay) return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
     const model = String(req.body.model || '').trim().toLowerCase();
     const affiliateCode = String(req.body.affiliate_code || '').trim();
     try {
-        const pricing = calculateServerPrice(model, affiliateCode);
+        const pricing = await calculateServerPrice(model, affiliateCode);
         const [users] = await db.execute('SELECT id, email, legal_name FROM users WHERE id = ? LIMIT 1', [req.userId]);
         if (!users.length) return res.status(404).json({ error: 'User not found' });
         const receipt = `FXT_${req.userId}_${Date.now()}`.slice(0, 40);
-        const razorpayOrder = await razorpay.orders.create({
-            amount: pricing.finalAmountCents,
-            currency: pricing.currency,
-            receipt,
-            notes: {
-                user_id: String(req.userId),
-                model: pricing.model,
-                affiliate_code: affiliateCode || 'none'
-            }
-        });
-        await db.execute(
-            `INSERT INTO payment_orders
-             (user_id, provider, provider_order_id, model, affiliate_code,
-              original_amount_cents, discount_amount_cents, final_amount_cents, currency, status)
-             VALUES (?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, 'created')`,
-            [req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
-        );
+        const razorpayOrder = await razorpay.orders.create({ amount: pricing.finalAmountCents, currency: pricing.currency, receipt, notes: {
+            user_id: String(req.userId), model: pricing.model, affiliate_code: affiliateCode || 'none', affiliate_user_id: pricing.affiliate_user_id ? String(pricing.affiliate_user_id) : 'none'
+        }});
+        await db.execute(`INSERT INTO payment_orders (user_id, provider, provider_order_id, model, affiliate_code, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status) VALUES (?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, 'created')`, [req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]);
         res.json({ success: true, key_id: process.env.RAZORPAY_KEY_ID, order_id: razorpayOrder.id, amount: pricing.finalAmountCents, currency: pricing.currency, pricing });
     } catch (error) {
         console.error('Create order error:', error.message);
@@ -479,55 +346,55 @@ function verifyRazorpaySignature(orderId, paymentId, signature) {
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
-function generateAccountCode() {
-    return `ACC-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
-}
+function generateAccountCode() { return `ACC-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`; }
 
+// ========== VERIFY PAYMENT + ACTIVATE ACCOUNT + RECORD COMMISSION ==========
 app.post('/api/payments/verify', authenticateToken, async (req, res) => {
-    if (!razorpay) {
-        return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
-    }
+    if (!razorpay) return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return res.status(400).json({ error: 'Incomplete payment verification data' });
-    }
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) return res.status(400).json({ error: 'Incomplete payment verification data' });
+
     const connection = await db.getConnection();
     try {
         const [orderRows] = await connection.execute('SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1', [razorpay_order_id, req.userId]);
         if (!orderRows.length) return res.status(404).json({ error: 'Payment order not found' });
+
         const paymentOrder = orderRows[0];
-        if (paymentOrder.status === 'paid') {
-            return res.json({ success: true, already_verified: true, account_code: paymentOrder.account_code, order_id: paymentOrder.provider_order_id });
-        }
+        if (paymentOrder.status === 'paid') return res.json({ success: true, already_verified: true, account_code: paymentOrder.account_code, order_id: paymentOrder.provider_order_id });
+
         if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
             await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?', ['failed', paymentOrder.id, 'created']);
             return res.status(400).json({ error: 'Payment signature verification failed' });
         }
+
         const providerOrder = await razorpay.orders.fetch(razorpay_order_id);
         const providerPayment = await razorpay.payments.fetch(razorpay_payment_id);
-        if (String(providerOrder.id) !== String(paymentOrder.provider_order_id) || Number(providerOrder.amount) !== Number(paymentOrder.final_amount_cents) || String(providerOrder.currency).toUpperCase() !== String(paymentOrder.currency).toUpperCase()) {
+
+        // Verify amounts
+        if (String(providerOrder.id) !== String(paymentOrder.provider_order_id) || Number(providerOrder.amount) !== Number(paymentOrder.final_amount_cents)) {
             await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?', ['failed', paymentOrder.id, 'created']);
-            return res.status(400).json({ error: 'Payment amount or currency does not match the server order' });
+            return res.status(400).json({ error: 'Payment amount mismatch' });
         }
-        if (String(providerPayment.order_id) !== String(paymentOrder.provider_order_id) || Number(providerPayment.amount) !== Number(paymentOrder.final_amount_cents) || String(providerPayment.currency).toUpperCase() !== String(paymentOrder.currency).toUpperCase()) {
-            await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?', ['failed', paymentOrder.id, 'created']);
-            return res.status(400).json({ error: 'Payment provider amount verification failed' });
-        }
-        if (String(providerPayment.status) !== 'captured') {
-            return res.status(400).json({ error: `Payment is not captured. Current status: ${providerPayment.status}` });
-        }
-        await connection.beginTransaction();
-        const [lockedRows] = await connection.execute('SELECT * FROM payment_orders WHERE id = ? FOR UPDATE', [paymentOrder.id]);
-        const lockedPayment = lockedRows[0];
-        if (lockedPayment.status === 'paid') {
-            await connection.commit();
-            return res.json({ success: true, already_verified: true, account_code: lockedPayment.account_code, order_id: lockedPayment.provider_order_id });
-        }
+
+        // Create Account
         const accountCode = generateAccountCode();
         await connection.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [req.userId, accountCode]);
-        
-        // ✅ FIXED LINE (Double quotes use kiye hain)
+
+        // Update Payment Order
         await connection.execute("UPDATE payment_orders SET provider_payment_id = ?, status = 'paid', account_code = ?, paid_at = NOW() WHERE id = ?", [razorpay_payment_id, accountCode, paymentOrder.id]);
+
+        // ========== RECORD AFFILIATE COMMISSION (DYNAMIC) ==========
+        if (paymentOrder.affiliate_code) {
+            const [affiliateData] = await connection.execute('SELECT id, user_id FROM users WHERE affiliate_code = ? LIMIT 1', [paymentOrder.affiliate_code]);
+            if (affiliateData.length > 0) {
+                const affiliate = affiliateData[0];
+                // Commission Formula: (Customer Paid × 20%) + $1
+                const customerPaidCents = paymentOrder.final_amount_cents;
+                const commissionCents = Math.floor((customerPaidCents * 0.20) + 100);
+                await connection.execute(`INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount, status) VALUES (?, ?, ?, ?, ?, 'Pending')`, [affiliate.id, paymentOrder.id, req.userId, paymentOrder.model, (commissionCents / 100).toFixed(2)]);
+                await connection.execute(`UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings = pending_earnings + ? WHERE user_id = ?`, [(commissionCents / 100).toFixed(2), affiliate.user_id]);
+            }
+        }
 
         await connection.commit();
         res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
@@ -540,35 +407,19 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
     }
 });
 
-app.get('/api/payments', authenticateToken, async (req, res) => {
-    try {
-        const [payments] = await db.execute(
-            `SELECT
-                created_at AS date,
-                provider_order_id AS order_id,
-                final_amount_cents,
-                currency,
-                status,
-                account_code,
-                provider_payment_id
-             FROM payment_orders
-             WHERE user_id = ?
-             ORDER BY created_at DESC`,
-            [req.userId]
-        );
-        res.json({
-            payments: payments.map(p => ({
-                date: p.date,
-                order_id: p.order_id,
-                amount: Number(p.final_amount_cents) / 100,
-                currency: p.currency,
-                status: p.status,
-                account_code: p.account_code,
-                payment_id: p.provider_payment_id
-            }))
-        });
-    } catch (error) {
-        console.error('Payments error:', error.message);
-        res.status(500).json({ error: 'Unable to load payment history' });
-    }
-});
+// ========== WEBSOCKET SERVER ==========
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+
+const wss = new WebSocket.Server({ server, path: '/ws' });
+const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'USDCHF', 'AUDUSD', 'USDCAD', 'NZDUSD', 'EURGBP', 'EURJPY', 'EURCHF', 'EURCAD', 'GBPJPY', 'GBPCHF', 'GBPCAD', 'AUDJPY', 'AUDCAD', 'AUDCHF', 'CADJPY', 'CHFJPY', 'NZDJPY', 'NZDCAD', 'NZDCHF', 'XAUUSD', 'XAGUSD'];
+const baseRates = { EURUSD: 1.1234, GBPUSD: 1.3120, USDJPY: 148.50, USDCHF: 0.9140, AUDUSD: 0.6540, USDCAD: 1.3670, NZDUSD: 0.5970, EURGBP: 0.8560, EURJPY: 166.80, EURCHF: 1.0270, EURCAD: 1.5360, GBPJPY: 194.50, GBPCHF: 1.2000, GBPCAD: 1.7940, AUDJPY: 97.00, AUDCAD: 0.8940, AUDCHF: 0.5970, CADJPY: 108.70, CHFJPY: 162.50, NZDJPY: 88.70, NZDCAD: 0.8160, NZDCHF: 0.5460, XAUUSD: 2035.00, XAGUSD: 23.50 };
+let prices = {};
+for (let sym of symbols) { const base = baseRates[sym] || 1.0; prices[sym] = { bid: base - 0.0001, ask: base + 0.0001, change: 0, changePercent: 0 }; }
+setInterval(() => {
+    for (let sym of symbols) { const spread = sym === 'XAUUSD' ? 0.5 : (sym === 'XAGUSD' ? 0.03 : 0.0002); const move = (Math.random() - 0.5) * spread * 0.1; const mid = (prices[sym].bid + prices[sym].ask) / 2; const newMid = mid + move; prices[sym].bid = newMid - spread / 2; prices[sym].ask = newMid + spread / 2; prices[sym].change = move; prices[sym].changePercent = (move / newMid) * 100; }
+    const msg = JSON.stringify({ type: 'price', data: prices });
+    wss.clients.forEach(client => { if (client.readyState === WebSocket.OPEN) client.send(msg); });
+}, 1000);
+
+wss.on('connection', (client) => { console.log('Frontend WebSocket connected'); client.send(JSON.stringify({ type: 'price', data: prices })); });
