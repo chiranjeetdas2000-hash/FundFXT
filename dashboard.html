@@ -38,16 +38,15 @@
         <main class="main-content">
             
             <!-- SECTION 1: DASHBOARD (Home & My Accounts) -->
-            <div id="view-dashboard" class="view-section">
-                <div class="top-header">
-                    <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
-                    <div class="ticker" id="ticker"></div>
-                    <div class="header-actions">
-                        <i class="fa-regular fa-bell"></i>
-                        <i class="fa-solid fa-user-circle" style="font-size: 30px; color: var(--primary);"></i>
-                        <span id="header-name">Loading...</span>
-                    </div>
-                </div>
+           
+                                    <!-- Accounts Section (Dynamic) -->
+                     <h2 style="margin-bottom: 20px;">My Accounts</h2>
+                          <div id="accounts-container" class="grid-4"></div>
+
+                                 <!-- Buy First Challenge Button -->  <--- YAHAN ADD KARO
+                       <div id="buy-first-challenge" style="display: none; margin-top: 20px;">
+                             <button class="btn" onclick="window.location.href='/buy-challenge.html'"><i class="fa-solid fa-cart-shopping"></i> Buy First Challenge</button>
+                       </div>
 
                 <!-- User Profile Card (Dynamic) -->
                 <div class="profile-card card">
