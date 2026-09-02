@@ -114,12 +114,9 @@ app.post('/api/register', async (req, res) => {
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
-        // ❌ REMOVED: Dummy Account Create karne wali 2 lines yahan se hata di gayi hain.
-        // Ab account sirf tab banega jab payment verify hogi!
-
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
-    } catch (error) { // Fix added above
+    } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
     }
@@ -140,13 +137,11 @@ app.post('/api/verify-email', async (req, res) => {
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
-        // ❌ REMOVED: Yahan se bhi dummy account create karne wali line hata di gayi hai.
-
         await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
         
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
-    } catch (error) { // Fix added above
+    } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
     }
@@ -334,7 +329,7 @@ app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
     try {
         await db.execute('UPDATE users SET legal_name = ?, phone = ? WHERE id = ?', [String(legal_name).trim(), phone ? String(phone).trim() : null, req.userId]);
         res.json({ success: true, message: 'Profile updated successfully' });
-    } catch (error) { // Fix added above
+    } catch (error) {
         console.error('Update profile error:', error.message);
         res.status(500).json({ error: 'Unable to update profile' });
     }
@@ -359,15 +354,17 @@ app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
 // ========== SECURE PAYMENT ENGINE ==========
 const crypto = require('crypto');
 
+// ===== NAYA PRICING LOGIC (Updated: $40 / 50% Discount) =====
 const CHALLENGE_PRICES_CENTS = {
-    direct: 1000,
-    challenge: 2900
+    direct: 1000,       // $10.00
+    two_step: 4000      // $40.00
 };
 
+// Affiliate Code - 50% Discount logic:
 const AFFILIATE_DISCOUNTS_CENTS = {
     'XN45DH@d#2': {
-        direct: 500,
-        challenge: 900
+        direct: 500,     // 50% of $10
+        two_step: 2000   // 50% of $40
     }
 };
 
@@ -423,15 +420,18 @@ ensurePaymentOrdersTable()
 function calculateServerPrice(model, affiliateCode) {
     const normalizedModel = String(model || '').trim().toLowerCase();
     const original = CHALLENGE_PRICES_CENTS[normalizedModel];
+
     if (!original) {
         const error = new Error('Invalid challenge model');
         error.statusCode = 400;
         throw error;
     }
+
     const code = String(affiliateCode || '').trim();
     const modelDiscounts = AFFILIATE_DISCOUNTS_CENTS[code];
     const discount = modelDiscounts?.[normalizedModel] || 0;
     const finalAmount = Math.max(original - discount, 0);
+
     return {
         model: normalizedModel,
         originalAmountCents: original,
@@ -442,6 +442,7 @@ function calculateServerPrice(model, affiliateCode) {
     };
 }
 
+// Frontend can request the server's quote for display.
 app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     try {
         const pricing = calculateServerPrice(req.body.model, req.body.affiliate_code);
@@ -451,6 +452,7 @@ app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     }
 });
 
+// Create Razorpay order using ONLY server-calculated pricing.
 app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
     if (!razorpay) {
         return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
@@ -545,7 +547,7 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
 
         await connection.commit();
         res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
-    } catch (error) { // Fix added above
+    } catch (error) {
         try { await connection.rollback(); } catch (_) {}
         console.error('Verify payment error:', error.message);
         res.status(500).json({ error: 'Unable to verify payment' });
