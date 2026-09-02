@@ -158,8 +158,11 @@
                     customerVerified = true;
                     document.getElementById('invalidMsg').style.display = 'none';
                     document.getElementById('dispName').innerText = data.name;
-                    document.getElementById('dispEmail').innerText = data.email.replace(/^(..)(.*)(@.*)$/, '$1****$3');
-                    document.getElementById('dispPhone').innerText = data.phone.length > 4 ? data.phone.slice(0, 2) + '******' + data.phone.slice(-2) : '****';
+                    // Input email se hi mask karo, backend ke response pe depend mat karo
+               const maskedEmail = email.replace(/^(..)(.*)(@.*)$/, '$1****$3');
+                    document.getElementById('dispEmail').innerText = maskedEmail;
+                     document.getElementById('dispPhone').innerText = data.phone ? (data.phone.length > 4 ? data.phone.slice(0, 2) + '******' + data.phone.slice(-2) : '****') : '****';
+
                     document.getElementById('verifiedBox').style.display = 'block';
                     btn.style.display = 'none';
                     requestQuote();
