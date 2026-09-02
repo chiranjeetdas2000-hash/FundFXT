@@ -33,8 +33,7 @@ const db = mysql.createPool({
 
 // ========== EMAIL VIA RESEND API (SIRF FORGOT PASSWORD KE LIYE) ==========
 async function sendOTPEmail(userEmail, otp) {
-    const ADMIN_EMAIL = 'support.fundfxt@gmail.com';
-    
+    const ADMIN_EMAIL = 'support.fundfxt@gmail.com'; 
     const subject = `Password Reset OTP for ${userEmail}`;
     const html = `
         <div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
@@ -76,21 +75,12 @@ function generateAffiliateCode() {
     const symbols = ['@', '#'];
 
     let chars = [];
-    
-    // 3 Capital Letters
     for (let i = 0; i < 3; i++) chars.push(upperChars[Math.floor(Math.random() * upperChars.length)]);
-    
-    // 2 Small Letters
     for (let i = 0; i < 2; i++) chars.push(lowerChars[Math.floor(Math.random() * lowerChars.length)]);
-    
-    // 3 Numbers
     for (let i = 0; i < 3; i++) chars.push(numChars[Math.floor(Math.random() * numChars.length)]);
-    
-    // 1 @ and 1 #
     chars.push('@');
     chars.push('#');
 
-    // Shuffle (Fisher-Yates shuffle) to randomize positions
     for (let i = chars.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [chars[i], chars[j]] = [chars[j], chars[i]];
@@ -99,11 +89,9 @@ function generateAffiliateCode() {
     return chars.join('');
 }
 
-// Check & Generate Unique Code
 async function getUniqueAffiliateCode() {
     let code = generateAffiliateCode();
     let [existing] = await db.execute('SELECT id FROM users WHERE affiliate_code = ?', [code]);
-    // Jab tak unique nahi milta, loop chalta rahega
     while (existing.length > 0) {
         code = generateAffiliateCode();
         [existing] = await db.execute('SELECT id FROM users WHERE affiliate_code = ?', [code]);
@@ -119,8 +107,6 @@ app.post('/api/register', async (req, res) => {
         if (existing.length) return res.status(400).json({ error: 'User already exists' });
 
         const hashed = await bcrypt.hash(password, 10);
-        
-        // === NEW LINE ADDED ===
         const newAffiliateCode = await getUniqueAffiliateCode();
 
         const [result] = await db.execute(
@@ -128,11 +114,11 @@ app.post('/api/register', async (req, res) => {
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
-        const accountCode = 'ACC-' + Date.now();
-        await db.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [result.insertId, accountCode]);
+        // ❌ REMOVED: Dummy Account Create karne wali 2 lines yahan se hata di gayi hain.
+        // Ab account sirf tab banega jab payment verify hogi!
 
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, token, account_code: accountCode, affiliate_code: newAffiliateCode });
+        res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
@@ -154,13 +140,12 @@ app.post('/api/verify-email', async (req, res) => {
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
-        const accountCode = 'ACC-' + Date.now();
-        await db.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [result.insertId, accountCode]);
+        // ❌ REMOVED: Yahan se bhi dummy account create karne wali line hata di gayi hai.
 
         await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
         
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, token, account_code: accountCode, affiliate_code: newAffiliateCode });
+        res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
@@ -286,19 +271,10 @@ app.get('/api/get-user-by-email', async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     try {
-        const [rows] = await db.execute(
-            'SELECT legal_name, email, phone, address FROM users WHERE email = ?', 
-            [email]
-        );
-        
+        const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE email = ?', [email]);
         if (rows.length > 0) {
             const user = rows[0];
-            res.json({ 
-                exists: true, 
-                name: user.legal_name, 
-                phone: user.phone, 
-                address: user.address 
-            });
+            res.json({ exists: true, name: user.legal_name, phone: user.phone, address: user.address });
         } else {
             res.json({ exists: false });
         }
@@ -331,12 +307,8 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
             affiliate_code: user.affiliate_code || null
         });
     } catch (error) {
-        // Some older schemas may not have kyc_status/affiliate_code.
         try {
-            const [rows] = await db.execute(
-                'SELECT legal_name, email, phone, address FROM users WHERE id = ? LIMIT 1',
-                [req.userId]
-            );
+            const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE id = ? LIMIT 1', [req.userId]);
             if (!rows.length) return res.status(404).json({ error: 'User not found' });
             res.json({
                 legal_name: rows[0].legal_name,
@@ -356,16 +328,11 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 // ========== UPDATE PROFILE ==========
 app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
     const { legal_name, phone } = req.body;
-
     if (!legal_name || !String(legal_name).trim()) {
         return res.status(400).json({ error: 'Name is required' });
     }
-
     try {
-        await db.execute(
-            'UPDATE users SET legal_name = ?, phone = ? WHERE id = ?',
-            [String(legal_name).trim(), phone ? String(phone).trim() : null, req.userId]
-        );
+        await db.execute('UPDATE users SET legal_name = ?, phone = ? WHERE id = ?', [String(legal_name).trim(), phone ? String(phone).trim() : null, req.userId]);
         res.json({ success: true, message: 'Profile updated successfully' });
     } catch (error) {
         console.error('Update profile error:', error.message);
@@ -379,20 +346,10 @@ app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
     try {
-        const [rows] = await db.execute(
-            'SELECT legal_name, email, phone, address FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1',
-            [req.userId, email]
-        );
-
+        const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1', [req.userId, email]);
         if (!rows.length) return res.json({ exists: false });
-
         const user = rows[0];
-        res.json({
-            exists: true,
-            name: user.legal_name,
-            phone: user.phone,
-            address: user.address
-        });
+        res.json({ exists: true, name: user.legal_name, phone: user.phone, address: user.address });
     } catch (error) {
         console.error('User lookup error:', error.message);
         res.status(500).json({ error: 'Unable to fetch user details' });
@@ -403,14 +360,14 @@ app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
 const crypto = require('crypto');
 
 const CHALLENGE_PRICES_CENTS = {
-    direct: 1000,       // $10.00
-    challenge: 2900     // $29.00
+    direct: 1000,
+    challenge: 2900
 };
 
 const AFFILIATE_DISCOUNTS_CENTS = {
     'XN45DH@d#2': {
-        direct: 500,     // $5.00
-        challenge: 900   // $9.00
+        direct: 500,
+        challenge: 900
     }
 };
 
@@ -466,18 +423,15 @@ ensurePaymentOrdersTable()
 function calculateServerPrice(model, affiliateCode) {
     const normalizedModel = String(model || '').trim().toLowerCase();
     const original = CHALLENGE_PRICES_CENTS[normalizedModel];
-
     if (!original) {
         const error = new Error('Invalid challenge model');
         error.statusCode = 400;
         throw error;
     }
-
     const code = String(affiliateCode || '').trim();
     const modelDiscounts = AFFILIATE_DISCOUNTS_CENTS[code];
     const discount = modelDiscounts?.[normalizedModel] || 0;
     const finalAmount = Math.max(original - discount, 0);
-
     return {
         model: normalizedModel,
         originalAmountCents: original,
@@ -488,7 +442,6 @@ function calculateServerPrice(model, affiliateCode) {
     };
 }
 
-// Frontend can request the server's quote for display.
 app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     try {
         const pricing = calculateServerPrice(req.body.model, req.body.affiliate_code);
@@ -498,28 +451,17 @@ app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     }
 });
 
-// Create Razorpay order using ONLY server-calculated pricing.
 app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
     if (!razorpay) {
-        return res.status(503).json({
-            error: 'Payment gateway is not configured on the server'
-        });
+        return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
     }
-
     const model = String(req.body.model || '').trim().toLowerCase();
     const affiliateCode = String(req.body.affiliate_code || '').trim();
-
     try {
         const pricing = calculateServerPrice(model, affiliateCode);
-
-        const [users] = await db.execute(
-            'SELECT id, email, legal_name FROM users WHERE id = ? LIMIT 1',
-            [req.userId]
-        );
+        const [users] = await db.execute('SELECT id, email, legal_name FROM users WHERE id = ? LIMIT 1', [req.userId]);
         if (!users.length) return res.status(404).json({ error: 'User not found' });
-
         const receipt = `FXT_${req.userId}_${Date.now()}`.slice(0, 40);
-
         const razorpayOrder = await razorpay.orders.create({
             amount: pricing.finalAmountCents,
             currency: pricing.currency,
@@ -530,49 +472,24 @@ app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
                 affiliate_code: affiliateCode || 'none'
             }
         });
-
         await db.execute(
             `INSERT INTO payment_orders
              (user_id, provider, provider_order_id, model, affiliate_code,
               original_amount_cents, discount_amount_cents, final_amount_cents, currency, status)
              VALUES (?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, 'created')`,
-            [
-                req.userId,
-                razorpayOrder.id,
-                pricing.model,
-                affiliateCode || null,
-                pricing.originalAmountCents,
-                pricing.discountAmountCents,
-                pricing.finalAmountCents,
-                pricing.currency
-            ]
+            [req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
         );
-
-        res.json({
-            success: true,
-            key_id: process.env.RAZORPAY_KEY_ID,
-            order_id: razorpayOrder.id,
-            amount: pricing.finalAmountCents,
-            currency: pricing.currency,
-            pricing
-        });
+        res.json({ success: true, key_id: process.env.RAZORPAY_KEY_ID, order_id: razorpayOrder.id, amount: pricing.finalAmountCents, currency: pricing.currency, pricing });
     } catch (error) {
         console.error('Create order error:', error.message);
-        res.status(error.statusCode || 500).json({
-            error: error.message || 'Unable to create payment order'
-        });
+        res.status(error.statusCode || 500).json({ error: error.message || 'Unable to create payment order' });
     }
 });
 
 function verifyRazorpaySignature(orderId, paymentId, signature) {
-    const expected = crypto
-        .createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-        .update(`${orderId}|${paymentId}`)
-        .digest('hex');
-
+    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${orderId}|${paymentId}`).digest('hex');
     const a = Buffer.from(expected, 'utf8');
     const b = Buffer.from(String(signature || ''), 'utf8');
-
     return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
 
@@ -580,135 +497,51 @@ function generateAccountCode() {
     return `ACC-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`;
 }
 
-// Payment verification is the only place where a paid challenge is activated.
 app.post('/api/payments/verify', authenticateToken, async (req, res) => {
     if (!razorpay) {
         return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
     }
-
-    const {
-        razorpay_order_id,
-        razorpay_payment_id,
-        razorpay_signature
-    } = req.body;
-
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
         return res.status(400).json({ error: 'Incomplete payment verification data' });
     }
-
     const connection = await db.getConnection();
-
     try {
-        const [orderRows] = await connection.execute(
-            'SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1',
-            [razorpay_order_id, req.userId]
-        );
-
-        if (!orderRows.length) {
-            return res.status(404).json({ error: 'Payment order not found' });
-        }
-
+        const [orderRows] = await connection.execute('SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1', [razorpay_order_id, req.userId]);
+        if (!orderRows.length) return res.status(404).json({ error: 'Payment order not found' });
         const paymentOrder = orderRows[0];
-
         if (paymentOrder.status === 'paid') {
-            return res.json({
-                success: true,
-                already_verified: true,
-                account_code: paymentOrder.account_code,
-                order_id: paymentOrder.provider_order_id
-            });
+            return res.json({ success: true, already_verified: true, account_code: paymentOrder.account_code, order_id: paymentOrder.provider_order_id });
         }
-
-        if (!verifyRazorpaySignature(
-            razorpay_order_id,
-            razorpay_payment_id,
-            razorpay_signature
-        )) {
-            await connection.execute(
-                'UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?',
-                ['failed', paymentOrder.id, 'created']
-            );
+        if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
+            await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?', ['failed', paymentOrder.id, 'created']);
             return res.status(400).json({ error: 'Payment signature verification failed' });
         }
-
         const providerOrder = await razorpay.orders.fetch(razorpay_order_id);
         const providerPayment = await razorpay.payments.fetch(razorpay_payment_id);
-
-        if (
-            String(providerOrder.id) !== String(paymentOrder.provider_order_id) ||
-            Number(providerOrder.amount) !== Number(paymentOrder.final_amount_cents) ||
-            String(providerOrder.currency).toUpperCase() !== String(paymentOrder.currency).toUpperCase()
-        ) {
-            await connection.execute(
-                'UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?',
-                ['failed', paymentOrder.id, 'created']
-            );
-            return res.status(400).json({
-                error: 'Payment amount or currency does not match the server order'
-            });
+        if (String(providerOrder.id) !== String(paymentOrder.provider_order_id) || Number(providerOrder.amount) !== Number(paymentOrder.final_amount_cents) || String(providerOrder.currency).toUpperCase() !== String(paymentOrder.currency).toUpperCase()) {
+            await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?', ['failed', paymentOrder.id, 'created']);
+            return res.status(400).json({ error: 'Payment amount or currency does not match the server order' });
         }
-
-        if (
-            String(providerPayment.order_id) !== String(paymentOrder.provider_order_id) ||
-            Number(providerPayment.amount) !== Number(paymentOrder.final_amount_cents) ||
-            String(providerPayment.currency).toUpperCase() !== String(paymentOrder.currency).toUpperCase()
-        ) {
-            await connection.execute(
-                'UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?',
-                ['failed', paymentOrder.id, 'created']
-            );
-            return res.status(400).json({
-                error: 'Payment provider amount verification failed'
-            });
+        if (String(providerPayment.order_id) !== String(paymentOrder.provider_order_id) || Number(providerPayment.amount) !== Number(paymentOrder.final_amount_cents) || String(providerPayment.currency).toUpperCase() !== String(paymentOrder.currency).toUpperCase()) {
+            await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ? AND status = ?', ['failed', paymentOrder.id, 'created']);
+            return res.status(400).json({ error: 'Payment provider amount verification failed' });
         }
-
         if (String(providerPayment.status) !== 'captured') {
-            return res.status(400).json({
-                error: `Payment is not captured. Current status: ${providerPayment.status}`
-            });
+            return res.status(400).json({ error: `Payment is not captured. Current status: ${providerPayment.status}` });
         }
-
         await connection.beginTransaction();
-
-        const [lockedRows] = await connection.execute(
-            'SELECT * FROM payment_orders WHERE id = ? FOR UPDATE',
-            [paymentOrder.id]
-        );
+        const [lockedRows] = await connection.execute('SELECT * FROM payment_orders WHERE id = ? FOR UPDATE', [paymentOrder.id]);
         const lockedPayment = lockedRows[0];
-
         if (lockedPayment.status === 'paid') {
             await connection.commit();
-            return res.json({
-                success: true,
-                already_verified: true,
-                account_code: lockedPayment.account_code,
-                order_id: lockedPayment.provider_order_id
-            });
+            return res.json({ success: true, already_verified: true, account_code: lockedPayment.account_code, order_id: lockedPayment.provider_order_id });
         }
-
         const accountCode = generateAccountCode();
-
-        await connection.execute(
-            'INSERT INTO accounts (user_id, account_code) VALUES (?, ?)',
-            [req.userId, accountCode]
-        );
-
-        await connection.execute(
-            `UPDATE payment_orders
-             SET provider_payment_id = ?, status = 'paid', account_code = ?, paid_at = NOW()
-             WHERE id = ?`,
-            [razorpay_payment_id, accountCode, paymentOrder.id]
-        );
-
+        await connection.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [req.userId, accountCode]);
+        await connection.execute('UPDATE payment_orders SET provider_payment_id = ?, status = ''paid'', account_code = ?, paid_at = NOW() WHERE id = ?', [razorpay_payment_id, accountCode, paymentOrder.id]);
         await connection.commit();
-
-        res.json({
-            success: true,
-            message: 'Payment verified and challenge activated',
-            account_code: accountCode,
-            order_id: razorpay_order_id,
-            payment_id: razorpay_payment_id
-        });
+        res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
     } catch (error) {
         try { await connection.rollback(); } catch (_) {}
         console.error('Verify payment error:', error.message);
@@ -718,7 +551,6 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
     }
 });
 
-// Payment history for the logged-in user.
 app.get('/api/payments', authenticateToken, async (req, res) => {
     try {
         const [payments] = await db.execute(
@@ -735,7 +567,6 @@ app.get('/api/payments', authenticateToken, async (req, res) => {
              ORDER BY created_at DESC`,
             [req.userId]
         );
-
         res.json({
             payments: payments.map(p => ({
                 date: p.date,
