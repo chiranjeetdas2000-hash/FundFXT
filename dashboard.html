@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="dashboard.css">
+</head>
+<body>
+
+    <!-- TOP HEADER -->
+    <header class="top-header">
+        <div class="brand">Fund<span>FXT</span></div>
+        <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+        
+        <div class="header-right">
+            <i class="fa-regular fa-bell bell-icon" onclick="toggleNotifications()">
+                <span class="badge">2</span>
+            </i>
+            <div class="profile-drop" onclick="toggleUserDropdown()">
+                <i class="fa-solid fa-user-circle" style="font-size: 32px; color: var(--green);"></i>
+                <div class="user-info">
+                    <h4 id="header-user-name">Trader</h4>
+                    <p>Trader</p>
+                </div>
+                <div class="dropdown" id="userDropdown">
+                    <a href="#">Profile</a>
+                    <a href="#">Settings</a>
+                    <a href="#" onclick="handleLogout()" class="logout">Logout</a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="logo">Fund<span>FXT</span></div>
+
+        <div class="menu-label">MAIN</div>
+        <nav>
+            <a href="javascript:void(0)" onclick="showSection('home')" class="active"><i class="fa-solid fa-house"></i> Home</a>
+            <a href="javascript:void(0)" onclick="showSection('withdraw')"><i class="fa-solid fa-money-bill-transfer"></i> Withdraw</a>
+            <a href="buy-challenge.html"><i class="fa-solid fa-cart-shopping"></i> Buy Challenge</a>
+            <a href="javascript:void(0)" onclick="showSection('orders')"><i class="fa-solid fa-file-invoice"></i> Order History</a>
+            <a href="javascript:void(0)" onclick="showSection('certificates')"><i class="fa-solid fa-trophy"></i> Certificates</a>
+            <a href="javascript:void(0)" onclick="showSection('rules')"><i class="fa-solid fa-book"></i> Rules & FAQs</a>
+            <a href="javascript:void(0)" onclick="showSection('affiliate')"><i class="fa-solid fa-share-nodes"></i> Affiliate</a>
+        </nav>
+
+        <div class="menu-label">ACCOUNT</div>
+        <nav>
+            <a href="#" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+        </nav>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="main-content">
+
+        <!-- HOME SECTION -->
+        <div id="view-home" class="view-section active">
+            <!-- Profile & Welcome -->
+            <div class="profile-card">
+                <div>
+                    <h1>Welcome back, <span id="profile-name">Trader</span> 👋</h1>
+                    <p>Here's an overview of your trading accounts.</p>
+                    <br>
+                    <div class="profile-detail-grid">
+                        <div><strong>Email</strong> <span id="profile-email">trader@fundfxt.com</span></div>
+                        <div><strong>Phone</strong> <span id="profile-phone">+91 0000000000</span></div>
+                        <div><strong>Member Since</strong> <span id="profile-date">2026</span></div>
+                    </div>
+                </div>
+                <div class="profile-avatar"><i class="fa-solid fa-user-circle"></i></div>
+            </div>
+
+            <!-- Summary Cards -->
+            <h2 style="margin-bottom: 15px;">Account Summary</h2>
+            <div class="summary-grid">
+                <div class="summary-card"><h4>Total Accounts</h4><div class="value" id="total-accounts">0</div></div>
+                <div class="summary-card"><h4>Active Accounts</h4><div class="value green" id="active-accounts">0</div></div>
+                <div class="summary-card"><h4>Passed Accounts</h4><div class="value green" id="passed-accounts">0</div></div>
+                <div class="summary-card"><h4>Failed Accounts</h4><div class="value red" id="failed-accounts">0</div></div>
+                <div class="summary-card"><h4>Total Profit</h4><div class="value green" id="total-profit">$0.00</div></div>
+            </div>
+
+            <!-- Account Cards -->
+            <h2 style="margin-bottom: 15px;">My Trading Accounts</h2>
+            <div id="accounts-container" class="accounts-grid"></div>
+            <div id="empty-state" style="display:none;">
+                <div class="empty-state">
+                    You don't have any trading accounts yet. <br> Start your FundFXT journey today.
+                    <br><a href="buy-challenge.html" class="btn">Buy Challenge</a>
+                </div>
+            </div>
+
+            <!-- Recent Activity -->
+            <div class="activity-list">
+                <h2 style="margin-bottom: 15px;">Recent Activity</h2>
+                <div class="activity-item">
+                    <div class="activity-icon"><i class="fa-solid fa-bolt" style="color: var(--green);"></i></div>
+                    <div class="activity-text"><h5>Account ACC-123 activated</h5><p>Today</p></div>
+                </div>
+                <div class="activity-item">
+                    <div class="activity-icon"><i class="fa-solid fa-cart-shopping" style="color: var(--blue);"></i></div>
+                    <div class="activity-text"><h5>$5K Challenge purchased</h5><p>Yesterday</p></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- PLACEHOLDERS FOR OTHER SECTIONS (DESIGN READY, DATA PENDING) -->
+        <div id="view-withdraw" class="view-section">
+            <h1>Request Withdrawal</h1>
+            <p style="color: var(--text-muted); margin-bottom: 20px;">Select an account to check eligibility.</p>
+            <div class="empty-state">Withdrawal system is being connected. Please wait for backend setup.</div>
+        </div>
+
+        <div id="view-orders" class="view-section">
+            <h1>Order History</h1>
+            <div class="empty-state">No orders found. Buy a challenge to get started.</div>
+        </div>
+
+        <div id="view-certificates" class="view-section">
+            <h1>My Certificates</h1>
+            <div class="empty-state">No certificates yet.<br>Pass an eligible challenge to receive your first certificate.</div>
+        </div>
+
+        <div id="view-rules" class="view-section">
+            <h1>Rules & FAQs</h1>
+            <div class="empty-state">Please select a challenge to view its specific rules.</div>
+        </div>
+
+        <div id="view-affiliate" class="view-section">
+            <h1>Affiliate Program</h1>
+            <p>Share your code and earn commission!</p>
+            <p style="margin-top: 20px; color: var(--green); font-size: 24px; font-weight: 800;" id="aff-code">AFF-PENDING</p>
+        </div>
+
+    </main>
+
+    <script src="dashboard.js"></script>
+</body>
+</html>
