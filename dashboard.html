@@ -1,443 +1,176 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FundFXT | Trading Dashboard</title>
-    <!-- External CSS -->
-    <link rel="stylesheet" href="dashboard.css" />
-    <!-- Lightweight Charts library -->
-    <script src="https://unpkg.com/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js">
-    </script>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-    <div class="app-shell">
-        <!-- ===== SIDEBAR ===== -->
+    <div class="layout">
+        <!-- Sidebar -->
         <aside class="sidebar" id="sidebar">
-            <div class="brand">
-                <div class="brand-mark">F</div>
-                <span>Fund<span>FXT</span></span>
-            </div>
-
-            <nav class="nav-menu" id="navMenu">
-                <button class="nav-item active" data-page="dashboard"><i>⌂</i><span>Dashboard</span></button>
-                <button class="nav-item" data-page="accounts"><i>▣</i><span>My Accounts</span></button>
-                <button class="nav-item" data-page="affiliate"><i>♧</i><span>Affiliate</span></button>
-                <button class="nav-item" data-page="payout"><i>◈</i><span>Payout</span></button>
-                <button class="nav-item" data-page="settings"><i>⚙</i><span>Settings</span></button>
+            <div class="logo">FundFXT</div>
+            <nav>
+                <a href="javascript:void(0)" class="active" data-section="dashboard" onclick="showSection('dashboard')"><i class="fa-solid fa-house"></i> Dashboard</a>
+                <a href="javascript:void(0)" data-section="dashboard" onclick="showSection('dashboard')"><i class="fa-solid fa-wallet"></i> My Accounts</a>
+                <a href="buy-challenge.html"><i class="fa-solid fa-store"></i> Marketplace</a>
+                <a href="javascript:void(0)" data-section="affiliate" onclick="showSection('affiliate')"><i class="fa-solid fa-share-nodes"></i> Affiliate</a>
+                <a href="javascript:void(0)" data-section="payments" onclick="showSection('payments')"><i class="fa-solid fa-money-bill-transfer"></i> Payments</a>
+                <a href="javascript:void(0)" data-section="settings" onclick="showSection('settings')"><i class="fa-solid fa-gear"></i> Settings</a>
             </nav>
-
-            <div class="sidebar-bottom">
-                <div class="mini-profile">
-                    <div class="avatar">CD<span></span></div>
-                    <div><strong>Chiranjeet Das</strong><small>KYC Approved</small></div>
+            <div class="sidebar-footer">
+                <div class="user">
+                    <i class="fa-solid fa-user-circle"></i>
+                    <div>
+                        <h4 id="sb-name">Loading...</h4>
+                        <p>KYC: <span id="sb-kyc">Pending</span></p>
+                    </div>
                 </div>
-                <button class="logout">⇥ <a href="auth.html">Logout</a></button>
+                <button onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
             </div>
         </aside>
 
-        <!-- ===== MAIN ===== -->
-        <div class="main-area">
-            <!-- TOPBAR -->
-            <header class="topbar">
-                <button class="hamburger" id="hamburger" aria-label="Toggle menu">☰</button>
-                <div class="page-title">
-                    <h1 id="pageTitle">Account Dashboard</h1>
-                    <div class="account-chip" id="accountChip">ACC-123456 <span class="copy">⧉</span></div>
-                </div>
-                <div class="top-actions">
-                    <button class="icon-btn notification">♧<b>3</b></button>
-                    <div class="user-meta"><span class="online-dot"></span><strong>Chiranjeet</strong></div>
-                    <button class="trade-now">Trade Now <span>↗</span></button>
-                </div>
-            </header>
-
-            <main class="content">
-
-                <!-- ============================================================ -->
-                <!-- SECTION: DASHBOARD -->
-                <!-- ============================================================ -->
-                <section class="page-section active" id="section-dashboard">
-                    <div class="stats-grid" id="statsGrid"></div>
-
-                    <div class="dashboard-grid">
-                        <article class="panel chart-panel">
-                            <div class="panel-head">
-                                <div>
-                                    <h2>Equity Growth</h2>
-                                    <p>Selected account performance</p>
-                                </div>
-                                <select id="chartRange">
-                                    <option value="all">All Time</option>
-                                    <option value="30">30 Days</option>
-                                    <option value="7">7 Days</option>
-                                </select>
-                            </div>
-                            <div id="equityChart"></div>
-                        </article>
-
-                        <article class="panel account-panel">
-                            <div class="panel-head">
-                                <div>
-                                    <h2>My Accounts</h2>
-                                    <p>Select an account to view details</p>
-                                </div>
-                                <button class="ghost-btn" id="viewAllAccountsBtn">View All</button>
-                            </div>
-                            <div class="account-list" id="accountList"></div>
-                        </article>
+        <!-- Main Content -->
+        <main class="main-content">
+            
+            <!-- SECTION 1: DASHBOARD (Home & My Accounts) -->
+            <div id="view-dashboard" class="view-section">
+                <div class="top-header">
+                    <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
+                    <div class="ticker" id="ticker"></div>
+                    <div class="header-actions">
+                        <i class="fa-regular fa-bell"></i>
+                        <i class="fa-solid fa-user-circle" style="font-size: 30px; color: var(--primary);"></i>
+                        <span id="header-name">Loading...</span>
                     </div>
+                </div>
 
-                    <section class="panel trades-panel">
-                        <div class="panel-head trades-head">
-                            <div>
-                                <h2>Active Trades</h2>
-                                <p>Live positions for the selected account</p>
-                            </div>
-                            <div class="filters">
-                                <select id="symbolFilter">
-                                    <option value="all">All Symbols</option>
-                                    <option value="EURUSD">EURUSD</option>
-                                    <option value="XAUUSD">XAUUSD</option>
-                                    <option value="GBPUSD">GBPUSD</option>
-                                </select>
-                                <button class="ghost-btn" id="refreshBtn">↻ Refresh</button>
-                            </div>
-                        </div>
-                        <div class="table-wrap">
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>Symbol</th><th>Side</th><th>Lots</th><th>Entry Price</th>
-                                        <th>Current Price</th><th>P/L</th><th>Status</th><th>Actions</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tradesBody"></tbody>
-                            </table>
-                        </div>
-                    </section>
+                <!-- User Profile Card (Dynamic) -->
+                <div class="profile-card card">
+                    <div class="avatar"><i class="fa-solid fa-user-circle"></i></div>
+                    <div class="details"><span>Legal Name</span><strong id="p-name">Loading...</strong></div>
+                    <div class="details"><span>Email</span><strong id="p-email">Loading...</strong></div>
+                    <div class="details"><span>Phone</span><strong id="p-phone">Loading...</strong></div>
+                    <div class="details"><span>Status</span><strong>Active</strong> <span class="kyc-badge" id="p-kyc">Loading...</span></div>
+                </div>
 
-                    <section class="bottom-actions">
-                        <button class="action-card primary-action"><span class="action-icon">↗</span><span><strong>Open Trading Terminal</strong><small>Launch your trading platform</small></span><b>›</b></button>
-                        <button class="action-card"><span class="action-icon">◈</span><span><strong>Request Payout</strong><small>Payout eligibility is checked automatically</small></span><b>›</b></button>
-                        <button class="action-card"><span class="action-icon">☷</span><span><strong>View Challenge Rules</strong><small>Review objectives and account rules</small></span><b>›</b></button>
-                    </section>
-                </section>
+                <!-- Accounts Section (Dynamic) -->
+                <h2 style="margin-bottom: 20px;">My Accounts</h2>
+                <div id="accounts-container" class="grid-4"></div>
 
-                <!-- ============================================================ -->
-                <!-- SECTION: MY ACCOUNTS -->
-                <!-- ============================================================ -->
-                <section class="page-section" id="section-accounts">
-                    <div class="section-header">
-                        <h2>My Accounts</h2>
-                        <p>View and manage all your trading accounts</p>
+                <!-- Buy First Challenge Button -->
+                <div id="buy-first-challenge" style="display: none; margin-top: 20px;">
+                    <button class="btn" onclick="window.location.href='/buy-challenge.html'"><i class="fa-solid fa-cart-shopping"></i> Buy First Challenge</button>
+                </div>
+            </div>
+
+            <!-- SECTION 2: AFFILIATE -->
+            <div id="view-affiliate" class="view-section" style="display: none;">
+                <div class="top-header">
+                    <div class="ticker" id="ticker-affiliate"></div>
+                    <div class="header-actions"><i class="fa-regular fa-bell"></i></div>
+                </div>
+
+                <div class="grid-4">
+                    <div class="card"><h3>Total Referrals</h3><div class="value">0</div><p style="color: var(--muted);">All-time referred users</p></div>
+                    <div class="card"><h3>Active Traders</h3><div class="value">0</div><p style="color: var(--muted);">Currently active traders</p></div>
+                    <div class="card"><h3>Total Commission Earned</h3><div class="value">$0</div><p style="color: var(--muted);">All-time earnings</p></div>
+                    <div class="card"><h3>Pending Payouts</h3><div class="value">$0</div><p style="color: var(--muted);">Awaiting approval</p></div>
+                </div>
+
+                <div class="card" style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h3>Your Affiliate Code</h3>
+                        <h1 style="color: var(--primary); letter-spacing: 2px; font-size: 32px;" id="aff-code">Loading...</h1>
+                        <p style="color: var(--muted);">Share your code and earn up to 20% commission on every purchase made by your referrals.</p>
                     </div>
-                    <div class="accounts-table-wrap">
+                    <button class="btn" style="width: auto; padding: 12px 24px;" onclick="navigator.clipboard.writeText(document.getElementById('aff-code').innerText)"><i class="fa-regular fa-copy"></i> Copy Code</button>
+                </div>
+            </div>
+
+            <!-- SECTION 3: PAYMENTS (Naya) -->
+            <div id="view-payments" class="view-section" style="display: none;">
+                <div class="top-header">
+                    <h1 style="font-size: 24px;">Payment History</h1>
+                </div>
+                <div class="card">
+                    <h3>All Transactions</h3>
+                    <div class="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Account ID</th>
-                                    <th>Type</th>
+                                    <th>Date</th>
+                                    <th>Order ID</th>
+                                    <th>Amount</th>
                                     <th>Status</th>
-                                    <th>Balance</th>
-                                    <th>Equity</th>
-                                    <th>Daily DD</th>
-                                    <th>Max DD</th>
-                                    <th>Trades Today</th>
-                                    <th>Consistency</th>
-                                    <th>Action</th>
+                                    <th>Receipt</th>
                                 </tr>
                             </thead>
-                            <tbody id="accountsTableBody"></tbody>
+                            <tbody id="payments-body">
+                                <!-- JS se data aayega -->
+                            </tbody>
                         </table>
                     </div>
-                </section>
-<!-- SECTION 3: MARKETPLACE -->
-<div id="view-marketplace" class="view-section" style="display: none;">
-    <div class="top-header">
-        <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
-        <h1 style="font-size: 24px;">Marketplace</h1>
-    </div>
-    <div style="text-align: center; margin-bottom: 30px;">
-        <h2>Get Funded Today!</h2>
-        <p style="color: var(--muted);">Select a challenge package to get started.</p>
-    </div>
-    
-    <div class="marketplace-grid">
-        <!-- Direct Funded 5K Package -->
-        <div class="package-card">
-            <div class="badge">Best Value</div>
-            <h2>Direct Funded 5K</h2>
-            <div class="price">$10</div>
-            <ul>
-                <li><i class="fa-solid fa-check"></i> Trade Immediately</li>
-                <li><i class="fa-solid fa-check"></i> No Phases Required</li>
-                <li><i class="fa-solid fa-check"></i> Instant Funding</li>
-                <li><i class="fa-solid fa-check"></i> 90% Profit Split</li>
-            </ul>
-            <button class="btn" onclick="selectPackage('Direct Funded 5K', 10)">Buy Challenge</button>
-        </div>
-
-        <!-- Two Step Challenge 5K Package -->
-        <div class="package-card">
-            <div class="badge">Popular</div>
-            <h2>Two Step Challenge 5K</h2>
-            <div class="price">$29</div>
-            <ul>
-                <li><i class="fa-solid fa-check"></i> Phase 1 & Phase 2</li>
-                <li><i class="fa-solid fa-check"></i> Profit Target 8%</li>
-                <li><i class="fa-solid fa-check"></i> Max Drawdown 10%</li>
-                <li><i class="fa-solid fa-check"></i> 80% Profit Split</li>
-            </ul>
-            <button class="btn" onclick="selectPackage('Two Step Challenge 5K', 29)">Buy Challenge</button>
-        </div>
-    </div>
-</div>
-
-<!-- SECTION 5.5: CHECKOUT (Naya Section) -->
-<div id="view-checkout" class="view-section" style="display: none;">
-    <div class="top-header">
-        <i class="fa-solid fa-arrow-left" style="cursor: pointer; font-size: 20px;" onclick="showSection('marketplace')"></i>
-        <h1 style="font-size: 24px;">Checkout</h1>
-    </div>
-
-    <div class="checkout-layout">
-        <!-- Left: User Details Form -->
-        <div class="card checkout-form">
-            <h3 style="margin-bottom: 20px;">Account Details</h3>
-            
-            <div class="input-group">
-                <label>Enter your registered Email</label>
-                <input type="email" id="checkout-email" placeholder="user@example.com">
-                <button class="btn" style="margin-top: 10px;" onclick="fetchCheckoutDetails()">Fetch Details</button>
-            </div>
-
-            <div class="input-group">
-                <label>Legal Name</label>
-                <input type="text" id="checkout-name" placeholder="Your Name" readonly>
-            </div>
-
-            <div class="input-group">
-                <label>Phone Number (Masked)</label>
-                <input type="text" id="checkout-phone" placeholder="98****03" readonly>
-            </div>
-
-            <div class="input-group">
-                <label>Address (Masked)</label>
-                <input type="text" id="checkout-address" placeholder="Mall Road... 201014" readonly>
-            </div>
-        </div>
-
-        <!-- Right: Order Summary & Payment -->
-        <div class="card">
-            <h3 style="margin-bottom: 20px;">Order Summary</h3>
-            <div id="checkout-package-name" style="font-size: 18px; font-weight: 600; margin-bottom: 20px;">Package: None Selected</div>
-
-            <div class="input-group">
-                <label>Affiliate Code (Optional)</label>
-                <input type="text" id="affiliate-code" placeholder="AB12@CD34#">
-                <button class="btn" style="margin-top: 10px; background: var(--primary);" onclick="verifyAffiliateCode()">Verify Code</button>
-                <p id="affiliate-msg" style="font-size: 12px; margin-top: 5px;"></p>
-            </div>
-
-            <div class="payment-summary">
-                <div class="summary-row">
-                    <span>Original Price</span>
-                    <span id="base-price">$0</span>
-                </div>
-                <div class="summary-row discount-row">
-                    <span>Affiliate Discount</span>
-                    <span id="discount-amount">-$0</span>
-                </div>
-                <div class="summary-row total">
-                    <span>Total Amount</span>
-                    <span id="final-price">$0</span>
+                    <div id="no-payments" style="text-align: center; padding: 30px; color: var(--muted); display: none;">
+                        No payments yet. <a href="buy-challenge.html" style="color: var(--primary);">Buy a Challenge now!</a>
+                    </div>
                 </div>
             </div>
 
-            <p id="commission-note" style="font-size: 12px; color: var(--muted); margin-top: 10px;"></p>
+            <!-- SECTION 4: SETTINGS (Screenshot wala design) -->
+            <div id="view-settings" class="view-section" style="display: none;">
+                <div class="top-header">
+                    <i class="fa-solid fa-arrow-left" style="cursor: pointer; font-size: 20px;" onclick="showSection('dashboard')"></i>
+                    <h1 style="font-size: 24px;">Settings</h1>
+                </div>
 
-            <button class="btn" style="margin-top: 20px;" onclick="makePayment()">
-                <i class="fa-solid fa-lock"></i> Make Payment via Razorpay
-            </button>
-        </div>
-    </div>
-</div>
-                <!-- ============================================================ -->
-                <!-- SECTION: AFFILIATE -->
-                <!-- ============================================================ -->
-                <section class="page-section" id="section-affiliate">
-                    <div class="section-header">
-                        <h2>Affiliate Program</h2>
-                        <p>Earn commissions by referring traders to FundFXT</p>
+                <div class="grid-2">
+                    <div class="card">
+                        <h3>Profile</h3>
+                        <p style="color: var(--muted); font-size: 13px; margin-bottom: 20px;">Manage your personal information.</p>
+                        
+                        <label>Full Name</label>
+                        <input type="text" id="set-name" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
+                        
+                        <label>Email</label>
+                        <input type="email" id="set-email" readonly style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); margin-bottom: 15px;">
+                        
+                        <label>Phone</label>
+                        <input type="text" id="set-phone" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
+
+                        <label>KYC Status</label>
+                        <input type="text" id="set-kyc" readonly style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: var(--primary); margin-bottom: 20px;">
+
+                        <button class="btn" onclick="updateProfile()"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
                     </div>
 
-                    <div class="affiliate-stats">
-                        <div class="affiliate-stat"><div class="label">Total Commission</div><div class="num green">$4,280.00</div></div>
-                        <div class="affiliate-stat"><div class="label">Pending</div><div class="num yellow">$1,150.00</div></div>
-                        <div class="affiliate-stat"><div class="label">Paid</div><div class="num green">$3,130.00</div></div>
-                        <div class="affiliate-stat"><div class="label">Referrals</div><div class="num">12</div></div>
-                    </div>
-
-                    <div class="referral-box">
-                        <span style="color:var(--muted);font-size:13px;">Your referral link</span>
-                        <code id="referralLink">https://fundfxt.vercel.app/ref/CHIRANJ123</code>
-                        <button class="ghost-btn green" id="copyReferralBtn">📋 Copy Link</button>
-                    </div>
-
-                    <div class="panel" style="padding:20px;">
-                        <div class="panel-head">
-                            <div><h2>Referral History</h2><p>Users who joined via your link</p></div>
+                    <div class="card">
+                        <h3>Preferences</h3>
+                        <p style="color: var(--muted); font-size: 13px; margin-bottom: 20px;">Manage your platform preferences.</p>
+                        
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                            <span>Dark Mode</span>
+                            <input type="checkbox" checked style="transform: scale(1.5); accent-color: var(--primary);">
                         </div>
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Referral</th><th>Date</th><th>Account</th><th>Commission</th><th>Status</th></tr></thead>
-                                <tbody>
-                                    <tr><td>rahul.k@email.com</td><td>Aug 12, 2026</td><td>Phase 1</td><td class="pl-positive">+$120.00</td><td><span class="badge">Paid</span></td></tr>
-                                    <tr><td>priya.s@email.com</td><td>Aug 10, 2026</td><td>Funded</td><td class="pl-positive">+$340.00</td><td><span class="badge warning">Pending</span></td></tr>
-                                    <tr><td>amit.j@email.com</td><td>Aug 5, 2026</td><td>Phase 2</td><td class="pl-positive">+$200.00</td><td><span class="badge">Paid</span></td></tr>
-                                    <tr><td>neha.g@email.com</td><td>Jul 28, 2026</td><td>Phase 1</td><td class="pl-positive">+$80.00</td><td><span class="badge">Paid</span></td></tr>
-                                </tbody>
-                            </table>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                            <span>Trade Alerts</span>
+                            <input type="checkbox" checked style="transform: scale(1.5); accent-color: var(--primary);">
+                        </div>
+                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
+                            <span>Email Notifications</span>
+                            <input type="checkbox" checked style="transform: scale(1.5); accent-color: var(--primary);">
                         </div>
                     </div>
-                </section>
+                </div>
+            </div>
 
-                <!-- ============================================================ -->
-                <!-- SECTION: PAYOUT -->
-                <!-- ============================================================ -->
-                <section class="page-section" id="section-payout">
-                    <div class="section-header">
-                        <h2>Payout</h2>
-                        <p>Request withdrawals and view payout history</p>
-                    </div>
-
-                    <div class="payout-grid">
-                        <div class="panel" style="padding:24px;">
-                            <h3 style="margin-bottom:18px;font-size:16px;">Request Payout</h3>
-                            <div class="payout-form">
-                                <div>
-                                    <label>Amount (USD)</label>
-                                    <input type="number" id="payoutAmount" value="500" min="50" step="10" />
-                                </div>
-                                <div>
-                                    <label>Withdrawal Method</label>
-                                    <select id="payoutMethod">
-                                        <option value="bank">Bank Transfer</option>
-                                        <option value="paypal">PayPal</option>
-                                        <option value="crypto">Cryptocurrency (USDC)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label>Account to withdraw from</label>
-                                    <select id="payoutAccount"></select>
-                                </div>
-                                <button class="ghost-btn green" id="requestPayoutBtn" style="padding:14px;font-weight:600;font-size:14px;">
-                                    ⚡ Request Payout
-                                </button>
-                            </div>
-                        </div>
-
-                        <div class="panel" style="padding:24px;">
-                            <h3 style="margin-bottom:18px;font-size:16px;">Payout Summary</h3>
-                            <div style="display:grid;gap:12px;">
-                                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
-                                    <span style="color:var(--muted);">Available Balance</span>
-                                    <strong class="green">$3,250.00</strong>
-                                </div>
-                                <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);">
-                                    <span style="color:var(--muted);">Pending Payouts</span>
-                                    <strong class="yellow">$1,200.00</strong>
-                                </div>
-                                <div style="display:flex;justify-content:space-between;padding:8px 0;">
-                                    <span style="color:var(--muted);">Total Payouts (All Time)</span>
-                                    <strong>$8,450.00</strong>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="payout-history panel" style="padding:20px;margin-top:20px;">
-                        <div class="panel-head"><div><h2>Payout History</h2><p>Recent withdrawal requests</p></div></div>
-                        <div class="table-wrap">
-                            <table>
-                                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead>
-                                <tbody>
-                                    <tr><td>Aug 15, 2026</td><td class="pl-positive">+$500.00</td><td>Bank Transfer</td><td><span class="badge">Completed</span></td></tr>
-                                    <tr><td>Aug 2, 2026</td><td class="pl-positive">+$1,200.00</td><td>PayPal</td><td><span class="badge">Completed</span></td></tr>
-                                    <tr><td>Jul 20, 2026</td><td class="pl-positive">+$750.00</td><td>Cryptocurrency</td><td><span class="badge warning">Processing</span></td></tr>
-                                    <tr><td>Jul 5, 2026</td><td class="pl-positive">+$300.00</td><td>Bank Transfer</td><td><span class="badge">Completed</span></td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </section>
-
-                <!-- ============================================================ -->
-                <!-- SECTION: SETTINGS -->
-                <!-- ============================================================ -->
-                <section class="page-section" id="section-settings">
-                    <div class="section-header">
-                        <h2>Settings</h2>
-                        <p>Manage your profile, notifications and security</p>
-                    </div>
-
-                    <div class="settings-grid">
-                        <div class="settings-card">
-                            <h3>👤 Profile</h3>
-                            <div class="settings-row"><span class="label">Full Name</span><span class="value">Chiranjeet Das</span></div>
-                            <div class="settings-row"><span class="label">Email</span><span class="value">chiranjeet@email.com</span></div>
-                            <div class="settings-row"><span class="label">Phone</span><span class="value">+91 98765 43210</span></div>
-                            <div class="settings-row"><span class="label">KYC Status</span><span class="value" style="color:var(--green2);">✅ Verified</span></div>
-                            <div style="margin-top:16px;"><button class="ghost-btn">Edit Profile</button></div>
-                        </div>
-
-                        <div class="settings-card">
-                            <h3>🔔 Notifications</h3>
-                            <div class="settings-row"><span class="label">Trade alerts</span><button class="toggle active" data-toggle="tradeAlerts"></button></div>
-                            <div class="settings-row"><span class="label">Payout updates</span><button class="toggle active" data-toggle="payoutAlerts"></button></div>
-                            <div class="settings-row"><span class="label">Account milestones</span><button class="toggle" data-toggle="milestoneAlerts"></button></div>
-                            <div class="settings-row"><span class="label">Marketing &amp; offers</span><button class="toggle" data-toggle="marketingAlerts"></button></div>
-                        </div>
-
-                        <div class="settings-card">
-                            <h3>🔐 Security</h3>
-                            <div class="settings-row"><span class="label">Two-Factor Auth</span><button class="toggle" data-toggle="twoFactor"></button></div>
-                            <div class="settings-row"><span class="label">Change Password</span><button class="ghost-btn" style="font-size:12px;padding:6px 14px;">Update</button></div>
-                            <div class="settings-row"><span class="label">Session Management</span><button class="ghost-btn" style="font-size:12px;padding:6px 14px;">View Devices</button></div>
-                            <div style="margin-top:16px;border-top:1px solid var(--line);padding-top:16px;">
-                                <button class="ghost-btn" style="border-color:rgba(255,71,87,.3);color:var(--red);">Delete Account</button>
-                            </div>
-                        </div>
-
-                        <div class="settings-card">
-                            <h3>⚙️ Preferences</h3>
-                            <div class="settings-row"><span class="label">Default Account View</span>
-                                <select style="background:#0b121a;border:1px solid var(--line);color:#d7dee6;border-radius:6px;padding:5px 8px;font-size:12px;">
-                                    <option>ACC-123456</option><option>ACC-123457</option><option>ACC-123458</option>
-                                </select>
-                            </div>
-                            <div class="settings-row"><span class="label">Currency Display</span>
-                                <select style="background:#0b121a;border:1px solid var(--line);color:#d7dee6;border-radius:6px;padding:5px 8px;font-size:12px;">
-                                    <option>USD ($)</option><option>EUR (€)</option><option>GBP (£)</option>
-                                </select>
-                            </div>
-                            <div class="settings-row"><span class="label">Dark Mode</span><button class="toggle active" data-toggle="darkMode"></button></div>
-                            <div style="margin-top:16px;"><button class="ghost-btn green">Save Preferences</button></div>
-                        </div>
-                    </div>
-                </section>
-              </main>
-        </div>
+        </main>
     </div>
 
-    <!-- TOAST & OVERLAY -->
-    <div class="toast" id="toast"></div>
-    <div class="overlay" id="overlay"></div>
-
-    <!-- External JavaScript -->
     <script src="dashboard.js"></script>
 </body>
 </html>
-
- 
