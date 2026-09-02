@@ -539,7 +539,7 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
         }
         const accountCode = generateAccountCode();
         await connection.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [req.userId, accountCode]);
-        await connection.execute('UPDATE payment_orders SET provider_payment_id = ?, status = ''paid'', account_code = ?, paid_at = NOW() WHERE id = ?', [razorpay_payment_id, accountCode, paymentOrder.id]);
+        await connection.execute('UPDATE payment_orders SET provider_payment_id = ?, status ='paid', account_code = ?, paid_at = NOW() WHERE id = ?', [razorpay_payment_id, accountCode, paymentOrder.id]);
         await connection.commit();
         res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
     } catch (error) { // Fix added above
