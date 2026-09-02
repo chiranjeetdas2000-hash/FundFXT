@@ -39,14 +39,20 @@ function initTicker() {
     if (tickerAff) tickerAff.innerHTML = tickerHTML;
 }
 
-// ========== FETCH USER PROFILE (Dynamic - No Hardcoded Data) ==========
+// ========== FETCH USER PROFILE (Backend se data aayega) ==========
 async function fetchProfile() {
     try {
         const response = await fetch('https://fundfxt.onrender.com/api/user/profile', {
             headers: { 'Authorization': `Bearer ${token}` }
         });
         const data = await response.json();
+        
+        // Agar backend se user nahi mila, toh error log karo aur fallback use karo
         const user = data.user || {};
+        
+        if (!user.legal_name && !user.email) {
+            console.warn("Backend se user data nahi mila! Check /api/user/profile response.");
+        }
 
         // Sidebar & Header
         document.getElementById('sb-name').innerText = user.legal_name || 'Trader';
@@ -65,13 +71,19 @@ async function fetchProfile() {
         document.getElementById('set-phone').value = user.phone || '';
         document.getElementById('set-kyc').value = user.kyc_status || 'Pending';
 
-        // Affiliate Code
-        document.getElementById('aff-code').innerText = user.affiliate_code || 'N/A';
+        // Affiliate Code (Backend se aayega)
+        // ⚠️ IMPORTANT: Backend `/api/user/profile` mein `affiliate_code` bhejna zaroori hai!
+        document.getElementById('aff-code').innerText = user.affiliate_code || 'AFF-CODE-PENDING';
         
-    } catch (e) { console.error("Profile fetch error:", e); }
+    } catch (e) { 
+        console.error("Profile fetch error:", e);
+        // Error hua toh bhi defaults set karo
+        document.getElementById('sb-name').innerText = 'Trader';
+        document.getElementById('header-name').innerText = 'Trader';
+    }
 }
 
-// ========== FETCH ACCOUNTS (Dynamic - Buy First Challenge / Show Accounts) ==========
+// ========== FETCH ACCOUNTS (Buy First Challenge Logic) ==========
 async function fetchAccounts() {
     const container = document.getElementById('accounts-container');
     const buyFirst = document.getElementById('buy-first-challenge');
@@ -82,14 +94,18 @@ async function fetchAccounts() {
         });
         const data = await response.json();
 
+        // Agar account nahi hai:
         if (!data.accounts || data.accounts.length === 0) {
-            container.innerHTML = '';
-            buyFirst.style.display = 'block';
+            container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--muted); border: 1px dashed var(--border); border-radius: 12px;">
+                <h3>No accounts for this user</h3>
+                <p>Buy your first challenge to get started!</p>
+            </div>`;
+            buyFirst.style.display = 'block'; // Buy Challenge Button dikhao
             return;
         }
 
-        buyFirst.style.display = 'none';
-        
+        // Agar accounts hain:
+        buyFirst.style.display = 'none'; // Button chhupao
         container.innerHTML = data.accounts.map(account => {
             const accNum = account.account_code || account.account_id || 'N/A';
             const accType = account.account_type || 'Challenge';
@@ -106,9 +122,13 @@ async function fetchAccounts() {
                 </div>
             `;
         }).join('');
-    } catch (e) { console.error("Accounts fetch error:", e); }
+    } catch (e) { 
+        console.error("Accounts fetch error:", e);
+        // Agar backend fail hua, toh bhi Buy button dikhao
+        container.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: var(--muted);">Unable to load accounts. Please try again later.</div>`;
+        buyFirst.style.display = 'block';
+    }
 }
-
 // ========== FETCH PAYMENTS (Placeholder + Dynamic Logic) ==========
 async function fetchPayments() {
     const tbody = document.getElementById('payments-body');
