@@ -233,3 +233,30 @@ wss.on('connection', (client) => {
     console.log('Frontend WebSocket connected');
     client.send(JSON.stringify({ type: 'price', data: prices }));
 });
+// ========== GET USER BY EMAIL (For Buy Challenge Page) ==========
+app.get('/api/get-user-by-email', async (req, res) => {
+    const { email } = req.query;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    try {
+        const [rows] = await db.execute(
+            'SELECT legal_name, email, phone, address FROM users WHERE email = ?', 
+            [email]
+        );
+        
+        if (rows.length > 0) {
+            const user = rows[0];
+            res.json({ 
+                exists: true, 
+                name: user.legal_name, 
+                phone: user.phone, 
+                address: user.address 
+            });
+        } else {
+            res.json({ exists: false });
+        }
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+});
