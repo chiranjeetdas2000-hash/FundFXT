@@ -190,6 +190,7 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 });
 
 // ========== GET USER BY EMAIL (PUBLIC FOR BUY CHALLENGE) ==========
+// ========== GET USER BY EMAIL (PUBLIC FOR BUY CHALLENGE) ==========
 app.get('/api/get-user-by-email', async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -197,7 +198,8 @@ app.get('/api/get-user-by-email', async (req, res) => {
         const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE email = ?', [email]);
         if (rows.length > 0) {
             const user = rows[0];
-            res.json({ exists: true, name: user.legal_name, phone: user.phone, address: user.address });
+            // ✅ Yahan email add kiya hai
+            res.json({ exists: true, name: user.legal_name, email: user.email, phone: user.phone, address: user.address });
         } else {
             res.json({ exists: false });
         }
