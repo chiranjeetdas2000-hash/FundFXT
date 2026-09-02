@@ -335,22 +335,6 @@ app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
     }
 });
 
-// ========== AUTHENTICATED USER LOOKUP ==========
-app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
-    const email = String(req.query.email || '').trim().toLowerCase();
-    if (!email) return res.status(400).json({ error: 'Email is required' });
-
-    try {
-        const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE id = ? AND LOWER(email) = ? LIMIT 1', [req.userId, email]);
-        if (!rows.length) return res.json({ exists: false });
-        const user = rows[0];
-        res.json({ exists: true, name: user.legal_name, phone: user.phone, address: user.address });
-    } catch (error) {
-        console.error('User lookup error:', error.message);
-        res.status(500).json({ error: 'Unable to fetch user details' });
-    }
-});
-
 // ========== SECURE PAYMENT ENGINE ==========
 const crypto = require('crypto');
 
