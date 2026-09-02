@@ -32,9 +32,8 @@ const db = mysql.createPool({
 })();
 
 // ========== EMAIL VIA RESEND API (SIRF FORGOT PASSWORD KE LIYE) ==========
-// Ab yeh email user ko nahi, ADMIN ko jayegi (Manual Support ke liye)
 async function sendOTPEmail(userEmail, otp) {
-    const ADMIN_EMAIL = 'support.fundfxt@gmail.com'; // Yahan apna Admin email daalo!
+    const ADMIN_EMAIL = 'support.fundfxt@gmail.com';
     
     const subject = `Password Reset OTP for ${userEmail}`;
     const html = `
@@ -57,7 +56,7 @@ async function sendOTPEmail(userEmail, otp) {
         },
         body: JSON.stringify({
             from: FROM_EMAIL,
-            to: [ADMIN_EMAIL], // Email ADMIN ko jayegi, user ko nahi!
+            to: [ADMIN_EMAIL],
             subject: subject,
             html: html
         })
@@ -69,6 +68,49 @@ async function sendOTPEmail(userEmail, otp) {
     }
 }
 
+// ========== NEW: GENERATE UNIQUE AFFILIATE CODE (3 Capital, 2 Small, 3 Numbers, 1 @, 1 #) ==========
+function generateAffiliateCode() {
+    const upperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const lowerChars = 'abcdefghijklmnopqrstuvwxyz';
+    const numChars = '0123456789';
+    const symbols = ['@', '#'];
+
+    let chars = [];
+    
+    // 3 Capital Letters
+    for (let i = 0; i < 3; i++) chars.push(upperChars[Math.floor(Math.random() * upperChars.length)]);
+    
+    // 2 Small Letters
+    for (let i = 0; i < 2; i++) chars.push(lowerChars[Math.floor(Math.random() * lowerChars.length)]);
+    
+    // 3 Numbers
+    for (let i = 0; i < 3; i++) chars.push(numChars[Math.floor(Math.random() * numChars.length)]);
+    
+    // 1 @ and 1 #
+    chars.push('@');
+    chars.push('#');
+
+    // Shuffle (Fisher-Yates shuffle) to randomize positions
+    for (let i = chars.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [chars[i], chars[j]] = [chars[j], chars[i]];
+    }
+
+    return chars.join('');
+}
+
+// Check & Generate Unique Code
+async function getUniqueAffiliateCode() {
+    let code = generateAffiliateCode();
+    let [existing] = await db.execute('SELECT id FROM users WHERE affiliate_code = ?', [code]);
+    // Jab tak unique nahi milta, loop chalta rahega
+    while (existing.length > 0) {
+        code = generateAffiliateCode();
+        [existing] = await db.execute('SELECT id FROM users WHERE affiliate_code = ?', [code]);
+    }
+    return code;
+}
+
 // ========== DIRECT REGISTRATION (NO OTP) ==========
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address } = req.body;
@@ -77,17 +119,20 @@ app.post('/api/register', async (req, res) => {
         if (existing.length) return res.status(400).json({ error: 'User already exists' });
 
         const hashed = await bcrypt.hash(password, 10);
-        // is_verified = 1 (TRUE) se direct user banao
+        
+        // === NEW LINE ADDED ===
+        const newAffiliateCode = await getUniqueAffiliateCode();
+
         const [result] = await db.execute(
-            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified) VALUES (?, ?, ?, ?, ?, ?, 1)',
-            [trader_id, email, phone, hashed, legal_name, address]
+            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code) VALUES (?, ?, ?, ?, ?, ?, 1, ?)',
+            [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
         const accountCode = 'ACC-' + Date.now();
         await db.execute('INSERT INTO accounts (user_id, account_code) VALUES (?, ?)', [result.insertId, accountCode]);
 
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, token, account_code: accountCode });
+        res.json({ success: true, token, account_code: accountCode, affiliate_code: newAffiliateCode });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
@@ -102,9 +147,11 @@ app.post('/api/verify-email', async (req, res) => {
         if (!rows.length) return res.status(400).json({ error: 'Invalid or expired OTP' });
 
         const hashed = await bcrypt.hash(password, 10);
+        const newAffiliateCode = await getUniqueAffiliateCode();
+
         const [result] = await db.execute(
-            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address) VALUES (?, ?, ?, ?, ?, ?)',
-            [trader_id, email, phone, hashed, legal_name, address]
+            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, affiliate_code) VALUES (?, ?, ?, ?, ?, ?, ?)',
+            [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode]
         );
 
         const accountCode = 'ACC-' + Date.now();
@@ -113,7 +160,7 @@ app.post('/api/verify-email', async (req, res) => {
         await db.execute('DELETE FROM email_verifications WHERE email = ?', [email]);
         
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
-        res.json({ success: true, token, account_code: accountCode });
+        res.json({ success: true, token, account_code: accountCode, affiliate_code: newAffiliateCode });
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: error.message });
@@ -146,7 +193,6 @@ app.post('/api/forgot-password', async (req, res) => {
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
         await db.execute('INSERT INTO email_verifications (email, otp, expires_at) VALUES (?, ?, ?)', [email, otp, expiresAt]);
         
-        // Ab email user ko nahi, ADMIN ko jayegi
         sendOTPEmail(email, otp).catch(err => console.log("Email failed:", err.message));
         
         res.json({ success: true });
@@ -233,6 +279,7 @@ wss.on('connection', (client) => {
     console.log('Frontend WebSocket connected');
     client.send(JSON.stringify({ type: 'price', data: prices }));
 });
+
 // ========== GET USER BY EMAIL (For Buy Challenge Page) ==========
 app.get('/api/get-user-by-email', async (req, res) => {
     const { email } = req.query;
@@ -327,7 +374,6 @@ app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
 });
 
 // ========== AUTHENTICATED USER LOOKUP ==========
-// Do not expose arbitrary users' PII. A logged-in trader can only retrieve their own record.
 app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
     const email = String(req.query.email || '').trim().toLowerCase();
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -354,8 +400,6 @@ app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
 });
 
 // ========== SECURE PAYMENT ENGINE ==========
-// IMPORTANT: prices and discounts live on the server.
-// Never accept an amount supplied by the browser.
 const crypto = require('crypto');
 
 const CHALLENGE_PRICES_CENTS = {
@@ -445,7 +489,6 @@ function calculateServerPrice(model, affiliateCode) {
 }
 
 // Frontend can request the server's quote for display.
-// The quote is informational; create-order recalculates it again.
 app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     try {
         const pricing = calculateServerPrice(req.body.model, req.body.affiliate_code);
@@ -467,7 +510,6 @@ app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
     const affiliateCode = String(req.body.affiliate_code || '').trim();
 
     try {
-        // Never use req.body.amount or req.body.finalPrice.
         const pricing = calculateServerPrice(model, affiliateCode);
 
         const [users] = await db.execute(
@@ -568,7 +610,6 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
 
         const paymentOrder = orderRows[0];
 
-        // Idempotency: a second verification request cannot create another account.
         if (paymentOrder.status === 'paid') {
             return res.json({
                 success: true,
@@ -590,8 +631,6 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
             return res.status(400).json({ error: 'Payment signature verification failed' });
         }
 
-        // Fetch actual provider-side order and payment.
-        // This prevents a client from changing the amount/currency after checkout.
         const providerOrder = await razorpay.orders.fetch(razorpay_order_id);
         const providerPayment = await razorpay.payments.fetch(razorpay_payment_id);
 
@@ -631,7 +670,6 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
 
         await connection.beginTransaction();
 
-        // Lock the payment row while activating the account.
         const [lockedRows] = await connection.execute(
             'SELECT * FROM payment_orders WHERE id = ? FOR UPDATE',
             [paymentOrder.id]
@@ -650,7 +688,6 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
 
         const accountCode = generateAccountCode();
 
-        // Existing registration code proves user_id/account_code exist in this schema.
         await connection.execute(
             'INSERT INTO accounts (user_id, account_code) VALUES (?, ?)',
             [req.userId, accountCode]
