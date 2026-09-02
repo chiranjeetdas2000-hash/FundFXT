@@ -175,43 +175,77 @@
             finally { loading.style.display = 'none'; btn.disabled = false; btn.innerText = 'Verify Account'; }
         }
 
-        async function validateAffiliate() { requestQuote(); }
+        async function validateAffiliate() {
+    const msg = document.getElementById('affiliateMsg');
+    
+    if (!customerVerified) {
+        msg.style.color = 'var(--danger)';
+        msg.innerText = '⚠️ Pehle Verify Account karo!';
+        return;
+    }
+    
+    if (!token) {
+        msg.style.color = 'var(--danger)';
+        msg.innerText = '⚠️ Pehle Login karo!';
+        window.location.href = 'auth.html';
+        return;
+    }
 
-        async function requestQuote() {
-            if (!customerVerified || !token) return;
-            const affiliateCode = document.getElementById('affiliateCode').value;
-            const msg = document.getElementById('affiliateMsg');
-            msg.innerText = 'Updating price...'; msg.style.display = 'block';
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/payments/quote`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ model: selectedModel, affiliate_code: affiliateCode, email: document.getElementById('lookupEmail').value })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    currentPricing = data.pricing;
-                    const original = currentPricing.originalAmountCents / 100;
-                    const discount = currentPricing.discountAmountCents / 100;
-                    const final = currentPricing.finalAmountCents / 100;
-                    document.getElementById('summaryBase').innerText = '$' + original.toFixed(2);
-                    document.getElementById('totalPayable').innerText = '$' + final.toFixed(2);
-                    document.getElementById('buyBtn').innerText = 'BUY NOW — $' + final.toFixed(2);
-                    document.getElementById('buyBtn').disabled = false;
-                    if (currentPricing.affiliateApplied) {
-                        msg.style.color = 'var(--primary)'; msg.innerText = '✓ Affiliate code verified — 50% discount applied';
-                        document.getElementById('discountRow').style.display = 'flex';
-                        document.getElementById('discountAmt').innerText = '-$' + discount.toFixed(2);
-                        document.getElementById('savingsMsg').style.display = 'block';
-                        document.getElementById('savingsMsg').innerText = `✓ 50% discount applied. You save $${discount.toFixed(2)}!`;
-                    } else {
-                        msg.style.color = 'var(--danger)'; msg.innerText = '✕ Invalid affiliate code';
-                        document.getElementById('discountRow').style.display = 'none';
-                        document.getElementById('savingsMsg').style.display = 'none';
-                    }
-                }
-            } catch (err) { msg.style.color = 'var(--danger)'; msg.innerText = 'Unable to verify affiliate code.'; }
+    msg.style.color = 'var(--muted)';
+    msg.innerText = 'Updating price...';
+    
+    await requestQuote();
+}
+
+async function requestQuote() {
+    if (!customerVerified || !token) return;
+    const affiliateCode = document.getElementById('affiliateCode').value;
+    const msg = document.getElementById('affiliateMsg');
+    msg.innerText = 'Updating price...'; msg.style.display = 'block';
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/payments/quote`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ model: selectedModel, affiliate_code: affiliateCode, email: document.getElementById('lookupEmail').value })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            currentPricing = data.pricing;
+            const original = currentPricing.originalAmountCents / 100;
+            const discount = currentPricing.discountAmountCents / 100;
+            const final = currentPricing.finalAmountCents / 100;
+
+            document.getElementById('summaryBase').innerText = '$' + original.toFixed(2);
+            document.getElementById('totalPayable').innerText = '$' + final.toFixed(2);
+            document.getElementById('buyBtn').innerText = 'BUY NOW — $' + final.toFixed(2);
+            document.getElementById('buyBtn').disabled = false;
+
+            if (currentPricing.affiliateApplied) {
+                msg.style.color = 'var(--primary)'; 
+                msg.innerText = '✓ Affiliate code verified — 50% discount applied';
+                
+                document.getElementById('discountRow').style.display = 'flex';
+                document.getElementById('discountAmt').innerText = '-$' + discount.toFixed(2);
+                document.getElementById('savingsMsg').style.display = 'block';
+                document.getElementById('savingsMsg').innerText = `✓ 50% discount applied. You save $${discount.toFixed(2)}!`;
+            } else {
+                msg.style.color = 'var(--danger)'; 
+                msg.innerText = '✕ Invalid affiliate code';
+                
+                document.getElementById('discountRow').style.display = 'none';
+                document.getElementById('savingsMsg').style.display = 'none';
+            }
+        } else {
+            msg.style.color = 'var(--danger)'; 
+            msg.innerText = 'Server error: ' + (data.error || 'Unable to calculate price');
         }
+    } catch (err) {
+        msg.style.color = 'var(--danger)'; 
+        msg.innerText = 'Server error. Please try again.';
+    }
+}
 
         async function startPayment() {
             if (paymentBusy) return;
