@@ -418,3 +418,91 @@ function initToggles() {
         navigateTo('dashboard');
     }
 })();
+
+// ========== NEW: PACKAGE STATE & CHECKOUT LOGIC ==========
+let selectedPackage = { name: '', price: 0 };
+let basePrice = 0;
+let discountAmount = 0;
+let finalPrice = 0;
+
+// 1. Package select karne ka function
+function selectPackage(name, price) {
+    selectedPackage = { name, price };
+    basePrice = price;
+    discountAmount = 0;
+    finalPrice = price;
+
+    // UI Update
+    document.getElementById('checkout-package-name').innerText = 'Package: ' + name;
+    document.getElementById('base-price').innerText = '$' + price;
+    document.getElementById('discount-amount').innerText = '-$0';
+    document.getElementById('final-price').innerText = '$' + price;
+    document.getElementById('commission-note').innerText = '';
+
+    showSection('checkout');
+}
+
+// 2. User details fetch (Simulated API call for now)
+function fetchCheckoutDetails() {
+    const email = document.getElementById('checkout-email').value;
+    
+    if (!email) {
+        alert('Please enter your email!');
+        return;
+    }
+
+    // TODO: Yahan backend API call hogi: /api/checkout/get-user-data
+    // Abhi ke liye static masked data dikha rahe hain.
+    document.getElementById('checkout-name').value = 'Chiranjeet Das';
+    document.getElementById('checkout-phone').value = '98****03';
+    document.getElementById('checkout-address').value = 'Mall Road Kankwari... 201014';
+}
+
+// 3. Affiliate Code verify aur Discount apply karna
+function verifyAffiliateCode() {
+    const code = document.getElementById('affiliate-code').value;
+    const msgEl = document.getElementById('affiliate-msg');
+    
+    if (!code) {
+        msgEl.style.color = 'var(--danger)';
+        msgEl.innerText = 'Please enter an affiliate code!';
+        return;
+    }
+
+    // Logic: Hardcoded Discounts (Backend yahan verify karega)
+    if (selectedPackage.name === 'Direct Funded 5K' && code) {
+        discountAmount = 5;
+        finalPrice = basePrice - discountAmount;
+        msgEl.style.color = 'var(--primary)';
+        msgEl.innerText = 'Code verified! $5 discount applied.';
+        document.getElementById('commission-note').innerText = 'Affiliate Commission: $2';
+    } else if (selectedPackage.name === 'Two Step Challenge 5K' && code) {
+        discountAmount = 9;
+        finalPrice = basePrice - discountAmount;
+        msgEl.style.color = 'var(--primary)';
+        msgEl.innerText = 'Code verified! $9 discount applied.';
+        document.getElementById('commission-note').innerText = 'Affiliate Commission: $5';
+    } else {
+        discountAmount = 0;
+        finalPrice = basePrice;
+        msgEl.style.color = 'var(--danger)';
+        msgEl.innerText = 'Invalid or unverified code.';
+        document.getElementById('commission-note').innerText = '';
+    }
+
+    // Update Summary
+    document.getElementById('discount-amount').innerText = '-$' + discountAmount;
+    document.getElementById('final-price').innerText = '$' + finalPrice;
+}
+
+// 4. Payment Button (Razorpay integration yahan hoga)
+function makePayment() {
+    if (!selectedPackage.name) {
+        alert('Please select a package first!');
+        return;
+    }
+
+    alert('Redirecting to Razorpay for payment of $' + finalPrice + '...');
+    // TODO: Yahan Razorpay ka order create karke checkout khulega.
+    // Payment success hone ke baad backend Account allot karega aur Support ko email bhejega.
+}
