@@ -260,3 +260,12 @@ app.get('/api/get-user-by-email', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+// User Profile
+app.get('/api/user/profile', async (req, res) => {
+    // ... token se user dhundho, response mein legal_name, email, phone, kyc_status, affiliate_code bhejo
+});
+
+// User Payments
+app.get('/api/payments', async (req, res) => {
+    // ... orders table se payments fetch karo aur return karo
+});
