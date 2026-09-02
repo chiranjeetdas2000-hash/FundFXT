@@ -7,11 +7,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="dashboard.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="layout">
-        <!-- Sidebar -->
+        <!-- SIDEBAR (Buttons ab solidly kaam karenge) -->
         <aside class="sidebar" id="sidebar">
             <div class="logo">FundFXT</div>
             <nav>
@@ -26,7 +25,7 @@
                 <div class="user">
                     <i class="fa-solid fa-user-circle"></i>
                     <div>
-                        <h4 id="sb-name">Loading...</h4>
+                        <h4 id="sb-name">Trader</h4>
                         <p>KYC: <span id="sb-kyc">Pending</span></p>
                     </div>
                 </div>
@@ -34,21 +33,22 @@
             </div>
         </aside>
 
-        <!-- Main Content -->
+        <!-- MAIN CONTENT (Order bilkul sahi kiya hai) -->
         <main class="main-content">
             
-            <!-- SECTION 1: DASHBOARD (Home & My Accounts) -->
-           
-                                    <!-- Accounts Section (Dynamic) -->
-                     <h2 style="margin-bottom: 20px;">My Accounts</h2>
-                          <div id="accounts-container" class="grid-4"></div>
+            <!-- SECTION 1: DASHBOARD -->
+            <div id="view-dashboard" class="view-section">
+                <div class="top-header">
+                    <i class="fa-solid fa-bars menu-toggle" onclick="toggleSidebar()"></i>
+                    <div class="ticker" id="ticker"></div>
+                    <div class="header-actions">
+                        <i class="fa-regular fa-bell"></i>
+                        <i class="fa-solid fa-user-circle" style="font-size: 30px; color: var(--primary);"></i>
+                        <span id="header-name">Trader</span>
+                    </div>
+                </div>
 
-                                 <!-- Buy First Challenge Button -->  <--- YAHAN ADD KARO
-                       <div id="buy-first-challenge" style="display: none; margin-top: 20px;">
-                             <button class="btn" onclick="window.location.href='/buy-challenge.html'"><i class="fa-solid fa-cart-shopping"></i> Buy First Challenge</button>
-                       </div>
-
-                <!-- User Profile Card (Dynamic) -->
+                <!-- 1. PROFILE CARD (Sabse pehle) -->
                 <div class="profile-card card">
                     <div class="avatar"><i class="fa-solid fa-user-circle"></i></div>
                     <div class="details"><span>Legal Name</span><strong id="p-name">Loading...</strong></div>
@@ -57,11 +57,11 @@
                     <div class="details"><span>Status</span><strong>Active</strong> <span class="kyc-badge" id="p-kyc">Loading...</span></div>
                 </div>
 
-                <!-- Accounts Section (Dynamic) -->
+                <!-- 2. ACCOUNTS SECTION -->
                 <h2 style="margin-bottom: 20px;">My Accounts</h2>
                 <div id="accounts-container" class="grid-4"></div>
 
-                <!-- Buy First Challenge Button -->
+                <!-- 3. BUY FIRST CHALLENGE BUTTON (Sabse neeche) -->
                 <div id="buy-first-challenge" style="display: none; margin-top: 20px;">
                     <button class="btn" onclick="window.location.href='/buy-challenge.html'"><i class="fa-solid fa-cart-shopping"></i> Buy First Challenge</button>
                 </div>
@@ -73,103 +73,55 @@
                     <div class="ticker" id="ticker-affiliate"></div>
                     <div class="header-actions"><i class="fa-regular fa-bell"></i></div>
                 </div>
-
                 <div class="grid-4">
                     <div class="card"><h3>Total Referrals</h3><div class="value">0</div><p style="color: var(--muted);">All-time referred users</p></div>
                     <div class="card"><h3>Active Traders</h3><div class="value">0</div><p style="color: var(--muted);">Currently active traders</p></div>
                     <div class="card"><h3>Total Commission Earned</h3><div class="value">$0</div><p style="color: var(--muted);">All-time earnings</p></div>
                     <div class="card"><h3>Pending Payouts</h3><div class="value">$0</div><p style="color: var(--muted);">Awaiting approval</p></div>
                 </div>
-
                 <div class="card" style="margin-bottom: 30px; display: flex; justify-content: space-between; align-items: center;">
                     <div>
                         <h3>Your Affiliate Code</h3>
-                        <h1 style="color: var(--primary); letter-spacing: 2px; font-size: 32px;" id="aff-code">Loading...</h1>
-                        <p style="color: var(--muted);">Share your code and earn up to 20% commission on every purchase made by your referrals.</p>
+                        <h1 style="color: var(--primary); letter-spacing: 2px; font-size: 32px;" id="aff-code">AFF-PENDING</h1>
+                        <p style="color: var(--muted);">Share your code and earn up to 20% commission.</p>
                     </div>
                     <button class="btn" style="width: auto; padding: 12px 24px;" onclick="navigator.clipboard.writeText(document.getElementById('aff-code').innerText)"><i class="fa-regular fa-copy"></i> Copy Code</button>
                 </div>
             </div>
 
-            <!-- SECTION 3: PAYMENTS (Naya) -->
+            <!-- SECTION 3: PAYMENTS -->
             <div id="view-payments" class="view-section" style="display: none;">
-                <div class="top-header">
-                    <h1 style="font-size: 24px;">Payment History</h1>
-                </div>
+                <div class="top-header"><h1 style="font-size: 24px;">Payment History</h1></div>
                 <div class="card">
-                    <h3>All Transactions</h3>
                     <div class="table-container">
                         <table>
-                            <thead>
-                                <tr>
-                                    <th>Date</th>
-                                    <th>Order ID</th>
-                                    <th>Amount</th>
-                                    <th>Status</th>
-                                    <th>Receipt</th>
-                                </tr>
-                            </thead>
-                            <tbody id="payments-body">
-                                <!-- JS se data aayega -->
-                            </tbody>
+                            <thead><tr><th>Date</th><th>Order ID</th><th>Amount</th><th>Status</th><th>Receipt</th></tr></thead>
+                            <tbody id="payments-body"><tr><td colspan="5" style="text-align:center;">No payments yet</td></tr></tbody>
                         </table>
-                    </div>
-                    <div id="no-payments" style="text-align: center; padding: 30px; color: var(--muted); display: none;">
-                        No payments yet. <a href="buy-challenge.html" style="color: var(--primary);">Buy a Challenge now!</a>
                     </div>
                 </div>
             </div>
 
-            <!-- SECTION 4: SETTINGS (Screenshot wala design) -->
+            <!-- SECTION 4: SETTINGS -->
             <div id="view-settings" class="view-section" style="display: none;">
-                <div class="top-header">
-                    <i class="fa-solid fa-arrow-left" style="cursor: pointer; font-size: 20px;" onclick="showSection('dashboard')"></i>
-                    <h1 style="font-size: 24px;">Settings</h1>
-                </div>
-
+                <div class="top-header"><h1 style="font-size: 24px;">Settings</h1></div>
                 <div class="grid-2">
                     <div class="card">
                         <h3>Profile</h3>
-                        <p style="color: var(--muted); font-size: 13px; margin-bottom: 20px;">Manage your personal information.</p>
-                        
                         <label>Full Name</label>
                         <input type="text" id="set-name" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
-                        
                         <label>Email</label>
                         <input type="email" id="set-email" readonly style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: var(--muted); margin-bottom: 15px;">
-                        
                         <label>Phone</label>
                         <input type="text" id="set-phone" style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: white; margin-bottom: 15px;">
-
-                        <label>KYC Status</label>
-                        <input type="text" id="set-kyc" readonly style="width: 100%; padding: 12px; background: #111; border: 1px solid var(--border); border-radius: 8px; color: var(--primary); margin-bottom: 20px;">
-
                         <button class="btn" onclick="updateProfile()"><i class="fa-solid fa-floppy-disk"></i> Save Changes</button>
                     </div>
-
-                    <div class="card">
-                        <h3>Preferences</h3>
-                        <p style="color: var(--muted); font-size: 13px; margin-bottom: 20px;">Manage your platform preferences.</p>
-                        
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                            <span>Dark Mode</span>
-                            <input type="checkbox" checked style="transform: scale(1.5); accent-color: var(--primary);">
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                            <span>Trade Alerts</span>
-                            <input type="checkbox" checked style="transform: scale(1.5); accent-color: var(--primary);">
-                        </div>
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 15px;">
-                            <span>Email Notifications</span>
-                            <input type="checkbox" checked style="transform: scale(1.5); accent-color: var(--primary);">
-                        </div>
-                    </div>
+                    <div class="card"><h3>Preferences</h3><p style="color: var(--muted);">Dark Mode enabled by default.</p></div>
                 </div>
             </div>
 
         </main>
     </div>
-
     <script src="dashboard.js"></script>
 </body>
 </html>
