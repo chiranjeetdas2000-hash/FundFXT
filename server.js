@@ -242,14 +242,15 @@ async function calculateServerPrice(model, affiliateCode) {
 
     // 1. Check if affiliate code exists in the database
     if (affiliateCode) {
+        // ✅ FIX: `user_id` ki jagah `id` use karo (users table mein id hi hota hai)
         const [affiliateRows] = await db.execute(
-            'SELECT id, user_id, affiliate_code FROM users WHERE affiliate_code = ? LIMIT 1',
+            'SELECT id, affiliate_code FROM users WHERE affiliate_code = ? LIMIT 1',
             [String(affiliateCode).trim()]
         );
 
         if (affiliateRows.length > 0) {
             const affiliate = affiliateRows[0];
-            affiliateUserId = affiliate.user_id; // This is the owner!
+            affiliateUserId = affiliate.id; // ✅ FIX: `id` use karo (user_id nahi)
             
             // 2. Apply 50% discount for ANY valid affiliate code
             discountAmountCents = Math.floor(original * 0.5);
@@ -266,9 +267,9 @@ async function calculateServerPrice(model, affiliateCode) {
         finalAmountCents: finalAmount,
         currency: PAYMENT_CURRENCY,
         affiliateApplied: affiliateApplied,
-        affiliate_user_id: affiliateUserId // Return the owner ID
+        affiliate_user_id: affiliateUserId
     };
-}
+        }
 
 let razorpay = null;
 if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
