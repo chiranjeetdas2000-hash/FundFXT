@@ -124,16 +124,20 @@
         let paymentBusy = false;
 
         function selectModel(model) {
-            selectedModel = model;
-            document.querySelectorAll('.model-card').forEach(card => card.classList.remove('selected'));
-            document.getElementById('card-' + model).classList.add('selected');
-            document.getElementById('affiliateCode').value = '';
-            document.getElementById('affiliateMsg').style.display = 'none';
-            document.getElementById('discountRow').style.display = 'none';
-            document.getElementById('savingsMsg').style.display = 'none';
-            if (customerVerified) requestQuote();
-            else updatePriceUI();
-        }
+    selectedModel = model;
+    document.querySelectorAll('.model-card').forEach(card => card.classList.remove('selected'));
+    document.getElementById('card-' + model).classList.add('selected');
+    document.getElementById('affiliateCode').value = '';
+    document.getElementById('affiliateMsg').style.display = 'none';
+    document.getElementById('discountRow').style.display = 'none';
+    document.getElementById('savingsMsg').style.display = 'none';
+    if (customerVerified) requestQuote();
+    else updatePriceUI();
+    
+    // ✅ Naya line add karo (Text match karne ke liye):
+    const modelName = (model === 'direct') ? 'Direct Funded' : '2-Step Challenge';
+    document.getElementById('summaryModel').innerText = modelName;
+}
 
         function updatePriceUI() {
             const base = selectedModel === 'direct' ? 10 : 40;
