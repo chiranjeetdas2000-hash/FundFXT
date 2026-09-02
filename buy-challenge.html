@@ -192,160 +192,60 @@
     </footer>
 
     <script>
-        let selectedModel = 'direct';
-        let userDataFetched = false;
-        let appliedDiscount = 0;
+async function fetchUserDetails() {
+    const email = document.getElementById('lookupEmail').value;
+    const errorEl = document.getElementById('errorMessage');
+    const loginPrompt = document.getElementById('loginPrompt');
+    const fetchBtn = document.querySelector('.fetch-btn');
 
-        // Affiliate Code Locked for now
-        const VALID_CODE = "XN45DH@d#2";
+    errorEl.style.display = 'none';
+    loginPrompt.style.display = 'none';
 
-        function selectModel(model) {
-            selectedModel = model;
-            document.getElementById('cardDirect').classList.toggle('selected', model === 'direct');
-            document.getElementById('cardChallenge').classList.toggle('selected', model === 'challenge');
+    if (!email) {
+        showError('Please enter your email.');
+        return;
+    }
+
+    // Button par loading text dikhao (double click se bachne ke liye)
+    fetchBtn.disabled = true;
+    fetchBtn.textContent = 'Fetching...';
+
+    try {
+        // Yahan Backend API call ho rahi hai
+        const response = await fetch(`/api/get-user-by-email?email=${encodeURIComponent(email)}`);
+        const data = await response.json();
+
+        if (data.exists) {
+            userDataFetched = true;
             
-            // Reset discount if model changes
-            appliedDiscount = 0;
-            document.getElementById('affiliateCode').value = '';
-            document.getElementById('affiliateMsg').innerText = '';
+            // Auto-fill details
+            document.getElementById('dispName').textContent = data.name || '-';
+            document.getElementById('dispPhone').textContent = data.phone || '-';
+            document.getElementById('dispAddress').textContent = data.address || '-';
             
-            updatePrice();
-        }
-
-        function updatePrice() {
-            const priceEl = document.getElementById('finalPrice');
-            const origEl = document.getElementById('originalPrice');
-            let basePrice = selectedModel === 'direct' ? 10 : 29;
+            document.getElementById('autoDetails').style.display = 'block';
+            document.getElementById('editFields').style.display = 'none';
             
-            // Apply discount if any
-            let finalPrice = basePrice - appliedDiscount;
-
-            priceEl.textContent = '$' + finalPrice;
-            
-            if (appliedDiscount > 0) {
-                origEl.textContent = '$' + basePrice;
-                origEl.style.display = 'inline-block';
-            } else {
-                origEl.textContent = '';
-                origEl.style.display = 'none';
-            }
-        }
-
-        async function fetchUserDetails() {
-            const email = document.getElementById('lookupEmail').value;
-            const errorEl = document.getElementById('errorMessage');
-            const loginPrompt = document.getElementById('loginPrompt');
-            
-            errorEl.style.display = 'none';
-            loginPrompt.style.display = 'none';
-
-            if (!email) {
-                showError('Please enter your email.');
-                return;
-            }
-
-            // Backend API se data fetch karne ka logic yahan hoga
-            // Abhi ke liye simulation:
-            try {
-                // const response = await fetch(`/api/get-user-by-email?email=${encodeURIComponent(email)}`);
-                // const data = await response.json();
-                // if (data.exists) { ... } else { ... }
-
-                // Simulation Data:
-                document.getElementById('dispName').textContent = 'Chiranjeet Das';
-                document.getElementById('dispPhone').textContent = '+91 98765 43210';
-                document.getElementById('dispAddress').textContent = '123 Trading Street, Mumbai';
-                
-                document.getElementById('autoDetails').style.display = 'block';
-                document.getElementById('editFields').style.display = 'none';
-                
-                document.getElementById('buyName').value = 'Chiranjeet Das';
-                document.getElementById('buyPhone').value = '+91 98765 43210';
-                document.getElementById('buyAddress').value = '123 Trading Street, Mumbai';
-                
-                userDataFetched = true;
-            } catch (error) {
-                console.error('Fetch error:', error);
-                showError('Server error. Please try again.');
-            }
-        }
-
-        function toggleEditDetails() {
+            // Edit fields mein bhi data daal do
+            document.getElementById('buyName').value = data.name || '';
+            document.getElementById('buyPhone').value = data.phone || '';
+            document.getElementById('buyAddress').value = data.address || '';
+        } else {
+            userDataFetched = false;
+            showError('Email not registered. Please Sign Up first.');
+            loginPrompt.style.display = 'block';
             document.getElementById('autoDetails').style.display = 'none';
-            document.getElementById('editFields').style.display = 'block';
+            document.getElementById('editFields').style.display = 'none';
         }
-
-        function validateAffiliate() {
-            const code = document.getElementById('affiliateCode').value;
-            const msgEl = document.getElementById('affiliateMsg');
-
-            if (!code) {
-                appliedDiscount = 0;
-                msgEl.innerText = '';
-                updatePrice();
-                return;
-            }
-
-            if (code === VALID_CODE) {
-                // Exact discount logic
-                if (selectedModel === 'direct') {
-                    appliedDiscount = 5;
-                    msgEl.style.color = '#00b56a';
-                    msgEl.innerText = 'Code applied! You got $5 OFF.';
-                } else {
-                    appliedDiscount = 9;
-                    msgEl.style.color = '#00b56a';
-                    msgEl.innerText = 'Code applied! You got $9 OFF.';
-                }
-                updatePrice();
-            } else {
-                appliedDiscount = 0;
-                msgEl.style.color = '#ef4444';
-                msgEl.innerText = 'Invalid Affiliate Code.';
-                updatePrice();
-            }
-        }
-
-        async function startPayment() {
-            if (!userDataFetched) {
-                showError('Please fetch your details first.');
-                return;
-            }
-
-            const email = document.getElementById('lookupEmail').value;
-            const name = document.getElementById('buyName').value;
-            const phone = document.getElementById('buyPhone').value;
-            const address = document.getElementById('buyAddress').value;
-            const affiliate = document.getElementById('affiliateCode').value;
-
-            // Base price logic
-            let basePrice = selectedModel === 'direct' ? 10 : 29;
-            let finalPrice = basePrice - appliedDiscount;
-
-            // Call Backend to create Order
-            try {
-                // const response = await fetch('/api/create-order', {
-                //     method: 'POST',
-                //     headers: { 'Content-Type': 'application/json' },
-                //     body: JSON.stringify({ model: selectedModel, affiliate, email, name, phone, address })
-                // });
-                // const data = await response.json();
-                // alert('Payment gateway will open here: ' + data.order_id);
-
-                alert('Payment gateway will open here for $' + finalPrice + ' (Model: ' + selectedModel + ')');
-            } catch (error) {
-                console.error('Payment error:', error);
-            }
-        }
-
-        function showError(msg) {
-            const el = document.getElementById('errorMessage');
-            el.textContent = msg;
-            el.style.display = 'block';
-            setTimeout(() => { el.style.display = 'none'; }, 5000);
-        }
-
-        window.onload = updatePrice;
+    } catch (error) {
+        console.error('Fetch error:', error);
+        showError('Server error. Please try again.');
+    } finally {
+        // Fetch complete hone ke baad button wapas normal karo
+        fetchBtn.disabled = false;
+        fetchBtn.textContent = 'Fetch Details';
+    }
+}
     </script>
 </body>
 </html>
