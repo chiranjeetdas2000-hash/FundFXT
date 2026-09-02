@@ -74,15 +74,16 @@
         #editFields label { font-size: 12px; font-weight: 600; margin-bottom: 5px; }
         #editFields input { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; margin-bottom: 10px; }
 
-        .coupon-row { display: flex; gap: 10px; margin-bottom: 20px; }
-        .coupon-row input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; }
+        /* Affiliate Code Section */
+        .affiliate-row { display: flex; gap: 10px; margin-bottom: 20px; }
+        .affiliate-row input { flex: 1; padding: 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 15px; outline: none; }
         .apply-btn { background: #1e293b; color: #fff; border: none; padding: 12px 20px; border-radius: 8px; font-weight: 700; cursor: pointer; }
         .apply-btn:hover { background: #334155; }
 
         .price-box { background: #f0fdf4; border: 2px dashed #00b56a; border-radius: 12px; padding: 20px; text-align: center; margin-bottom: 25px; }
         .price-label { font-size: 14px; color: #64748b; }
         .final-price { font-size: 42px; font-weight: 800; color: #00b56a; }
-        .original-price { display: none; }
+        .original-price { display: none; color: #94a3b8; text-decoration: line-through; font-size: 20px; margin-left: 10px; }
 
         .buy-btn { position: relative; overflow: hidden; width: 100%; padding: 16px; background: #00b56a; color: #fff; border: none; border-radius: 8px; font-size: 18px; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .buy-btn:hover { background: #009a5b; transform: translateY(-2px); }
@@ -95,6 +96,7 @@
 
         .error-message { color: #ef4444; background: #fee2e2; padding: 12px; border-radius: 8px; margin-top: 15px; text-align: center; display: none; font-weight: 600; }
         .login-prompt { display: none; text-align: center; margin-top: 15px; font-size: 14px; color: #ef4444; }
+        .affiliate-msg { font-size: 13px; font-weight: 600; margin-top: 5px; }
 
         @media (max-width: 768px) {
             .nav-links { display: none; }
@@ -126,7 +128,7 @@
             <h1 class="buy-title">Buy a Challenge</h1>
             <p class="buy-subtitle">Select your model, enter your registered email, and get funded instantly.</p>
 
-            <!-- Model Selection Cards (No cut prices) -->
+            <!-- Model Selection Cards -->
             <div class="model-title">Choose Your Model</div>
             <div class="models-grid">
                 <div class="model-card selected" id="cardDirect" onclick="selectModel('direct')">
@@ -163,10 +165,12 @@
                 <input type="text" id="buyAddress" placeholder="Address">
             </div>
 
-            <div class="coupon-row">
-                <input type="text" id="couponCode" placeholder="Enter Coupon Code (Optional)">
-                <button class="apply-btn" onclick="validateCoupon()">Apply</button>
+            <!-- Affiliate Code Section -->
+            <div class="affiliate-row">
+                <input type="text" id="affiliateCode" placeholder="Enter Affiliate Code (e.g., XN45DH@d#2)">
+                <button class="apply-btn" onclick="validateAffiliate()">Apply</button>
             </div>
+            <div id="affiliateMsg" class="affiliate-msg"></div>
 
             <div class="price-box">
                 <div class="price-label">Total Amount</div>
@@ -190,23 +194,40 @@
     <script>
         let selectedModel = 'direct';
         let userDataFetched = false;
+        let appliedDiscount = 0;
+
+        // Affiliate Code Locked for now
+        const VALID_CODE = "XN45DH@d#2";
 
         function selectModel(model) {
             selectedModel = model;
             document.getElementById('cardDirect').classList.toggle('selected', model === 'direct');
             document.getElementById('cardChallenge').classList.toggle('selected', model === 'challenge');
+            
+            // Reset discount if model changes
+            appliedDiscount = 0;
+            document.getElementById('affiliateCode').value = '';
+            document.getElementById('affiliateMsg').innerText = '';
+            
             updatePrice();
         }
 
         function updatePrice() {
             const priceEl = document.getElementById('finalPrice');
             const origEl = document.getElementById('originalPrice');
-            if (selectedModel === 'direct') {
-                priceEl.textContent = '$10';
-                origEl.textContent = ''; // Ensure no cut price
+            let basePrice = selectedModel === 'direct' ? 10 : 29;
+            
+            // Apply discount if any
+            let finalPrice = basePrice - appliedDiscount;
+
+            priceEl.textContent = '$' + finalPrice;
+            
+            if (appliedDiscount > 0) {
+                origEl.textContent = '$' + basePrice;
+                origEl.style.display = 'inline-block';
             } else {
-                priceEl.textContent = '$29';
-                origEl.textContent = ''; // Ensure no cut price
+                origEl.textContent = '';
+                origEl.style.display = 'none';
             }
         }
 
@@ -223,27 +244,26 @@
                 return;
             }
 
+            // Backend API se data fetch karne ka logic yahan hoga
+            // Abhi ke liye simulation:
             try {
-                const response = await fetch(`/api/get-user-by-email?email=${encodeURIComponent(email)}`);
-                const data = await response.json();
+                // const response = await fetch(`/api/get-user-by-email?email=${encodeURIComponent(email)}`);
+                // const data = await response.json();
+                // if (data.exists) { ... } else { ... }
 
-                if (data.exists) {
-                    userDataFetched = true;
-                    document.getElementById('dispName').textContent = data.name;
-                    document.getElementById('dispPhone').textContent = data.phone;
-                    document.getElementById('dispAddress').textContent = data.address;
-                    document.getElementById('autoDetails').style.display = 'block';
-                    document.getElementById('editFields').style.display = 'none';
-                    
-                    document.getElementById('buyName').value = data.name;
-                    document.getElementById('buyPhone').value = data.phone;
-                    document.getElementById('buyAddress').value = data.address;
-                } else {
-                    userDataFetched = false;
-                    showError('Email not registered. Please Sign Up first.');
-                    loginPrompt.style.display = 'block';
-                    document.getElementById('autoDetails').style.display = 'none';
-                }
+                // Simulation Data:
+                document.getElementById('dispName').textContent = 'Chiranjeet Das';
+                document.getElementById('dispPhone').textContent = '+91 98765 43210';
+                document.getElementById('dispAddress').textContent = '123 Trading Street, Mumbai';
+                
+                document.getElementById('autoDetails').style.display = 'block';
+                document.getElementById('editFields').style.display = 'none';
+                
+                document.getElementById('buyName').value = 'Chiranjeet Das';
+                document.getElementById('buyPhone').value = '+91 98765 43210';
+                document.getElementById('buyAddress').value = '123 Trading Street, Mumbai';
+                
+                userDataFetched = true;
             } catch (error) {
                 console.error('Fetch error:', error);
                 showError('Server error. Please try again.');
@@ -255,25 +275,35 @@
             document.getElementById('editFields').style.display = 'block';
         }
 
-        async function validateCoupon() {
-            const code = document.getElementById('couponCode').value;
-            if (!code) { updatePrice(); return; }
+        function validateAffiliate() {
+            const code = document.getElementById('affiliateCode').value;
+            const msgEl = document.getElementById('affiliateMsg');
 
-            try {
-                const response = await fetch('/api/validate-coupon', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ code, model: selectedModel })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    const priceEl = document.getElementById('finalPrice');
-                    if (selectedModel === 'direct') priceEl.textContent = '$' + data.final_price;
-                    else priceEl.textContent = '$' + data.final_price;
+            if (!code) {
+                appliedDiscount = 0;
+                msgEl.innerText = '';
+                updatePrice();
+                return;
+            }
+
+            if (code === VALID_CODE) {
+                // Exact discount logic
+                if (selectedModel === 'direct') {
+                    appliedDiscount = 5;
+                    msgEl.style.color = '#00b56a';
+                    msgEl.innerText = 'Code applied! You got $5 OFF.';
                 } else {
-                    alert('Invalid coupon code'); updatePrice();
+                    appliedDiscount = 9;
+                    msgEl.style.color = '#00b56a';
+                    msgEl.innerText = 'Code applied! You got $9 OFF.';
                 }
-            } catch (error) { console.error(error); }
+                updatePrice();
+            } else {
+                appliedDiscount = 0;
+                msgEl.style.color = '#ef4444';
+                msgEl.innerText = 'Invalid Affiliate Code.';
+                updatePrice();
+            }
         }
 
         async function startPayment() {
@@ -286,18 +316,23 @@
             const name = document.getElementById('buyName').value;
             const phone = document.getElementById('buyPhone').value;
             const address = document.getElementById('buyAddress').value;
-            const coupon = document.getElementById('couponCode').value;
+            const affiliate = document.getElementById('affiliateCode').value;
 
+            // Base price logic
+            let basePrice = selectedModel === 'direct' ? 10 : 29;
+            let finalPrice = basePrice - appliedDiscount;
+
+            // Call Backend to create Order
             try {
-                const response = await fetch('/api/create-order', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ model: selectedModel, coupon, email, name, phone, address })
-                });
-                const data = await response.json();
-                if (data.success) {
-                    alert('Payment gateway will open here: ' + data.order_id);
-                }
+                // const response = await fetch('/api/create-order', {
+                //     method: 'POST',
+                //     headers: { 'Content-Type': 'application/json' },
+                //     body: JSON.stringify({ model: selectedModel, affiliate, email, name, phone, address })
+                // });
+                // const data = await response.json();
+                // alert('Payment gateway will open here: ' + data.order_id);
+
+                alert('Payment gateway will open here for $' + finalPrice + ' (Model: ' + selectedModel + ')');
             } catch (error) {
                 console.error('Payment error:', error);
             }
