@@ -13,9 +13,14 @@ function handleLogout() {
 
 // ========== SECTION SWITCHING ==========
 function showSection(sectionName) {
+    // Sidebar hide karo (Mobile ke liye)
+    document.getElementById('sidebar').classList.remove('open');
+    
+    // Baaki logic same
     document.querySelectorAll('.view-section').forEach(sec => sec.style.display = 'none');
     document.getElementById('view-' + sectionName).style.display = 'block';
     
+    // Active link update karo
     document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
     const activeLink = document.querySelector(`.sidebar nav a[data-section="${sectionName}"]`);
     if (activeLink) activeLink.classList.add('active');
