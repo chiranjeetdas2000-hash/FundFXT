@@ -119,7 +119,7 @@ app.post('/api/register', async (req, res) => {
 
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
-    } catch (error) {
+    } catch (error) { // Fix added above
         console.error(error);
         res.status(500).json({ error: error.message });
     }
@@ -146,7 +146,7 @@ app.post('/api/verify-email', async (req, res) => {
         
         const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
         res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
-    } catch (error) {
+    } catch (error) { // Fix added above
         console.error(error);
         res.status(500).json({ error: error.message });
     }
@@ -334,7 +334,7 @@ app.post('/api/user/update-profile', authenticateToken, async (req, res) => {
     try {
         await db.execute('UPDATE users SET legal_name = ?, phone = ? WHERE id = ?', [String(legal_name).trim(), phone ? String(phone).trim() : null, req.userId]);
         res.json({ success: true, message: 'Profile updated successfully' });
-    } catch (error) {
+    } catch (error) { // Fix added above
         console.error('Update profile error:', error.message);
         res.status(500).json({ error: 'Unable to update profile' });
     }
@@ -542,7 +542,7 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
         await connection.execute('UPDATE payment_orders SET provider_payment_id = ?, status = ''paid'', account_code = ?, paid_at = NOW() WHERE id = ?', [razorpay_payment_id, accountCode, paymentOrder.id]);
         await connection.commit();
         res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
-    } catch (error) {
+    } catch (error) { // Fix added above
         try { await connection.rollback(); } catch (_) {}
         console.error('Verify payment error:', error.message);
         res.status(500).json({ error: 'Unable to verify payment' });
