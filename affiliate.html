@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Affiliate Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #f8fafc; color: #0f172a; line-height: 1.6; }
+        a { text-decoration: none; color: inherit; }
+
+        /* ===== NAVBAR ===== */
+        .navbar {
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+            background: rgba(11, 14, 20, 0.98); backdrop-filter: blur(10px);
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 15px 30px; border-bottom: 1px solid #2a3444;
+        }
+        .logo { font-size: 24px; font-weight: 800; color: #fff; }
+        .logo span { color: #00b56a; }
+        .nav-links { display: flex; gap: 30px; }
+        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: 0.3s; }
+        .nav-links a:hover { color: #00b56a; }
+        .nav-btns { display: flex; gap: 12px; }
+        .btn-outline { padding: 8px 18px; border-radius: 6px; color: #fff; border: 2px solid #4b5563; font-weight: 500; }
+        .btn-outline:hover { border-color: #00b56a; color: #00b56a; }
+        .btn-solid { padding: 8px 18px; border-radius: 6px; background: #00b56a; color: #fff; font-weight: 600; }
+
+        /* ===== PAGE HEADER ===== */
+        .page-header {
+            background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
+            color: #fff; padding: 140px 20px 80px; text-align: center;
+        }
+        .page-header h1 { font-size: 48px; margin-bottom: 15px; background: linear-gradient(90deg, #fff, #00b56a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .page-header p { font-size: 18px; max-width: 700px; margin: 0 auto; color: #94a3b8; }
+
+        /* ===== MAIN CONTAINER ===== */
+        .dash-container { max-width: 1200px; margin: 60px auto; padding: 0 20px; }
+
+        /* ===== STATS CARDS ===== */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 40px; }
+        .stat-card {
+            background: #fff; border-radius: 16px; padding: 25px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.05); border-left: 5px solid #00b56a;
+        }
+        .stat-card h4 { font-size: 14px; color: #64748b; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 32px; font-weight: 800; color: #0f172a; }
+
+        /* ===== REFERRAL BOX ===== */
+        .referral-box {
+            background: #fff; border-radius: 20px; padding: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.08); margin-bottom: 40px; border: 2px solid #00b56a;
+        }
+        .referral-box h2 { font-size: 22px; margin-bottom: 20px; color: #00b56a; }
+        .referral-content { display: flex; flex-direction: column; gap: 15px; }
+        .link-row { display: flex; justify-content: space-between; align-items: center; background: #f8fafc; padding: 15px; border-radius: 8px; border: 1px solid #e2e8f0; }
+        .link-row .label { font-size: 14px; color: #64748b; }
+        .link-row .value { font-size: 15px; font-weight: 600; color: #0f172a; word-break: break-all; }
+        .copy-btn { background: #00b56a; color: #fff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; transition: 0.2s; }
+        .copy-btn:hover { background: #009a5b; }
+
+        /* ===== PROGRESS ===== */
+        .progress-section { background: #fff; border-radius: 16px; padding: 30px; margin-bottom: 40px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); }
+        .progress-title { font-size: 18px; font-weight: 700; margin-bottom: 15px; }
+        .progress-bar { background: #e2e8f0; height: 12px; border-radius: 20px; overflow: hidden; margin-bottom: 8px; }
+        .progress-fill { height: 100%; background: #00b56a; border-radius: 20px; }
+        .progress-text { font-size: 14px; color: #64748b; }
+
+        /* ===== EARNINGS TABLE ===== */
+        .table-section { background: #fff; border-radius: 16px; padding: 30px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 40px; }
+        .table-title { font-size: 20px; font-weight: 700; margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 14px; text-align: left; border-bottom: 1px solid #f1f5f9; font-size: 14px; }
+        th { background: #f8fafc; color: #64748b; font-weight: 600; }
+        .status-approved { display: inline-block; padding: 4px 10px; background: #d1fae5; color: #065f46; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-pending { display: inline-block; padding: 4px 10px; background: #fef3c7; color: #92400e; border-radius: 20px; font-size: 12px; font-weight: 600; }
+        .status-rejected { display: inline-block; padding: 4px 10px; background: #fee2e2; color: #991b1b; border-radius: 20px; font-size: 12px; font-weight: 600; }
+
+        /* ===== PAYOUT BUTTON ===== */
+        .payout-section { text-align: center; background: #fff; border-radius: 16px; padding: 40px; box-shadow: 0 6px 20px rgba(0,0,0,0.05); margin-bottom: 40px; }
+        .payout-btn { display: inline-block; background: #00b56a; color: #fff; padding: 15px 40px; border-radius: 50px; font-size: 16px; font-weight: 700; cursor: pointer; border: none; transition: 0.3s; }
+        .payout-btn:hover { background: #009a5b; transform: translateY(-2px); }
+        .payout-btn:disabled { background: #cbd5e1; color: #64748b; cursor: not-allowed; transform: none; }
+        .payout-min-note { font-size: 14px; color: #64748b; margin-top: 10px; }
+
+        /* ===== FOOTER ===== */
+        .footer { background: #0d1117; color: #94a3b8; padding: 50px 20px 20px; }
+        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; margin-bottom: 40px; }
+        .footer h4 { color: #fff; font-size: 16px; margin-bottom: 15px; }
+        .footer a { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 8px; }
+        .footer a:hover { color: #00b56a; }
+        .footer-bottom { text-align: center; border-top: 1px solid #1a2332; padding-top: 20px; font-size: 13px; }
+
+        @media (max-width: 768px) {
+            .nav-links { display: none; }
+            .page-header h1 { font-size: 36px; }
+            .link-row { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- NAVBAR -->
+    <nav class="navbar">
+        <div class="logo">Fund<span>FXT</span></div>
+        <ul class="nav-links">
+            <a href="home.html">Home</a>
+            <a href="dashboard.html">Dashboard</a>
+            <a href="faq.html">FAQ</a>
+            <a href="contact.html">Contact</a>
+            <a href="affiliate.html" style="color:#00b56a;">Affiliate</a>
+        </ul>
+        <div class="nav-btns">
+            <a href="Auth.html" class="btn-outline">Login</a>
+            <a href="Auth.html" class="btn-solid">Get Funded</a>
+        </div>
+    </nav>
+
+    <!-- PAGE HEADER -->
+    <section class="page-header">
+        <h1>Affiliate Dashboard</h1>
+        <p>Track your referrals, monitor your earnings, and manage your affiliate commissions all in one place.</p>
+    </section>
+
+    <!-- MAIN CONTAINER -->
+    <div class="dash-container">
+
+        <!-- STATS CARDS -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h4>Total Referrals</h4>
+                <div class="stat-value">75</div>
+            </div>
+            <div class="stat-card">
+                <h4>Verified Sales</h4>
+                <div class="stat-value">45</div>
+            </div>
+            <div class="stat-card">
+                <h4>Total Earnings</h4>
+                <div class="stat-value">$145.00</div>
+            </div>
+            <div class="stat-card">
+                <h4>Commission Rate</h4>
+                <div class="stat-value">$2 / $5</div>
+            </div>
+        </div>
+
+        <!-- REFERRAL BOX -->
+        <div class="referral-box">
+            <h2>Your Referral Details</h2>
+            <div class="referral-content">
+                <div class="link-row">
+                    <div class="label">Your Unique Referral Link</div>
+                    <div class="value" id="referralLink">https://fund-fxt.vercel.app/Auth.html?ref=AFF-1001</div>
+                    <button class="copy-btn" onclick="copyToClipboard('referralLink')">Copy</button>
+                </div>
+                <div class="link-row">
+                    <div class="label">Your Coupon Code (For Direct Funded)</div>
+                    <div class="value" id="couponDirect">FUNDFXT-DIRECT-10</div>
+                    <button class="copy-btn" onclick="copyToClipboard('couponDirect')">Copy</button>
+                </div>
+                <div class="link-row">
+                    <div class="label">Your Coupon Code (For 2-Step Challenge)</div>
+                    <div class="value" id="couponChallenge">FUNDFXT-CHALLENGE-29</div>
+                    <button class="copy-btn" onclick="copyToClipboard('couponChallenge')">Copy</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- PROGRESS SECTION -->
+        <div class="progress-section">
+            <div class="progress-title">Unlock Higher Withdrawal Limits</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: 90%;"></div>
+            </div>
+            <div class="progress-text">45/50 Verified Sales - 90% Complete</div>
+            <p style="margin-top: 10px; font-size: 14px; color: #475569;">Reach <strong>50 verified sales</strong> to unlock full affiliate benefits and higher commission tiers.</p>
+        </div>
+
+        <!-- EARNINGS TABLE -->
+        <div class="table-section">
+            <h3 class="table-title">Recent Commission Transactions</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Referral</th>
+                        <th>Model</th>
+                        <th>Commission</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Aug 30, 2026</td>
+                        <td>Trader_Jeet</td>
+                        <td>2-Step Challenge</td>
+                        <td>$5.00</td>
+                        <td><span class="status-approved">Approved</span></td>
+                    </tr>
+                    <tr>
+                        <td>Aug 29, 2026</td>
+                        <td>Trader_Amy</td>
+                        <td>Direct Funded</td>
+                        <td>$2.00</td>
+                        <td><span class="status-approved">Approved</span></td>
+                    </tr>
+                    <tr>
+                        <td>Aug 28, 2026</td>
+                        <td>Trader_Raj</td>
+                        <td>2-Step Challenge</td>
+                        <td>$5.00</td>
+                        <td><span class="status-pending">Pending</span></td>
+                    </tr>
+                    <tr>
+                        <td>Aug 27, 2026</td>
+                        <td>Trader_Mia</td>
+                        <td>Direct Funded</td>
+                        <td>$2.00</td>
+                        <td><span class="status-rejected">Rejected</span></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- PAYOUT BUTTON -->
+        <div class="payout-section">
+            <h3 style="margin-bottom: 20px; font-size: 22px;">Withdraw Your Earnings</h3>
+            <button class="payout-btn" id="payoutBtn" disabled>Request Payout ($100 Minimum)</button>
+            <p class="payout-min-note">Minimum payout is $100. You currently have $145.00 available.</p>
+        </div>
+
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+        <div class="footer-grid">
+            <div>
+                <h4>FundFXT</h4>
+                <p>Building Trust. Backed by Math.</p>
+            </div>
+            <div>
+                <h4>Quick Links</h4>
+                <a href="home.html">Home</a>
+                <a href="Auth.html">Register</a>
+                <a href="dashboard.html">Dashboard</a>
+                <a href="faq.html">FAQ</a>
+            </div>
+            <div>
+                <h4>Legal</h4>
+                <a href="privacy.html">Privacy Policy</a>
+                <a href="terms.html">Terms & Conditions</a>
+                <a href="contact.html">Contact</a>
+            </div>
+        </div>
+        <div class="footer-bottom">© 2026 FundFXT. All rights reserved.</div>
+    </footer>
+
+    <script>
+        // Copy to clipboard function
+        function copyToClipboard(elementId) {
+            const text = document.getElementById(elementId).textContent;
+            navigator.clipboard.writeText(text).then(() => {
+                alert('Copied to clipboard!');
+            });
+        }
+
+        // Payout button logic
+        const payoutBtn = document.getElementById('payoutBtn');
+        if (payoutBtn) {
+            payoutBtn.addEventListener('click', () => {
+                alert('Payout request submitted! You will receive your funds within 2-3 business days.');
+            });
+        }
+    </script>
+</body>
+</html>
