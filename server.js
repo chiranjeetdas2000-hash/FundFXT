@@ -5,7 +5,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const crypto = require('crypto');
-const FCSClient = require('./fcs-client-lib'); // FCS Import
 require('dotenv').config();
 
 const app = express();
@@ -100,7 +99,6 @@ app.post('/api/register', async (req, res) => {
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode, referred_by_code || null]
         );
 
-        // Create an affiliate record for this user (so their own referral stats can be tracked)
         await db.execute(
             'INSERT INTO affiliates (user_id, affiliate_code) VALUES (?, ?)',
             [result.insertId, newAffiliateCode]
@@ -166,7 +164,6 @@ app.post('/api/reset-password', async (req, res) => {
     try {
         const hashed = await bcrypt.hash(password, 10);
         await db.execute('UPDATE users SET password_hash = ? WHERE email = ?', [hashed, email]);
-        // Mark all OTPs for this email as consumed
         await db.execute('UPDATE email_verifications SET consumed_at = NOW() WHERE email = ?', [email]);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -187,9 +184,7 @@ function authenticateToken(req, res, next) {
 app.get('/api/user/profile', authenticateToken, async (req, res) => {
     try {
         const [rows] = await db.execute(
-            `SELECT id, trader_id, legal_name, email, phone, address,
-                    kyc_status, affiliate_code
-             FROM users WHERE id = ? LIMIT 1`,
+            `SELECT id, trader_id, legal_name, email, phone, address, kyc_status, affiliate_code FROM users WHERE id = ? LIMIT 1`,
             [req.userId]
         );
         if (!rows.length) return res.status(404).json({ error: 'User not found' });
@@ -246,8 +241,8 @@ async function calculateServerPrice(model, affiliateCode) {
     if (affiliateCode) {
         const [affiliateRows] = await db.execute('SELECT id, user_id FROM users WHERE affiliate_code = ? LIMIT 1', [String(affiliateCode).trim()]);
         if (affiliateRows.length > 0) {
-            affiliateUserId = affiliateRows[0].id; // user_id of the affiliate
-            discountAmountCents = Math.floor(original * (config.affiliate_discount_bps / 10000)); // bps -> %
+            affiliateUserId = affiliateRows[0].id;
+            discountAmountCents = Math.floor(original * (config.affiliate_discount_bps / 10000));
             affiliateApplied = true;
         }
     }
@@ -271,8 +266,6 @@ if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
     console.log('✅ Razorpay configured');
 } else { console.warn('⚠️ Razorpay is not configured.'); }
 
-// No need to CREATE payment_orders table – it already exists from schema.
-
 app.post('/api/payments/quote', authenticateToken, async (req, res) => {
     try {
         const pricing = await calculateServerPrice(req.body.model, req.body.affiliate_code);
@@ -289,25 +282,11 @@ app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
         const [users] = await db.execute('SELECT id, email, legal_name FROM users WHERE id = ? LIMIT 1', [req.userId]);
         if (!users.length) return res.status(404).json({ error: 'User not found' });
         const receipt = `FXT_${req.userId}_${Date.now()}`.slice(0, 40);
-        const razorpayOrder = await razorpay.orders.create({
-            amount: pricing.finalAmountCents,
-            currency: pricing.currency,
-            receipt,
-            notes: {
-                user_id: String(req.userId),
-                model: pricing.model,
-                affiliate_code: affiliateCode || 'none',
-                affiliate_user_id: pricing.affiliate_user_id ? String(pricing.affiliate_user_id) : 'none'
-            }
-        });
-        // Generate order_ref for our internal records
+        const razorpayOrder = await razorpay.orders.create({ amount: pricing.finalAmountCents, currency: pricing.currency, receipt, notes: { user_id: String(req.userId), model: pricing.model, affiliate_code: affiliateCode || 'none', affiliate_user_id: pricing.affiliate_user_id ? String(pricing.affiliate_user_id) : 'none' } });
         const orderRef = 'ORD-' + crypto.randomBytes(8).toString('hex');
         await db.execute(
-            `INSERT INTO payment_orders 
-             (order_ref, user_id, provider, provider_order_id, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status) 
-             VALUES (?, ?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, ?, 'created')`,
-            [orderRef, req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.affiliate_user_id || null,
-             pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
+            `INSERT INTO payment_orders (order_ref, user_id, provider, provider_order_id, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status) VALUES (?, ?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, ?, 'created')`,
+            [orderRef, req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.affiliate_user_id || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
         );
         res.json({ success: true, key_id: process.env.RAZORPAY_KEY_ID, order_id: razorpayOrder.id, amount: pricing.finalAmountCents, currency: pricing.currency, pricing });
     } catch (error) {
@@ -331,77 +310,39 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
     if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) return res.status(400).json({ error: 'Incomplete payment verification data' });
     const connection = await db.getConnection();
     try {
-        const [orderRows] = await connection.execute(
-            'SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1',
-            [razorpay_order_id, req.userId]
-        );
+        const [orderRows] = await connection.execute('SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1', [razorpay_order_id, req.userId]);
         if (!orderRows.length) return res.status(404).json({ error: 'Payment order not found' });
         const paymentOrder = orderRows[0];
         if (paymentOrder.status === 'paid') return res.json({ success: true, already_verified: true, account_code: paymentOrder.account_code, order_id: paymentOrder.provider_order_id });
-
         if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
             await connection.execute("UPDATE payment_orders SET status = 'failed' WHERE id = ? AND status = 'created'", [paymentOrder.id]);
             return res.status(400).json({ error: 'Payment signature verification failed' });
         }
-
-        // Fetch order details from Razorpay and compare amount
         const providerOrder = await razorpay.orders.fetch(razorpay_order_id);
         const providerPayment = await razorpay.payments.fetch(razorpay_payment_id);
         if (String(providerOrder.id) !== String(paymentOrder.provider_order_id) || Number(providerOrder.amount) !== Number(paymentOrder.final_amount_cents)) {
             await connection.execute("UPDATE payment_orders SET status = 'failed' WHERE id = ? AND status = 'created'", [paymentOrder.id]);
             return res.status(400).json({ error: 'Payment amount mismatch' });
         }
-
-        // Load challenge config for account creation
         const config = await getChallengeConfig(paymentOrder.model);
         const accountCode = generateAccountCode();
-        const now = new Date();
-        const currentTradingDay = now.toISOString().split('T')[0]; // YYYY-MM-DD
-
-        // Create the trading account with proper initial balance
+        const currentTradingDay = new Date().toISOString().split('T')[0];
         await connection.execute(
-            `INSERT INTO accounts 
-             (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, equity_hwm_cents,
-              day_start_balance_cents, day_start_equity_cents, current_trading_day, current_daily_loss_cents, current_max_drawdown_cents, status)
-             VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, ?, ?, ?, ?, 0, 0, 'ACTIVE')`,
-            [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents,
-             config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, currentTradingDay]
+            `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, equity_hwm_cents, day_start_balance_cents, day_start_equity_cents, current_trading_day, current_daily_loss_cents, current_max_drawdown_cents, status) VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, ?, ?, ?, ?, 0, 0, 'ACTIVE')`,
+            [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, currentTradingDay]
         );
-
-        // Get the just-inserted account ID
         const [accountResult] = await connection.execute('SELECT id FROM accounts WHERE account_code = ?', [accountCode]);
         const accountId = accountResult[0].id;
-
-        // Mark payment as paid and link account
-        await connection.execute(
-            `UPDATE payment_orders SET provider_payment_id = ?, status = 'paid', account_code = ?, account_id = ?, paid_amount_cents = ?, paid_at = NOW() WHERE id = ?`,
-            [razorpay_payment_id, accountCode, accountId, paymentOrder.final_amount_cents, paymentOrder.id]
-        );
-
-        // Handle affiliate commission if applicable
+        await connection.execute(`UPDATE payment_orders SET provider_payment_id = ?, status = 'paid', account_code = ?, account_id = ?, paid_amount_cents = ?, paid_at = NOW() WHERE id = ?`, [razorpay_payment_id, accountCode, accountId, paymentOrder.final_amount_cents, paymentOrder.id]);
         if (paymentOrder.affiliate_code) {
-            // Find the affiliate record (not just the user)
-            const [affiliateRows] = await connection.execute(
-                'SELECT a.id AS affiliate_id, a.user_id FROM affiliates a JOIN users u ON u.id = a.user_id WHERE u.affiliate_code = ? LIMIT 1',
-                [paymentOrder.affiliate_code]
-            );
+            const [affiliateRows] = await connection.execute('SELECT a.id AS affiliate_id, a.user_id FROM affiliates a JOIN users u ON u.id = a.user_id WHERE u.affiliate_code = ? LIMIT 1', [paymentOrder.affiliate_code]);
             if (affiliateRows.length > 0) {
                 const affiliate = affiliateRows[0];
                 const commissionCents = Math.floor((paymentOrder.final_amount_cents * 0.20) + 100);
-                // Insert commission (in cents)
-                await connection.execute(
-                    `INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status)
-                     VALUES (?, ?, ?, ?, ?, 'PENDING')`,
-                    [affiliate.affiliate_id, paymentOrder.id, req.userId, paymentOrder.model, commissionCents]
-                );
-                // Update affiliate totals
-                await connection.execute(
-                    `UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?`,
-                    [commissionCents, affiliate.affiliate_id]
-                );
+                await connection.execute(`INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status) VALUES (?, ?, ?, ?, ?, 'PENDING')`, [affiliate.affiliate_id, paymentOrder.id, req.userId, paymentOrder.model, commissionCents]);
+                await connection.execute(`UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?`, [commissionCents, affiliate.affiliate_id]);
             }
         }
-
         await connection.commit();
         res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
     } catch (error) {
@@ -414,47 +355,24 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
 // ========== AFFILIATE DASHBOARD STATS ==========
 app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
     try {
-        const [affiliateRows] = await db.execute(
-            'SELECT * FROM affiliates WHERE user_id = ? LIMIT 1',
-            [req.userId]
-        );
+        const [affiliateRows] = await db.execute('SELECT * FROM affiliates WHERE user_id = ? LIMIT 1', [req.userId]);
         if (!affiliateRows.length) return res.status(404).json({ error: 'Affiliate account not found' });
-
         const affiliate = affiliateRows[0];
-
-        // Count distinct referred users via payment_orders with this affiliate_code
-        const [referralCount] = await db.execute(
-            'SELECT COUNT(DISTINCT user_id) AS total FROM payment_orders WHERE affiliate_code = ? AND status = "paid"',
-            [affiliate.affiliate_code]
-        );
-
-        // Sum commissions from affiliate_commissions
-        const [commissionSum] = await db.execute(
-            `SELECT 
-                SUM(commission_amount_cents) AS total_earnings_cents,
-                SUM(CASE WHEN status = 'PENDING' THEN commission_amount_cents ELSE 0 END) AS pending_earnings_cents,
-                SUM(CASE WHEN status = 'PAID' THEN commission_amount_cents ELSE 0 END) AS paid_earnings_cents
-             FROM affiliate_commissions WHERE affiliate_id = ?`,
-            [affiliate.id]
-        );
-
-        res.json({
-            affiliate_code: affiliate.affiliate_code,
-            total_referrals: referralCount[0].total || 0,
-            total_sales: affiliate.total_sales,
-            total_earnings_cents: commissionSum[0].total_earnings_cents || 0,
-            pending_earnings_cents: commissionSum[0].pending_earnings_cents || 0,
-            paid_earnings_cents: commissionSum[0].paid_earnings_cents || 0
-        });
-    } catch (error) {
-        console.error('Affiliate stats error:', error);
-        res.status(500).json({ error: 'Failed to fetch affiliate stats' });
-    }
+        const [referralCount] = await db.execute('SELECT COUNT(DISTINCT user_id) AS total FROM payment_orders WHERE affiliate_code = ? AND status = "paid"', [affiliate.affiliate_code]);
+        const [commissionSum] = await db.execute(`SELECT SUM(commission_amount_cents) AS total_earnings_cents, SUM(CASE WHEN status = 'PENDING' THEN commission_amount_cents ELSE 0 END) AS pending_earnings_cents, SUM(CASE WHEN status = 'PAID' THEN commission_amount_cents ELSE 0 END) AS paid_earnings_cents FROM affiliate_commissions WHERE affiliate_id = ?`, [affiliate.id]);
+        res.json({ affiliate_code: affiliate.affiliate_code, total_referrals: referralCount[0].total || 0, total_sales: affiliate.total_sales, total_earnings_cents: commissionSum[0].total_earnings_cents || 0, pending_earnings_cents: commissionSum[0].pending_earnings_cents || 0, paid_earnings_cents: commissionSum[0].paid_earnings_cents || 0 });
+    } catch (error) { console.error('Affiliate stats error:', error); res.status(500).json({ error: 'Failed to fetch affiliate stats' }); }
 });
 
-// ========== FCS TRADING ENGINE ==========
+// ========== FCS LIVE MARKET DATA (Direct WebSocket) ==========
+const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
+const FCS_API_KEY = process.env.FCS_API_KEY;
+
 let prices = {};
 let priceCache = {};
+let fcsSocket = null;
+let reconnectAttempts = 0;
+let reconnectTimer = null;
 
 const instruments = {
     EURUSD: { pip: 0.0001, size: 100000 },
@@ -478,13 +396,8 @@ async function processLivePrices() {
         const price = priceCache[trade.symbol];
         if (!price) continue;
         const currentPrice = trade.side === 'BUY' ? price.bid : price.ask;
-        // Convert to cents (for the DB) – profit in USD * 100
         const floatingCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, currentPrice, trade.volume) * 100);
-        await db.execute(
-            'UPDATE trades SET current_price = ?, floating_profit_cents = ? WHERE trade_id = ?',
-            [currentPrice, floatingCents, trade.trade_id]
-        );
-
+        await db.execute('UPDATE trades SET current_price = ?, floating_profit_cents = ? WHERE trade_id = ?', [currentPrice, floatingCents, trade.trade_id]);
         let closeReason = null;
         if (trade.side === 'BUY') {
             if (trade.stop_loss && currentPrice <= trade.stop_loss) closeReason = 'SL';
@@ -493,59 +406,32 @@ async function processLivePrices() {
             if (trade.stop_loss && currentPrice >= trade.stop_loss) closeReason = 'SL';
             if (trade.take_profit && currentPrice <= trade.take_profit) closeReason = 'TP';
         }
-
         if (closeReason) {
             const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, currentPrice, trade.volume) * 100);
-            await db.execute(
-                `UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = ? WHERE trade_id = ?`,
-                [currentPrice, realizedCents, closeReason, trade.trade_id]
-            );
-            // Update account balance
-            await db.execute(
-                'UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?',
-                [realizedCents, trade.account_id]
-            );
+            await db.execute(`UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = ? WHERE trade_id = ?`, [currentPrice, realizedCents, closeReason, trade.trade_id]);
+            await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);
         }
     }
 }
-
-// ========== FCS LIVE MARKET DATA (Direct WebSocket) ==========
-const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
-const FCS_API_KEY = process.env.FCS_API_KEY;
-
-let prices = {};
-let priceCache = {};
-let fcsSocket = null;
-let reconnectAttempts = 0;
-let reconnectTimer = null;
 
 function connectFCS() {
     if (!FCS_API_KEY) {
         console.error('❌ FCS_API_KEY is not set. Market data unavailable.');
         return;
     }
-
     console.log('🔄 Connecting to FCS...');
     fcsSocket = new WebSocket(FCS_WS_URL, {
-        headers: { 'Authorization': `Bearer ${FCS_API_KEY}` } // Some APIs use this
+        headers: { 'Authorization': `Bearer ${FCS_API_KEY}` }
     });
-
     fcsSocket.on('open', () => {
         console.log('✅ FCS WebSocket Connected');
-        reconnectAttempts = 0; // reset backoff
-
-        // Subscribe to required pairs
+        reconnectAttempts = 0;
         const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'];
         symbols.forEach(sym => {
-            const request = JSON.stringify({
-                action: 'subscribe',
-                symbol: `FX:${sym}`,
-                timeframe: '15'
-            });
+            const request = JSON.stringify({ action: 'subscribe', symbol: `FX:${sym}`, timeframe: '15' });
             fcsSocket.send(request);
         });
     });
-
     fcsSocket.on('message', (raw) => {
         try {
             const data = JSON.parse(raw);
@@ -559,16 +445,12 @@ function connectFCS() {
                 priceCache[sym] = { bid, ask };
                 processLivePrices();
             }
-        } catch (e) {
-            // Ignore malformed messages
-        }
+        } catch (e) { }
     });
-
     fcsSocket.on('close', (code, reason) => {
         console.log(`❌ FCS disconnected (${code}): ${reason || 'no reason'}`);
         scheduleReconnect();
     });
-
     fcsSocket.on('error', (err) => {
         console.error('FCS error:', err.message);
         fcsSocket.close();
@@ -577,47 +459,32 @@ function connectFCS() {
 
 function scheduleReconnect() {
     if (reconnectTimer) clearTimeout(reconnectTimer);
-    const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts)); // 5s, 10s, 20s, 40s... up to 30s
+    const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
     reconnectAttempts++;
-    console.log(`⏳ Retrying FCS in ${delay/1000}s...`);
+    console.log(`⏳ Retrying FCS in ${delay / 1000}s...`);
     reconnectTimer = setTimeout(connectFCS, delay);
 }
 
-// Start FCS connection
 connectFCS();
-
-// Keep old processLivePrices() as is
 
 // ========== TRADE EXECUTION ==========
 app.post('/api/trade/execute', authenticateToken, async (req, res) => {
     const { account_code, symbol, side, volume, sl, tp } = req.body;
     if (!['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'].includes(symbol)) return res.status(400).json({ error: 'Symbol not allowed' });
     if (!priceCache[symbol]) return res.status(400).json({ error: 'Price not available yet' });
-
-    // Get the account record to ensure it belongs to the user
     const [accounts] = await db.execute('SELECT * FROM accounts WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
     if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
     const account = accounts[0];
-
     const entry = side === 'BUY' ? priceCache[symbol].ask : priceCache[symbol].bid;
     const tradeId = 'TR-' + Date.now() + Math.random().toString(36).substr(2, 5);
     const tradingDay = new Date().toISOString().split('T')[0];
-
-    await db.execute(
-        `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`,
-        [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null]
-    );
-
+    await db.execute(`INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`, [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null]);
     res.json({ success: true, trade_id: tradeId, entry_price: entry });
 });
 
 app.get('/api/trade/get', authenticateToken, async (req, res) => {
     const { account_code } = req.query;
-    const [trades] = await db.execute(
-        'SELECT * FROM trades WHERE account_code = ? AND user_id = ?',
-        [account_code, req.userId]
-    );
+    const [trades] = await db.execute('SELECT * FROM trades WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
     res.json({ trades });
 });
 
