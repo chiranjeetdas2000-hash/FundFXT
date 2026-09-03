@@ -347,7 +347,8 @@ app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
 
 // ========== FCS LIVE MARKET DATA (Fixed) ==========
 const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
-const FCS_API_KEY = process.env.FCS_API_KEY;
+const FCS_API_KEY = process.env.FCS_API_KEY || 'fcs_socket_demo'; // Demo key fallback
+const FCS_LOGIN_METHOD = process.env.FCS_LOGIN_METHOD || 'header';
 
 let prices = {};
 let priceCache = {};
