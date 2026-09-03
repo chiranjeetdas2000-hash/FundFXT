@@ -509,24 +509,84 @@ async function processLivePrices() {
     }
 }
 
-const fcs = new FCSClient(process.env.FCS_API_KEY, process.env.FCS_WS_URL);
-fcs.connect().then(() => {
-    console.log("✅ Connected to FCS Live Data");
-    ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'].forEach(sym => fcs.join(`FX:${sym}`, '15'));
-});
-fcs.onmessage = (data) => {
-    if (data.type === 'price' && data.prices) {
-        const sym = data.symbol.replace('FX:', '');
-        const last = data.prices.c;
-        const spread = sym.includes('JPY') ? 0.015 : 0.00015;
-        const ask = last + spread;
-        const bid = last - spread;
-        prices[sym] = { bid: bid, ask: ask, change: 0, changePercent: data.prices.chp ? data.prices.chp : 0 };
-        priceCache[sym] = { bid: bid, ask: ask };
-        processLivePrices();
+// ========== FCS LIVE MARKET DATA (Direct WebSocket) ==========
+const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
+const FCS_API_KEY = process.env.FCS_API_KEY;
+
+let prices = {};
+let priceCache = {};
+let fcsSocket = null;
+let reconnectAttempts = 0;
+let reconnectTimer = null;
+
+function connectFCS() {
+    if (!FCS_API_KEY) {
+        console.error('❌ FCS_API_KEY is not set. Market data unavailable.');
+        return;
     }
-};
-fcs.onclose = () => { console.log("FCS disconnected, retrying..."); setTimeout(() => fcs.connect(), 5000); };
+
+    console.log('🔄 Connecting to FCS...');
+    fcsSocket = new WebSocket(FCS_WS_URL, {
+        headers: { 'Authorization': `Bearer ${FCS_API_KEY}` } // Some APIs use this
+    });
+
+    fcsSocket.on('open', () => {
+        console.log('✅ FCS WebSocket Connected');
+        reconnectAttempts = 0; // reset backoff
+
+        // Subscribe to required pairs
+        const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'];
+        symbols.forEach(sym => {
+            const request = JSON.stringify({
+                action: 'subscribe',
+                symbol: `FX:${sym}`,
+                timeframe: '15'
+            });
+            fcsSocket.send(request);
+        });
+    });
+
+    fcsSocket.on('message', (raw) => {
+        try {
+            const data = JSON.parse(raw);
+            if (data.type === 'price' && data.prices) {
+                const sym = data.symbol.replace('FX:', '');
+                const last = data.prices.c;
+                const spread = sym.includes('JPY') ? 0.015 : 0.00015;
+                const ask = last + spread;
+                const bid = last - spread;
+                prices[sym] = { bid, ask, change: 0, changePercent: data.prices.chp || 0 };
+                priceCache[sym] = { bid, ask };
+                processLivePrices();
+            }
+        } catch (e) {
+            // Ignore malformed messages
+        }
+    });
+
+    fcsSocket.on('close', (code, reason) => {
+        console.log(`❌ FCS disconnected (${code}): ${reason || 'no reason'}`);
+        scheduleReconnect();
+    });
+
+    fcsSocket.on('error', (err) => {
+        console.error('FCS error:', err.message);
+        fcsSocket.close();
+    });
+}
+
+function scheduleReconnect() {
+    if (reconnectTimer) clearTimeout(reconnectTimer);
+    const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts)); // 5s, 10s, 20s, 40s... up to 30s
+    reconnectAttempts++;
+    console.log(`⏳ Retrying FCS in ${delay/1000}s...`);
+    reconnectTimer = setTimeout(connectFCS, delay);
+}
+
+// Start FCS connection
+connectFCS();
+
+// Keep old processLivePrices() as is
 
 // ========== TRADE EXECUTION ==========
 app.post('/api/trade/execute', authenticateToken, async (req, res) => {
