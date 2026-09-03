@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const crypto = require('crypto');
+const FCSClient = require('./fcs-client-lib'); // Official FCS library
 require('dotenv').config();
 
 const app = express();
@@ -345,17 +346,51 @@ app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
     } catch (error) { console.error('Affiliate stats error:', error); res.status(500).json({ error: 'Failed to fetch affiliate stats' }); }
 });
 
-// ========== FCS LIVE MARKET DATA (Fixed) ==========
-const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
-const FCS_API_KEY = process.env.FCS_API_KEY || 'fcs_socket_demo'; // Demo key fallback
-const FCS_LOGIN_METHOD = process.env.FCS_LOGIN_METHOD || 'header';
+// ========== FCS LIVE MARKET DATA (Using Official Library) ==========
+// Use demo key if real key is not set or invalid
+const FCS_API_KEY = process.env.FCS_API_KEY || 'fcs_socket_demo';
+const fcs = new FCSClient(FCS_API_KEY);
+fcs.showLogs = true; // Enable logs for debugging (optional, set false in production)
 
-let prices = {};
-let priceCache = {};
-let fcsSocket = null;
-let reconnectAttempts = 0;
-let reconnectTimer = null;
+fcs.onconnected = () => {
+    console.log('✅ FCS Connected successfully');
+    // Subscribe to symbols (must use exchange prefix)
+    const symbols = ['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:XAUUSD'];
+    symbols.forEach(sym => {
+        fcs.join(sym, '15'); // timeframe as string "15"
+    });
+};
 
+fcs.onmessage = (data) => {
+    if (data.type === 'price' && data.prices) {
+        const sym = data.symbol.replace('FX:', ''); // Remove FX: prefix
+        const last = data.prices.c;
+        const spread = sym.includes('JPY') ? 0.015 : 0.00015;
+        const ask = last + spread;
+        const bid = last - spread;
+        // Store in global price cache
+        global.prices = global.prices || {};
+        global.priceCache = global.priceCache || {};
+        global.prices[sym] = { bid, ask, change: data.prices.ch || 0, changePercent: data.prices.chp || 0 };
+        global.priceCache[sym] = { bid, ask };
+        processLivePrices();
+    }
+};
+
+fcs.onclose = (event) => {
+    console.log(`❌ FCS disconnected (${event.code}): ${event.reason || 'no reason'}`);
+};
+
+fcs.onerror = (err) => {
+    console.error('FCS error:', err.message || err);
+};
+
+// Connect
+fcs.connect().catch(err => {
+    console.error('FCS connection failed:', err.message);
+});
+
+// ========== TRADE ENGINE (Uses priceCache) ==========
 const instruments = {
     EURUSD: { pip: 0.0001, size: 100000 },
     GBPUSD: { pip: 0.0001, size: 100000 },
@@ -373,6 +408,7 @@ function calculatePL(symbol, side, entry, current, volume) {
 }
 
 async function processLivePrices() {
+    const priceCache = global.priceCache || {};
     const [trades] = await db.execute('SELECT * FROM trades WHERE status = "OPEN"');
     for (const trade of trades) {
         const price = priceCache[trade.symbol];
@@ -396,86 +432,15 @@ async function processLivePrices() {
     }
 }
 
-function connectFCS() {
-    if (!FCS_API_KEY) {
-        console.error('❌ FCS_API_KEY is not set. Market data unavailable.');
-        return;
-    }
-    console.log('🔄 Connecting to FCS...');
-    // ✅ Correct URL: API key in query string
-    fcsSocket = new WebSocket(`${FCS_WS_URL}?access_key=${FCS_API_KEY}`);
-
-    fcsSocket.on('open', () => {
-        console.log('✅ FCS WebSocket Connected');
-        reconnectAttempts = 0;
-
-        // ✅ Correct subscribe format
-        const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'];
-        symbols.forEach(sym => {
-            const request = JSON.stringify({
-                action: 'subscribe',
-                symbol: sym,      // No 'FX:' prefix
-                interval: '15m'   // Use '15m' instead of '15'
-            });
-            fcsSocket.send(request);
-        });
-
-        // Heartbeat every 30 seconds
-        setInterval(() => {
-            if (fcsSocket.readyState === WebSocket.OPEN) {
-                fcsSocket.send(JSON.stringify({ action: 'ping' }));
-            }
-        }, 30000);
-    });
-
-    fcsSocket.on('message', (raw) => {
-        // Log all incoming messages for debugging
-        console.log('📥 FCS Message:', raw.toString());
-        try {
-            const data = JSON.parse(raw);
-            if (data.type === 'price' && data.prices) {
-                const sym = data.symbol;  // Already just 'EURUSD'
-                const last = data.prices.c;
-                const spread = sym.includes('JPY') ? 0.015 : 0.00015;
-                const ask = last + spread;
-                const bid = last - spread;
-                prices[sym] = { bid, ask, change: 0, changePercent: data.prices.chp || 0 };
-                priceCache[sym] = { bid, ask };
-                processLivePrices();
-            }
-        } catch (e) { }
-    });
-
-    fcsSocket.on('close', (code, reason) => {
-        console.log(`❌ FCS disconnected (${code}): ${reason || 'no reason'}`);
-        scheduleReconnect();
-    });
-
-    fcsSocket.on('error', (err) => {
-        console.error('FCS error:', err.message);
-        fcsSocket.close();
-    });
-}
-
-function scheduleReconnect() {
-    if (reconnectTimer) clearTimeout(reconnectTimer);
-    const delay = Math.min(30000, 5000 * Math.pow(2, reconnectAttempts));
-    reconnectAttempts++;
-    console.log(`⏳ Retrying FCS in ${delay / 1000}s...`);
-    reconnectTimer = setTimeout(connectFCS, delay);
-}
-
-connectFCS();
-
 // ========== TRADE EXECUTION ==========
 app.post('/api/trade/execute', authenticateToken, async (req, res) => {
     const { account_code, symbol, side, volume, sl, tp } = req.body;
     if (!['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'].includes(symbol)) return res.status(400).json({ error: 'Symbol not allowed' });
-    if (!priceCache[symbol]) return res.status(400).json({ error: 'Price not available yet' });
+    if (!global.priceCache || !global.priceCache[symbol]) return res.status(400).json({ error: 'Price not available yet' });
     const [accounts] = await db.execute('SELECT * FROM accounts WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
     if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
     const account = accounts[0];
-    const entry = side === 'BUY' ? priceCache[symbol].ask : priceCache[symbol].bid;
+    const entry = side === 'BUY' ? global.priceCache[symbol].ask : global.priceCache[symbol].bid;
     const tradeId = 'TR-' + Date.now() + Math.random().toString(36).substr(2, 5);
     const tradingDay = new Date().toISOString().split('T')[0];
     await db.execute(`INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`, [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null]);
@@ -488,19 +453,19 @@ app.get('/api/trade/get', authenticateToken, async (req, res) => {
     res.json({ trades });
 });
 
-// ========== WEBSOCKET SERVER ==========
+// ========== WEBSOCKET SERVER (Broadcast to frontend) ==========
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 const wss = new WebSocket.Server({ server, path: '/ws' });
 
 setInterval(() => {
-    if (Object.keys(prices).length > 0) {
-        const msg = JSON.stringify({ type: 'price', data: prices });
+    if (global.prices && Object.keys(global.prices).length > 0) {
+        const msg = JSON.stringify({ type: 'price', data: global.prices });
         wss.clients.forEach(client => { if (client.readyState === WebSocket.OPEN) client.send(msg); });
     }
 }, 1000);
 
 wss.on('connection', (client) => {
     console.log('Frontend WebSocket connected');
-    client.send(JSON.stringify({ type: 'price', data: prices }));
+    client.send(JSON.stringify({ type: 'price', data: global.prices || {} }));
 });
