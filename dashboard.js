@@ -69,27 +69,28 @@ async function fetchAccounts() {
     
     container.innerHTML = data.accounts.map(account => {
         const accNum = account.account_code || 'N/A';
-        const status = account.status || 'Active';
-        const balance = account.balance || '$5,000.00';
-        const equity = account.equity || '$5,000.00';
-        const profit = account.current_crra || '+$0.00';
+        const status = account.status || 'ACTIVE';
+        // balance_cents / equity_cents in cents -> convert to dollars
+        const balance = (account.balance_cents / 100).toFixed(2) || '0.00';
+        const equity = (account.equity_cents / 100).toFixed(2) || '0.00';
+        // If you have profit info, use it; else derive from equity - initial_balance
+        const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2) || '+$0.00';
 
         return `
             <div class="account-card">
                 <h2>${accNum}</h2>
                 <div class="sub">Phase 1 Challenge</div>
                 <div class="account-info-grid">
-                    <p>Starting Balance <strong>${balance}</strong></p>
-                    <p>Current Equity <strong>${equity}</strong></p>
-                    <p>Status <strong style="color:${status === 'Active' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
+                    <p>Starting Balance <strong>$${balance}</strong></p>
+                    <p>Current Equity <strong>$${equity}</strong></p>
+                    <p>Status <strong style="color:${status === 'ACTIVE' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
                 </div>
-                <div class="profit-line" style="color: var(--green);">Profit: ${profit}</div>
+                <div class="profit-line" style="color: ${profit.startsWith('+') ? 'var(--green)' : 'var(--red)'};">Profit: $${profit}</div>
                 <button class="view-btn">View Account</button>
             </div>
         `;
     }).join('');
 }
-
 // INITIALIZE
 document.addEventListener('DOMContentLoaded', () => {
     showSection('home');
