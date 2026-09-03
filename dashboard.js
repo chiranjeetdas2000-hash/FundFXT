@@ -97,3 +97,26 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchProfile();
     fetchAccounts();
 });
+
+async function fetchAffiliateStats() {
+    const response = await fetch('https://fundfxt.onrender.com/api/affiliate/stats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    if (data.error) {
+        console.warn('Affiliate stats error:', data.error);
+        return;
+    }
+
+    // Update the affiliate section placeholders
+    const totalEarnings = (data.total_earnings_cents / 100).toFixed(2);
+    const pendingEarnings = (data.pending_earnings_cents / 100).toFixed(2);
+    const totalReferrals = data.total_referrals;
+    const totalSales = data.total_sales;
+
+    // Assuming you add IDs in dashboard.html for these values
+    document.getElementById('aff-total-referrals').innerText = totalReferrals;
+    document.getElementById('aff-total-sales').innerText = totalSales;
+    document.getElementById('aff-total-earnings').innerText = '$' + totalEarnings;
+    document.getElementById('aff-pending-earnings').innerText = '$' + pendingEarnings;
+}
