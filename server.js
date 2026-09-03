@@ -84,7 +84,7 @@ async function getUniqueAffiliateCode() {
     return code;
 }
 
-// ========== REGISTER (with affiliate record creation) ==========
+// ========== REGISTER ==========
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address, referred_by_code } = req.body;
     try {
@@ -95,7 +95,8 @@ app.post('/api/register', async (req, res) => {
         const newAffiliateCode = await getUniqueAffiliateCode();
 
         const [result] = await db.execute(
-            'INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code) VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)',
+            `INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code, kyc_status, status) 
+             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'NOT_SUBMITTED', 'ACTIVE')`,
             [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode, referred_by_code || null]
         );
 
@@ -128,7 +129,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ========== FORGOT PASSWORD (OTP hashed) ==========
+// ========== FORGOT PASSWORD ==========
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
@@ -219,13 +220,8 @@ app.get('/api/accounts', authenticateToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== PAYMENT ENGINE (using challenge_configs) ==========
-const MODEL_MAP = {
-    'direct': 'prototype_5k',
-    'two_step': 'warrior_5k',
-    'prototype_5k': 'prototype_5k',
-    'warrior_5k': 'warrior_5k'
-};
+// ========== PAYMENT ENGINE ==========
+const MODEL_MAP = { 'direct': 'prototype_5k', 'two_step': 'warrior_5k', 'prototype_5k': 'prototype_5k', 'warrior_5k': 'warrior_5k' };
 
 async function getChallengeConfig(modelKey) {
     const [rows] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1', [modelKey]);
@@ -247,16 +243,7 @@ async function calculateServerPrice(model, affiliateCode) {
         }
     }
     const finalAmount = Math.max(original - discountAmountCents, 0);
-    return {
-        model: mappedModel,
-        originalAmountCents: original,
-        discountAmountCents,
-        finalAmountCents: finalAmount,
-        currency: String(process.env.PAYMENT_CURRENCY || 'USD').toUpperCase(),
-        affiliateApplied,
-        affiliate_user_id: affiliateUserId,
-        config
-    };
+    return { model: mappedModel, originalAmountCents: original, discountAmountCents, finalAmountCents: finalAmount, currency: String(process.env.PAYMENT_CURRENCY || 'USD').toUpperCase(), affiliateApplied, affiliate_user_id: affiliateUserId, config };
 }
 
 let razorpay = null;
@@ -284,10 +271,7 @@ app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
         const receipt = `FXT_${req.userId}_${Date.now()}`.slice(0, 40);
         const razorpayOrder = await razorpay.orders.create({ amount: pricing.finalAmountCents, currency: pricing.currency, receipt, notes: { user_id: String(req.userId), model: pricing.model, affiliate_code: affiliateCode || 'none', affiliate_user_id: pricing.affiliate_user_id ? String(pricing.affiliate_user_id) : 'none' } });
         const orderRef = 'ORD-' + crypto.randomBytes(8).toString('hex');
-        await db.execute(
-            `INSERT INTO payment_orders (order_ref, user_id, provider, provider_order_id, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status) VALUES (?, ?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, ?, 'created')`,
-            [orderRef, req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.affiliate_user_id || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
-        );
+        await db.execute(`INSERT INTO payment_orders (order_ref, user_id, provider, provider_order_id, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status) VALUES (?, ?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, ?, 'created')`, [orderRef, req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.affiliate_user_id || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]);
         res.json({ success: true, key_id: process.env.RAZORPAY_KEY_ID, order_id: razorpayOrder.id, amount: pricing.finalAmountCents, currency: pricing.currency, pricing });
     } catch (error) {
         console.error('Create order error:', error.message);
@@ -327,10 +311,7 @@ app.post('/api/payments/verify', authenticateToken, async (req, res) => {
         const config = await getChallengeConfig(paymentOrder.model);
         const accountCode = generateAccountCode();
         const currentTradingDay = new Date().toISOString().split('T')[0];
-        await connection.execute(
-            `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, equity_hwm_cents, day_start_balance_cents, day_start_equity_cents, current_trading_day, current_daily_loss_cents, current_max_drawdown_cents, status) VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, ?, ?, ?, ?, 0, 0, 'ACTIVE')`,
-            [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, currentTradingDay]
-        );
+        await connection.execute(`INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, equity_hwm_cents, day_start_balance_cents, day_start_equity_cents, current_trading_day, current_daily_loss_cents, current_max_drawdown_cents, status) VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, ?, ?, ?, ?, 0, 0, 'ACTIVE')`, [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, currentTradingDay]);
         const [accountResult] = await connection.execute('SELECT id FROM accounts WHERE account_code = ?', [accountCode]);
         const accountId = accountResult[0].id;
         await connection.execute(`UPDATE payment_orders SET provider_payment_id = ?, status = 'paid', account_code = ?, account_id = ?, paid_amount_cents = ?, paid_at = NOW() WHERE id = ?`, [razorpay_payment_id, accountCode, accountId, paymentOrder.final_amount_cents, paymentOrder.id]);
@@ -364,7 +345,7 @@ app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
     } catch (error) { console.error('Affiliate stats error:', error); res.status(500).json({ error: 'Failed to fetch affiliate stats' }); }
 });
 
-// ========== FCS LIVE MARKET DATA (Direct WebSocket) ==========
+// ========== FCS LIVE MARKET DATA (Fixed Authentication) ==========
 const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
 const FCS_API_KEY = process.env.FCS_API_KEY;
 
@@ -420,9 +401,9 @@ function connectFCS() {
         return;
     }
     console.log('🔄 Connecting to FCS...');
-    fcsSocket = new WebSocket(FCS_WS_URL, {
-        headers: { 'Authorization': `Bearer ${FCS_API_KEY}` }
-    });
+    // 🚨 FIX: FCS v4 requires API key in the query string, NOT headers!
+    fcsSocket = new WebSocket(`${FCS_WS_URL}?access_key=${FCS_API_KEY}`);
+
     fcsSocket.on('open', () => {
         console.log('✅ FCS WebSocket Connected');
         reconnectAttempts = 0;
