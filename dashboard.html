@@ -131,11 +131,31 @@
             <div class="empty-state">Please select a challenge to view its specific rules.</div>
         </div>
 
-        <div id="view-affiliate" class="view-section">
-            <h1>Affiliate Program</h1>
-            <p>Share your code and earn commission!</p>
-            <p style="margin-top: 20px; color: var(--green); font-size: 24px; font-weight: 800;" id="aff-code">AFF-PENDING</p>
+       <div id="view-affiliate" class="view-section">
+    <h1>Affiliate Program</h1>
+    <p>Share your code and earn commission!</p>
+    <p style="margin-top: 20px; color: var(--green); font-size: 24px; font-weight: 800;" id="aff-code">AFF-PENDING</p>
+    
+    <!-- Affiliate Stats Cards -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 30px;">
+        <div class="summary-card">
+            <h4>Total Referrals</h4>
+            <div class="value" id="aff-total-referrals">0</div>
         </div>
+        <div class="summary-card">
+            <h4>Total Sales</h4>
+            <div class="value" id="aff-total-sales">0</div>
+        </div>
+        <div class="summary-card">
+            <h4>Total Earnings</h4>
+            <div class="value green" id="aff-total-earnings">$0.00</div>
+        </div>
+        <div class="summary-card">
+            <h4>Pending Earnings</h4>
+            <div class="value" id="aff-pending-earnings">$0.00</div>
+        </div>
+    </div>
+</div>
 
     </main>
 
