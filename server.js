@@ -345,7 +345,7 @@ app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
     } catch (error) { console.error('Affiliate stats error:', error); res.status(500).json({ error: 'Failed to fetch affiliate stats' }); }
 });
 
-// ========== FCS LIVE MARKET DATA (Fixed Authentication) ==========
+// ========== FCS LIVE MARKET DATA (Fixed) ==========
 const FCS_WS_URL = process.env.FCS_WS_URL || 'wss://ws-v4.fcsapi.com/ws';
 const FCS_API_KEY = process.env.FCS_API_KEY;
 
@@ -401,23 +401,39 @@ function connectFCS() {
         return;
     }
     console.log('🔄 Connecting to FCS...');
-    // 🚨 FIX: FCS v4 requires API key in the query string, NOT headers!
+    // ✅ Correct URL: API key in query string
     fcsSocket = new WebSocket(`${FCS_WS_URL}?access_key=${FCS_API_KEY}`);
 
     fcsSocket.on('open', () => {
         console.log('✅ FCS WebSocket Connected');
         reconnectAttempts = 0;
+
+        // ✅ Correct subscribe format
         const symbols = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'];
         symbols.forEach(sym => {
-            const request = JSON.stringify({ action: 'subscribe', symbol: `FX:${sym}`, timeframe: '15' });
+            const request = JSON.stringify({
+                action: 'subscribe',
+                symbol: sym,      // No 'FX:' prefix
+                interval: '15m'   // Use '15m' instead of '15'
+            });
             fcsSocket.send(request);
         });
+
+        // Heartbeat every 30 seconds
+        setInterval(() => {
+            if (fcsSocket.readyState === WebSocket.OPEN) {
+                fcsSocket.send(JSON.stringify({ action: 'ping' }));
+            }
+        }, 30000);
     });
+
     fcsSocket.on('message', (raw) => {
+        // Log all incoming messages for debugging
+        console.log('📥 FCS Message:', raw.toString());
         try {
             const data = JSON.parse(raw);
             if (data.type === 'price' && data.prices) {
-                const sym = data.symbol.replace('FX:', '');
+                const sym = data.symbol;  // Already just 'EURUSD'
                 const last = data.prices.c;
                 const spread = sym.includes('JPY') ? 0.015 : 0.00015;
                 const ask = last + spread;
@@ -428,10 +444,12 @@ function connectFCS() {
             }
         } catch (e) { }
     });
+
     fcsSocket.on('close', (code, reason) => {
         console.log(`❌ FCS disconnected (${code}): ${reason || 'no reason'}`);
         scheduleReconnect();
     });
+
     fcsSocket.on('error', (err) => {
         console.error('FCS error:', err.message);
         fcsSocket.close();
