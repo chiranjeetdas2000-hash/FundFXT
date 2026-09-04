@@ -14,7 +14,7 @@ function toggleSidebar() {
 }
 
 // SECTION SWITCHING
-function showSection(sectionName) {
+function showSection(sectionName) { if (sectionName === 'orders') fetchUserOrders(); // <--- Ye line add karo
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     document.getElementById('view-' + sectionName).classList.add('active');
 
