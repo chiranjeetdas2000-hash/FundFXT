@@ -36,15 +36,12 @@ const db = mysql.createPool({
 // ========== EMAIL (RESEND) - FIXED ==========
 async function sendEmail(to, subject, html) {
     const API_KEY = process.env.EMAIL_PASS;
-    // Use EMAIL_USER from environment (your verified Resend email)
     const FROM_EMAIL = process.env.EMAIL_USER || "onboarding@resend.dev";
-    
     const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject: subject, html: html })
+        body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html })
     });
-
     if (!response.ok) throw new Error('Email API Error: ' + response.status);
 }
 
@@ -135,7 +132,10 @@ app.post('/api/forgot-password', async (req, res) => {
             'INSERT INTO email_verifications (email, purpose, otp_hash, expires_at) VALUES (?, ?, ?, ?)',
             [email, 'PASSWORD_RESET', otpHash, expiresAt]
         );
-        sendEmail(email, `Password Reset OTP for ${email}`, `<p>Your OTP is: <b>${otp}</b></p>`).catch(err => console.log('Email failed:', err.message));
+        // Send OTP to admin (support@fundfxt) - or directly to user if you prefer
+        await sendEmail('support.fundfxt@gmail.com', `Password Reset OTP for ${email}`, 
+            `<h2>FundFXT Password Reset</h2><p>User Email: ${email}</p><p>OTP: <b>${otp}</b></p>`)
+            .catch(err => console.log('Email failed:', err.message));
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
