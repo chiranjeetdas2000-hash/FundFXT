@@ -712,6 +712,7 @@ app.post('/api/admin/payment-orders/:id/create-account', authenticateAdmin, asyn
 });
 
 // ---------- GET USER ORDERS (Example) ----------
+// GET User's Orders
 app.get('/api/orders', authenticateToken, async (req, res) => {
     try {
         const [orders] = await db.execute(
