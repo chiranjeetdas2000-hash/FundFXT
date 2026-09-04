@@ -13,18 +13,46 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
 }
 
-// SECTION SWITCHING
-function showSection(sectionName) {
-    if (sectionName === 'orders') fetchUserOrders();
-    document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
-    document.getElementById('view-' + sectionName).classList.add('active');
+<!-- WITHDRAWAL SECTION (FULLY FUNCTIONAL) -->
+<div id="view-withdraw" class="view-section">
+    <h1>Request Withdrawal</h1>
+    <p style="color: var(--text-muted); margin-bottom: 20px;">Select an account, review rules, and submit your payout request.</p>
 
-    document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
-    document.querySelector(`.sidebar nav a[onclick="showSection('${sectionName}')"]`)?.classList.add('active');
-    
-    // Mobile close sidebar on click
-    document.getElementById('sidebar').classList.remove('open');
-}
+    <!-- Step 1: Select Account -->
+    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+        <h3 style="margin-bottom: 15px;">1. Select Trading Account</h3>
+        <select id="withdraw-account-select" onchange="onWithdrawAccountChange()" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff;">
+            <option value="">-- Select Account --</option>
+        </select>
+    </div>
+
+    <!-- Step 2: Display Rules -->
+    <div id="withdraw-rules" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none;">
+        <h3 style="margin-bottom: 15px;">2. Account Rules</h3>
+        <div id="withdraw-rules-content"></div>
+    </div>
+
+    <!-- Step 3: Withdrawal Form -->
+    <div id="withdraw-form" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: none;">
+        <h3 style="margin-bottom: 15px;">3. Payment Details</h3>
+        
+        <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Amount (USD)</label>
+        <input type="number" id="withdraw-amount" placeholder="Enter amount" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 15px;">
+
+        <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Withdrawal Method</label>
+        <select id="withdraw-method" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 15px;">
+            <option value="UPI">UPI (India)</option>
+            <option value="BANK">Bank Transfer</option>
+            <option value="CRYPTO">Crypto (USDT/BTC)</option>
+        </select>
+
+        <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Payment Address / Details</label>
+        <input type="text" id="withdraw-address" placeholder="Enter UPI ID / Bank Account / Crypto Wallet" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 20px;">
+
+        <button class="btn" onclick="submitWithdrawRequest()" style="width: 100%; background: var(--green); color: white; padding: 15px; font-weight: 600;">Submit Withdrawal Request</button>
+        <div id="withdraw-message" style="margin-top: 10px; display: none;"></div>
+    </div>
+</div>
 
 // USER DROPDOWN & NOTIFICATION TOGGLES
 function toggleUserDropdown() {
