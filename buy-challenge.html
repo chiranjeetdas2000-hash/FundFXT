@@ -213,8 +213,8 @@
                     document.getElementById('dispEmail').innerText = maskedEmail;
                     document.getElementById('dispPhone').innerText = data.phone ? (data.phone.length > 4 ? data.phone.slice(0, 2) + '******' + data.phone.slice(-2) : '****') : '****';
                     document.getElementById('verifiedBox').style.display = 'block';
-                    btn.style.display = 'none'; // Hide the verify button
-                    document.getElementById('lookupEmail').disabled = true; // Disable email input
+                    btn.style.display = 'none';
+                    document.getElementById('lookupEmail').disabled = true;
                     requestQuote();
                 } else {
                     customerVerified = false;
@@ -231,7 +231,7 @@
             document.getElementById('verifiedBox').style.display = 'none';
             document.getElementById('lookupEmail').disabled = false;
             document.getElementById('lookupEmail').value = '';
-            document.getElementById('verifyBtn').style.display = 'inline-block'; // Show verify button again
+            document.getElementById('verifyBtn').style.display = 'inline-block';
             document.getElementById('buyBtn').disabled = true;
             document.getElementById('buyBtn').innerText = 'Request Payment';
             document.getElementById('discountRow').style.display = 'none';
