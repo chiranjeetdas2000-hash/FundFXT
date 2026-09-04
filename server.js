@@ -545,3 +545,125 @@ app.post('/api/admin/payment-requests/:id/reject', authenticateAdmin, async (req
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
+
+// ========== FULL ADMIN MANAGEMENT API ==========
+
+// 1. Get All Users (with KYC status)
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+    try {
+        const [users] = await db.query('SELECT id, trader_id, legal_name, email, phone, kyc_status, is_verified, affiliate_code, created_at FROM users ORDER BY created_at DESC');
+        res.json({ success: true, users });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 2. Approve KYC / Verify User
+app.post('/api/admin/users/:id/verify-kyc', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.execute("UPDATE users SET kyc_status = 'APPROVED' WHERE id = ?", [id]);
+        res.json({ success: true, message: 'KYC Approved' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 3. Reset User Password (Admin sets a new temp password)
+app.post('/api/admin/users/:id/reset-password', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    if (!newPassword) return res.status(400).json({ error: 'New password required' });
+
+    try {
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashed, id]);
+        res.json({ success: true, message: 'Password reset successfully' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 4. Get All Payment Orders (with Filters)
+app.get('/api/admin/payment-orders', authenticateAdmin, async (req, res) => {
+    const { status } = req.query;
+    let query = `SELECT po.*, u.legal_name, u.email as user_email FROM payment_orders po JOIN users u ON po.user_id = u.id`;
+    let params = [];
+    if (status) {
+        query += ` WHERE po.status = ?`;
+        params.push(status);
+    }
+    query += ` ORDER BY po.created_at DESC`;
+    try {
+        const [orders] = await db.execute(query, params);
+        res.json({ success: true, orders });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 5. Update Payment Order Status
+app.post('/api/admin/payment-orders/:id/status', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    // Valid statuses: REQUESTED, READ, PAYMENT_LINK_SENT, PAYMENT_DONE, PAYMENT_APPROVED, ACCOUNT_CREATED, ACCOUNT_PROVIDED
+    try {
+        await db.execute('UPDATE payment_orders SET status = ? WHERE id = ?', [status, id]);
+        res.json({ success: true, message: `Order marked as ${status}` });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 6. Get All Withdrawals
+app.get('/api/admin/withdrawals', authenticateAdmin, async (req, res) => {
+    try {
+        const [withdrawals] = await db.query(`
+            SELECT pr.*, u.legal_name, u.email as user_email, a.account_code 
+            FROM payout_requests pr 
+            JOIN users u ON pr.user_id = u.id 
+            LEFT JOIN accounts a ON pr.account_id = a.id 
+            ORDER BY pr.created_at DESC
+        `);
+        res.json({ success: true, withdrawals });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 7. Update Withdrawal Status (Approve/Paid/Reject)
+app.post('/api/admin/withdrawals/:id/status', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
+        res.json({ success: true, message: `Withdrawal marked as ${status}` });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 8. Get All Affiliates
+app.get('/api/admin/affiliates', authenticateAdmin, async (req, res) => {
+    try {
+        const [affiliates] = await db.query(`
+            SELECT a.*, u.legal_name, u.email 
+            FROM affiliates a JOIN users u ON a.user_id = u.id 
+            ORDER BY a.total_earnings_cents DESC
+        `);
+        res.json({ success: true, affiliates });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 9. Get All Certificates
+app.get('/api/admin/certificates', authenticateAdmin, async (req, res) => {
+    try {
+        const [certs] = await db.query(`
+            SELECT c.*, u.legal_name, a.account_code 
+            FROM certificates c 
+            JOIN users u ON c.user_id = u.id 
+            LEFT JOIN accounts a ON c.account_id = a.id 
+            ORDER BY c.issued_on DESC
+        `);
+        res.json({ success: true, certificates: certs });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 10. Issue New Certificate
+app.post('/api/admin/certificates/issue', authenticateAdmin, async (req, res) => {
+    const { user_id, account_id, model, achievement } = req.body;
+    try {
+        const certRef = 'CERT-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+        await db.execute(
+            'INSERT INTO certificates (certificate_ref, user_id, account_id, model, achievement, issued_on) VALUES (?, ?, ?, ?, ?, CURDATE())',
+            [certRef, user_id, account_id, model, achievement]
+        );
+        res.json({ success: true, message: 'Certificate issued', cert_ref: certRef });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
