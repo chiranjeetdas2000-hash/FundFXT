@@ -409,7 +409,8 @@ function calculatePL(symbol, side, entry, current, volume) {
 
 async function processLivePrices() {
     const priceCache = global.priceCache || {};
-    const [trades] = await db.execute('SELECT * FROM trades WHERE status = "OPEN"');
+    // ✅ FIXED: Using single quotes around 'OPEN'
+    const [trades] = await db.execute("SELECT * FROM trades WHERE status = 'OPEN'");
     for (const trade of trades) {
         const price = priceCache[trade.symbol];
         if (!price) continue;
