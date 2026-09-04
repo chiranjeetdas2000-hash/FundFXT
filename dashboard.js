@@ -13,46 +13,19 @@ function toggleSidebar() {
     document.getElementById('sidebar').classList.toggle('open');
 }
 
-<!-- WITHDRAWAL SECTION (FULLY FUNCTIONAL) -->
-<div id="view-withdraw" class="view-section">
-    <h1>Request Withdrawal</h1>
-    <p style="color: var(--text-muted); margin-bottom: 20px;">Select an account, review rules, and submit your payout request.</p>
+// SECTION SWITCHING (Main Function - Ye Missing Nahi Hai)
+function showSection(sectionName) {
+    if (sectionName === 'orders') fetchUserOrders(); // Order history data load
+    if (sectionName === 'withdraw') loadWithdrawForm(); // Withdrawal form load
 
-    <!-- Step 1: Select Account -->
-    <div class="card" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-        <h3 style="margin-bottom: 15px;">1. Select Trading Account</h3>
-        <select id="withdraw-account-select" onchange="onWithdrawAccountChange()" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff;">
-            <option value="">-- Select Account --</option>
-        </select>
-    </div>
-
-    <!-- Step 2: Display Rules -->
-    <div id="withdraw-rules" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none;">
-        <h3 style="margin-bottom: 15px;">2. Account Rules</h3>
-        <div id="withdraw-rules-content"></div>
-    </div>
-
-    <!-- Step 3: Withdrawal Form -->
-    <div id="withdraw-form" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: none;">
-        <h3 style="margin-bottom: 15px;">3. Payment Details</h3>
-        
-        <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Amount (USD)</label>
-        <input type="number" id="withdraw-amount" placeholder="Enter amount" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 15px;">
-
-        <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Withdrawal Method</label>
-        <select id="withdraw-method" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 15px;">
-            <option value="UPI">UPI (India)</option>
-            <option value="BANK">Bank Transfer</option>
-            <option value="CRYPTO">Crypto (USDT/BTC)</option>
-        </select>
-
-        <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Payment Address / Details</label>
-        <input type="text" id="withdraw-address" placeholder="Enter UPI ID / Bank Account / Crypto Wallet" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 20px;">
-
-        <button class="btn" onclick="submitWithdrawRequest()" style="width: 100%; background: var(--green); color: white; padding: 15px; font-weight: 600;">Submit Withdrawal Request</button>
-        <div id="withdraw-message" style="margin-top: 10px; display: none;"></div>
-    </div>
-</div>
+    document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+    document.getElementById('view-' + sectionName).classList.add('active');
+    document.querySelectorAll('.sidebar nav a').forEach(link => link.classList.remove('active'));
+    document.querySelector(`.sidebar nav a[onclick="showSection('${sectionName}')"]`)?.classList.add('active');
+    
+    // Mobile close sidebar
+    document.getElementById('sidebar').classList.remove('open');
+}
 
 // USER DROPDOWN & NOTIFICATION TOGGLES
 function toggleUserDropdown() {
@@ -64,7 +37,7 @@ function toggleNotifications() {
     alert('Notifications panel coming soon!');
 }
 
-// BACKEND DATA FETCH (Profile & Accounts)
+// ========== FETCH PROFILE ==========
 async function fetchProfile() {
     const response = await fetch('https://fundfxt.onrender.com/api/user/profile', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -79,78 +52,62 @@ async function fetchProfile() {
     document.getElementById('aff-code').innerText = user.affiliate_code || 'AFF-PENDING';
 }
 
-// ========== FETCH DASHBOARD (Main Function) ==========
-async function fetchDashboard() {
-    try {
-        const response = await fetch('https://fundfxt.onrender.com/api/dashboard/stats', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
+// ========== FETCH ACCOUNTS (With Summary) ==========
+async function fetchAccounts() {
+    const container = document.getElementById('accounts-container');
+    const emptyState = document.getElementById('empty-state');
+    
+    const response = await fetch('https://fundfxt.onrender.com/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+    
+    // Update Summary Cards
+    const totalAccounts = data.accounts ? data.accounts.length : 0;
+    const activeAccounts = data.accounts ? data.accounts.filter(a => a.status === 'ACTIVE').length : 0;
+    const passedAccounts = data.accounts ? data.accounts.filter(a => a.status === 'PASSED').length : 0;
+    const failedAccounts = data.accounts ? data.accounts.filter(a => ['BREACHED','EXPIRED','CLOSED'].includes(a.status)).length : 0;
+    const totalProfit = data.accounts ? data.accounts.reduce((sum, a) => sum + (a.equity_cents - a.initial_balance_cents), 0) / 100 : 0;
 
-        if (data.success) {
-            const { totalAccounts, activeAccounts, passedAccounts, failedAccounts, totalProfit } = data.stats;
-
-            // Update Summary Cards
-            document.getElementById('total-accounts').innerText = totalAccounts;
-            document.getElementById('active-accounts').innerText = activeAccounts;
-            document.getElementById('passed-accounts').innerText = passedAccounts;
-            document.getElementById('failed-accounts').innerText = failedAccounts;
-            document.getElementById('total-profit').innerText = '$' + totalProfit;
-
-            // Update Account Cards Grid
-            const container = document.getElementById('accounts-container');
-            const emptyState = document.getElementById('empty-state');
-            
-            if (totalAccounts === 0) {
-                emptyState.style.display = 'block';
-                container.innerHTML = '';
-            } else {
-                emptyState.style.display = 'none';
-                container.innerHTML = data.accounts.map(account => {
-                    const accNum = account.account_code || 'N/A';
-                    const status = account.status || 'ACTIVE';
-                    const balance = (account.balance_cents / 100).toFixed(2);
-                    const equity = (account.equity_cents / 100).toFixed(2);
-                    const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2);
-
-                    return `
-                        <div class="account-card">
-                            <h2>${accNum}</h2>
-                            <div class="sub">Phase 1 Challenge</div>
-                            <div class="account-info-grid">
-                                <p>Starting Balance <strong>$${balance}</strong></p>
-                                <p>Current Equity <strong>$${equity}</strong></p>
-                                <p>Status <strong style="color:${status === 'ACTIVE' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
-                            </div>
-                            <div class="profit-line" style="color: ${profit.startsWith('-') ? 'var(--red)' : 'var(--green)'};">Profit: $${profit}</div>
-                            <button class="view-btn" onclick="window.location.href='terminal.html?account_code=${encodeURIComponent(accNum)}'">Open Terminal</button>
-                        </div>
-                    `;
-                }).join('');
-            }
-
-            // Update Recent Activity (Dynamic from orders)
-            const recentActivity = data.recentActivity || [];
-            const activityList = document.querySelector('.activity-list');
-            if (activityList) {
-                if (recentActivity.length === 0) {
-                    activityList.innerHTML = '<h2 style="margin-bottom: 15px;">Recent Activity</h2><p style="color: var(--text-muted);">No recent activity.</p>';
-                } else {
-                    activityList.innerHTML = '<h2 style="margin-bottom: 15px;">Recent Activity</h2>' + recentActivity.map(order => `
-                        <div class="activity-item">
-                            <div class="activity-icon"><i class="fa-solid fa-file-invoice" style="color: var(--blue);"></i></div>
-                            <div class="activity-text"><h5>${order.order_ref}</h5><p>${order.status.replace(/_/g, ' ')} • ${new Date(order.created_at).toLocaleDateString()}</p></div>
-                        </div>
-                    `).join('');
-                }
-            }
-        }
-    } catch (error) {
-        console.error('Dashboard fetch error:', error);
+    document.getElementById('total-accounts').innerText = totalAccounts;
+    document.getElementById('active-accounts').innerText = activeAccounts;
+    document.getElementById('passed-accounts').innerText = passedAccounts;
+    document.getElementById('failed-accounts').innerText = failedAccounts;
+    document.getElementById('total-profit').innerText = '$' + totalProfit.toFixed(2);
+    
+    // Render Account Cards
+    if (!data.accounts || data.accounts.length === 0) {
+        emptyState.style.display = 'block';
+        container.innerHTML = '';
+        return;
     }
+    
+    emptyState.style.display = 'none';
+    
+    container.innerHTML = data.accounts.map(account => {
+        const accNum = account.account_code || 'N/A';
+        const status = account.status || 'ACTIVE';
+        const balance = (account.balance_cents / 100).toFixed(2) || '0.00';
+        const equity = (account.equity_cents / 100).toFixed(2) || '0.00';
+        const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2) || '0.00';
+
+        return `
+            <div class="account-card">
+                <h2>${accNum}</h2>
+                <div class="sub">Phase 1 Challenge</div>
+                <div class="account-info-grid">
+                    <p>Starting Balance <strong>$${balance}</strong></p>
+                    <p>Current Equity <strong>$${equity}</strong></p>
+                    <p>Status <strong style="color:${status === 'ACTIVE' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
+                </div>
+                <div class="profit-line" style="color: ${profit.startsWith('-') ? 'var(--red)' : 'var(--green)'};">Profit: $${profit}</div>
+                <button class="view-btn" onclick="window.location.href='terminal.html?account_code=${encodeURIComponent(accNum)}'">Open Terminal</button>
+            </div>
+        `;
+    }).join('');
 }
 
-// ========== FETCH USER ORDERS (For Order History Section) ==========
+// ========== FETCH USER ORDERS ==========
 async function fetchUserOrders() {
     const response = await fetch('https://fundfxt.onrender.com/api/orders', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -212,10 +169,120 @@ async function fetchAffiliateStats() {
     document.getElementById('aff-pending-earnings').innerText = '$' + (data.pending_earnings_cents / 100).toFixed(2);
 }
 
+// ========== WITHDRAWAL FUNCTIONS ==========
+async function loadWithdrawForm() {
+    const select = document.getElementById('withdraw-account-select');
+    select.innerHTML = '<option value="">-- Select Account --</option>';
+    document.getElementById('withdraw-rules').style.display = 'none';
+    document.getElementById('withdraw-form').style.display = 'none';
+
+    const response = await fetch('https://fundfxt.onrender.com/api/accounts', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+
+    if (data.success && data.accounts.length > 0) {
+        data.accounts.forEach(account => {
+            const option = document.createElement('option');
+            option.value = account.id;
+            option.textContent = `${account.account_code} (${account.status})`;
+            select.appendChild(option);
+        });
+    } else {
+        select.innerHTML = '<option value="">No accounts found. Buy a challenge!</option>';
+    }
+}
+
+async function onWithdrawAccountChange() {
+    const accountId = document.getElementById('withdraw-account-select').value;
+    const rulesDiv = document.getElementById('withdraw-rules');
+    const formDiv = document.getElementById('withdraw-form');
+
+    if (!accountId) {
+        rulesDiv.style.display = 'none';
+        formDiv.style.display = 'none';
+        return;
+    }
+
+    // Fetch account details
+    const accountsRes = await fetch('https://fundfxt.onrender.com/api/accounts', { headers: { 'Authorization': `Bearer ${token}` } });
+    const accountsData = await accountsRes.json();
+    const account = accountsData.accounts.find(a => a.id == accountId);
+
+    // Fetch challenge rules
+    const configRes = await fetch(`https://fundfxt.onrender.com/api/challenges/${account.challenge_model}`);
+    const configData = await configRes.json();
+
+    if (configData.success) {
+        const config = configData.config;
+        const profit = (account.equity_cents - account.initial_balance_cents) / 100;
+        
+        rulesDiv.style.display = 'block';
+        rulesDiv.innerHTML = `
+            <p><strong>Model:</strong> ${config.display_name}</p>
+            <p><strong>Profit Available:</strong> $${profit.toFixed(2)}</p>
+            <p><strong>Max Payouts:</strong> ${config.max_payout_count || 'Unlimited'}</p>
+            <p><strong>Payout Period:</strong> ${config.payout_period_days ? `Every ${config.payout_period_days} days` : 'End of Challenge'}</p>
+            <hr style="border-color: var(--border); margin: 15px 0;">
+            <p style="color: ${profit > 0 ? 'var(--green)' : 'var(--red)'}; font-weight: 700;">
+                ${profit > 0 ? '✓ Eligible for withdrawal' : '✗ No profit available yet'}
+            </p>
+        `;
+
+        if (profit > 0) {
+            formDiv.style.display = 'block';
+            document.getElementById('withdraw-amount').placeholder = `Max: $${profit.toFixed(2)}`;
+            document.getElementById('withdraw-amount').max = profit.toFixed(2);
+        } else {
+            formDiv.style.display = 'none';
+        }
+    }
+}
+
+async function submitWithdrawRequest() {
+    const account_id = document.getElementById('withdraw-account-select').value;
+    const amount = document.getElementById('withdraw-amount').value;
+    const method = document.getElementById('withdraw-method').value;
+    const address = document.getElementById('withdraw-address').value;
+    const msg = document.getElementById('withdraw-message');
+
+    if (!account_id || !amount || !method || !address) {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--red)';
+        msg.innerText = 'Please fill all fields.';
+        return;
+    }
+
+    const response = await fetch('https://fundfxt.onrender.com/api/withdrawals/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body: JSON.stringify({ 
+            account_id, 
+            amount_cents: Math.round(parseFloat(amount) * 100), 
+            method, 
+            payment_address: address 
+        })
+    });
+    const data = await response.json();
+
+    if (data.success) {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--green)';
+        msg.innerHTML = `Withdrawal request submitted!<br>Request ID: <strong>${data.request_ref}</strong><br>Admin will review it shortly.`;
+        document.getElementById('withdraw-amount').value = '';
+        document.getElementById('withdraw-address').value = '';
+        loadWithdrawForm();
+    } else {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--red)';
+        msg.innerText = data.error || 'Failed to submit request.';
+    }
+}
+
 // INITIALIZE
 document.addEventListener('DOMContentLoaded', () => {
     showSection('home');
     fetchProfile();
-    fetchDashboard(); // Main function jo saara data le aayega
+    fetchAccounts();
     fetchAffiliateStats();
 });
