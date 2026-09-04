@@ -92,13 +92,7 @@ async function fetchAccounts() {
     }).join('');
 }
 
-// INITIALIZE
-document.addEventListener('DOMContentLoaded', () => {
-    showSection('home');
-    fetchProfile();
-    fetchAccounts();
-});
-
+// ========== FETCH AFFILIATE STATS ==========
 async function fetchAffiliateStats() {
     const response = await fetch('https://fundfxt.onrender.com/api/affiliate/stats', {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -115,9 +109,16 @@ async function fetchAffiliateStats() {
     const totalReferrals = data.total_referrals;
     const totalSales = data.total_sales;
 
-    // Assuming you add IDs in dashboard.html for these values
     document.getElementById('aff-total-referrals').innerText = totalReferrals;
     document.getElementById('aff-total-sales').innerText = totalSales;
     document.getElementById('aff-total-earnings').innerText = '$' + totalEarnings;
     document.getElementById('aff-pending-earnings').innerText = '$' + pendingEarnings;
 }
+
+// INITIALIZE
+document.addEventListener('DOMContentLoaded', () => {
+    showSection('home');
+    fetchProfile();
+    fetchAccounts();
+    fetchAffiliateStats();  // Added to load stats on page load
+});
