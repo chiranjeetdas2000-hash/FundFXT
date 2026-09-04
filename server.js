@@ -274,10 +274,6 @@ app.post('/api/payments/quote', authenticateToken, async (req, res) => {
 });
 
 // ========== PAYMENT REQUEST (NEW) ==========
-function generateRequestRef() {
-    return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-}
-
 app.post('/api/payments/request', authenticateToken, async (req, res) => {
     const { model, affiliate_code, email } = req.body;
     try {
@@ -288,12 +284,15 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
         const pricing = await calculateServerPrice(model, affiliate_code);
         const requestRef = generateRequestRef();
 
+        // Affiliate details nikalna (agar code hai)
         let affiliateName = null;
+        let affiliateCodeUsed = affiliate_code;
         if (pricing.affiliateApplied && pricing.affiliate_user_id) {
             const [affiliateUsers] = await db.execute('SELECT legal_name FROM users WHERE id = ?', [pricing.affiliate_user_id]);
             if (affiliateUsers.length) affiliateName = affiliateUsers[0].legal_name;
         }
 
+        // Payment order insert karo
         await db.execute(
             `INSERT INTO payment_orders 
              (order_ref, user_id, provider, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at) 
@@ -302,46 +301,39 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
              pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
         );
 
+        // Admin ko email bhejo (Full Details)
         const adminEmail = 'support.fundfxt@gmail.com';
         const subject = `New Payment Request: ${requestRef}`;
         const html = `
-            <h2>FundFXT Payment Request</h2>
+            <h2 style="color:#00b56a;">📥 New Payment Request</h2>
             <p><strong>Request ID:</strong> ${requestRef}</p>
-            <p><strong>User Name:</strong> ${user.legal_name}</p>
-            <p><strong>User Email:</strong> ${user.email}</p>
-            <p><strong>User Phone:</strong> ${user.phone}</p>
-            <p><strong>Challenge Model:</strong> ${pricing.model}</p>
-            <p><strong>Affiliate Code:</strong> ${affiliate_code || 'None'}</p>
-            <p><strong>Affiliate Name:</strong> ${affiliateName || 'N/A'}</p>
+            <hr>
+            <h3>User Details</h3>
+            <p><strong>Name:</strong> ${user.legal_name}</p>
+            <p><strong>Email:</strong> ${user.email}</p>
+            <p><strong>Phone:</strong> ${user.phone}</p>
+            <hr>
+            <h3>Order Details</h3>
+            <p><strong>Challenge:</strong> ${pricing.model}</p>
             <p><strong>Original Amount:</strong> $${(pricing.originalAmountCents / 100).toFixed(2)}</p>
             <p><strong>Discount:</strong> $${(pricing.discountAmountCents / 100).toFixed(2)}</p>
-            <p><strong>Final Amount (Create Payment Link for this):</strong> $${(pricing.finalAmountCents / 100).toFixed(2)}</p>
-            <p>Please create a Razorpay Payment Link for this amount and send it to ${user.email}.</p>
+            <p style="font-size:20px; font-weight:bold; color:#00b56a;"><strong>Final Amount (Payment Link):</strong> $${(pricing.finalAmountCents / 100).toFixed(2)}</p>
+            <hr>
+            <h3>Affiliate Information</h3>
+            <p><strong>Code Used:</strong> ${affiliateCodeUsed || 'None'}</p>
+            <p><strong>Affiliate Name:</strong> ${affiliateName || 'N/A'}</p>
+            <hr>
+            <p>Please create a Razorpay Payment Link for <strong>$${(pricing.finalAmountCents / 100).toFixed(2)}</strong> and send it to ${user.email}.</p>
         `;
+        
         await sendEmail(adminEmail, subject, html).catch(err => console.log('Email failed:', err.message));
 
-        res.json({ 
-            success: true, 
-            request_ref: requestRef, 
-            message: 'Payment request created. You will receive a payment link via email shortly.',
-            pricing
-        });
+        res.json({ success: true, request_ref: requestRef, message: 'Payment request created. You will receive a payment link via email shortly.', pricing });
     } catch (error) {
         console.error('Payment request error:', error);
         res.status(500).json({ error: error.message });
     }
 });
-
-async function sendEmail(to, subject, html) {
-    const API_KEY = process.env.EMAIL_PASS;
-    const FROM_EMAIL = "FundFXT <onboarding@resend.dev>";
-    const response = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html })
-    });
-    if (!response.ok) throw new Error('Email API Error');
-}
 
 // ========== ADMIN AUTH & ROUTES (SIMPLIFIED) ==========
 app.post('/api/admin/login', async (req, res) => {
