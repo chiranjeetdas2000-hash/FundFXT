@@ -678,3 +678,35 @@ wss.on('connection', (client) => {
         }
     } catch (err) { console.error('Admin seed error:', err.message); }
 })();
+
+// ========== ADMIN CREATE ACCOUNT ==========
+app.post('/api/admin/payment-orders/:id/create-account', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        const [orders] = await db.execute('SELECT * FROM payment_orders WHERE id = ?', [id]);
+        if (!orders.length) return res.status(404).json({ error: 'Order not found' });
+        const order = orders[0];
+
+        const [configs] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ?', [order.model]);
+        if (!configs.length) return res.status(404).json({ error: 'Challenge config not found' });
+        const config = configs[0];
+
+        // Generate unique Account Code
+        const accountCode = 'ACC-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+        // Create the Trading Account
+        await db.execute(
+            `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, status)
+             VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
+            [accountCode, order.user_id, order.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents]
+        );
+
+        // Update Payment Order Status
+        await db.execute("UPDATE payment_orders SET status = 'ACCOUNT_CREATED', account_code = ? WHERE id = ?", [accountCode, id]);
+
+        res.json({ success: true, account_code: accountCode });
+    } catch (error) {
+        console.error('Create account error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
