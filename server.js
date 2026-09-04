@@ -715,16 +715,9 @@ app.post('/api/admin/payment-orders/:id/create-account', authenticateAdmin, asyn
 // Get the logged-in user's own payment orders/requests
 app.get('/api/orders/my', authenticateToken, async (req, res) => {
     try {
-        const [orders] = await db.execute(
-            `SELECT order_ref, model, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at 
-             FROM payment_orders 
-             WHERE user_id = ? 
-             ORDER BY created_at DESC`,
-            [req.userId]
-        );
-        res.json({ success: true, orders });
-    } catch (error) {
-        console.error('Fetch user orders error:', error);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+await db.execute(
+    `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, start_date, end_date, status)
+     VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, ?, NULL, 'ACTIVE')`,
+    [accountCode, order.user_id, order.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, today]
+);
