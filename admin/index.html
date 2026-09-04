@@ -208,25 +208,37 @@
 
         // --- Users ---
         async function fetchUsers() {
-            const res = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
-            const data = await res.json();
-            if (data.success) {
-                document.getElementById('usersTableBody').innerHTML = data.users.map(u => `
-                    <tr>
-                        <td>${u.id}</td>
-                        <td>${u.trader_id}</td>
-                        <td>${u.legal_name}</td>
-                        <td>${u.email}</td>
-                        <td>${u.phone}</td>
-                        <td><span class="status-badge">${u.kyc_status}</span></td>
-                        <td>
-                            <button class="action-btn" onclick="verifyKyc(${u.id})">Approve KYC</button>
-                            <button class="action-btn blue" onclick="resetPass(${u.id})">Reset Pass</button>
-                        </td>
-                    </tr>
-                `).join('');
+    try {
+        const res = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+        const data = await res.json();
+        if (data.success) {
+            document.getElementById('usersTableBody').innerHTML = data.users.map(u => `
+                <tr>
+                    <td>${u.id}</td>
+                    <td>${u.trader_id}</td>
+                    <td>${u.legal_name}</td>
+                    <td>${u.email}</td>
+                    <td>${u.phone}</td>
+                    <td><span class="status-badge">${u.kyc_status}</span></td>
+                    <td>
+                        <button class="action-btn" onclick="verifyKyc(${u.id})">Approve KYC</button>
+                        <button class="action-btn blue" onclick="resetPass(${u.id})">Reset Pass</button>
+                    </td>
+                </tr>
+            `).join('');
+            // Hide empty state if users exist
+            if (data.users.length > 0) {
+                document.getElementById('usersEmpty').style.display = 'none';
             }
+        } else {
+            console.error('API error:', data.error);
+            alert('Error fetching users: ' + data.error);
         }
+    } catch (err) {
+        console.error('Fetch error:', err);
+        alert('Server connection error');
+    }
+}
 
         async function verifyKyc(id) {
             await fetch(`/api/admin/users/${id}/verify-kyc`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
