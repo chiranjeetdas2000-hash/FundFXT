@@ -221,41 +221,186 @@ app.get('/api/accounts', authenticateToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== NEW PAYMENT REQUEST ==========
-async function requestPayment() {
-    if (!customerVerified) { alert("Please verify account first."); return; }
-    if (!token) { alert("Please login to complete purchase."); window.location.href = 'auth.html'; return; }
-    
-    document.getElementById('buyBtn').disabled = true;
-    document.getElementById('buyBtn').innerText = 'Creating Request...';
-    
-    const affiliateCode = document.getElementById('affiliateCode').value;
-    const email = document.getElementById('lookupEmail').value;
-    
-    try {
-        const response = await fetch(`${API_BASE_URL}/api/payments/request`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-            body: JSON.stringify({ model: selectedModel, affiliate_code: affiliateCode, email })
-        });
-        const data = await response.json();
-        
-        if (data.success) {
-            // Show success modal
-            document.getElementById('successModal').style.display = 'flex';
-            document.getElementById('requestRef').innerText = data.request_ref;
-            document.getElementById('successAcc').innerText = 'Pending';
-        } else {
-            alert(data.error || 'Request failed');
-            document.getElementById('buyBtn').disabled = false;
-            document.getElementById('buyBtn').innerText = 'Request Payment';
-        }
-    } catch (error) {
-        alert('Server connection error.');
-        document.getElementById('buyBtn').disabled = false;
-        document.getElementById('buyBtn').innerText = 'Request Payment';
-    }
+// ========== PAYMENT ENGINE (using challenge_configs) ==========
+const MODEL_MAP = { 'direct': 'prototype_5k', 'two_step': 'warrior_5k', 'prototype_5k': 'prototype_5k', 'warrior_5k': 'warrior_5k' };
+
+async function getChallengeConfig(modelKey) {
+    const [rows] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1', [modelKey]);
+    if (!rows.length) throw new Error('Invalid challenge model');
+    return rows[0];
 }
+
+async function calculateServerPrice(model, affiliateCode) {
+    const mappedModel = MODEL_MAP[model] || model;
+    const config = await getChallengeConfig(mappedModel);
+    const original = config.price_cents;
+    let discountAmountCents = 0, affiliateUserId = null, affiliateApplied = false;
+
+    if (affiliateCode) {
+        // ✅ FIXED: Use `id` from users, not `user_id`
+        const [affiliateRows] = await db.execute('SELECT id FROM users WHERE affiliate_code = ? LIMIT 1', [String(affiliateCode).trim()]);
+        if (affiliateRows.length > 0) {
+            affiliateUserId = affiliateRows[0].id;
+            discountAmountCents = Math.floor(original * (config.affiliate_discount_bps / 10000));
+            affiliateApplied = true;
+        }
+    }
+
+    const finalAmount = Math.max(original - discountAmountCents, 0);
+    return {
+        model: mappedModel,
+        originalAmountCents: original,
+        discountAmountCents,
+        finalAmountCents: finalAmount,
+        currency: String(process.env.PAYMENT_CURRENCY || 'USD').toUpperCase(),
+        affiliateApplied,
+        affiliate_user_id: affiliateUserId,
+        config
+    };
+}
+
+let razorpay = null;
+if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+    const Razorpay = require('razorpay');
+    razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
+    console.log('✅ Razorpay configured');
+} else { console.warn('⚠️ Razorpay is not configured.'); }
+
+// ========== PAYMENT QUOTE ==========
+app.post('/api/payments/quote', authenticateToken, async (req, res) => {
+    try {
+        const pricing = await calculateServerPrice(req.body.model, req.body.affiliate_code);
+        res.json({ success: true, pricing });
+    } catch (error) { res.status(error.statusCode || 500).json({ error: error.message || 'Unable to calculate price' }); }
+});
+
+// ========== PAYMENT REQUEST (NEW) ==========
+function generateRequestRef() {
+    return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+}
+
+// POST /api/payments/request - User requests a payment link
+app.post('/api/payments/request', authenticateToken, async (req, res) => {
+    const { model, affiliate_code, email } = req.body;
+    try {
+        // 1. Get the authenticated user
+        const [users] = await db.execute('SELECT id, legal_name, email, phone FROM users WHERE id = ?', [req.userId]);
+        if (!users.length) return res.status(404).json({ error: 'User not found' });
+        const user = users[0];
+
+        // 2. Calculate price server-side (includes affiliate discount)
+        const pricing = await calculateServerPrice(model, affiliate_code);
+
+        // 3. Generate unique request reference
+        const requestRef = generateRequestRef();
+
+        // 4. Find affiliate user details if code exists
+        let affiliateName = null;
+        if (pricing.affiliateApplied && pricing.affiliate_user_id) {
+            const [affiliateUsers] = await db.execute('SELECT legal_name FROM users WHERE id = ?', [pricing.affiliate_user_id]);
+            if (affiliateUsers.length) affiliateName = affiliateUsers[0].legal_name;
+        }
+
+        // 5. Create payment order with status REQUESTED
+        await db.execute(
+            `INSERT INTO payment_orders 
+             (order_ref, user_id, provider, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at) 
+             VALUES (?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())`,
+            [requestRef, req.userId, pricing.model, affiliate_code || null, pricing.affiliate_user_id || null, 
+             pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
+        );
+
+        // 6. Send email to Admin with all details
+        const adminEmail = 'support.fundfxt@gmail.com';
+        const subject = `New Payment Request: ${requestRef}`;
+        const html = `
+            <h2>FundFXT Payment Request</h2>
+            <p><strong>Request ID:</strong> ${requestRef}</p>
+            <p><strong>User Name:</strong> ${user.legal_name}</p>
+            <p><strong>User Email:</strong> ${user.email}</p>
+            <p><strong>User Phone:</strong> ${user.phone}</p>
+            <p><strong>Challenge Model:</strong> ${pricing.model}</p>
+            <p><strong>Affiliate Code:</strong> ${affiliate_code || 'None'}</p>
+            <p><strong>Affiliate Name:</strong> ${affiliateName || 'N/A'}</p>
+            <p><strong>Original Amount:</strong> $${(pricing.originalAmountCents / 100).toFixed(2)}</p>
+            <p><strong>Discount:</strong> $${(pricing.discountAmountCents / 100).toFixed(2)}</p>
+            <p><strong>Final Amount (Create Payment Link for this):</strong> $${(pricing.finalAmountCents / 100).toFixed(2)}</p>
+            <p>Please create a Razorpay Payment Link for this amount and send it to ${user.email}.</p>
+        `;
+        await sendEmail(adminEmail, subject, html).catch(err => console.log('Email failed:', err.message));
+
+        // 7. Return success with request reference
+        res.json({ 
+            success: true, 
+            request_ref: requestRef, 
+            message: 'Payment request created. You will receive a payment link via email shortly.',
+            pricing
+        });
+    } catch (error) {
+        console.error('Payment request error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Helper function to send email
+async function sendEmail(to, subject, html) {
+    const API_KEY = process.env.EMAIL_PASS;
+    const FROM_EMAIL = "FundFXT <onboarding@resend.dev>";
+    const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html })
+    });
+    if (!response.ok) throw new Error('Email API Error');
+}
+
+// ========== ADMIN AUTH & ROUTES (SIMPLIFIED) ==========
+app.post('/api/admin/login', async (req, res) => {
+    const { email, password } = req.body;
+    try {
+        const [admins] = await db.execute('SELECT * FROM admin_users WHERE email = ?', [email]);
+        if (!admins.length) return res.status(400).json({ error: 'Admin not found' });
+        const admin = admins[0];
+        const match = await bcrypt.compare(password, admin.password_hash);
+        if (!match) return res.status(400).json({ error: 'Invalid password' });
+        const token = jwt.sign({ adminId: admin.id, role: admin.role }, process.env.JWT_SECRET || 'secret', { expiresIn: '8h' });
+        res.json({ success: true, token });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+function authenticateAdmin(req, res, next) {
+    const token = req.headers['authorization']?.split(' ')[1];
+    if (!token) return res.status(401).json({ error: 'No admin token' });
+    jwt.verify(token, process.env.JWT_SECRET || 'secret', (err, decoded) => {
+        if (err) return res.status(403).json({ error: 'Invalid admin token' });
+        req.adminId = decoded.adminId;
+        req.adminRole = decoded.role;
+        next();
+    });
+}
+
+app.get('/api/admin/payment-requests', authenticateAdmin, async (req, res) => {
+    try {
+        const [requests] = await db.query(`
+            SELECT po.*, u.legal_name, u.email as user_email 
+            FROM payment_orders po 
+            JOIN users u ON po.user_id = u.id 
+            WHERE po.status IN ('REQUESTED', 'LINK_SENT', 'PAYMENT_PENDING')
+            ORDER BY po.created_at DESC
+        `);
+        res.json({ success: true, requests });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.post('/api/admin/payment-requests/:id/mark-link-sent', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { payment_link } = req.body;
+    try {
+        await db.execute('UPDATE payment_orders SET status = "LINK_SENT", payment_link = ? WHERE id = ?', [payment_link || null, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
 // ========== AFFILIATE DASHBOARD STATS ==========
 app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
     try {
@@ -269,28 +414,25 @@ app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
 });
 
 // ========== FCS LIVE MARKET DATA (Using Official Library) ==========
-// Use demo key if real key is not set or invalid
 const FCS_API_KEY = process.env.FCS_API_KEY || 'fcs_socket_demo';
 const fcs = new FCSClient(FCS_API_KEY);
-fcs.showLogs = true; // Enable logs for debugging (optional, set false in production)
+fcs.showLogs = true;
 
 fcs.onconnected = () => {
     console.log('✅ FCS Connected successfully');
-    // Subscribe to symbols (must use exchange prefix)
     const symbols = ['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:XAUUSD'];
     symbols.forEach(sym => {
-        fcs.join(sym, '15'); // timeframe as string "15"
+        fcs.join(sym, '15');
     });
 };
 
 fcs.onmessage = (data) => {
     if (data.type === 'price' && data.prices) {
-        const sym = data.symbol.replace('FX:', ''); // Remove FX: prefix
+        const sym = data.symbol.replace('FX:', '');
         const last = data.prices.c;
         const spread = sym.includes('JPY') ? 0.015 : 0.00015;
         const ask = last + spread;
         const bid = last - spread;
-        // Store in global price cache
         global.prices = global.prices || {};
         global.priceCache = global.priceCache || {};
         global.prices[sym] = { bid, ask, change: data.prices.ch || 0, changePercent: data.prices.chp || 0 };
@@ -307,12 +449,11 @@ fcs.onerror = (err) => {
     console.error('FCS error:', err.message || err);
 };
 
-// Connect
 fcs.connect().catch(err => {
     console.error('FCS connection failed:', err.message);
 });
 
-// ========== TRADE ENGINE (Uses priceCache) ==========
+// ========== TRADE ENGINE ==========
 const instruments = {
     EURUSD: { pip: 0.0001, size: 100000 },
     GBPUSD: { pip: 0.0001, size: 100000 },
@@ -331,7 +472,6 @@ function calculatePL(symbol, side, entry, current, volume) {
 
 async function processLivePrices() {
     const priceCache = global.priceCache || {};
-    // ✅ FIXED: Using single quotes around 'OPEN'
     const [trades] = await db.execute("SELECT * FROM trades WHERE status = 'OPEN'");
     for (const trade of trades) {
         const price = priceCache[trade.symbol];
@@ -376,7 +516,7 @@ app.get('/api/trade/get', authenticateToken, async (req, res) => {
     res.json({ trades });
 });
 
-// ========== WEBSOCKET SERVER (Broadcast to frontend) ==========
+// ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
 const wss = new WebSocket.Server({ server, path: '/ws' });
@@ -393,7 +533,7 @@ wss.on('connection', (client) => {
     client.send(JSON.stringify({ type: 'price', data: global.prices || {} }));
 });
 
-// Seed default admin (only if admin_users is empty)
+// ========== SEED DEFAULT ADMIN ==========
 (async () => {
     try {
         const [admins] = await db.execute('SELECT id FROM admin_users LIMIT 1');
