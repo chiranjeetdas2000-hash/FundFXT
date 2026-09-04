@@ -122,3 +122,50 @@ document.addEventListener('DOMContentLoaded', () => {
     fetchAccounts();
     fetchAffiliateStats();  // Added to load stats on page load
 });
+
+// ========== FETCH MY ORDERS ==========
+async function fetchUserOrders() {
+    const response = await fetch('https://fundfxt.onrender.com/api/orders/my', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+    const data = await response.json();
+
+    const tbody = document.getElementById('ordersTableBody');
+    const emptyState = document.getElementById('ordersEmpty');
+
+    if (!data.success || data.orders.length === 0) {
+        emptyState.style.display = 'block';
+        tbody.innerHTML = '';
+        return;
+    }
+
+    emptyState.style.display = 'none';
+
+    // Status ko color mapping
+    const statusColors = {
+        'REQUESTED': '#FFB020',
+        'READ': '#4A90E2',
+        'PAYMENT_LINK_SENT': '#4A90E2',
+        'PAYMENT_DONE': '#FFB020',
+        'PAYMENT_APPROVED': '#00B56A',
+        'ACCOUNT_CREATED': '#00B56A',
+        'ACCOUNT_PROVIDED': '#00B56A',
+        'REJECTED': '#FF4444'
+    };
+
+    tbody.innerHTML = data.orders.map(order => `
+        <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 12px; font-family: monospace; color: var(--green);"><strong>${order.order_ref}</strong></td>
+            <td style="padding: 12px;">${order.model.replace(/_/g, ' ').toUpperCase()}</td>
+            <td style="padding: 12px;">$${(order.original_amount_cents / 100).toFixed(2)}</td>
+            <td style="padding: 12px; color: var(--green);">-$${(order.discount_amount_cents / 100).toFixed(2)}</td>
+            <td style="padding: 12px; font-weight: 600;">$${(order.final_amount_cents / 100).toFixed(2)}</td>
+            <td style="padding: 12px;">
+                <span style="background: ${statusColors[order.status] || '#333'}20; color: ${statusColors[order.status] || '#fff'}; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
+                    ${order.status.replace(/_/g, ' ')}
+                </span>
+            </td>
+            <td style="padding: 12px;">${new Date(order.created_at).toLocaleDateString()}</td>
+        </tr>
+    `).join('');
+}
