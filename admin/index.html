@@ -1,1 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT Admin Dashboard</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #0a0e14; color: #fff; }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 240px;
+            background: #11161D;
+            border-right: 1px solid rgba(255,255,255,0.08);
+            position: fixed;
+            top: 0;
+            left: 0;
+            height: 100vh;
+            padding: 20px;
+        }
+        .logo { font-size: 20px; font-weight: 800; margin-bottom: 30px; }
+        .logo span { color: #00B56A; }
+        .nav-link {
+            display: block;
+            padding: 12px 15px;
+            margin-bottom: 5px;
+            border-radius: 6px;
+            color: #94A3B8;
+            text-decoration: none;
+            font-size: 14px;
+            transition: 0.3s;
+        }
+        .nav-link:hover, .nav-link.active { background: rgba(0,181,106,0.1); color: #00B56A; }
+        .nav-link i { margin-right: 10px; width: 20px; text-align: center; }
+        
+        /* Main */
+        .main-content { margin-left: 240px; padding: 30px; }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
+        .header h1 { font-size: 24px; }
+        .logout-btn { background: #FF4444; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px; }
+        .logout-btn:hover { opacity: 0.9; }
+        
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
+        .stat-card { background: #11161D; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; }
+        .stat-card h4 { color: #94A3B8; font-size: 13px; margin-bottom: 10px; }
+        .stat-card .value { font-size: 28px; font-weight: 800; color: #00B56A; }
+        
+        .table-container { background: #11161D; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        th { color: #94A3B8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { font-size: 14px; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
+        .status-REQUESTED { background: rgba(255,176,32,0.2); color: #FFB020; }
+        .status-LINK_SENT { background: rgba(74,144,226,0.2); color: #4A90E2; }
+        .status-PAYMENT_PENDING { background: rgba(255,176,32,0.2); color: #FFB020; }
+        
+        .action-btn { background: #00B56A; border: none; padding: 6px 12px; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; margin-right: 5px; }
+        .action-btn:hover { background: #009a5b; }
+        .action-btn.reject { background: #FF4444; }
+        .action-btn.reject:hover { background: #d63031; }
+        
+        .empty-state { text-align: center; padding: 40px; color: #94A3B8; }
+        
+        @media (max-width: 768px) {
+            .sidebar { width: 100%; height: auto; position: relative; }
+            .main-content { margin-left: 0; }
+            .header { flex-direction: column; gap: 10px; }
+        }
+    </style>
+</head>
+<body>
 
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <div class="logo">Fund<span>FXT</span> Admin</div>
+        <a href="#" class="nav-link active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-users"></i> Users</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-money-bill-wave"></i> Payments</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-arrow-right-arrow-left"></i> Withdrawals</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-share-nodes"></i> Affiliates</a>
+        <a href="#" class="nav-link"><i class="fa-solid fa-trophy"></i> Certificates</a>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <div class="header">
+            <h1>Payment Requests</h1>
+            <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        </div>
+
+        <!-- Stats (placeholder, will update later) -->
+        <div class="stats-grid">
+            <div class="stat-card"><h4>Pending Requests</h4><div class="value" id="pendingCount">0</div></div>
+            <div class="stat-card"><h4>Links Sent</h4><div class="value" id="linksSent">0</div></div>
+            <div class="stat-card"><h4>Total Revenue</h4><div class="value" id="totalRevenue">$0</div></div>
+        </div>
+
+        <!-- Table -->
+        <div class="table-container">
+            <table id="requestsTable">
+                <thead>
+                    <tr>
+                        <th>Request ID</th>
+                        <th>User</th>
+                        <th>Email</th>
+                        <th>Challenge</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="requestsTableBody">
+                    <!-- Data will be inserted here -->
+                </tbody>
+            </table>
+            <div class="empty-state" id="emptyState" style="display:none;">No payment requests found.</div>
+        </div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('fundfxt_admin_token');
+        if (!token) window.location.href = 'login.html';
+
+        function handleLogout() {
+            localStorage.removeItem('fundfxt_admin_token');
+            window.location.href = 'login.html';
+        }
+
+        async function fetchPaymentRequests() {
+            try {
+                const response = await fetch('https://fundfxt.onrender.com/api/admin/payment-requests', {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    renderRequests(data.requests);
+                    updateStats(data.requests);
+                } else {
+                    alert(data.error || 'Failed to fetch requests');
+                }
+            } catch (err) {
+                console.error('Error fetching requests:', err);
+            }
+        }
+
+        function renderRequests(requests) {
+            const tbody = document.getElementById('requestsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            if (!requests || requests.length === 0) {
+                emptyState.style.display = 'block';
+                tbody.innerHTML = '';
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            tbody.innerHTML = requests.map(req => `
+                <tr>
+                    <td>${req.order_ref}</td>
+                    <td>${req.legal_name}</td>
+                    <td>${req.user_email}</td>
+                    <td>${req.model}</td>
+                    <td>$${(req.final_amount_cents / 100).toFixed(2)}</td>
+                    <td><span class="status-badge status-${req.status}">${req.status.replace('_', ' ')}</span></td>
+                    <td>${new Date(req.created_at).toLocaleString()}</td>
+                    <td>
+                        <button class="action-btn" onclick="markLinkSent(${req.id})">Mark Link Sent</button>
+                        <button class="action-btn reject" onclick="rejectRequest(${req.id})">Reject</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function updateStats(requests) {
+            const pending = requests.filter(r => r.status === 'REQUESTED').length;
+            const linksSent = requests.filter(r => r.status === 'LINK_SENT').length;
+            const totalRevenue = requests.reduce((sum, r) => sum + r.final_amount_cents, 0) / 100;
+            
+            document.getElementById('pendingCount').innerText = pending;
+            document.getElementById('linksSent').innerText = linksSent;
+            document.getElementById('totalRevenue').innerText = '$' + totalRevenue.toFixed(2);
+        }
+
+        async function markLinkSent(id) {
+            if (!confirm('Are you sure you want to mark this request as "Link Sent"?')) return;
+            
+            try {
+                const response = await fetch(`https://fundfxt.onrender.com/api/admin/payment-requests/${id}/mark-link-sent`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    },
+                    body: JSON.stringify({ payment_link: null })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Link marked as sent!');
+                    fetchPaymentRequests();
+                } else {
+                    alert(data.error || 'Failed to update');
+                }
+            } catch (err) {
+                console.error('Error marking link:', err);
+            }
+        }
+
+        async function rejectRequest(id) {
+            if (!confirm('Are you sure you want to reject this request?')) return;
+            
+            try {
+                const response = await fetch(`https://fundfxt.onrender.com/api/admin/payment-requests/${id}/reject`, {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}` 
+                    }
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    alert('Request rejected!');
+                    fetchPaymentRequests();
+                } else {
+                    alert(data.error || 'Failed to reject');
+                }
+            } catch (err) {
+                console.error('Error rejecting request:', err);
+            }
+        }
+
+        // Load on page load
+        window.onload = fetchPaymentRequests;
+    </script>
+</body>
+</html>
