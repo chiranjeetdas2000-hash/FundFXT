@@ -728,3 +728,39 @@ app.get('/api/orders', authenticateToken, async (req, res) => {
         res.status(500).json({ success: false, error: error.message });
     }
 });
+
+// ========== GET DASHBOARD STATS (Complete Summary) ==========
+app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
+    try {
+        // 1. User ke saare accounts fetch karo
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
+
+        // 2. User ke saare orders fetch karo
+        const [orders] = await db.execute(
+            `SELECT order_ref, model, final_amount_cents, status, created_at FROM payment_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+            [req.userId]
+        );
+
+        // 3. Statistics calculate karo
+        const totalAccounts = accounts.length;
+        const activeAccounts = accounts.filter(a => a.status === 'ACTIVE').length;
+        const passedAccounts = accounts.filter(a => a.status === 'PASSED').length;
+        const failedAccounts = accounts.filter(a => ['BREACHED', 'EXPIRED', 'CLOSED'].includes(a.status)).length;
+        const totalProfit = accounts.reduce((sum, a) => sum + (a.equity_cents - a.initial_balance_cents), 0) / 100;
+
+        res.json({
+            success: true,
+            stats: {
+                totalAccounts,
+                activeAccounts,
+                passedAccounts,
+                failedAccounts,
+                totalProfit: totalProfit.toFixed(2)
+            },
+            recentActivity: orders // Last 5 orders
+        });
+    } catch (error) {
+        console.error('Dashboard stats error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
