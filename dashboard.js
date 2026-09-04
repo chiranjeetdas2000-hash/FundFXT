@@ -15,7 +15,7 @@ function toggleSidebar() {
 
 // SECTION SWITCHING
 function showSection(sectionName) {
-    if (sectionName === 'orders') fetchUserOrders(); // <--- Ye line add karo
+    if (sectionName === 'orders') fetchUserOrders();
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     document.getElementById('view-' + sectionName).classList.add('active');
 
@@ -51,46 +51,120 @@ async function fetchProfile() {
     document.getElementById('aff-code').innerText = user.affiliate_code || 'AFF-PENDING';
 }
 
-// ========== FETCH ACCOUNTS ==========
-async function fetchAccounts() {
-    const container = document.getElementById('accounts-container');
-    const emptyState = document.getElementById('empty-state');
-    
-    const response = await fetch('https://fundfxt.onrender.com/api/accounts', {
+// ========== FETCH DASHBOARD (Main Function) ==========
+async function fetchDashboard() {
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/dashboard/stats', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            const { totalAccounts, activeAccounts, passedAccounts, failedAccounts, totalProfit } = data.stats;
+
+            // Update Summary Cards
+            document.getElementById('total-accounts').innerText = totalAccounts;
+            document.getElementById('active-accounts').innerText = activeAccounts;
+            document.getElementById('passed-accounts').innerText = passedAccounts;
+            document.getElementById('failed-accounts').innerText = failedAccounts;
+            document.getElementById('total-profit').innerText = '$' + totalProfit;
+
+            // Update Account Cards Grid
+            const container = document.getElementById('accounts-container');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (totalAccounts === 0) {
+                emptyState.style.display = 'block';
+                container.innerHTML = '';
+            } else {
+                emptyState.style.display = 'none';
+                container.innerHTML = data.accounts.map(account => {
+                    const accNum = account.account_code || 'N/A';
+                    const status = account.status || 'ACTIVE';
+                    const balance = (account.balance_cents / 100).toFixed(2);
+                    const equity = (account.equity_cents / 100).toFixed(2);
+                    const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2);
+
+                    return `
+                        <div class="account-card">
+                            <h2>${accNum}</h2>
+                            <div class="sub">Phase 1 Challenge</div>
+                            <div class="account-info-grid">
+                                <p>Starting Balance <strong>$${balance}</strong></p>
+                                <p>Current Equity <strong>$${equity}</strong></p>
+                                <p>Status <strong style="color:${status === 'ACTIVE' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
+                            </div>
+                            <div class="profit-line" style="color: ${profit.startsWith('-') ? 'var(--red)' : 'var(--green)'};">Profit: $${profit}</div>
+                            <button class="view-btn" onclick="window.location.href='terminal.html?account_code=${encodeURIComponent(accNum)}'">Open Terminal</button>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Update Recent Activity (Dynamic from orders)
+            const recentActivity = data.recentActivity || [];
+            const activityList = document.querySelector('.activity-list');
+            if (activityList) {
+                if (recentActivity.length === 0) {
+                    activityList.innerHTML = '<h2 style="margin-bottom: 15px;">Recent Activity</h2><p style="color: var(--text-muted);">No recent activity.</p>';
+                } else {
+                    activityList.innerHTML = '<h2 style="margin-bottom: 15px;">Recent Activity</h2>' + recentActivity.map(order => `
+                        <div class="activity-item">
+                            <div class="activity-icon"><i class="fa-solid fa-file-invoice" style="color: var(--blue);"></i></div>
+                            <div class="activity-text"><h5>${order.order_ref}</h5><p>${order.status.replace(/_/g, ' ')} • ${new Date(order.created_at).toLocaleDateString()}</p></div>
+                        </div>
+                    `).join('');
+                }
+            }
+        }
+    } catch (error) {
+        console.error('Dashboard fetch error:', error);
+    }
+}
+
+// ========== FETCH USER ORDERS (For Order History Section) ==========
+async function fetchUserOrders() {
+    const response = await fetch('https://fundfxt.onrender.com/api/orders', {
         headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await response.json();
-    
-    if (!data.accounts || data.accounts.length === 0) {
+
+    const tbody = document.getElementById('ordersTableBody');
+    const emptyState = document.getElementById('ordersEmptyState');
+
+    if (!data.success || !data.orders || data.orders.length === 0) {
         emptyState.style.display = 'block';
-        container.innerHTML = '';
+        tbody.innerHTML = '';
         return;
     }
-    
-    emptyState.style.display = 'none';
-    
-    container.innerHTML = data.accounts.map(account => {
-        const accNum = account.account_code || 'N/A';
-        const status = account.status || 'ACTIVE';
-        // Convert cents to dollars
-        const balance = (account.balance_cents / 100).toFixed(2) || '0.00';
-        const equity = (account.equity_cents / 100).toFixed(2) || '0.00';
-        const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2) || '0.00';
 
-        return `
-            <div class="account-card">
-                <h2>${accNum}</h2>
-                <div class="sub">Phase 1 Challenge</div>
-                <div class="account-info-grid">
-                    <p>Starting Balance <strong>$${balance}</strong></p>
-                    <p>Current Equity <strong>$${equity}</strong></p>
-                    <p>Status <strong style="color:${status === 'ACTIVE' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
-                </div>
-                <div class="profit-line" style="color: ${profit.startsWith('-') ? 'var(--red)' : 'var(--green)'};">Profit: $${profit}</div>
-                <button class="view-btn" onclick="window.location.href='terminal.html?account_code=${encodeURIComponent(accNum)}'">Open Terminal</button>
-            </div>
-        `;
-    }).join('');
+    emptyState.style.display = 'none';
+    const statusColors = {
+        'REQUESTED': '#FFB020',
+        'READ': '#4A90E2',
+        'PAYMENT_LINK_SENT': '#4A90E2',
+        'PAYMENT_DONE': '#FFB020',
+        'PAYMENT_APPROVED': '#00B56A',
+        'ACCOUNT_CREATED': '#00B56A',
+        'ACCOUNT_PROVIDED': '#00B56A',
+        'REJECTED': '#FF4444'
+    };
+
+    tbody.innerHTML = data.orders.map(order => `
+        <tr style="border-bottom: 1px solid var(--border);">
+            <td style="padding: 12px; font-family: monospace; color: var(--green);">${order.order_ref}</td>
+            <td style="padding: 12px;">${order.model.replace(/_/g, ' ').toUpperCase()}</td>
+            <td style="padding: 12px;">$${(order.original_amount_cents / 100).toFixed(2)}</td>
+            <td style="padding: 12px; color: var(--green);">-$${(order.discount_amount_cents / 100).toFixed(2)}</td>
+            <td style="padding: 12px; font-weight: 600;">$${(order.final_amount_cents / 100).toFixed(2)}</td>
+            <td style="padding: 12px;">
+                <span style="background: ${statusColors[order.status] || '#333'}20; color: ${statusColors[order.status] || '#fff'}; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
+                    ${order.status.replace(/_/g, ' ')}
+                </span>
+            </td>
+            <td style="padding: 12px;">${new Date(order.created_at).toLocaleDateString()}</td>
+        </tr>
+    `).join('');
 }
 
 // ========== FETCH AFFILIATE STATS ==========
@@ -104,86 +178,16 @@ async function fetchAffiliateStats() {
         return;
     }
 
-    // Update the affiliate section placeholders
-    const totalEarnings = (data.total_earnings_cents / 100).toFixed(2);
-    const pendingEarnings = (data.pending_earnings_cents / 100).toFixed(2);
-    const totalReferrals = data.total_referrals;
-    const totalSales = data.total_sales;
-
-    document.getElementById('aff-total-referrals').innerText = totalReferrals;
-    document.getElementById('aff-total-sales').innerText = totalSales;
-    document.getElementById('aff-total-earnings').innerText = '$' + totalEarnings;
-    document.getElementById('aff-pending-earnings').innerText = '$' + pendingEarnings;
+    document.getElementById('aff-total-referrals').innerText = data.total_referrals;
+    document.getElementById('aff-total-sales').innerText = data.total_sales;
+    document.getElementById('aff-total-earnings').innerText = '$' + (data.total_earnings_cents / 100).toFixed(2);
+    document.getElementById('aff-pending-earnings').innerText = '$' + (data.pending_earnings_cents / 100).toFixed(2);
 }
 
 // INITIALIZE
 document.addEventListener('DOMContentLoaded', () => {
     showSection('home');
     fetchProfile();
-    fetchAccounts();
-    fetchAffiliateStats();  // Added to load stats on page load
+    fetchDashboard(); // Main function jo saara data le aayega
+    fetchAffiliateStats();
 });
-
-// ========== FETCH MY ORDERS ==========
-async function fetchUserOrders() {
-    try {
-        // API call
-        const response = await fetch('https://fundfxt.onrender.com/api/orders', {
-            headers: { 'Authorization': `Bearer ${token}` }
-        });
-        const data = await response.json();
-
-        // Get elements (use correct ID)
-        const tbody = document.getElementById('ordersTableBody');
-        const emptyState = document.getElementById('ordersEmptyState'); // ✅ FIXED: "ordersEmptyState" (not "ordersEmpty")
-
-        // Handle error
-        if (!data.success) {
-            console.error('API error:', data.error);
-            if (emptyState) emptyState.style.display = 'block';
-            if (tbody) tbody.innerHTML = '';
-            return;
-        }
-
-        // Handle empty orders
-        if (!data.orders || data.orders.length === 0) {
-            if (emptyState) emptyState.style.display = 'block';
-            if (tbody) tbody.innerHTML = '';
-            return;
-        }
-
-        // Show orders
-        if (emptyState) emptyState.style.display = 'none';
-
-        // Status color mapping
-        const statusColors = {
-            'REQUESTED': '#FFB020',
-            'READ': '#4A90E2',
-            'PAYMENT_LINK_SENT': '#4A90E2',
-            'PAYMENT_DONE': '#FFB020',
-            'PAYMENT_APPROVED': '#00B56A',
-            'ACCOUNT_CREATED': '#00B56A',
-            'ACCOUNT_PROVIDED': '#00B56A',
-            'REJECTED': '#FF4444'
-        };
-
-        tbody.innerHTML = data.orders.map(order => `
-            <tr style="border-bottom: 1px solid var(--border);">
-                <td style="padding: 12px; font-family: monospace; color: var(--green);"><strong>${order.order_ref}</strong></td>
-                <td style="padding: 12px;">${order.model.replace(/_/g, ' ').toUpperCase()}</td>
-                <td style="padding: 12px;">$${(order.original_amount_cents / 100).toFixed(2)}</td>
-                <td style="padding: 12px; color: var(--green);">-$${(order.discount_amount_cents / 100).toFixed(2)}</td>
-                <td style="padding: 12px; font-weight: 600;">$${(order.final_amount_cents / 100).toFixed(2)}</td>
-                <td style="padding: 12px;">
-                    <span style="background: ${statusColors[order.status] || '#333'}20; color: ${statusColors[order.status] || '#fff'}; padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 700; text-transform: uppercase;">
-                        ${order.status.replace(/_/g, ' ')}
-                    </span>
-                </td>
-                <td style="padding: 12px;">${new Date(order.created_at).toLocaleDateString()}</td>
-            </tr>
-        `).join('');
-
-    } catch (error) {
-        console.error('Fetch user orders error:', error);
-    }
-}
