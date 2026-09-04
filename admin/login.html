@@ -1,1 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT Admin Login</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: #0a0e14; color: #fff; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+        
+        .login-card {
+            background: #11161D;
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 16px;
+            padding: 40px;
+            width: 100%;
+            max-width: 400px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        }
+        
+        .logo { text-align: center; font-size: 24px; font-weight: 800; margin-bottom: 30px; }
+        .logo span { color: #00B56A; }
+        
+        .input-group { margin-bottom: 20px; }
+        .input-group label { display: block; font-size: 13px; color: #94A3B8; margin-bottom: 8px; }
+        .input-group input {
+            width: 100%;
+            padding: 14px;
+            background: #0a0e14;
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.3s;
+        }
+        .input-group input:focus { border-color: #00B56A; }
+        
+        .btn {
+            width: 100%;
+            padding: 14px;
+            background: #00B56A;
+            border: none;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #009a5b; }
+        
+        .error-msg { color: #FF4444; font-size: 13px; margin-top: 10px; text-align: center; display: none; }
+        .success-msg { color: #00B56A; font-size: 13px; margin-top: 10px; text-align: center; display: none; }
+    </style>
+</head>
+<body>
+    <div class="login-card">
+        <div class="logo">Fund<span>FXT</span> Admin</div>
+        <form id="adminLoginForm">
+            <div class="input-group">
+                <label>Admin Email</label>
+                <input type="email" id="adminEmail" placeholder="admin@fundfxt.com" required>
+            </div>
+            <div class="input-group">
+                <label>Password</label>
+                <input type="password" id="adminPassword" placeholder="Enter password" required>
+            </div>
+            <button type="submit" class="btn">Login</button>
+            <div class="error-msg" id="errorMsg">Invalid credentials</div>
+            <div class="success-msg" id="successMsg">Login successful... redirecting</div>
+        </form>
+    </div>
 
+    <script>
+        document.getElementById('adminLoginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const email = document.getElementById('adminEmail').value;
+            const password = document.getElementById('adminPassword').value;
+            
+            document.getElementById('errorMsg').style.display = 'none';
+            document.getElementById('successMsg').style.display = 'none';
+
+            try {
+                const response = await fetch('https://fundfxt.onrender.com/api/admin/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    localStorage.setItem('fundfxt_admin_token', data.token);
+                    document.getElementById('successMsg').style.display = 'block';
+                    setTimeout(() => window.location.href = 'index.html', 1000);
+                } else {
+                    document.getElementById('errorMsg').textContent = data.error || 'Invalid credentials';
+                    document.getElementById('errorMsg').style.display = 'block';
+                }
+            } catch (err) {
+                document.getElementById('errorMsg').textContent = 'Server connection error';
+                document.getElementById('errorMsg').style.display = 'block';
+            }
+        });
+    </script>
+</body>
+</html>
