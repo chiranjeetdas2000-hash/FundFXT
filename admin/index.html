@@ -21,7 +21,6 @@
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
         .logout-btn { background: #FF4444; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px; }
         
-        /* Table & Cards */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .stat-card { background: #11161D; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; }
         .stat-card h4 { color: #94A3B8; font-size: 13px; margin-bottom: 10px; }
@@ -47,11 +46,9 @@
         .action-btn.reject { background: #FF4444; }
         .action-btn.blue { background: #4A90E2; }
         
-        /* Forms */
         .input-group { margin-bottom: 10px; }
         .input-group input, .input-group select { width: 100%; padding: 10px; background: #0a0e14; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 13px; }
         
-        /* Sections */
         .view-section { display: none; }
         .view-section.active { display: block; }
         .empty-state { text-align: center; padding: 40px; color: #94A3B8; }
@@ -178,6 +175,9 @@
         const token = localStorage.getItem('fundfxt_admin_token');
         if (!token) window.location.href = 'login.html';
 
+        // Define Backend URL for all API calls
+        const API_BASE_URL = 'https://fundfxt.onrender.com';
+
         function handleLogout() { localStorage.removeItem('fundfxt_admin_token'); window.location.href = 'login.html'; }
 
         function showSection(sectionName) {
@@ -197,7 +197,7 @@
 
         // --- Dashboard ---
         async function fetchDashboard() {
-            const res = await fetch('/api/admin/payment-requests', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/api/admin/payment-requests`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 document.getElementById('pendingCount').innerText = data.requests.length;
@@ -206,27 +206,41 @@
             }
         }
 
-     // 1. Get All Users (with KYC status)
-app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
-    try {
-        // ✅ SELECT only columns that DEFINITELY exist in your users table
-        const [users] = await db.query('SELECT id, trader_id, legal_name, email, phone, is_verified, kyc_status, affiliate_code, created_at FROM users ORDER BY created_at DESC');
-        res.json({ success: true, users });
-    } catch (error) {
-        console.error('Admin users error:', error.message);
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
+        // --- Users ---
+        async function fetchUsers() {
+            const res = await fetch(`${API_BASE_URL}/api/admin/users`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('usersTableBody').innerHTML = data.users.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.trader_id}</td>
+                        <td>${u.legal_name}</td>
+                        <td>${u.email}</td>
+                        <td>${u.phone}</td>
+                        <td><span class="status-badge">${u.kyc_status}</span></td>
+                        <td>
+                            <button class="action-btn" onclick="verifyKyc(${u.id})">Approve KYC</button>
+                            <button class="action-btn blue" onclick="resetPass(${u.id})">Reset Pass</button>
+                        </td>
+                    </tr>
+                `).join('');
+                if (data.users.length > 0) document.getElementById('usersEmpty').style.display = 'none';
+            } else {
+                console.error(data.error);
+                alert('Error fetching users: ' + data.error);
+            }
+        }
 
         async function verifyKyc(id) {
-            await fetch(`/api/admin/users/${id}/verify-kyc`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            await fetch(`${API_BASE_URL}/api/admin/users/${id}/verify-kyc`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
             fetchUsers();
         }
 
         async function resetPass(id) {
             const newPass = prompt("Enter new temporary password:");
             if (newPass) {
-                await fetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ newPassword: newPass }) });
+                await fetch(`${API_BASE_URL}/api/admin/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ newPassword: newPass }) });
                 alert("Password reset successfully!");
             }
         }
@@ -234,7 +248,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
         // --- Orders ---
         async function fetchOrders() {
             const status = document.getElementById('orderStatusFilter').value;
-            const res = await fetch(`/api/admin/payment-orders?status=${status}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/api/admin/payment-orders?status=${status}`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 document.getElementById('ordersTableBody').innerHTML = data.orders.map(o => `
@@ -253,6 +267,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
                                 <option value="ACCOUNT_CREATED">Account Created</option>
                                 <option value="ACCOUNT_PROVIDED">Account Provided</option>
                             </select>
+                            <button class="action-btn blue" onclick="createAccount(${o.id})">Create Account</button>
                         </td>
                     </tr>
                 `).join('');
@@ -261,13 +276,29 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
 
         async function updateOrderStatus(id, status) {
             if (!status) return;
-            await fetch(`/api/admin/payment-orders/${id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
+            await fetch(`${API_BASE_URL}/api/admin/payment-orders/${id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
             fetchOrders();
+        }
+
+        // NEW FUNCTION: Create Account
+        async function createAccount(id) {
+            if (!confirm('Are you sure you want to create a trading account for this order?')) return;
+            const res = await fetch(`${API_BASE_URL}/api/admin/payment-orders/${id}/create-account`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert('Account created! Code: ' + data.account_code);
+                fetchOrders();
+            } else {
+                alert(data.error || 'Failed to create account');
+            }
         }
 
         // --- Withdrawals ---
         async function fetchWithdrawals() {
-            const res = await fetch('/api/admin/withdrawals', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/api/admin/withdrawals`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 document.getElementById('withdrawalsTableBody').innerHTML = data.withdrawals.map(w => `
@@ -288,13 +319,13 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
         }
 
         async function updateWithdrawStatus(id, status) {
-            await fetch(`/api/admin/withdrawals/${id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
+            await fetch(`${API_BASE_URL}/api/admin/withdrawals/${id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
             fetchWithdrawals();
         }
 
         // --- Affiliates ---
         async function fetchAffiliates() {
-            const res = await fetch('/api/admin/affiliates', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/api/admin/affiliates`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 document.getElementById('affiliatesTableBody').innerHTML = data.affiliates.map(a => `
@@ -312,7 +343,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
 
         // --- Certificates ---
         async function fetchCertificates() {
-            const res = await fetch('/api/admin/certificates', { headers: { 'Authorization': `Bearer ${token}` } });
+            const res = await fetch(`${API_BASE_URL}/api/admin/certificates`, { headers: { 'Authorization': `Bearer ${token}` } });
             const data = await res.json();
             if (data.success) {
                 document.getElementById('certificatesTableBody').innerHTML = data.certificates.map(c => `
@@ -332,7 +363,7 @@ app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
             const user_id = document.getElementById('certUserId').value;
             const account_id = document.getElementById('certAccountId').value;
             const achievement = document.getElementById('certAchievement').value;
-            await fetch('/api/admin/certificates/issue', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ user_id, account_id, model: 'warrior_5k', achievement }) });
+            await fetch(`${API_BASE_URL}/api/admin/certificates/issue`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ user_id, account_id, model: 'warrior_5k', achievement }) });
             alert('Certificate Issued!');
             document.getElementById('issueModal').style.display = 'none';
             fetchCertificates();
