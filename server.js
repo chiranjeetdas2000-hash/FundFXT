@@ -33,27 +33,19 @@ const db = mysql.createPool({
     }
 })();
 
-// ========== EMAIL (RESEND) ==========
-async function sendOTPEmail(userEmail, otp) {
-    const ADMIN_EMAIL = 'support.fundfxt@gmail.com';
-    const subject = `Password Reset OTP for ${userEmail}`;
-    const html = `<div style="font-family: Arial; max-width: 500px; padding: 20px; border: 1px solid #e0e0e0; border-radius: 8px;">
-            <h2 style="color: #00b56a;">FundFXT Support</h2>
-            <p>Please use this OTP to verify your identity and complete the password reset process</p>
-            <p><strong>User Email:</strong> ${userEmail}</p>
-            <p><strong>OTP:</strong> ${otp}</p>
-        </div>`;
-
+// ========== EMAIL (RESEND) - FIXED ==========
+async function sendEmail(to, subject, html) {
     const API_KEY = process.env.EMAIL_PASS;
-    const FROM_EMAIL = "FundFXT <onboarding@resend.dev>";
-
+    // Use EMAIL_USER from environment (your verified Resend email)
+    const FROM_EMAIL = process.env.EMAIL_USER || "onboarding@resend.dev";
+    
     const response = await fetch('https://api.resend.com/emails', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${API_KEY}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ from: FROM_EMAIL, to: [ADMIN_EMAIL], subject: subject, html: html })
+        body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject: subject, html: html })
     });
 
-    if (!response.ok) throw new Error('Resend API Error');
+    if (!response.ok) throw new Error('Email API Error: ' + response.status);
 }
 
 // ========== AFFILIATE CODE GENERATOR ==========
@@ -130,7 +122,7 @@ app.post('/api/login', async (req, res) => {
     }
 });
 
-// ========== FORGOT PASSWORD ==========
+// ========== FORGOT PASSWORD (OTP hashed) ==========
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
@@ -143,7 +135,7 @@ app.post('/api/forgot-password', async (req, res) => {
             'INSERT INTO email_verifications (email, purpose, otp_hash, expires_at) VALUES (?, ?, ?, ?)',
             [email, 'PASSWORD_RESET', otpHash, expiresAt]
         );
-        sendOTPEmail(email, otp).catch(err => console.log("Email failed:", err.message));
+        sendEmail(email, `Password Reset OTP for ${email}`, `<p>Your OTP is: <b>${otp}</b></p>`).catch(err => console.log('Email failed:', err.message));
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -274,6 +266,10 @@ app.post('/api/payments/quote', authenticateToken, async (req, res) => {
 });
 
 // ========== PAYMENT REQUEST (NEW) ==========
+function generateRequestRef() {
+    return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+}
+
 app.post('/api/payments/request', authenticateToken, async (req, res) => {
     const { model, affiliate_code, email } = req.body;
     try {
@@ -284,7 +280,6 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
         const pricing = await calculateServerPrice(model, affiliate_code);
         const requestRef = generateRequestRef();
 
-        // Affiliate details nikalna (agar code hai)
         let affiliateName = null;
         let affiliateCodeUsed = affiliate_code;
         if (pricing.affiliateApplied && pricing.affiliate_user_id) {
@@ -292,7 +287,6 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
             if (affiliateUsers.length) affiliateName = affiliateUsers[0].legal_name;
         }
 
-        // Payment order insert karo
         await db.execute(
             `INSERT INTO payment_orders 
              (order_ref, user_id, provider, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at) 
@@ -335,7 +329,7 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
     }
 });
 
-// ========== ADMIN AUTH & ROUTES (SIMPLIFIED) ==========
+// ========== ADMIN AUTH ==========
 app.post('/api/admin/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -360,6 +354,102 @@ function authenticateAdmin(req, res, next) {
     });
 }
 
+// ========== ADMIN ROUTES ==========
+
+// Get all users
+app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
+    try {
+        const [users] = await db.query('SELECT id, trader_id, legal_name, email, phone, kyc_status, is_verified, affiliate_code, created_at FROM users ORDER BY created_at DESC');
+        res.json({ success: true, users });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Approve KYC
+app.post('/api/admin/users/:id/verify-kyc', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.execute("UPDATE users SET kyc_status = 'APPROVED' WHERE id = ?", [id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Reset password
+app.post('/api/admin/users/:id/reset-password', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { newPassword } = req.body;
+    if (!newPassword) return res.status(400).json({ error: 'New password required' });
+    try {
+        const hashed = await bcrypt.hash(newPassword, 10);
+        await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashed, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Get payment orders
+app.get('/api/admin/payment-orders', authenticateAdmin, async (req, res) => {
+    const { status } = req.query;
+    let query = `SELECT po.*, u.legal_name, u.email as user_email FROM payment_orders po JOIN users u ON po.user_id = u.id`;
+    let params = [];
+    if (status) {
+        query += ` WHERE po.status = ?`;
+        params.push(status);
+    }
+    query += ` ORDER BY po.created_at DESC`;
+    try {
+        const [orders] = await db.execute(query, params);
+        res.json({ success: true, orders });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Update payment order status (with auto affiliate commission)
+app.post('/api/admin/payment-orders/:id/status', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    
+    const connection = await db.getConnection();
+    try {
+        await connection.beginTransaction();
+        const [orders] = await connection.execute('SELECT * FROM payment_orders WHERE id = ? FOR UPDATE', [id]);
+        if (!orders.length) throw new Error('Order not found');
+        const order = orders[0];
+
+        await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ?', [status, id]);
+
+        // If payment done/approved, add affiliate commission
+        if ((status === 'PAYMENT_DONE' || status === 'PAYMENT_APPROVED') && order.affiliate_code) {
+            const [affiliateRows] = await connection.execute(
+                'SELECT a.id AS affiliate_id, a.user_id FROM affiliates a JOIN users u ON u.id = a.user_id WHERE u.affiliate_code = ? LIMIT 1',
+                [order.affiliate_code]
+            );
+            if (affiliateRows.length > 0) {
+                const affiliate = affiliateRows[0];
+                const commissionCents = Math.floor((order.final_amount_cents * 0.20) + 100);
+                const [existingComm] = await connection.execute('SELECT id FROM affiliate_commissions WHERE order_id = ? LIMIT 1', [id]);
+                if (existingComm.length === 0) {
+                    await connection.execute(
+                        `INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status) 
+                         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+                        [affiliate.affiliate_id, id, order.user_id, order.model, commissionCents]
+                    );
+                    await connection.execute(
+                        `UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?`,
+                        [commissionCents, affiliate.affiliate_id]
+                    );
+                }
+            }
+        }
+
+        await connection.commit();
+        res.json({ success: true });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
+
+// Get payment requests (for dashboard)
 app.get('/api/admin/payment-requests', authenticateAdmin, async (req, res) => {
     try {
         const [requests] = await db.query(`
@@ -373,6 +463,16 @@ app.get('/api/admin/payment-requests', authenticateAdmin, async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// Reject payment request
+app.post('/api/admin/payment-requests/:id/reject', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.execute("UPDATE payment_orders SET status = 'REJECTED' WHERE id = ?", [id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Mark link sent
 app.post('/api/admin/payment-requests/:id/mark-link-sent', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
     const { payment_link } = req.body;
@@ -382,19 +482,70 @@ app.post('/api/admin/payment-requests/:id/mark-link-sent', authenticateAdmin, as
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== AFFILIATE DASHBOARD STATS ==========
-app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
+// Get withdrawals
+app.get('/api/admin/withdrawals', authenticateAdmin, async (req, res) => {
     try {
-        const [affiliateRows] = await db.execute('SELECT * FROM affiliates WHERE user_id = ? LIMIT 1', [req.userId]);
-        if (!affiliateRows.length) return res.status(404).json({ error: 'Affiliate account not found' });
-        const affiliate = affiliateRows[0];
-        const [referralCount] = await db.execute('SELECT COUNT(DISTINCT user_id) AS total FROM payment_orders WHERE affiliate_code = ? AND status = "paid"', [affiliate.affiliate_code]);
-        const [commissionSum] = await db.execute(`SELECT SUM(commission_amount_cents) AS total_earnings_cents, SUM(CASE WHEN status = 'PENDING' THEN commission_amount_cents ELSE 0 END) AS pending_earnings_cents, SUM(CASE WHEN status = 'PAID' THEN commission_amount_cents ELSE 0 END) AS paid_earnings_cents FROM affiliate_commissions WHERE affiliate_id = ?`, [affiliate.id]);
-        res.json({ affiliate_code: affiliate.affiliate_code, total_referrals: referralCount[0].total || 0, total_sales: affiliate.total_sales, total_earnings_cents: commissionSum[0].total_earnings_cents || 0, pending_earnings_cents: commissionSum[0].pending_earnings_cents || 0, paid_earnings_cents: commissionSum[0].paid_earnings_cents || 0 });
-    } catch (error) { console.error('Affiliate stats error:', error); res.status(500).json({ error: 'Failed to fetch affiliate stats' }); }
+        const [withdrawals] = await db.query(`
+            SELECT pr.*, u.legal_name, u.email as user_email, a.account_code 
+            FROM payout_requests pr 
+            JOIN users u ON pr.user_id = u.id 
+            LEFT JOIN accounts a ON pr.account_id = a.id 
+            ORDER BY pr.created_at DESC
+        `);
+        res.json({ success: true, withdrawals });
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== FCS LIVE MARKET DATA (Using Official Library) ==========
+// Update withdrawal status
+app.post('/api/admin/withdrawals/:id/status', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+    try {
+        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Get affiliates
+app.get('/api/admin/affiliates', authenticateAdmin, async (req, res) => {
+    try {
+        const [affiliates] = await db.query(`
+            SELECT a.*, u.legal_name, u.email 
+            FROM affiliates a JOIN users u ON a.user_id = u.id 
+            ORDER BY a.total_earnings_cents DESC
+        `);
+        res.json({ success: true, affiliates });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Get certificates
+app.get('/api/admin/certificates', authenticateAdmin, async (req, res) => {
+    try {
+        const [certs] = await db.query(`
+            SELECT c.*, u.legal_name, a.account_code 
+            FROM certificates c 
+            JOIN users u ON c.user_id = u.id 
+            LEFT JOIN accounts a ON c.account_id = a.id 
+            ORDER BY c.issued_on DESC
+        `);
+        res.json({ success: true, certificates: certs });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// Issue certificate
+app.post('/api/admin/certificates/issue', authenticateAdmin, async (req, res) => {
+    const { user_id, account_id, model, achievement } = req.body;
+    try {
+        const certRef = 'CERT-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+        await db.execute(
+            'INSERT INTO certificates (certificate_ref, user_id, account_id, model, achievement, issued_on) VALUES (?, ?, ?, ?, ?, CURDATE())',
+            [certRef, user_id, account_id, model, achievement]
+        );
+        res.json({ success: true, cert_ref: certRef });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// ========== FCS LIVE MARKET DATA ==========
 const FCS_API_KEY = process.env.FCS_API_KEY || 'fcs_socket_demo';
 const fcs = new FCSClient(FCS_API_KEY);
 fcs.showLogs = true;
@@ -522,140 +673,8 @@ wss.on('connection', (client) => {
             const defaultEmail = process.env.ADMIN_EMAIL || 'admin@fundfxt.com';
             const defaultPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
             const hashed = await bcrypt.hash(defaultPassword, 10);
-            // ✅ FIXED: "SUPER_ADMIN" ko '?' placeholder banaya aur array mein 'SUPER_ADMIN' daala
             await db.execute('INSERT INTO admin_users (email, name, password_hash, role) VALUES (?, ?, ?, ?)', [defaultEmail, 'FundFXT Admin', hashed, 'SUPER_ADMIN']);
             console.log('✅ Default admin created:', defaultEmail);
         }
     } catch (err) { console.error('Admin seed error:', err.message); }
 })();
-
-// POST /api/admin/payment-requests/:id/reject
-app.post('/api/admin/payment-requests/:id/reject', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        await db.execute("UPDATE payment_orders SET status = 'REJECTED' WHERE id = ?", [id]);
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// ========== FULL ADMIN MANAGEMENT API ==========
-
-// 1. Get All Users (with KYC status)
-app.get('/api/admin/users', authenticateAdmin, async (req, res) => {
-    try {
-        const [users] = await db.query('SELECT id, trader_id, legal_name, email, phone, kyc_status, is_verified, affiliate_code, created_at FROM users ORDER BY created_at DESC');
-        res.json({ success: true, users });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 2. Approve KYC / Verify User
-app.post('/api/admin/users/:id/verify-kyc', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        await db.execute("UPDATE users SET kyc_status = 'APPROVED' WHERE id = ?", [id]);
-        res.json({ success: true, message: 'KYC Approved' });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 3. Reset User Password (Admin sets a new temp password)
-app.post('/api/admin/users/:id/reset-password', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { newPassword } = req.body;
-    if (!newPassword) return res.status(400).json({ error: 'New password required' });
-
-    try {
-        const hashed = await bcrypt.hash(newPassword, 10);
-        await db.execute('UPDATE users SET password_hash = ? WHERE id = ?', [hashed, id]);
-        res.json({ success: true, message: 'Password reset successfully' });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 4. Get All Payment Orders (with Filters)
-app.get('/api/admin/payment-orders', authenticateAdmin, async (req, res) => {
-    const { status } = req.query;
-    let query = `SELECT po.*, u.legal_name, u.email as user_email FROM payment_orders po JOIN users u ON po.user_id = u.id`;
-    let params = [];
-    if (status) {
-        query += ` WHERE po.status = ?`;
-        params.push(status);
-    }
-    query += ` ORDER BY po.created_at DESC`;
-    try {
-        const [orders] = await db.execute(query, params);
-        res.json({ success: true, orders });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 5. Update Payment Order Status
-app.post('/api/admin/payment-orders/:id/status', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    // Valid statuses: REQUESTED, READ, PAYMENT_LINK_SENT, PAYMENT_DONE, PAYMENT_APPROVED, ACCOUNT_CREATED, ACCOUNT_PROVIDED
-    try {
-        await db.execute('UPDATE payment_orders SET status = ? WHERE id = ?', [status, id]);
-        res.json({ success: true, message: `Order marked as ${status}` });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 6. Get All Withdrawals
-app.get('/api/admin/withdrawals', authenticateAdmin, async (req, res) => {
-    try {
-        const [withdrawals] = await db.query(`
-            SELECT pr.*, u.legal_name, u.email as user_email, a.account_code 
-            FROM payout_requests pr 
-            JOIN users u ON pr.user_id = u.id 
-            LEFT JOIN accounts a ON pr.account_id = a.id 
-            ORDER BY pr.created_at DESC
-        `);
-        res.json({ success: true, withdrawals });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 7. Update Withdrawal Status (Approve/Paid/Reject)
-app.post('/api/admin/withdrawals/:id/status', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    try {
-        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
-        res.json({ success: true, message: `Withdrawal marked as ${status}` });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 8. Get All Affiliates
-app.get('/api/admin/affiliates', authenticateAdmin, async (req, res) => {
-    try {
-        const [affiliates] = await db.query(`
-            SELECT a.*, u.legal_name, u.email 
-            FROM affiliates a JOIN users u ON a.user_id = u.id 
-            ORDER BY a.total_earnings_cents DESC
-        `);
-        res.json({ success: true, affiliates });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 9. Get All Certificates
-app.get('/api/admin/certificates', authenticateAdmin, async (req, res) => {
-    try {
-        const [certs] = await db.query(`
-            SELECT c.*, u.legal_name, a.account_code 
-            FROM certificates c 
-            JOIN users u ON c.user_id = u.id 
-            LEFT JOIN accounts a ON c.account_id = a.id 
-            ORDER BY c.issued_on DESC
-        `);
-        res.json({ success: true, certificates: certs });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// 10. Issue New Certificate
-app.post('/api/admin/certificates/issue', authenticateAdmin, async (req, res) => {
-    const { user_id, account_id, model, achievement } = req.body;
-    try {
-        const certRef = 'CERT-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-        await db.execute(
-            'INSERT INTO certificates (certificate_ref, user_id, account_id, model, achievement, issued_on) VALUES (?, ?, ?, ?, ?, CURDATE())',
-            [certRef, user_id, account_id, model, achievement]
-        );
-        res.json({ success: true, message: 'Certificate issued', cert_ref: certRef });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
