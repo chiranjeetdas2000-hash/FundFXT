@@ -50,6 +50,7 @@ async function fetchProfile() {
     document.getElementById('aff-code').innerText = user.affiliate_code || 'AFF-PENDING';
 }
 
+// ========== FETCH ACCOUNTS ==========
 async function fetchAccounts() {
     const container = document.getElementById('accounts-container');
     const emptyState = document.getElementById('empty-state');
@@ -70,11 +71,10 @@ async function fetchAccounts() {
     container.innerHTML = data.accounts.map(account => {
         const accNum = account.account_code || 'N/A';
         const status = account.status || 'ACTIVE';
-        // balance_cents / equity_cents in cents -> convert to dollars
+        // Convert cents to dollars
         const balance = (account.balance_cents / 100).toFixed(2) || '0.00';
         const equity = (account.equity_cents / 100).toFixed(2) || '0.00';
-        // If you have profit info, use it; else derive from equity - initial_balance
-        const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2) || '+$0.00';
+        const profit = ((account.equity_cents - account.initial_balance_cents) / 100).toFixed(2) || '0.00';
 
         return `
             <div class="account-card">
@@ -85,12 +85,13 @@ async function fetchAccounts() {
                     <p>Current Equity <strong>$${equity}</strong></p>
                     <p>Status <strong style="color:${status === 'ACTIVE' ? 'var(--green)' : 'var(--red)'}">${status}</strong></p>
                 </div>
-                <div class="profit-line" style="color: ${profit.startsWith('+') ? 'var(--green)' : 'var(--red)'};">Profit: $${profit}</div>
-                <button class="view-btn">View Account</button>
+                <div class="profit-line" style="color: ${profit.startsWith('-') ? 'var(--red)' : 'var(--green)'};">Profit: $${profit}</div>
+                <button class="view-btn" onclick="window.location.href='terminal.html?account_code=${encodeURIComponent(accNum)}'">Open Terminal</button>
             </div>
         `;
     }).join('');
 }
+
 // INITIALIZE
 document.addEventListener('DOMContentLoaded', () => {
     showSection('home');
