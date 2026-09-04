@@ -237,7 +237,6 @@ async function calculateServerPrice(model, affiliateCode) {
     let discountAmountCents = 0, affiliateUserId = null, affiliateApplied = false;
 
     if (affiliateCode) {
-        // ✅ FIXED: Use `id` from users, not `user_id`
         const [affiliateRows] = await db.execute('SELECT id FROM users WHERE affiliate_code = ? LIMIT 1', [String(affiliateCode).trim()]);
         if (affiliateRows.length > 0) {
             affiliateUserId = affiliateRows[0].id;
@@ -279,29 +278,22 @@ function generateRequestRef() {
     return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
-// POST /api/payments/request - User requests a payment link
 app.post('/api/payments/request', authenticateToken, async (req, res) => {
     const { model, affiliate_code, email } = req.body;
     try {
-        // 1. Get the authenticated user
         const [users] = await db.execute('SELECT id, legal_name, email, phone FROM users WHERE id = ?', [req.userId]);
         if (!users.length) return res.status(404).json({ error: 'User not found' });
         const user = users[0];
 
-        // 2. Calculate price server-side (includes affiliate discount)
         const pricing = await calculateServerPrice(model, affiliate_code);
-
-        // 3. Generate unique request reference
         const requestRef = generateRequestRef();
 
-        // 4. Find affiliate user details if code exists
         let affiliateName = null;
         if (pricing.affiliateApplied && pricing.affiliate_user_id) {
             const [affiliateUsers] = await db.execute('SELECT legal_name FROM users WHERE id = ?', [pricing.affiliate_user_id]);
             if (affiliateUsers.length) affiliateName = affiliateUsers[0].legal_name;
         }
 
-        // 5. Create payment order with status REQUESTED
         await db.execute(
             `INSERT INTO payment_orders 
              (order_ref, user_id, provider, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at) 
@@ -310,7 +302,6 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
              pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
         );
 
-        // 6. Send email to Admin with all details
         const adminEmail = 'support.fundfxt@gmail.com';
         const subject = `New Payment Request: ${requestRef}`;
         const html = `
@@ -329,7 +320,6 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
         `;
         await sendEmail(adminEmail, subject, html).catch(err => console.log('Email failed:', err.message));
 
-        // 7. Return success with request reference
         res.json({ 
             success: true, 
             request_ref: requestRef, 
@@ -342,7 +332,6 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
     }
 });
 
-// Helper function to send email
 async function sendEmail(to, subject, html) {
     const API_KEY = process.env.EMAIL_PASS;
     const FROM_EMAIL = "FundFXT <onboarding@resend.dev>";
