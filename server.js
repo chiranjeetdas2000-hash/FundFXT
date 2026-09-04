@@ -221,119 +221,41 @@ app.get('/api/accounts', authenticateToken, async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== PAYMENT ENGINE ==========
-const MODEL_MAP = { 'direct': 'prototype_5k', 'two_step': 'warrior_5k', 'prototype_5k': 'prototype_5k', 'warrior_5k': 'warrior_5k' };
-
-async function getChallengeConfig(modelKey) {
-    const [rows] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1', [modelKey]);
-    if (!rows.length) throw new Error('Invalid challenge model');
-    return rows[0];
-}
-
-async function calculateServerPrice(model, affiliateCode) {
-    const mappedModel = MODEL_MAP[model] || model;
-    const config = await getChallengeConfig(mappedModel);
-    const original = config.price_cents;
-    let discountAmountCents = 0, affiliateUserId = null, affiliateApplied = false;
-    if (affiliateCode) {
-        const [affiliateRows] = await db.execute('SELECT id, user_id FROM users WHERE affiliate_code = ? LIMIT 1', [String(affiliateCode).trim()]);
-        if (affiliateRows.length > 0) {
-            affiliateUserId = affiliateRows[0].id;
-            discountAmountCents = Math.floor(original * (config.affiliate_discount_bps / 10000));
-            affiliateApplied = true;
+// ========== NEW PAYMENT REQUEST ==========
+async function requestPayment() {
+    if (!customerVerified) { alert("Please verify account first."); return; }
+    if (!token) { alert("Please login to complete purchase."); window.location.href = 'auth.html'; return; }
+    
+    document.getElementById('buyBtn').disabled = true;
+    document.getElementById('buyBtn').innerText = 'Creating Request...';
+    
+    const affiliateCode = document.getElementById('affiliateCode').value;
+    const email = document.getElementById('lookupEmail').value;
+    
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/payments/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ model: selectedModel, affiliate_code: affiliateCode, email })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success modal
+            document.getElementById('successModal').style.display = 'flex';
+            document.getElementById('requestRef').innerText = data.request_ref;
+            document.getElementById('successAcc').innerText = 'Pending';
+        } else {
+            alert(data.error || 'Request failed');
+            document.getElementById('buyBtn').disabled = false;
+            document.getElementById('buyBtn').innerText = 'Request Payment';
         }
-    }
-    const finalAmount = Math.max(original - discountAmountCents, 0);
-    return { model: mappedModel, originalAmountCents: original, discountAmountCents, finalAmountCents: finalAmount, currency: String(process.env.PAYMENT_CURRENCY || 'USD').toUpperCase(), affiliateApplied, affiliate_user_id: affiliateUserId, config };
-}
-
-let razorpay = null;
-if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-    const Razorpay = require('razorpay');
-    razorpay = new Razorpay({ key_id: process.env.RAZORPAY_KEY_ID, key_secret: process.env.RAZORPAY_KEY_SECRET });
-    console.log('✅ Razorpay configured');
-} else { console.warn('⚠️ Razorpay is not configured.'); }
-
-app.post('/api/payments/quote', authenticateToken, async (req, res) => {
-    try {
-        const pricing = await calculateServerPrice(req.body.model, req.body.affiliate_code);
-        res.json({ success: true, pricing });
-    } catch (error) { res.status(error.statusCode || 500).json({ error: error.message || 'Unable to calculate price' }); }
-});
-
-app.post('/api/payments/create-order', authenticateToken, async (req, res) => {
-    if (!razorpay) return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
-    const model = String(req.body.model || '').trim().toLowerCase();
-    const affiliateCode = String(req.body.affiliate_code || '').trim();
-    try {
-        const pricing = await calculateServerPrice(model, affiliateCode);
-        const [users] = await db.execute('SELECT id, email, legal_name FROM users WHERE id = ? LIMIT 1', [req.userId]);
-        if (!users.length) return res.status(404).json({ error: 'User not found' });
-        const receipt = `FXT_${req.userId}_${Date.now()}`.slice(0, 40);
-        const razorpayOrder = await razorpay.orders.create({ amount: pricing.finalAmountCents, currency: pricing.currency, receipt, notes: { user_id: String(req.userId), model: pricing.model, affiliate_code: affiliateCode || 'none', affiliate_user_id: pricing.affiliate_user_id ? String(pricing.affiliate_user_id) : 'none' } });
-        const orderRef = 'ORD-' + crypto.randomBytes(8).toString('hex');
-        await db.execute(`INSERT INTO payment_orders (order_ref, user_id, provider, provider_order_id, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status) VALUES (?, ?, 'razorpay', ?, ?, ?, ?, ?, ?, ?, ?, 'created')`, [orderRef, req.userId, razorpayOrder.id, pricing.model, affiliateCode || null, pricing.affiliate_user_id || null, pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]);
-        res.json({ success: true, key_id: process.env.RAZORPAY_KEY_ID, order_id: razorpayOrder.id, amount: pricing.finalAmountCents, currency: pricing.currency, pricing });
     } catch (error) {
-        console.error('Create order error:', error.message);
-        res.status(error.statusCode || 500).json({ error: error.message || 'Unable to create payment order' });
+        alert('Server connection error.');
+        document.getElementById('buyBtn').disabled = false;
+        document.getElementById('buyBtn').innerText = 'Request Payment';
     }
-});
-
-function verifyRazorpaySignature(orderId, paymentId, signature) {
-    const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET).update(`${orderId}|${paymentId}`).digest('hex');
-    const a = Buffer.from(expected, 'utf8');
-    const b = Buffer.from(String(signature || ''), 'utf8');
-    return a.length === b.length && crypto.timingSafeEqual(a, b);
 }
-
-function generateAccountCode() { return `ACC-${Date.now()}-${crypto.randomBytes(3).toString('hex').toUpperCase()}`; }
-
-app.post('/api/payments/verify', authenticateToken, async (req, res) => {
-    if (!razorpay) return res.status(503).json({ error: 'Payment gateway is not configured on the server' });
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) return res.status(400).json({ error: 'Incomplete payment verification data' });
-    const connection = await db.getConnection();
-    try {
-        const [orderRows] = await connection.execute('SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1', [razorpay_order_id, req.userId]);
-        if (!orderRows.length) return res.status(404).json({ error: 'Payment order not found' });
-        const paymentOrder = orderRows[0];
-        if (paymentOrder.status === 'paid') return res.json({ success: true, already_verified: true, account_code: paymentOrder.account_code, order_id: paymentOrder.provider_order_id });
-        if (!verifyRazorpaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature)) {
-            await connection.execute("UPDATE payment_orders SET status = 'failed' WHERE id = ? AND status = 'created'", [paymentOrder.id]);
-            return res.status(400).json({ error: 'Payment signature verification failed' });
-        }
-        const providerOrder = await razorpay.orders.fetch(razorpay_order_id);
-        const providerPayment = await razorpay.payments.fetch(razorpay_payment_id);
-        if (String(providerOrder.id) !== String(paymentOrder.provider_order_id) || Number(providerOrder.amount) !== Number(paymentOrder.final_amount_cents)) {
-            await connection.execute("UPDATE payment_orders SET status = 'failed' WHERE id = ? AND status = 'created'", [paymentOrder.id]);
-            return res.status(400).json({ error: 'Payment amount mismatch' });
-        }
-        const config = await getChallengeConfig(paymentOrder.model);
-        const accountCode = generateAccountCode();
-        const currentTradingDay = new Date().toISOString().split('T')[0];
-        await connection.execute(`INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, equity_hwm_cents, day_start_balance_cents, day_start_equity_cents, current_trading_day, current_daily_loss_cents, current_max_drawdown_cents, status) VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, ?, ?, ?, ?, 0, 0, 'ACTIVE')`, [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents, currentTradingDay]);
-        const [accountResult] = await connection.execute('SELECT id FROM accounts WHERE account_code = ?', [accountCode]);
-        const accountId = accountResult[0].id;
-        await connection.execute(`UPDATE payment_orders SET provider_payment_id = ?, status = 'paid', account_code = ?, account_id = ?, paid_amount_cents = ?, paid_at = NOW() WHERE id = ?`, [razorpay_payment_id, accountCode, accountId, paymentOrder.final_amount_cents, paymentOrder.id]);
-        if (paymentOrder.affiliate_code) {
-            const [affiliateRows] = await connection.execute('SELECT a.id AS affiliate_id, a.user_id FROM affiliates a JOIN users u ON u.id = a.user_id WHERE u.affiliate_code = ? LIMIT 1', [paymentOrder.affiliate_code]);
-            if (affiliateRows.length > 0) {
-                const affiliate = affiliateRows[0];
-                const commissionCents = Math.floor((paymentOrder.final_amount_cents * 0.20) + 100);
-                await connection.execute(`INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status) VALUES (?, ?, ?, ?, ?, 'PENDING')`, [affiliate.affiliate_id, paymentOrder.id, req.userId, paymentOrder.model, commissionCents]);
-                await connection.execute(`UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?`, [commissionCents, affiliate.affiliate_id]);
-            }
-        }
-        await connection.commit();
-        res.json({ success: true, message: 'Payment verified and challenge activated', account_code: accountCode, order_id: razorpay_order_id, payment_id: razorpay_payment_id });
-    } catch (error) {
-        try { await connection.rollback(); } catch (_) {}
-        console.error('Verify payment error:', error.message);
-        res.status(500).json({ error: 'Unable to verify payment' });
-    } finally { connection.release(); }
-});
-
 // ========== AFFILIATE DASHBOARD STATS ==========
 app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
     try {
