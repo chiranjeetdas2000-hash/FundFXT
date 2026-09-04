@@ -764,3 +764,81 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ========== WITHDRAWAL RULES & REQUEST ==========
+
+// 1. Get Challenge Rules for a selected Account's Model
+app.get('/api/challenges/:model', async (req, res) => {
+    try {
+        const [config] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ?', [req.params.model]);
+        if (!config.length) return res.status(404).json({ error: 'Challenge not found' });
+        res.json({ success: true, config: config[0] });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. Request Withdrawal (User submits form)
+app.post('/api/withdrawals/request', authenticateToken, async (req, res) => {
+    const { account_id, amount_cents, method, payment_address } = req.body;
+
+    try {
+        // Validate inputs
+        if (!account_id || !amount_cents || !method || !payment_address) {
+            return res.status(400).json({ error: 'All fields are required' });
+        }
+
+        // Fetch Account and verify ownership
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [account_id, req.userId]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+
+        // Check Account Status
+        if (account.status !== 'ACTIVE') {
+            return res.status(400).json({ error: 'Account is not active for withdrawal' });
+        }
+
+        // Fetch Challenge Rules
+        const [configs] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ?', [account.challenge_model]);
+        if (!configs.length) return res.status(404).json({ error: 'Challenge rules not found' });
+        const config = configs[0];
+
+        // Check Payout Eligibility (Max Payout Count)
+        if (config.max_payout_count && account.payout_count >= config.max_payout_count) {
+            return res.status(400).json({ error: 'Max payout limit reached for this account' });
+        }
+
+        // Check Amount vs Equity (Can only withdraw profit)
+        const profitCents = account.equity_cents - account.initial_balance_cents;
+        if (amount_cents > profitCents) {
+            return res.status(400).json({ error: 'Withdrawal amount exceeds current profit' });
+        }
+
+        // Generate Request Reference
+        const requestRef = 'WD-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+        // Create Payout Request
+        await db.execute(
+            `INSERT INTO payout_requests 
+             (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, status, eligibility_snapshot, created_at) 
+             VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', ?, ?, 'PENDING', ?, NOW())`,
+            [requestRef, req.userId, account_id, amount_cents, method, 
+             JSON.stringify({ payment_address }), 
+             JSON.stringify({ profit: profitCents, equity: account.equity_cents, balance: account.balance_cents })]
+        );
+
+        // Notify Admin via Email (Optional)
+        const [users] = await db.execute('SELECT legal_name, email FROM users WHERE id = ?', [req.userId]);
+        if (users.length) {
+            await sendEmail('support.fundfxt@gmail.com', `New Withdrawal Request: ${requestRef}`, 
+                `<h2>Withdrawal Request</h2><p>User: ${users[0].legal_name}</p><p>Account: ${account.account_code}</p><p>Amount: $${(amount_cents / 100).toFixed(2)}</p><p>Method: ${method}</p>`)
+                .catch(err => console.log('Withdrawal email failed:', err.message));
+        }
+
+        res.json({ success: true, request_ref: requestRef });
+
+    } catch (error) {
+        console.error('Withdrawal request error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
