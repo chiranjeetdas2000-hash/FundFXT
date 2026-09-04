@@ -116,10 +116,31 @@
             <div class="empty-state">Withdrawal system is being connected. Please wait for backend setup.</div>
         </div>
 
-        <div id="view-orders" class="view-section">
-            <h1>Order History</h1>
-            <div class="empty-state">No orders found. Buy a challenge to get started.</div>
-        </div>
+        <!-- ORDER HISTORY SECTION -->
+<div id="view-orders" class="view-section">
+    <h1>Order History</h1>
+    <p style="color: var(--text-muted); margin-bottom: 20px;">Track your payment requests and their statuses.</p>
+    
+    <div class="table-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+            <thead>
+                <tr style="text-align: left; color: var(--text-muted); font-size: 13px; border-bottom: 1px solid var(--border);">
+                    <th style="padding: 12px;">Request ID</th>
+                    <th style="padding: 12px;">Challenge</th>
+                    <th style="padding: 12px;">Original</th>
+                    <th style="padding: 12px;">Discount</th>
+                    <th style="padding: 12px;">Total Amount</th>
+                    <th style="padding: 12px;">Status</th>
+                    <th style="padding: 12px;">Date</th>
+                </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+                <!-- Data yahan aayega -->
+            </tbody>
+        </table>
+        <div id="ordersEmpty" class="empty-state">No orders found. Buy a challenge to get started.</div>
+    </div>
+</div>
 
         <div id="view-certificates" class="view-section">
             <h1>My Certificates</h1>
