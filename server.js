@@ -530,7 +530,8 @@ wss.on('connection', (client) => {
             const defaultEmail = process.env.ADMIN_EMAIL || 'admin@fundfxt.com';
             const defaultPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
             const hashed = await bcrypt.hash(defaultPassword, 10);
-            await db.execute('INSERT INTO admin_users (email, name, password_hash, role) VALUES (?, ?, ?, "SUPER_ADMIN")', [defaultEmail, 'FundFXT Admin', hashed]);
+            // ✅ FIXED: "SUPER_ADMIN" ko '?' placeholder banaya aur array mein 'SUPER_ADMIN' daala
+            await db.execute('INSERT INTO admin_users (email, name, password_hash, role) VALUES (?, ?, ?, ?)', [defaultEmail, 'FundFXT Admin', hashed, 'SUPER_ADMIN']);
             console.log('✅ Default admin created:', defaultEmail);
         }
     } catch (err) { console.error('Admin seed error:', err.message); }
