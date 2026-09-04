@@ -14,7 +14,8 @@ function toggleSidebar() {
 }
 
 // SECTION SWITCHING
-function showSection(sectionName) { if (sectionName === 'orders') fetchUserOrders(); // <--- Ye line add karo
+function showSection(sectionName) {
+    if (sectionName === 'orders') fetchUserOrders(); // <--- Ye line add karo
     document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
     document.getElementById('view-' + sectionName).classList.add('active');
 
@@ -125,7 +126,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // ========== FETCH MY ORDERS ==========
 async function fetchUserOrders() {
-    const response = await fetch('https://fundfxt.onrender.com/api/orders/my', {
+    // 🟢 Fixed API Endpoint (Backend route is /api/orders)
+    const response = await fetch('https://fundfxt.onrender.com/api/orders', {
         headers: { 'Authorization': `Bearer ${token}` }
     });
     const data = await response.json();
