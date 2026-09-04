@@ -536,3 +536,12 @@ wss.on('connection', (client) => {
         }
     } catch (err) { console.error('Admin seed error:', err.message); }
 })();
+
+// POST /api/admin/payment-requests/:id/reject
+app.post('/api/admin/payment-requests/:id/reject', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.execute("UPDATE payment_orders SET status = 'REJECTED' WHERE id = ?", [id]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
