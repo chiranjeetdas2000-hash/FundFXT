@@ -106,12 +106,14 @@
     </div>
 
     <div id="successModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); justify-content:center; align-items:center; z-index:1000;">
-        <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 12px; padding: 40px; text-align: center; max-width: 400px;">
-            <i class="fa-solid fa-check-circle" style="font-size: 50px; color: var(--primary); margin-bottom: 20px;"></i>
-            <h2>PAYMENT SUCCESSFUL</h2>
-            <p style="color: var(--muted); margin: 20px 0;">Your FundFXT account has been successfully created.</p>
-            <p>Account: <strong id="successAcc" style="color: var(--primary);">ACC-123456</strong></p>
-            <a href="dashboard.html" class="btn" style="display: block; margin-top: 20px;">Go to Dashboard</a>
+         <div style="background: var(--bg-card); border: 1px solid var(--primary); border-radius: 12px; padding: 40px; text-align: center; max-width: 400px;">
+        <i class="fa-solid fa-check-circle" style="font-size: 50px; color: var(--primary); margin-bottom: 20px;"></i>
+        <h2>PAYMENT REQUEST SUBMITTED</h2>
+        <p style="color: var(--muted); margin: 20px 0;">Your payment link will be sent to your email in a few minutes.</p>
+        <p><strong>Request ID:</strong> <span id="requestRef" style="color: var(--primary);">REQ-XXXX</span></p>
+        <p style="margin-top: 10px;"><strong>Email ID:</strong> <span id="requestEmail">user@email.com</span></p>
+        <p style="margin-top: 10px; font-size: 12px; color: var(--muted);">For payment-related communication, always trust this email address:<br><strong style="color: var(--primary);">support.fundfxt@gmail.com</strong></p>
+        <button class="btn" style="display: block; margin-top: 20px;" onclick="window.location.href='dashboard.html'">Got it</button>
         </div>
     </div>
 
