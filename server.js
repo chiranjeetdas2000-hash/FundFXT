@@ -392,3 +392,17 @@ wss.on('connection', (client) => {
     console.log('Frontend WebSocket connected');
     client.send(JSON.stringify({ type: 'price', data: global.prices || {} }));
 });
+
+// Seed default admin (only if admin_users is empty)
+(async () => {
+    try {
+        const [admins] = await db.execute('SELECT id FROM admin_users LIMIT 1');
+        if (admins.length === 0) {
+            const defaultEmail = process.env.ADMIN_EMAIL || 'admin@fundfxt.com';
+            const defaultPassword = process.env.ADMIN_PASSWORD || 'Admin@123';
+            const hashed = await bcrypt.hash(defaultPassword, 10);
+            await db.execute('INSERT INTO admin_users (email, name, password_hash, role) VALUES (?, ?, ?, "SUPER_ADMIN")', [defaultEmail, 'FundFXT Admin', hashed]);
+            console.log('✅ Default admin created:', defaultEmail);
+        }
+    } catch (err) { console.error('Admin seed error:', err.message); }
+})();
