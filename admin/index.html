@@ -10,235 +10,346 @@
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
         body { background: #0a0e14; color: #fff; }
         
-        /* Sidebar */
-        .sidebar {
-            width: 240px;
-            background: #11161D;
-            border-right: 1px solid rgba(255,255,255,0.08);
-            position: fixed;
-            top: 0;
-            left: 0;
-            height: 100vh;
-            padding: 20px;
-        }
+        .sidebar { width: 240px; background: #11161D; border-right: 1px solid rgba(255,255,255,0.08); position: fixed; top: 0; left: 0; height: 100vh; padding: 20px; }
         .logo { font-size: 20px; font-weight: 800; margin-bottom: 30px; }
         .logo span { color: #00B56A; }
-        .nav-link {
-            display: block;
-            padding: 12px 15px;
-            margin-bottom: 5px;
-            border-radius: 6px;
-            color: #94A3B8;
-            text-decoration: none;
-            font-size: 14px;
-            transition: 0.3s;
-        }
+        .nav-link { display: block; padding: 12px 15px; margin-bottom: 5px; border-radius: 6px; color: #94A3B8; text-decoration: none; font-size: 14px; transition: 0.3s; cursor: pointer; }
         .nav-link:hover, .nav-link.active { background: rgba(0,181,106,0.1); color: #00B56A; }
         .nav-link i { margin-right: 10px; width: 20px; text-align: center; }
         
-        /* Main */
         .main-content { margin-left: 240px; padding: 30px; }
-        
         .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px; }
-        .header h1 { font-size: 24px; }
         .logout-btn { background: #FF4444; border: none; padding: 10px 20px; border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px; }
-        .logout-btn:hover { opacity: 0.9; }
         
+        /* Table & Cards */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-bottom: 30px; }
         .stat-card { background: #11161D; border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 20px; }
         .stat-card h4 { color: #94A3B8; font-size: 13px; margin-bottom: 10px; }
         .stat-card .value { font-size: 28px; font-weight: 800; color: #00B56A; }
         
-        .table-container { background: #11161D; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; overflow-x: auto; }
+        .table-container { background: #11161D; border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 20px; overflow-x: auto; margin-bottom: 20px; }
         table { width: 100%; border-collapse: collapse; }
-        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        th { color: #94A3B8; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-        td { font-size: 14px; }
-        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; }
-        .status-REQUESTED { background: rgba(255,176,32,0.2); color: #FFB020; }
-        .status-LINK_SENT { background: rgba(74,144,226,0.2); color: #4A90E2; }
-        .status-PAYMENT_PENDING { background: rgba(255,176,32,0.2); color: #FFB020; }
+        th, td { padding: 12px 15px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 13px; }
+        th { color: #94A3B8; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+        td { color: #E2E8F0; }
         
-        .action-btn { background: #00B56A; border: none; padding: 6px 12px; border-radius: 6px; color: white; font-size: 12px; cursor: pointer; margin-right: 5px; }
+        .status-badge { padding: 4px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; display: inline-block; text-transform: uppercase; }
+        .status-REQUESTED { background: rgba(255,176,32,0.2); color: #FFB020; }
+        .status-READ { background: rgba(74,144,226,0.2); color: #4A90E2; }
+        .status-PAYMENT_LINK_SENT { background: rgba(74,144,226,0.2); color: #4A90E2; }
+        .status-PAYMENT_DONE { background: rgba(255,176,32,0.2); color: #FFB020; }
+        .status-PAYMENT_APPROVED { background: rgba(0,181,106,0.2); color: #00B56A; }
+        .status-ACCOUNT_CREATED { background: rgba(0,181,106,0.2); color: #00B56A; }
+        .status-ACCOUNT_PROVIDED { background: rgba(0,181,106,0.2); color: #00B56A; }
+        
+        .action-btn { background: #00B56A; border: none; padding: 5px 10px; border-radius: 4px; color: white; font-size: 11px; cursor: pointer; margin: 2px; }
         .action-btn:hover { background: #009a5b; }
         .action-btn.reject { background: #FF4444; }
-        .action-btn.reject:hover { background: #d63031; }
+        .action-btn.blue { background: #4A90E2; }
         
+        /* Forms */
+        .input-group { margin-bottom: 10px; }
+        .input-group input, .input-group select { width: 100%; padding: 10px; background: #0a0e14; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #fff; font-size: 13px; }
+        
+        /* Sections */
+        .view-section { display: none; }
+        .view-section.active { display: block; }
         .empty-state { text-align: center; padding: 40px; color: #94A3B8; }
         
         @media (max-width: 768px) {
             .sidebar { width: 100%; height: auto; position: relative; }
-            .main-content { margin-left: 0; }
-            .header { flex-direction: column; gap: 10px; }
+            .main-content { margin-left: 0; padding: 20px; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Sidebar -->
     <div class="sidebar">
         <div class="logo">Fund<span>FXT</span> Admin</div>
-        <a href="#" class="nav-link active"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
-        <a href="#" class="nav-link"><i class="fa-solid fa-users"></i> Users</a>
-        <a href="#" class="nav-link"><i class="fa-solid fa-money-bill-wave"></i> Payments</a>
-        <a href="#" class="nav-link"><i class="fa-solid fa-arrow-right-arrow-left"></i> Withdrawals</a>
-        <a href="#" class="nav-link"><i class="fa-solid fa-share-nodes"></i> Affiliates</a>
-        <a href="#" class="nav-link"><i class="fa-solid fa-trophy"></i> Certificates</a>
+        <a href="#" class="nav-link active" onclick="showSection('dashboard')"><i class="fa-solid fa-gauge-high"></i> Dashboard</a>
+        <a href="#" class="nav-link" onclick="showSection('users')"><i class="fa-solid fa-users"></i> Users</a>
+        <a href="#" class="nav-link" onclick="showSection('orders')"><i class="fa-solid fa-money-bill-wave"></i> Payments</a>
+        <a href="#" class="nav-link" onclick="showSection('withdrawals')"><i class="fa-solid fa-arrow-right-arrow-left"></i> Withdrawals</a>
+        <a href="#" class="nav-link" onclick="showSection('affiliates')"><i class="fa-solid fa-share-nodes"></i> Affiliates</a>
+        <a href="#" class="nav-link" onclick="showSection('certificates')"><i class="fa-solid fa-trophy"></i> Certificates</a>
     </div>
 
-    <!-- Main Content -->
     <div class="main-content">
-        <div class="header">
-            <h1>Payment Requests</h1>
-            <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+        
+        <!-- DASHBOARD SECTION -->
+        <div id="section-dashboard" class="view-section active">
+            <div class="header">
+                <h1>Overview</h1>
+                <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-card"><h4>Pending Requests</h4><div class="value" id="pendingCount">0</div></div>
+                <div class="stat-card"><h4>Total Revenue</h4><div class="value" id="totalRevenue">$0</div></div>
+            </div>
+            <div class="table-container">
+                <table id="dashboardTable">
+                    <thead><tr><th>Request ID</th><th>User</th><th>Challenge</th><th>Amount</th><th>Status</th></tr></thead>
+                    <tbody id="dashboardTableBody"></tbody>
+                </table>
+            </div>
         </div>
 
-        <!-- Stats (placeholder, will update later) -->
-        <div class="stats-grid">
-            <div class="stat-card"><h4>Pending Requests</h4><div class="value" id="pendingCount">0</div></div>
-            <div class="stat-card"><h4>Links Sent</h4><div class="value" id="linksSent">0</div></div>
-            <div class="stat-card"><h4>Total Revenue</h4><div class="value" id="totalRevenue">$0</div></div>
+        <!-- USERS SECTION -->
+        <div id="section-users" class="view-section">
+            <div class="header"><h1>User Management</h1></div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>ID</th><th>Trader ID</th><th>Name</th><th>Email</th><th>Phone</th><th>KYC</th><th>Actions</th></tr></thead>
+                    <tbody id="usersTableBody"></tbody>
+                </table>
+                <div class="empty-state" id="usersEmpty">No users found.</div>
+            </div>
         </div>
 
-        <!-- Table -->
-        <div class="table-container">
-            <table id="requestsTable">
-                <thead>
-                    <tr>
-                        <th>Request ID</th>
-                        <th>User</th>
-                        <th>Email</th>
-                        <th>Challenge</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                        <th>Date</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody id="requestsTableBody">
-                    <!-- Data will be inserted here -->
-                </tbody>
-            </table>
-            <div class="empty-state" id="emptyState" style="display:none;">No payment requests found.</div>
+        <!-- ORDERS / PAYMENT SECTION -->
+        <div id="section-orders" class="view-section">
+            <div class="header">
+                <h1>Payment Orders</h1>
+                <select id="orderStatusFilter" onchange="fetchOrders()" style="background:#11161D;color:white;padding:8px;border:1px solid #333;">
+                    <option value="">All Status</option>
+                    <option value="REQUESTED">Requested</option>
+                    <option value="PAYMENT_LINK_SENT">Link Sent</option>
+                    <option value="PAYMENT_DONE">Payment Done</option>
+                    <option value="ACCOUNT_PROVIDED">Account Provided</option>
+                </select>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Order ID</th><th>User</th><th>Amount</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="ordersTableBody"></tbody>
+                </table>
+            </div>
         </div>
+
+        <!-- WITHDRAWALS SECTION -->
+        <div id="section-withdrawals" class="view-section">
+            <div class="header"><h1>Withdrawals</h1></div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>User</th><th>Account</th><th>Amount</th><th>Method</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody id="withdrawalsTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- AFFILIATES SECTION -->
+        <div id="section-affiliates" class="view-section">
+            <div class="header"><h1>Affiliates</h1></div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>Name</th><th>Code</th><th>Referrals</th><th>Sales</th><th>Total Earned</th><th>Pending</th></tr></thead>
+                    <tbody id="affiliatesTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- CERTIFICATES SECTION -->
+        <div id="section-certificates" class="view-section">
+            <div class="header">
+                <h1>Certificates</h1>
+                <button class="action-btn blue" onclick="showIssueModal()">+ Issue New</button>
+            </div>
+            <div class="table-container">
+                <table>
+                    <thead><tr><th>User</th><th>Account</th><th>Achievement</th><th>Date</th></tr></thead>
+                    <tbody id="certificatesTableBody"></tbody>
+                </table>
+            </div>
+            <div id="issueModal" style="display:none; background:rgba(0,0,0,0.9); position:fixed; top:0; left:0; width:100%; height:100%; justify-content:center; align-items:center;">
+                <div style="background:#11161D; padding:30px; border-radius:10px; width:400px;">
+                    <h3>Issue Certificate</h3>
+                    <input type="number" id="certUserId" placeholder="User ID" style="width:100%; margin-bottom:10px; padding:10px;">
+                    <input type="number" id="certAccountId" placeholder="Account ID" style="width:100%; margin-bottom:10px; padding:10px;">
+                    <input type="text" id="certAchievement" placeholder="Achievement (e.g. Passed 5K)" style="width:100%; margin-bottom:10px; padding:10px;">
+                    <button class="action-btn" onclick="issueCertificate()">Submit</button>
+                    <button class="action-btn reject" onclick="document.getElementById('issueModal').style.display='none'">Cancel</button>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <script>
         const token = localStorage.getItem('fundfxt_admin_token');
         if (!token) window.location.href = 'login.html';
 
-        function handleLogout() {
-            localStorage.removeItem('fundfxt_admin_token');
-            window.location.href = 'login.html';
+        function handleLogout() { localStorage.removeItem('fundfxt_admin_token'); window.location.href = 'login.html'; }
+
+        function showSection(sectionName) {
+            document.querySelectorAll('.view-section').forEach(sec => sec.classList.remove('active'));
+            document.getElementById('section-' + sectionName).classList.add('active');
+            document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'));
+            document.querySelector(`.nav-link[onclick="showSection('${sectionName}')"]`)?.classList.add('active');
+
+            // Load data based on section
+            if (sectionName === 'dashboard') fetchDashboard();
+            if (sectionName === 'users') fetchUsers();
+            if (sectionName === 'orders') fetchOrders();
+            if (sectionName === 'withdrawals') fetchWithdrawals();
+            if (sectionName === 'affiliates') fetchAffiliates();
+            if (sectionName === 'certificates') fetchCertificates();
         }
 
-        async function fetchPaymentRequests() {
-            try {
-                const response = await fetch('https://fundfxt.onrender.com/api/admin/payment-requests', {
-                    headers: { 'Authorization': `Bearer ${token}` }
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    renderRequests(data.requests);
-                    updateStats(data.requests);
-                } else {
-                    alert(data.error || 'Failed to fetch requests');
-                }
-            } catch (err) {
-                console.error('Error fetching requests:', err);
+        // --- Dashboard ---
+        async function fetchDashboard() {
+            const res = await fetch('/api/admin/payment-requests', { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('pendingCount').innerText = data.requests.length;
+                document.getElementById('totalRevenue').innerText = '$' + (data.requests.reduce((s, r) => s + r.final_amount_cents, 0) / 100).toFixed(2);
+                document.getElementById('dashboardTableBody').innerHTML = data.requests.slice(0, 10).map(r => `<tr><td>${r.order_ref}</td><td>${r.legal_name}</td><td>${r.model}</td><td>$${(r.final_amount_cents/100).toFixed(2)}</td><td><span class="status-badge status-${r.status}">${r.status}</span></td></tr>`).join('');
             }
         }
 
-        function renderRequests(requests) {
-            const tbody = document.getElementById('requestsTableBody');
-            const emptyState = document.getElementById('emptyState');
-            
-            if (!requests || requests.length === 0) {
-                emptyState.style.display = 'block';
-                tbody.innerHTML = '';
-                return;
-            }
-            
-            emptyState.style.display = 'none';
-            tbody.innerHTML = requests.map(req => `
-                <tr>
-                    <td>${req.order_ref}</td>
-                    <td>${req.legal_name}</td>
-                    <td>${req.user_email}</td>
-                    <td>${req.model}</td>
-                    <td>$${(req.final_amount_cents / 100).toFixed(2)}</td>
-                    <td><span class="status-badge status-${req.status}">${req.status.replace('_', ' ')}</span></td>
-                    <td>${new Date(req.created_at).toLocaleString()}</td>
-                    <td>
-                        <button class="action-btn" onclick="markLinkSent(${req.id})">Mark Link Sent</button>
-                        <button class="action-btn reject" onclick="rejectRequest(${req.id})">Reject</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-
-        function updateStats(requests) {
-            const pending = requests.filter(r => r.status === 'REQUESTED').length;
-            const linksSent = requests.filter(r => r.status === 'LINK_SENT').length;
-            const totalRevenue = requests.reduce((sum, r) => sum + r.final_amount_cents, 0) / 100;
-            
-            document.getElementById('pendingCount').innerText = pending;
-            document.getElementById('linksSent').innerText = linksSent;
-            document.getElementById('totalRevenue').innerText = '$' + totalRevenue.toFixed(2);
-        }
-
-        async function markLinkSent(id) {
-            if (!confirm('Are you sure you want to mark this request as "Link Sent"?')) return;
-            
-            try {
-                const response = await fetch(`https://fundfxt.onrender.com/api/admin/payment-requests/${id}/mark-link-sent`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` 
-                    },
-                    body: JSON.stringify({ payment_link: null })
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('Link marked as sent!');
-                    fetchPaymentRequests();
-                } else {
-                    alert(data.error || 'Failed to update');
-                }
-            } catch (err) {
-                console.error('Error marking link:', err);
+        // --- Users ---
+        async function fetchUsers() {
+            const res = await fetch('/api/admin/users', { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('usersTableBody').innerHTML = data.users.map(u => `
+                    <tr>
+                        <td>${u.id}</td>
+                        <td>${u.trader_id}</td>
+                        <td>${u.legal_name}</td>
+                        <td>${u.email}</td>
+                        <td>${u.phone}</td>
+                        <td><span class="status-badge">${u.kyc_status}</span></td>
+                        <td>
+                            <button class="action-btn" onclick="verifyKyc(${u.id})">Approve KYC</button>
+                            <button class="action-btn blue" onclick="resetPass(${u.id})">Reset Pass</button>
+                        </td>
+                    </tr>
+                `).join('');
             }
         }
 
-        async function rejectRequest(id) {
-            if (!confirm('Are you sure you want to reject this request?')) return;
-            
-            try {
-                const response = await fetch(`https://fundfxt.onrender.com/api/admin/payment-requests/${id}/reject`, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}` 
-                    }
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    alert('Request rejected!');
-                    fetchPaymentRequests();
-                } else {
-                    alert(data.error || 'Failed to reject');
-                }
-            } catch (err) {
-                console.error('Error rejecting request:', err);
+        async function verifyKyc(id) {
+            await fetch(`/api/admin/users/${id}/verify-kyc`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
+            fetchUsers();
+        }
+
+        async function resetPass(id) {
+            const newPass = prompt("Enter new temporary password:");
+            if (newPass) {
+                await fetch(`/api/admin/users/${id}/reset-password`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ newPassword: newPass }) });
+                alert("Password reset successfully!");
             }
         }
 
-        // Load on page load
-        window.onload = fetchPaymentRequests;
+        // --- Orders ---
+        async function fetchOrders() {
+            const status = document.getElementById('orderStatusFilter').value;
+            const res = await fetch(`/api/admin/payment-orders?status=${status}`, { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('ordersTableBody').innerHTML = data.orders.map(o => `
+                    <tr>
+                        <td>${o.order_ref}</td>
+                        <td>${o.user_email}</td>
+                        <td>$${(o.final_amount_cents/100).toFixed(2)}</td>
+                        <td><span class="status-badge status-${o.status}">${o.status}</span></td>
+                        <td>
+                            <select onchange="updateOrderStatus(${o.id}, this.value)" style="background:#0a0e14;color:white;border:1px solid #333;padding:4px;">
+                                <option value="">Mark As...</option>
+                                <option value="READ">Request Read</option>
+                                <option value="PAYMENT_LINK_SENT">Link Sent</option>
+                                <option value="PAYMENT_DONE">Payment Done</option>
+                                <option value="PAYMENT_APPROVED">Payment Approved</option>
+                                <option value="ACCOUNT_CREATED">Account Created</option>
+                                <option value="ACCOUNT_PROVIDED">Account Provided</option>
+                            </select>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        async function updateOrderStatus(id, status) {
+            if (!status) return;
+            await fetch(`/api/admin/payment-orders/${id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
+            fetchOrders();
+        }
+
+        // --- Withdrawals ---
+        async function fetchWithdrawals() {
+            const res = await fetch('/api/admin/withdrawals', { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('withdrawalsTableBody').innerHTML = data.withdrawals.map(w => `
+                    <tr>
+                        <td>${w.legal_name}</td>
+                        <td>${w.account_code || 'N/A'}</td>
+                        <td>$${(w.amount_cents/100).toFixed(2)}</td>
+                        <td>${w.method}</td>
+                        <td><span class="status-badge">${w.status}</span></td>
+                        <td>
+                            <button class="action-btn" onclick="updateWithdrawStatus(${w.id}, 'APPROVED')">Approve</button>
+                            <button class="action-btn blue" onclick="updateWithdrawStatus(${w.id}, 'PAID')">Mark Paid</button>
+                            <button class="action-btn reject" onclick="updateWithdrawStatus(${w.id}, 'REJECTED')">Reject</button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        async function updateWithdrawStatus(id, status) {
+            await fetch(`/api/admin/withdrawals/${id}/status`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ status }) });
+            fetchWithdrawals();
+        }
+
+        // --- Affiliates ---
+        async function fetchAffiliates() {
+            const res = await fetch('/api/admin/affiliates', { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('affiliatesTableBody').innerHTML = data.affiliates.map(a => `
+                    <tr>
+                        <td>${a.legal_name}</td>
+                        <td>${a.affiliate_code}</td>
+                        <td>${a.total_referrals}</td>
+                        <td>${a.total_sales}</td>
+                        <td>$${(a.total_earnings_cents/100).toFixed(2)}</td>
+                        <td>$${(a.pending_earnings_cents/100).toFixed(2)}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // --- Certificates ---
+        async function fetchCertificates() {
+            const res = await fetch('/api/admin/certificates', { headers: { 'Authorization': `Bearer ${token}` } });
+            const data = await res.json();
+            if (data.success) {
+                document.getElementById('certificatesTableBody').innerHTML = data.certificates.map(c => `
+                    <tr>
+                        <td>${c.legal_name}</td>
+                        <td>${c.account_code || 'N/A'}</td>
+                        <td>${c.achievement}</td>
+                        <td>${new Date(c.issued_on).toLocaleDateString()}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function showIssueModal() { document.getElementById('issueModal').style.display = 'flex'; }
+
+        async function issueCertificate() {
+            const user_id = document.getElementById('certUserId').value;
+            const account_id = document.getElementById('certAccountId').value;
+            const achievement = document.getElementById('certAchievement').value;
+            await fetch('/api/admin/certificates/issue', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ user_id, account_id, model: 'warrior_5k', achievement }) });
+            alert('Certificate Issued!');
+            document.getElementById('issueModal').style.display = 'none';
+            fetchCertificates();
+        }
+
+        // Initial Load
+        window.onload = () => fetchDashboard();
     </script>
 </body>
 </html>
