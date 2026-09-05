@@ -862,3 +862,30 @@ app.post('/api/withdrawals/request', authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+
+// GET /api/accounts/:id/summary
+app.get('/api/accounts/:id/summary', authenticateToken, async (req, res) => {
+    const accountId = req.params.id;
+    const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [accountId, req.userId]);
+    if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+    
+    const account = accounts[0];
+    const config = await getChallengeConfig(account.challenge_model);
+    const risk = await checkAccountRisk(account);
+    
+    res.json({
+        success: true,
+        summary: {
+            balance: account.balance_cents / 100,
+            equity: account.equity_cents / 100,
+            currentDailyLoss: risk.currentDailyLoss,
+            dailyLossLimit: risk.dailyLossLimit,
+            currentMaxDrawdown: risk.currentMaxDrawdown,
+            maxDrawdownLimit: risk.maxDrawdownLimit,
+            tradesToday: risk.tradesToday,
+            maxTrades: risk.maxTrades,
+            breached: risk.breached
+        }
+    });
+});
