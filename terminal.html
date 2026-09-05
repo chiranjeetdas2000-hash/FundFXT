@@ -393,13 +393,14 @@ async function fetchAccountSummary() {
         }
 
         // --- INITIALIZE ---
-        window.onload = () => {
-            getAccountCodeFromURL();
-            renderPairs();
-            updateChart();
-            connectBackendWS();
-            loadPositions();
-        };
+window.onload = () => {
+    getAccountCodeFromURL();
+    renderPairs();
+    updateChart();
+    connectBackendWS();
+    loadPositions();
+    fetchAccountSummary(); // <--- Ye line add karo
+};
     </script>
 </body>
 </html>
