@@ -950,3 +950,94 @@ app.get('/api/accounts/:id/summary', authenticateToken, async (req, res) => {
         }
     });
 });
+
+// ========== TRADE MANAGEMENT API ==========
+
+// 1. Manual Close Trade
+app.post('/api/trades/:tradeId/close', authenticateToken, async (req, res) => {
+    try {
+        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ?', [req.params.tradeId, req.userId]);
+        if (!trades.length) return res.status(404).json({ error: 'Trade not found' });
+        
+        const trade = trades[0];
+        if (trade.status !== 'OPEN') return res.status(400).json({ error: 'Trade already closed' });
+        
+        // Get current price from cache
+        const priceCache = global.priceCache || {};
+        const price = priceCache[trade.symbol];
+        if (!price) return res.status(400).json({ error: 'Price not available' });
+        
+        const exitPrice = trade.side === 'BUY' ? price.bid : price.ask;
+        const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, trade.volume) * 100);
+        
+        // Update trade
+        await db.execute(
+            `UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = 'MANUAL' WHERE trade_id = ?`,
+            [exitPrice, realizedCents, req.params.tradeId]
+        );
+        
+        // Update account balance
+        await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);
+        
+        res.json({ success: true, exit_price: exitPrice, realized_profit: realizedCents / 100 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. Modify SL/TP
+app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
+    const { stop_loss, take_profit } = req.body;
+    try {
+        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = "OPEN"', [req.params.tradeId, req.userId]);
+        if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
+        
+        await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [stop_loss || null, take_profit || null, req.params.tradeId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Pending Orders (Limit/Stop)
+app.post('/api/trades/pending', authenticateToken, async (req, res) => {
+    const { account_code, symbol, side, volume, order_type, limit_price, sl, tp } = req.body;
+    
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+        
+        const tradeId = 'PD-' + Date.now().toString(36).toUpperCase();
+        await db.execute(
+            `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), CURDATE(), ?, ?, 'PENDING')`,
+            [tradeId, account.id, account_code, req.userId, symbol, side, volume, limit_price, sl || null, tp || null]
+        );
+        
+        res.json({ success: true, trade_id: tradeId, message: 'Pending order placed' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Get Pending Orders
+app.get('/api/trades/pending', authenticateToken, async (req, res) => {
+    const { account_code } = req.query;
+    try {
+        const [trades] = await db.execute("SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING'", [account_code, req.userId]);
+        res.json({ success: true, trades });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Cancel Pending Order
+app.delete('/api/trades/:tradeId', authenticateToken, async (req, res) => {
+    try {
+        await db.execute("UPDATE trades SET status = 'CANCELLED' WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'", [req.params.tradeId, req.userId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
