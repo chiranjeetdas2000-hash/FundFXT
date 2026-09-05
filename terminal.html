@@ -316,6 +316,50 @@
             }
         }
 
+
+        // Fetch Account Summary
+async function fetchAccountSummary() {
+    if (!currentAccountCode) return;
+    
+    try {
+        // Get account ID from code
+        const accountsRes = await fetch('https://fundfxt.onrender.com/api/accounts', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+        });
+        const accountsData = await accountsRes.json();
+        const account = accountsData.accounts.find(a => a.account_code === currentAccountCode);
+        if (!account) return;
+        
+        // Fetch summary using account ID
+        const summaryRes = await fetch(`https://fundfxt.onrender.com/api/accounts/${account.id}/summary`, {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+        });
+        const summaryData = await summaryRes.json();
+        
+        if (summaryData.success) {
+            const s = summaryData.summary;
+            document.getElementById('sum-balance').innerText = '$' + s.balance.toFixed(2);
+            document.getElementById('sum-equity').innerText = '$' + s.equity.toFixed(2);
+            document.getElementById('sum-daily').innerText = '$' + s.currentDailyLoss.toFixed(2);
+            document.getElementById('sum-daily-limit').innerText = '$' + s.dailyLossLimit.toFixed(2);
+            document.getElementById('sum-dd').innerText = '$' + s.currentMaxDrawdown.toFixed(2);
+            document.getElementById('sum-dd-limit').innerText = '$' + s.maxDrawdownLimit.toFixed(2);
+            document.getElementById('sum-trades').innerText = `${s.tradesToday}/${s.maxTrades}`;
+            
+            // Disable buttons if breached
+            if (s.breached) {
+                document.getElementById('breach-alert').style.display = 'block';
+                document.getElementById('mktLots').disabled = true;
+                document.querySelector('.btn-buy').disabled = true;
+                document.querySelector('.btn-sell').disabled = true;
+            } else {
+                document.getElementById('breach-alert').style.display = 'none';
+            }
+        }
+    } catch (error) {
+        console.error('Summary fetch error:', error);
+    }
+}
         async function loadHistory() {
             const tbody = document.getElementById('positionsTableBody');
             const emptyState = document.getElementById('emptyState');
