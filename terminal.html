@@ -60,13 +60,21 @@
     </style>
 </head>
 <body>
-
+       
     <!-- Header -->
     <div class="header">
         <h1>Fund<span>FXT</span> Terminal</h1>
         <div class="acc-info">Account: <strong id="accountId" style="color: var(--green);">Loading...</strong></div>
     </div>
-
+      <!-- Account Summary Panel -->
+<div class="account-summary" style="background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px;">
+    <div>Balance: <span id="sum-balance" style="color: var(--green); font-weight: 600;">--</span></div>
+    <div>Equity: <span id="sum-equity" style="color: var(--green); font-weight: 600;">--</span></div>
+    <div>Daily Loss: <span id="sum-daily" style="color: var(--red);">--</span> / <span id="sum-daily-limit" style="color: var(--red);">--</span></div>
+    <div>Max Drawdown: <span id="sum-dd" style="color: var(--red);">--</span> / <span id="sum-dd-limit" style="color: var(--red);">--</span></div>
+    <div>Trades Today: <span id="sum-trades">0/3</span></div>
+    <div id="breach-alert" style="display:none; color: red; font-weight: bold;">⚠️ ACCOUNT BREACHED!</div>
+</div>
     <!-- Main Container -->
     <div class="terminal-container">
         
