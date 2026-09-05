@@ -205,6 +205,67 @@ app.get('/api/get-user-by-email', async (req, res) => {
     } catch (error) { console.error(error); res.status(500).json({ error: error.message }); }
 });
 
+
+// ========== UPDATED RISK ENGINE ==========
+async function checkAccountRisk(account) {
+    const config = await getChallengeConfig(account.challenge_model);
+
+    const equity = account.equity_cents;
+    const balance = account.balance_cents;
+    const dayStartBalance = account.day_start_balance_cents;
+    const initialBalance = account.initial_balance_cents;
+    const equityHwm = account.equity_hwm_cents;
+
+    let dailyLossLimit = 0;
+    let maxDrawdownLimit = 0;
+    let currentDailyLoss = 0;
+    let currentMaxDrawdown = 0;
+    let breached = false;
+    let reason = '';
+
+    if (account.challenge_model === 'prototype_5k') {
+        dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+        currentDailyLoss = dayStartBalance - balance;
+
+        maxDrawdownLimit = (config.max_dd_bps / 10000) * equityHwm;
+        currentMaxDrawdown = equityHwm - equity;
+
+        if (currentDailyLoss >= dailyLossLimit) { breached = true; reason = 'DAILY_LOSS_BREACH'; }
+        else if (currentMaxDrawdown >= maxDrawdownLimit) { breached = true; reason = 'MAX_DRAWDOWN_BREACH'; }
+    } else if (account.challenge_model === 'warrior_5k') {
+        dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+        currentDailyLoss = dayStartBalance - balance;
+
+        maxDrawdownLimit = (config.max_dd_bps / 10000) * initialBalance;
+        currentMaxDrawdown = initialBalance - balance;
+
+        if (currentDailyLoss >= dailyLossLimit) { breached = true; reason = 'DAILY_LOSS_BREACH'; }
+        else if (currentMaxDrawdown >= maxDrawdownLimit) { breached = true; reason = 'MAX_DRAWDOWN_BREACH'; }
+    }
+
+    const [tradeCountRow] = await db.execute(
+        "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+        [account.id]
+    );
+    const tradesToday = tradeCountRow[0].count;
+
+    if (breached) {
+        await db.execute("UPDATE accounts SET status = 'BREACHED', breached_at = NOW(), breach_reason = ? WHERE id = ?", [reason, account.id]);
+        await db.execute("UPDATE trades SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' WHERE account_id = ? AND status = 'OPEN'", [account.id]);
+    }
+
+    return {
+        breached,
+        reason,
+        allowed: !breached && tradesToday < config.max_trades_per_day,
+        tradesToday,
+        maxTrades: config.max_trades_per_day,
+        dailyLossLimit: dailyLossLimit / 100,
+        maxDrawdownLimit: maxDrawdownLimit / 100,
+        currentDailyLoss: currentDailyLoss / 100,
+        currentMaxDrawdown: currentMaxDrawdown / 100
+    };
+}
 // ========== ACCOUNTS ==========
 app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
