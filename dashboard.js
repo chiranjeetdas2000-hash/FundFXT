@@ -348,3 +348,86 @@ async function submitWithdrawRequest() {
 document.addEventListener('DOMContentLoaded', () => {
     showSection('home');
 });
+
+// ========== UPDATED RISK ENGINE ==========
+async function checkAccountRisk(account) {
+    const config = await getChallengeConfig(account.challenge_model);
+
+    // Fetch current values
+    const equity = account.equity_cents;
+    const balance = account.balance_cents;
+    const dayStartBalance = account.day_start_balance_cents;
+    const initialBalance = account.initial_balance_cents;
+    const equityHwm = account.equity_hwm_cents; // High Water Mark (Highest Equity achieved)
+
+    let dailyLossLimit = 0;
+    let maxDrawdownLimit = 0;
+    let currentDailyLoss = 0;
+    let currentMaxDrawdown = 0;
+    let breached = false;
+    let reason = '';
+
+    if (account.challenge_model === 'prototype_5k') {
+        // ✅ DIRECT FUNDED RULES
+        // 1. Daily Drawdown: 2% BALANCE based (Opening balance vs Current Balance)
+        dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+        currentDailyLoss = dayStartBalance - balance;
+
+        // 2. Max Drawdown: 5% FLOATING (Trailing based on Highest Equity HWM)
+        maxDrawdownLimit = (config.max_dd_bps / 10000) * equityHwm;
+        currentMaxDrawdown = equityHwm - equity;
+
+        if (currentDailyLoss >= dailyLossLimit) {
+            breached = true;
+            reason = 'DAILY_LOSS_BREACH';
+        } else if (currentMaxDrawdown >= maxDrawdownLimit) {
+            breached = true;
+            reason = 'MAX_DRAWDOWN_BREACH';
+        }
+
+    } else if (account.challenge_model === 'warrior_5k') {
+        // ✅ WARRIOR (2-STEP) RULES
+        // 1. Daily Drawdown: 5% BALANCE based
+        dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+        currentDailyLoss = dayStartBalance - balance;
+
+        // 2. Max Drawdown: 8% BALANCE based (Static Initial Balance)
+        maxDrawdownLimit = (config.max_dd_bps / 10000) * initialBalance;
+        currentMaxDrawdown = initialBalance - balance;
+
+        if (currentDailyLoss >= dailyLossLimit) {
+            breached = true;
+            reason = 'DAILY_LOSS_BREACH';
+        } else if (currentMaxDrawdown >= maxDrawdownLimit) {
+            breached = true;
+            reason = 'MAX_DRAWDOWN_BREACH';
+        }
+    }
+
+    // Check trade count
+    const [tradeCountRow] = await db.execute(
+        "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+        [account.id]
+    );
+    const tradesToday = tradeCountRow[0].count;
+
+    // If breached, update account status and close all open positions
+    if (breached) {
+        await db.execute("UPDATE accounts SET status = 'BREACHED', breached_at = NOW(), breach_reason = ? WHERE id = ?", [reason, account.id]);
+        await db.execute("UPDATE trades SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' WHERE account_id = ? AND status = 'OPEN'", [account.id]);
+        // Close all, not just open ones, if any pending
+        await db.execute("UPDATE trades SET status = 'CANCELLED', close_reason = 'BREACH' WHERE account_id = ? AND status = 'PENDING'", [account.id]);
+    }
+
+    return {
+        breached,
+        reason,
+        allowed: !breached && tradesToday < config.max_trades_per_day,
+        tradesToday,
+        maxTrades: config.max_trades_per_day,
+        dailyLossLimit: dailyLossLimit / 100,
+        maxDrawdownLimit: maxDrawdownLimit / 100,
+        currentDailyLoss: currentDailyLoss / 100,
+        currentMaxDrawdown: currentMaxDrawdown / 100
+    };
+}
