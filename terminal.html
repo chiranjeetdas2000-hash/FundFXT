@@ -3,142 +3,207 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FundFXT | Trading Terminal</title>
+    <title>FundFXT | Pro Terminal</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <script src="https://s3.tradingview.com/tv.js"></script>
     
     <style>
-        :root { --bg-dark: #080B10; --bg-card: #11161D; --border: rgba(255,255,255,0.08); --green: #00B56A; --red: #FF4444; --text: #FFFFFF; --text-muted: #9AA4B2; }
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background: var(--bg-dark); color: var(--text); overflow: hidden; height: 100vh; }
-
-        /* Header */
-        .header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; }
-        .header h1 { font-size: 18px; } .header h1 span { color: var(--green); }
-        .acc-info { font-size: 14px; color: var(--text-muted); }
-
-        /* Main Terminal Layout */
-        .terminal-container { display: flex; height: calc(100vh - 60px); }
+        :root {
+            --bg-dark: #0a0e14;
+            --bg-card: #11161D;
+            --bg-card-hover: #151B23;
+            --border: rgba(255,255,255,0.08);
+            --green: #00B56A;
+            --red: #FF4444;
+            --blue: #4A90E2;
+            --text: #FFFFFF;
+            --text-muted: #9AA4B2;
+        }
         
-        /* Left Panel (Market Watch) */
-        .left-panel { width: 220px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 15px; }
-        .pair-row { display: flex; justify-content: space-between; padding: 10px; cursor: pointer; border-radius: 6px; margin-bottom: 5px; }
-        .pair-row:hover { background: rgba(255,255,255,0.05); }
-        .pair-row.active { background: rgba(0,181,106,0.1); border: 1px solid var(--green); }
-        .pair-name { font-weight: 600; } .pair-price { font-size: 13px; color: var(--text-muted); }
-
-        /* Center Panel (Chart) */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
+        body { background: var(--bg-dark); color: var(--text); height: 100vh; overflow: hidden; }
+        
+        /* Header */
+        .top-header { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 8px 15px; display: flex; justify-content: space-between; align-items: center; }
+        .logo { font-size: 18px; font-weight: 800; } .logo span { color: var(--green); }
+        .header-right { display: flex; align-items: center; gap: 15px; }
+        
+        /* Account Summary Bar */
+        .account-summary { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 8px 15px; display: flex; gap: 20px; flex-wrap: wrap; align-items: center; font-size: 13px; }
+        .summary-item { display: flex; gap: 5px; align-items: center; }
+        .summary-item span { color: var(--text-muted); }
+        .summary-item strong { color: var(--text); }
+        .green { color: var(--green) !important; }
+        .red { color: var(--red) !important; }
+        .breach-alert { background: var(--red); color: white; padding: 4px 10px; border-radius: 4px; font-weight: 700; display: none; }
+        
+        /* Main Layout */
+        .terminal-wrapper { display: flex; height: calc(100vh - 90px); }
+        
+        /* Left Panel - Market Watch */
+        .left-panel { width: 200px; background: var(--bg-card); border-right: 1px solid var(--border); padding: 10px; }
+        .panel-title { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 10px; }
+        .pair-item { display: flex; justify-content: space-between; padding: 8px; cursor: pointer; border-radius: 4px; margin-bottom: 4px; font-size: 13px; }
+        .pair-item:hover { background: var(--bg-card-hover); }
+        .pair-item.active { background: rgba(0,181,106,0.1); border: 1px solid var(--green); }
+        .pair-symbol { font-weight: 600; }
+        .pair-price { color: var(--text-muted); font-size: 12px; }
+        
+        /* Center Panel - Chart */
         .center-panel { flex: 1; position: relative; }
         #tradingview_chart { width: 100%; height: 100%; }
-
-        /* Right Panel (Order Ticket) */
-        .right-panel { width: 280px; background: var(--bg-card); border-left: 1px solid var(--border); padding: 20px; }
-        .order-title { font-size: 16px; font-weight: 700; margin-bottom: 20px; }
-        .input-group { margin-bottom: 15px; }
-        .input-group label { display: block; font-size: 12px; color: var(--text-muted); margin-bottom: 5px; }
-        .input-group input { width: 100%; padding: 10px; background: #0a0e14; border: 1px solid var(--border); border-radius: 6px; color: #fff; }
-        .btn { width: 100%; padding: 12px; border-radius: 6px; font-weight: 700; border: none; cursor: pointer; margin-top: 10px; }
-        .btn-buy { background: var(--green); color: #fff; }
-        .btn-sell { background: var(--red); color: #fff; }
-        .api-status { display: flex; align-items: center; gap: 5px; margin-top: 15px; font-size: 12px; }
+        
+        /* Right Panel - Order Ticket */
+        .right-panel { width: 260px; background: var(--bg-card); border-left: 1px solid var(--border); padding: 15px; display: flex; flex-direction: column; gap: 12px; }
+        .order-title { font-size: 14px; font-weight: 700; }
+        .order-group { margin-bottom: 10px; }
+        .order-group label { display: block; font-size: 11px; color: var(--text-muted); margin-bottom: 4px; }
+        .order-group input, .order-group select { width: 100%; padding: 8px; background: #0a0e14; border: 1px solid var(--border); border-radius: 4px; color: var(--text); font-size: 13px; }
+        .order-type-tabs { display: flex; gap: 5px; margin-bottom: 10px; }
+        .order-type-tab { flex: 1; padding: 6px; text-align: center; background: #0a0e14; border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-size: 12px; }
+        .order-type-tab.active { background: var(--green); color: white; }
+        .trade-buttons { display: flex; gap: 10px; margin-top: 10px; }
+        .btn { flex: 1; padding: 12px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 14px; }
+        .btn-buy { background: var(--green); color: white; }
+        .btn-sell { background: var(--red); color: white; }
+        .current-price { text-align: center; padding: 8px; background: #0a0e14; border-radius: 4px; font-size: 14px; font-weight: 700; }
+        .api-status { display: flex; align-items: center; gap: 6px; font-size: 12px; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
-        .api-status.connected .status-dot { background: var(--green); }
-
-        /* Bottom Panel (Positions) */
-        .bottom-panel { position: absolute; bottom: 0; left: 220px; right: 280px; height: 250px; background: var(--bg-card); border-top: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
-        .tabs { padding: 10px 20px; border-bottom: 1px solid var(--border); display: flex; gap: 20px; }
-        .tab { cursor: pointer; color: var(--text-muted); font-size: 14px; }
-        .tab.active { color: var(--green); border-bottom: 2px solid var(--green); padding-bottom: 5px; }
+        .connected .status-dot { background: var(--green); }
+        
+        /* Bottom Panel - Positions */
+        .bottom-panel { position: absolute; bottom: 0; left: 200px; right: 260px; height: 220px; background: var(--bg-card); border-top: 1px solid var(--border); display: flex; flex-direction: column; }
+        .tabs { padding: 8px 15px; border-bottom: 1px solid var(--border); display: flex; gap: 15px; }
+        .tab { font-size: 12px; cursor: pointer; color: var(--text-muted); padding-bottom: 5px; }
+        .tab.active { color: var(--green); border-bottom: 2px solid var(--green); }
+        .table-container { flex: 1; overflow-y: auto; padding: 5px; }
         .trades-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-        .trades-table th, .trades-table td { padding: 8px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
-        .trades-table th { color: var(--text-muted); text-transform: uppercase; font-size: 10px; }
-        .trades-table td { color: var(--text); }
-        .text-green { color: var(--green); } .text-red { color: var(--red); }
-
-        @media (max-width: 768px) { .left-panel, .right-panel { display: none; } .bottom-panel { left: 0; right: 0; } }
+        .trades-table th, .trades-table td { padding: 6px 8px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
+        .trades-table th { color: var(--text-muted); font-weight: 500; }
+        .trade-action-btn { background: var(--red); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 11px; }
+        .modify-btn { background: var(--blue); margin-right: 4px; }
+        
+        /* Mobile View (TradeLocker Style) */
+        @media (max-width: 768px) {
+            body { overflow: auto; }
+            .top-header { padding: 10px; }
+            .account-summary { gap: 10px; font-size: 11px; }
+            .terminal-wrapper { flex-direction: column; height: auto; }
+            .left-panel { width: 100%; border-right: none; border-bottom: 1px solid var(--border); }
+            .pair-list { display: flex; overflow-x: auto; gap: 8px; }
+            .pair-item { min-width: 120px; }
+            .center-panel { height: 300px; }
+            .right-panel { width: 100%; border-left: none; border-top: 1px solid var(--border); }
+            .bottom-panel { position: static; height: auto; margin-top: 10px; }
+            .bottom-panel { left: 0; right: 0; }
+        }
     </style>
 </head>
 <body>
-       
+
     <!-- Header -->
-    <div class="header">
-        <h1>Fund<span>FXT</span> Terminal</h1>
-        <div class="acc-info">Account: <strong id="accountId" style="color: var(--green);">Loading...</strong></div>
+    <div class="top-header">
+        <div class="logo">Fund<span>FXT</span></div>
+        <div class="header-right">
+            <span style="font-size: 13px; color: var(--text-muted);">Account: <strong style="color: var(--green);" id="accountId">Loading...</strong></span>
+            <i class="fa-solid fa-arrow-left" style="cursor: pointer; color: var(--text-muted);" onclick="window.location.href='dashboard.html'"></i>
+        </div>
     </div>
-      <!-- Account Summary Panel -->
-<div class="account-summary" style="background: var(--bg-card); border-bottom: 1px solid var(--border); padding: 10px 20px; display: flex; gap: 20px; flex-wrap: wrap; font-size: 14px;">
-    <div>Balance: <span id="sum-balance" style="color: var(--green); font-weight: 600;">--</span></div>
-    <div>Equity: <span id="sum-equity" style="color: var(--green); font-weight: 600;">--</span></div>
-    <div>Daily Loss: <span id="sum-daily" style="color: var(--red);">--</span> / <span id="sum-daily-limit" style="color: var(--red);">--</span></div>
-    <div>Max Drawdown: <span id="sum-dd" style="color: var(--red);">--</span> / <span id="sum-dd-limit" style="color: var(--red);">--</span></div>
-    <div>Trades Today: <span id="sum-trades">0/3</span></div>
-    <div id="breach-alert" style="display:none; color: red; font-weight: bold;">⚠️ ACCOUNT BREACHED!</div>
-</div>
-    <!-- Main Container -->
-    <div class="terminal-container">
+
+    <!-- Account Summary Bar -->
+    <div class="account-summary">
+        <div class="summary-item"><span>Balance:</span> <strong id="sum-balance" class="green">$0.00</strong></div>
+        <div class="summary-item"><span>Equity:</span> <strong id="sum-equity" class="green">$0.00</strong></div>
+        <div class="summary-item"><span>Daily Loss:</span> <strong id="sum-daily" class="red">$0.00</strong></div>
+        <div class="summary-item"><span>Max DD:</span> <strong id="sum-dd" class="red">$0.00</strong></div>
+        <div class="summary-item"><span>Trades Today:</span> <strong id="sum-trades">0/3</strong></div>
+        <div class="breach-alert" id="breach-alert">⚠️ ACCOUNT BREACHED</div>
+    </div>
+
+    <!-- Main Terminal -->
+    <div class="terminal-wrapper">
         
-        <!-- Left Panel: Market Watch -->
+        <!-- Left: Market Watch -->
         <div class="left-panel">
-            <div style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">MARKET WATCH</div>
-            <div id="market-watch-list">
-                <!-- Pairs will be injected here -->
+            <div class="panel-title">Market Watch</div>
+            <div class="pair-list" id="market-watch-list">
+                <!-- Pairs injected here -->
             </div>
         </div>
 
-        <!-- Center Panel: Chart -->
+        <!-- Center: Chart -->
         <div class="center-panel">
             <div id="tradingview_chart"></div>
         </div>
 
-        <!-- Right Panel: Order Ticket -->
+        <!-- Right: Order Ticket -->
         <div class="right-panel">
             <div class="order-title">Order Ticket</div>
-            <div class="input-group">
-                <label>Symbol</label>
-                <input type="text" id="currentSymbol" value="EURUSD" disabled>
+            
+            <div class="order-type-tabs">
+                <div class="order-type-tab active" onclick="setOrderType('MARKET')">Market</div>
+                <div class="order-type-tab" onclick="setOrderType('LIMIT')">Limit</div>
+                <div class="order-type-tab" onclick="setOrderType('STOP')">Stop</div>
             </div>
-            <div class="input-group">
-                <label>Lot Size</label>
+            
+            <div class="order-group">
+                <label>Symbol</label>
+                <input type="text" id="currentSymbol" value="EURUSD" readonly>
+            </div>
+            
+            <div class="order-group" id="price-input-group" style="display: none;">
+                <label id="price-input-label">Limit Price</label>
+                <input type="number" id="limitPrice" placeholder="Enter price">
+            </div>
+            
+            <div class="order-group">
+                <label>Volume (Lots)</label>
                 <input type="number" id="mktLots" value="0.01" step="0.01" min="0.01" max="2.00">
             </div>
-            <div class="input-group">
-                <label>Stop Loss (SL)</label>
+            
+            <div class="order-group">
+                <label>Stop Loss</label>
                 <input type="number" id="mktSL" placeholder="Optional">
             </div>
-            <div class="input-group">
-                <label>Take Profit (TP)</label>
+            
+            <div class="order-group">
+                <label>Take Profit</label>
                 <input type="number" id="mktTP" placeholder="Optional">
             </div>
-            <div class="input-group">
-                <label>Current Bid / Ask</label>
-                <div style="font-size: 16px; font-weight: 700;"><span id="currentBid">--</span> / <span id="currentAsk">--</span></div>
+            
+            <div class="current-price">
+                <span id="currentBid">--</span> / <span id="currentAsk">--</span>
             </div>
-            <button class="btn btn-buy" onclick="executeOrder('BUY')">BUY</button>
-            <button class="btn btn-sell" onclick="executeOrder('SELL')">SELL</button>
+            
+            <div class="trade-buttons">
+                <button class="btn btn-buy" onclick="executeOrder('BUY')">BUY</button>
+                <button class="btn btn-sell" onclick="executeOrder('SELL')">SELL</button>
+            </div>
             
             <div class="api-status" id="apiStatus">
-                <div class="status-dot"></div> <span>Connecting to Market Data...</span>
+                <div class="status-dot"></div> <span>Connecting...</span>
             </div>
         </div>
 
-        <!-- Bottom Panel: Positions -->
+        <!-- Bottom: Positions -->
         <div class="bottom-panel">
             <div class="tabs">
-                <div class="tab active">Open Positions</div>
-                <div class="tab" onclick="loadHistory()">Trade History</div>
+                <div class="tab active" onclick="switchTab('positions')">Open Positions</div>
+                <div class="tab" onclick="switchTab('history')">Trade History</div>
+                <div class="tab" onclick="switchTab('pending')">Pending Orders</div>
             </div>
-            <div style="flex: 1; overflow-y: auto;">
+            <div class="table-container">
                 <table class="trades-table">
                     <thead>
                         <tr>
+                            <th>ID</th>
                             <th>Symbol</th>
-                            <th>Side</th>
+                            <th>Type</th>
                             <th>Volume</th>
-                            <th>Entry Price</th>
+                            <th>Entry</th>
                             <th>Current</th>
                             <th>P/L</th>
-                            <th>Status</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -146,10 +211,9 @@
                         <!-- Data injected here -->
                     </tbody>
                 </table>
-                <div id="emptyState" style="display:none; text-align:center; padding:20px; color:var(--text-muted);">No open positions.</div>
+                <div id="emptyState" style="display:none; text-align:center; padding:20px; color:var(--text-muted);">No trades yet.</div>
             </div>
         </div>
-
     </div>
 
     <script>
@@ -158,6 +222,8 @@
         let currentAccountCode = null;
         let widget = null;
         let backendSocket = null;
+        let orderType = 'MARKET';
+        let currentTab = 'positions';
 
         // --- ACCOUNT CODE FROM URL ---
         function getAccountCodeFromURL() {
@@ -167,19 +233,18 @@
                 currentAccountCode = code;
                 document.getElementById('accountId').innerText = code;
             } else {
-                alert('Please select an account from dashboard first.');
                 window.location.href = 'dashboard.html';
             }
         }
 
-        // --- MARKET WATCH DATA ---
+        // --- MARKET WATCH ---
         const allowedPairs = ['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'];
 
         function renderPairs() {
             const container = document.getElementById('market-watch-list');
             container.innerHTML = allowedPairs.map(sym => `
-                <div class="pair-row ${sym === currentSymbol ? 'active' : ''}" onclick="selectPair('${sym}')">
-                    <span class="pair-name">${sym}</span>
+                <div class="pair-item ${sym === currentSymbol ? 'active' : ''}" onclick="selectPair('${sym}')">
+                    <span class="pair-symbol">${sym}</span>
                     <span class="pair-price" id="price-${sym}">--</span>
                 </div>
             `).join('');
@@ -187,12 +252,11 @@
 
         function updatePrices(prices) {
             allowedPairs.forEach(sym => {
-                if (prices[sym]) {
-                    const priceEl = document.getElementById(`price-${sym}`);
-                    if (priceEl) priceEl.innerText = prices[sym].bid.toFixed(sym.includes('JPY') ? 3 : 5);
+                const priceEl = document.getElementById(`price-${sym}`);
+                if (priceEl && prices[sym]) {
+                    priceEl.innerText = prices[sym].bid.toFixed(sym.includes('JPY') ? 3 : 5);
                 }
             });
-            // Update Order Ticket Bid/Ask
             if (prices[currentSymbol]) {
                 document.getElementById('currentBid').innerText = prices[currentSymbol].bid.toFixed(5);
                 document.getElementById('currentAsk').innerText = prices[currentSymbol].ask.toFixed(5);
@@ -201,16 +265,16 @@
 
         function selectPair(symbol) {
             currentSymbol = symbol;
-            document.querySelectorAll('.pair-row').forEach(row => row.classList.remove('active'));
-            document.querySelector(`.pair-row[onclick="selectPair('${symbol}')"]`)?.classList.add('active');
             document.getElementById('currentSymbol').value = symbol;
+            document.querySelectorAll('.pair-item').forEach(item => item.classList.remove('active'));
+            document.querySelector(`.pair-item[onclick="selectPair('${symbol}')"]`)?.classList.add('active');
             updateChart();
         }
 
-        // --- CHART (TradingView) ---
+        // --- CHART ---
         function updateChart() {
-            const chartContainer = document.getElementById('tradingview_chart');
-            chartContainer.innerHTML = '';
+            const container = document.getElementById('tradingview_chart');
+            container.innerHTML = '';
             widget = new TradingView.widget({
                 "autosize": true,
                 "symbol": `OANDA:${currentSymbol}`,
@@ -221,19 +285,18 @@
                 "locale": "en",
                 "enable_publishing": false,
                 "allow_symbol_change": false,
-                "backgroundColor": "#0a0e14",
                 "container_id": "tradingview_chart"
             });
         }
 
-        // --- BACKEND WEBSOCKET ---
+        // --- WEBSOCKET ---
         function connectBackendWS() {
             backendSocket = new WebSocket('wss://fundfxt.onrender.com/ws');
             
             backendSocket.onopen = () => {
-                const statusBadge = document.getElementById('apiStatus');
-                statusBadge.classList.add('connected');
-                statusBadge.innerHTML = '<div class="status-dot"></div> <span>Live FCS Connected</span>';
+                const status = document.getElementById('apiStatus');
+                status.classList.add('connected');
+                status.innerHTML = '<div class="status-dot"></div> <span>Live FCS Connected</span>';
             };
 
             backendSocket.onmessage = (event) => {
@@ -246,7 +309,26 @@
             backendSocket.onclose = () => setTimeout(connectBackendWS, 3000);
         }
 
-        // --- TRADE EXECUTION ---
+        // --- ORDER TYPE ---
+        function setOrderType(type) {
+            orderType = type;
+            document.querySelectorAll('.order-type-tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`.order-type-tab[onclick="setOrderType('${type}')"]`)?.classList.add('active');
+            
+            const priceInput = document.getElementById('price-input-group');
+            const label = document.getElementById('price-input-label');
+            if (type === 'MARKET') {
+                priceInput.style.display = 'none';
+            } else if (type === 'LIMIT') {
+                priceInput.style.display = 'block';
+                label.innerText = 'Limit Price';
+            } else {
+                priceInput.style.display = 'block';
+                label.innerText = 'Stop Price';
+            }
+        }
+
+        // --- EXECUTE ORDER ---
         async function executeOrder(side) {
             if (!currentAccountCode) return alert("No account selected!");
             
@@ -254,34 +336,66 @@
             const sl = parseFloat(document.getElementById('mktSL').value) || null;
             const tp = parseFloat(document.getElementById('mktTP').value) || null;
             const token = localStorage.getItem('fundfxt_token');
+            const limitPrice = orderType !== 'MARKET' ? parseFloat(document.getElementById('limitPrice').value) : null;
 
             if (!token) return alert("Please login!");
-            if (!volume || volume <= 0) return alert("Enter valid volume!");
-            if (volume < 0.01 || volume > 2.00) return alert("Volume must be between 0.01 and 2.00!");
+            if (!volume || volume < 0.01 || volume > 2.00) return alert("Volume must be between 0.01 and 2.00!");
+            if (orderType !== 'MARKET' && (!limitPrice || limitPrice <= 0)) return alert("Enter valid price!");
 
-            const response = await fetch('https://fundfxt.onrender.com/api/trade/execute', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                body: JSON.stringify({ 
-                    account_code: currentAccountCode, 
-                    symbol: currentSymbol, 
-                    side, 
-                    volume, 
-                    sl, 
-                    tp 
-                })
-            });
+            const payload = {
+                account_code: currentAccountCode,
+                symbol: currentSymbol,
+                side,
+                volume,
+                sl,
+                tp
+            };
 
-            const data = await response.json();
-            if (data.success) {
-                alert(`✅ Order Executed at ${data.entry_price}`);
-                loadPositions();
+            if (orderType === 'MARKET') {
+                // Market order
+                const response = await fetch('https://fundfxt.onrender.com/api/trade/execute', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert(`✅ Order Executed at ${data.entry_price}`);
+                    loadPositions();
+                    fetchAccountSummary();
+                } else {
+                    alert(data.error || 'Trade failed');
+                }
             } else {
-                alert(data.error || 'Trade failed');
+                // Pending order
+                payload.order_type = orderType;
+                payload.limit_price = limitPrice;
+                const response = await fetch('https://fundfxt.onrender.com/api/trades/pending', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                    body: JSON.stringify(payload)
+                });
+                const data = await response.json();
+                if (data.success) {
+                    alert('✅ Pending order placed!');
+                    switchTab('pending');
+                } else {
+                    alert(data.error || 'Order failed');
+                }
             }
         }
 
-        // --- LOAD POSITIONS & HISTORY ---
+        // --- POSITIONS / HISTORY / PENDING ---
+        function switchTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`.tab[onclick="switchTab('${tabName}')"]`)?.classList.add('active');
+            
+            if (tabName === 'positions') loadPositions();
+            if (tabName === 'history') loadHistory();
+            if (tabName === 'pending') loadPendingOrders();
+        }
+
         async function loadPositions() {
             const tbody = document.getElementById('positionsTableBody');
             const emptyState = document.getElementById('emptyState');
@@ -302,64 +416,23 @@
                     emptyState.style.display = 'none';
                     tbody.innerHTML = openTrades.map(trade => `
                         <tr>
+                            <td>${trade.trade_id}</td>
                             <td>${trade.symbol}</td>
                             <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
                             <td>${trade.volume}</td>
                             <td>${trade.entry_price}</td>
                             <td>${trade.current_price || '--'}</td>
                             <td style="color: ${trade.floating_profit_cents >= 0 ? 'var(--green)' : 'var(--red)'};">$${(trade.floating_profit_cents / 100).toFixed(2)}</td>
-                            <td><span class="text-green">OPEN</span></td>
-                            <td><button style="background: var(--red); color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;">Close</button></td>
+                            <td>
+                                <button class="trade-action-btn modify-btn" onclick="modifyTrade('${trade.trade_id}')">Modify</button>
+                                <button class="trade-action-btn" onclick="closeTrade('${trade.trade_id}')">Close</button>
+                            </td>
                         </tr>
                     `).join('');
                 }
             }
         }
 
-
-        // Fetch Account Summary
-async function fetchAccountSummary() {
-    if (!currentAccountCode) return;
-    
-    try {
-        // Get account ID from code
-        const accountsRes = await fetch('https://fundfxt.onrender.com/api/accounts', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-        });
-        const accountsData = await accountsRes.json();
-        const account = accountsData.accounts.find(a => a.account_code === currentAccountCode);
-        if (!account) return;
-        
-        // Fetch summary using account ID
-        const summaryRes = await fetch(`https://fundfxt.onrender.com/api/accounts/${account.id}/summary`, {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-        });
-        const summaryData = await summaryRes.json();
-        
-        if (summaryData.success) {
-            const s = summaryData.summary;
-            document.getElementById('sum-balance').innerText = '$' + s.balance.toFixed(2);
-            document.getElementById('sum-equity').innerText = '$' + s.equity.toFixed(2);
-            document.getElementById('sum-daily').innerText = '$' + s.currentDailyLoss.toFixed(2);
-            document.getElementById('sum-daily-limit').innerText = '$' + s.dailyLossLimit.toFixed(2);
-            document.getElementById('sum-dd').innerText = '$' + s.currentMaxDrawdown.toFixed(2);
-            document.getElementById('sum-dd-limit').innerText = '$' + s.maxDrawdownLimit.toFixed(2);
-            document.getElementById('sum-trades').innerText = `${s.tradesToday}/${s.maxTrades}`;
-            
-            // Disable buttons if breached
-            if (s.breached) {
-                document.getElementById('breach-alert').style.display = 'block';
-                document.getElementById('mktLots').disabled = true;
-                document.querySelector('.btn-buy').disabled = true;
-                document.querySelector('.btn-sell').disabled = true;
-            } else {
-                document.getElementById('breach-alert').style.display = 'none';
-            }
-        }
-    } catch (error) {
-        console.error('Summary fetch error:', error);
-    }
-}
         async function loadHistory() {
             const tbody = document.getElementById('positionsTableBody');
             const emptyState = document.getElementById('emptyState');
@@ -378,6 +451,7 @@ async function fetchAccountSummary() {
                     emptyState.style.display = 'none';
                     tbody.innerHTML = closedTrades.map(trade => `
                         <tr>
+                            <td>${trade.trade_id}</td>
                             <td>${trade.symbol}</td>
                             <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
                             <td>${trade.volume}</td>
@@ -385,22 +459,145 @@ async function fetchAccountSummary() {
                             <td>${trade.exit_price || '--'}</td>
                             <td style="color: ${trade.realized_profit_cents >= 0 ? 'var(--green)' : 'var(--red)'};">$${(trade.realized_profit_cents / 100).toFixed(2)}</td>
                             <td><span style="color: var(--text-muted);">${trade.status} (${trade.close_reason || ''})</span></td>
-                            <td>Closed</td>
                         </tr>
                     `).join('');
                 }
             }
         }
 
-        // --- INITIALIZE ---
-window.onload = () => {
-    getAccountCodeFromURL();
-    renderPairs();
-    updateChart();
-    connectBackendWS();
-    loadPositions();
-    fetchAccountSummary(); // <--- Ye line add karo
-};
+        async function loadPendingOrders() {
+            const tbody = document.getElementById('positionsTableBody');
+            const emptyState = document.getElementById('emptyState');
+            
+            const response = await fetch(`https://fundfxt.onrender.com/api/trades/pending?account_code=${currentAccountCode}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                const pendingTrades = data.trades || [];
+                if (pendingTrades.length === 0) {
+                    emptyState.style.display = 'block';
+                    tbody.innerHTML = '';
+                } else {
+                    emptyState.style.display = 'none';
+                    tbody.innerHTML = pendingTrades.map(trade => `
+                        <tr>
+                            <td>${trade.trade_id}</td>
+                            <td>${trade.symbol}</td>
+                            <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
+                            <td>${trade.volume}</td>
+                            <td>${trade.entry_price}</td>
+                            <td>--</td>
+                            <td>--</td>
+                            <td><button class="trade-action-btn" onclick="cancelPending('${trade.trade_id}')">Cancel</button></td>
+                        </tr>
+                    `).join('');
+                }
+            }
+        }
+
+        // --- TRADE ACTIONS ---
+        async function closeTrade(tradeId) {
+            if (!confirm('Close this trade?')) return;
+            const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert(`Trade closed! P/L: $${data.realized_profit.toFixed(2)}`);
+                loadPositions();
+                fetchAccountSummary();
+            } else {
+                alert(data.error || 'Failed to close');
+            }
+        }
+
+        async function modifyTrade(tradeId) {
+            const newSL = prompt('Enter new Stop Loss (or leave blank to keep):');
+            const newTP = prompt('Enter new Take Profit (or leave blank to keep):');
+            
+            const payload = {};
+            if (newSL !== null && newSL !== '') payload.stop_loss = parseFloat(newSL);
+            if (newTP !== null && newTP !== '') payload.take_profit = parseFloat(newTP);
+            
+            if (Object.keys(payload).length === 0) return;
+            
+            const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` },
+                body: JSON.stringify(payload)
+            });
+            const data = await response.json();
+            if (data.success) {
+                alert('Trade modified!');
+                loadPositions();
+            } else {
+                alert(data.error || 'Failed to modify');
+            }
+        }
+
+        async function cancelPending(tradeId) {
+            if (!confirm('Cancel this pending order?')) return;
+            const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+            });
+            const data = await response.json();
+            if (data.success) {
+                loadPendingOrders();
+            } else {
+                alert(data.error || 'Failed to cancel');
+            }
+        }
+
+        // --- ACCOUNT SUMMARY ---
+        async function fetchAccountSummary() {
+            if (!currentAccountCode) return;
+            
+            try {
+                const accountsRes = await fetch('https://fundfxt.onrender.com/api/accounts', {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+                });
+                const accountsData = await accountsRes.json();
+                const account = accountsData.accounts.find(a => a.account_code === currentAccountCode);
+                if (!account) return;
+                
+                const summaryRes = await fetch(`https://fundfxt.onrender.com/api/accounts/${account.id}/summary`, {
+                    headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+                });
+                const summaryData = await summaryRes.json();
+                
+                if (summaryData.success) {
+                    const s = summaryData.summary;
+                    document.getElementById('sum-balance').innerText = '$' + s.balance.toFixed(2);
+                    document.getElementById('sum-equity').innerText = '$' + s.equity.toFixed(2);
+                    document.getElementById('sum-daily').innerText = '$' + s.currentDailyLoss.toFixed(2);
+                    document.getElementById('sum-dd').innerText = '$' + s.currentMaxDrawdown.toFixed(2);
+                    document.getElementById('sum-trades').innerText = `${s.tradesToday}/${s.maxTrades}`;
+                    
+                    if (s.breached) {
+                        document.getElementById('breach-alert').style.display = 'block';
+                        document.getElementById('mktLots').disabled = true;
+                        document.querySelector('.btn-buy').disabled = true;
+                        document.querySelector('.btn-sell').disabled = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Summary error:', error);
+            }
+        }
+
+        // --- INIT ---
+        window.onload = () => {
+            getAccountCodeFromURL();
+            renderPairs();
+            updateChart();
+            connectBackendWS();
+            loadPositions();
+            fetchAccountSummary();
+        };
     </script>
 </body>
 </html>
