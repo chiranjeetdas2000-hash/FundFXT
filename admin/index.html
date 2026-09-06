@@ -496,6 +496,63 @@ async function manualTrade(userId) {
         alert(data.error || 'Failed');
     }
 }
+
+        // ========== SYSTEM SETTINGS ==========
+
+// Load settings from backend
+async function loadSettings() {
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/settings');
+        const data = await response.json();
+        if (data.success) {
+            const settings = data.settings;
+            // Set payment mode
+            if (settings.payment_mode && settings.payment_mode.mode === 'AUTO') {
+                document.getElementById('modeAuto').checked = true;
+            } else {
+                document.getElementById('modeManual').checked = true;
+            }
+            // Set maintenance mode
+            if (settings.maintenance_mode && settings.maintenance_mode.enabled) {
+                document.getElementById('maintenanceMode').checked = true;
+            }
+        }
+    } catch (error) {
+        console.error('Load settings error:', error);
+    }
+}
+
+// Save settings to backend
+async function saveSettings() {
+    const paymentMode = document.querySelector('input[name="paymentMode"]:checked').value;
+    const maintenanceEnabled = document.getElementById('maintenanceMode').checked;
+    
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/admin/settings', {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}`
+            },
+            body: JSON.stringify({
+                settings: {
+                    payment_mode: { mode: paymentMode },
+                    maintenance_mode: { enabled: maintenanceEnabled }
+                }
+            })
+        });
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('settingsMessage').innerText = '✅ Settings saved!';
+            setTimeout(() => document.getElementById('settingsMessage').innerText = '', 3000);
+        } else {
+            alert('Failed to save settings');
+        }
+    } catch (error) {
+        console.error('Save settings error:', error);
+        alert('Server error while saving settings');
+    }
+}
         // Initial Load
         window.onload = () => fetchDashboard();
     </script>
