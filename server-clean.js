@@ -25,6 +25,10 @@ function rejectWeekendExecution(res){
 `;
 cleanTrading=weekendGuard+cleanTrading;
 cleanTrading=cleanTrading.replace(
+  "fcs.onmessage=data=>{",
+  "fcs.onmessage=data=>{if(isForexWeekend())return;"
+);
+cleanTrading=cleanTrading.replace(
   "async function processLivePrices(){",
   "async function processLivePrices(){if(isForexWeekend())return;"
 );
