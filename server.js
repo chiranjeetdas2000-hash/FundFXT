@@ -84,46 +84,30 @@ async function getUniqueAffiliateCode() {
 app.post('/api/register', async (req, res) => {
     const { trader_id, email, phone, password, legal_name, address, referred_by_code } = req.body;
     try {
-        // ===== STRICT INPUT VALIDATION =====
-        if (!trader_id || !email || !phone || !password || !legal_name || !address) {
-            return res.status(400).json({ error: 'All required fields must be filled' });
-        }
-
-        // Email validation
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        if (!emailRegex.test(email)) {
-            return res.status(400).json({ error: 'Invalid email format' });
-        }
-
-        // Phone validation (basic)
-        const phoneRegex = /^\+?[0-9]{10,15}$/;
-        if (!phoneRegex.test(phone)) {
-            return res.status(400).json({ error: 'Invalid phone number' });
-        }
-
-        // Password strength
-        if (password.length < 8) {
-            return res.status(400).json({ error: 'Password must be at least 8 characters' });
-        }
-        if (!/[A-Z]/.test(password) || !/[0-9]/.test(password)) {
-            return res.status(400).json({ error: 'Password must contain at least one uppercase letter and one number' });
-        }
-
-        // Trader ID validation (alphanumeric + underscore)
-        const traderIdRegex = /^[a-zA-Z0-9_]+$/;
-        if (!traderIdRegex.test(trader_id)) {
-            return res.status(400).json({ error: 'Trader ID can only contain letters, numbers, and underscores' });
-        }
-
-        // Length check
-        if (trader_id.length < 3 || trader_id.length > 20) {
-            return res.status(400).json({ error: 'Trader ID must be between 3 and 20 characters' });
-        }
-
-        // Existing code continues...
         const [existing] = await db.execute('SELECT * FROM users WHERE trader_id = ? OR email = ?', [trader_id, email]);
         if (existing.length) return res.status(400).json({ error: 'User already exists' });
-        // ...
+
+        const hashed = await bcrypt.hash(password, 10);
+        const newAffiliateCode = await getUniqueAffiliateCode();
+
+        const [result] = await db.execute(
+            `INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code, kyc_status, status) 
+             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'NOT_SUBMITTED', 'ACTIVE')`,
+            [trader_id, email, phone, hashed, legal_name, address, newAffiliateCode, referred_by_code || null]
+        );
+
+        await db.execute(
+            'INSERT INTO affiliates (user_id, affiliate_code) VALUES (?, ?)',
+            [result.insertId, newAffiliateCode]
+        );
+
+        const token = jwt.sign({ userId: result.insertId }, process.env.JWT_SECRET || 'secret', { expiresIn: '7d' });
+        res.json({ success: true, token, account_code: null, affiliate_code: newAffiliateCode });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // ========== LOGIN ==========
 app.post('/api/login', async (req, res) => {
@@ -246,20 +230,20 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 });
 
 // ========== GET USER BY EMAIL ==========
-// ========== GET USER BY EMAIL (SECURE - NO PII) ==========
-app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
+app.get('/api/get-user-by-email', async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
     try {
-        const [rows] = await db.execute('SELECT id, legal_name, email FROM users WHERE email = ?', [email]);
+        const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE email = ?', [email]);
         if (rows.length > 0) {
-            // Only return minimal info - no phone, no address
-            res.json({ exists: true, name: rows[0].legal_name, email: rows[0].email });
+            const user = rows[0];
+            res.json({ exists: true, name: user.legal_name, email: user.email, phone: user.phone, address: user.address });
         } else {
             res.json({ exists: false });
         }
     } catch (error) { console.error(error); res.status(500).json({ error: error.message }); }
 });
+
 
 // ========== UPDATED RISK ENGINE ==========
 async function checkAccountRisk(account) {
@@ -446,100 +430,6 @@ async function getPaymentMode() {
     }
     return 'MANUAL'; // Default
 }
-
-        // ========== WITHDRAWAL REQUEST (DOUBLE-SPEND PROTECTED) ==========
-app.post('/api/withdrawals/request', authenticateToken, async (req, res) => {
-    const { account_id, amount_cents, method, payment_address } = req.body;
-
-    const connection = await db.getConnection();
-    try {
-        await connection.beginTransaction();
-
-        // Validate inputs
-        if (!account_id || !amount_cents || !method || !payment_address) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'All fields are required' });
-        }
-
-        // Fetch account with row lock (FOR UPDATE)
-        const [accounts] = await connection.execute(
-            'SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE',
-            [account_id, req.userId]
-        );
-        if (!accounts.length) {
-            await connection.rollback();
-            return res.status(404).json({ error: 'Account not found' });
-        }
-        const account = accounts[0];
-
-        // Check Account Status
-        if (account.status !== 'ACTIVE') {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Account is not active for withdrawal' });
-        }
-
-        // Fetch Challenge Rules
-        const [configs] = await connection.execute(
-            'SELECT * FROM challenge_configs WHERE model_key = ?',
-            [account.challenge_model]
-        );
-        if (!configs.length) {
-            await connection.rollback();
-            return res.status(404).json({ error: 'Challenge rules not found' });
-        }
-        const config = configs[0];
-
-        // Check Max Payout Count
-        if (config.max_payout_count && account.payout_count >= config.max_payout_count) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Max payout limit reached for this account' });
-        }
-
-        // Calculate available profit (Equity - Initial Balance)
-        const profitCents = account.equity_cents - account.initial_balance_cents;
-        if (amount_cents > profitCents) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Withdrawal amount exceeds current profit' });
-        }
-
-        // Generate Request Reference
-        const requestRef = 'WD-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-
-        // Insert Payout Request
-        await connection.execute(
-            `INSERT INTO payout_requests (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, status, eligibility_snapshot, created_at)
-             VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', ?, ?, 'PENDING', ?, NOW())`,
-            [requestRef, req.userId, account_id, amount_cents, method,
-             JSON.stringify({ payment_address }),
-             JSON.stringify({ profit: profitCents, equity: account.equity_cents, balance: account.balance_cents })]
-        );
-
-        // === KEY FIX: Deduct reserved amount from equity immediately ===
-        // This prevents double-spend by reducing available profit
-        await connection.execute(
-            'UPDATE accounts SET equity_cents = equity_cents - ? WHERE id = ?',
-            [amount_cents, account_id]
-        );
-
-        // Notify Admin via Email
-        const [users] = await connection.execute('SELECT legal_name, email FROM users WHERE id = ?', [req.userId]);
-        if (users.length) {
-            await sendEmail('support.fundfxt@gmail.com', `New Withdrawal Request: ${requestRef}`,
-                `<h3>Withdrawal Request</h3><p>User: ${users[0].legal_name}</p><p>Account: ${account.account_code}</p><p>Amount: $${(amount_cents / 100).toFixed(2)}</p><p>Method: ${method}</p>`)
-                .catch(err => console.log('Withdrawal email failed:', err.message));
-        }
-
-        await connection.commit();
-        res.json({ success: true, request_ref: requestRef });
-
-    } catch (error) {
-        await connection.rollback();
-        console.error('Withdrawal request error:', error);
-        res.status(500).json({ error: error.message });
-    } finally {
-        connection.release();
-    }
-});
 
 // ========== MODIFIED PAYMENT REQUEST ROUTE ==========
 app.post('/api/payments/request', authenticateToken, async (req, res) => {
@@ -805,61 +695,11 @@ app.get('/api/admin/withdrawals', authenticateAdmin, async (req, res) => {
 // Update withdrawal status
 app.post('/api/admin/withdrawals/:id/status', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body; // APPROVED, REJECTED, PAID
-
-    const connection = await db.getConnection();
+    const { status } = req.body;
     try {
-        await connection.beginTransaction();
-
-        // Fetch payout with lock
-        const [payouts] = await connection.execute(
-            'SELECT * FROM payout_requests WHERE id = ? FOR UPDATE',
-            [id]
-        );
-        if (!payouts.length) {
-            await connection.rollback();
-            return res.status(404).json({ error: 'Withdrawal not found' });
-        }
-        const payout = payouts[0];
-
-        // Prevent illegal transitions
-        if (payout.status === 'PAID') {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Already paid. Cannot change status' });
-        }
-        if (payout.status === 'REJECTED' && (status === 'PAID' || status === 'APPROVED')) {
-            await connection.rollback();
-            return res.status(400).json({ error: 'Cannot approve a rejected withdrawal' });
-        }
-        if (payout.status === 'APPROVED' && status === 'REJECTED') {
-            // Refund equity if approved then rejected
-            await connection.execute(
-                'UPDATE accounts SET equity_cents = equity_cents + ? WHERE id = ?',
-                [payout.amount_cents, payout.account_id]
-            );
-        }
-
-        await connection.execute(
-            'UPDATE payout_requests SET status = ? WHERE id = ?',
-            [status, id]
-        );
-
-        // If REJECTED, refund the reserved equity
-        if (status === 'REJECTED' && payout.status !== 'REJECTED') {
-            await connection.execute(
-                'UPDATE accounts SET equity_cents = equity_cents + ? WHERE id = ?',
-                [payout.amount_cents, payout.account_id]
-            );
-        }
-
-        await connection.commit();
+        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
         res.json({ success: true });
-    } catch (error) {
-        await connection.rollback();
-        res.status(500).json({ error: error.message });
-    } finally {
-        connection.release();
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // Get affiliates
@@ -1104,36 +944,7 @@ async function processLivePrices() {
         const currentPrice = trade.side === 'BUY' ? price.bid : price.ask;
         const floatingCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, currentPrice, trade.volume) * 100);
         await db.execute('UPDATE trades SET current_price = ?, floating_profit_cents = ? WHERE trade_id = ?', [currentPrice, floatingCents, trade.trade_id]);
-        // ===== PENDING ORDERS EXECUTION =====
-async function executePendingOrders() {
-    const [pendingTrades] = await db.execute("SELECT * FROM trades WHERE status = 'PENDING'");
-    for (const pending of pendingTrades) {
-        const price = global.priceCache[pending.symbol];
-        if (!price) continue;
-
-        const currentBid = price.bid;
-        const currentAsk = price.ask;
-        let shouldExecute = false;
-
-        if (pending.side === 'BUY') {
-            if (pending.entry_price >= currentAsk) shouldExecute = true; // Limit Buy
-        } else {
-            if (pending.entry_price <= currentBid) shouldExecute = true; // Limit Sell
-        }
-
-        if (shouldExecute) {
-            await db.execute(
-                `UPDATE trades SET status = 'OPEN', entry_time = NOW(), current_price = ? WHERE trade_id = ?`,
-                [currentAsk, pending.trade_id]
-            );
-        }
-    }
-}
-
-// Call this inside processLivePrices() after open trade updates
-await executePendingOrders();
         // Ye code processLivePrices function ke andar, trade loop ke andar paste karo
-        
 const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ?', [trade.account_id]);
 if (accounts.length > 0) {
     const account = accounts[0];
@@ -1149,19 +960,22 @@ if (accounts.length > 0) {
 
     // Check Risk
     const risk = await checkAccountRisk(account); // Reload updated account info if needed
-   if (breached) {
-    // Close all open trades properly with realized P/L
-    const [openTrades] = await db.execute('SELECT * FROM trades WHERE account_id = ? AND status = "OPEN"', [account.id]);
-    for (const trade of openTrades) {
-        const price = global.priceCache[trade.symbol];
-        if (price) {
-            const exitPrice = trade.side === 'BUY' ? price.bid : price.ask;
-            const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, trade.volume) * 100);
-            await db.execute(
-                `UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = 'BREACH' WHERE trade_id = ?`,
-                [exitPrice, realizedCents, trade.trade_id]
-            );
-            await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);
+    if (risk.breached) {
+        await db.execute("UPDATE trades SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' WHERE account_id = ? AND status = 'OPEN'", [account.id]);
+    }
+}
+        let closeReason = null;
+        if (trade.side === 'BUY') {
+            if (trade.stop_loss && currentPrice <= trade.stop_loss) closeReason = 'SL';
+            if (trade.take_profit && currentPrice >= trade.take_profit) closeReason = 'TP';
+        } else {
+            if (trade.stop_loss && currentPrice >= trade.stop_loss) closeReason = 'SL';
+            if (trade.take_profit && currentPrice <= trade.take_profit) closeReason = 'TP';
+        }
+        if (closeReason) {
+            const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, currentPrice, trade.volume) * 100);
+            await db.execute(`UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = ? WHERE trade_id = ?`, [currentPrice, realizedCents, closeReason, trade.trade_id]);
+            await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);
         }
     }
 }
@@ -1980,45 +1794,6 @@ app.get('/api/certificates/verify/:certRef', async (req, res) => {
         res.json({ success: true, certificate: cert[0] });
     } catch (error) {
         res.status(500).json({ error: error.message });
-    }
-});
-
-    // ========== AFFILIATE STATS API (P1 FIX) ==========
-app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
-    try {
-        // 1. Fetch affiliate record for the user
-        const [affiliateRows] = await db.execute('SELECT * FROM affiliates WHERE user_id = ? LIMIT 1', [req.userId]);
-        if (!affiliateRows.length) return res.status(404).json({ error: 'Affiliate account not found' });
-        const affiliate = affiliateRows[0];
-
-        // 2. Count distinct referred users via payment_orders
-        const [referralCount] = await db.execute(
-            'SELECT COUNT(DISTINCT user_id) AS total FROM payment_orders WHERE affiliate_code = ? AND status = "paid"',
-            [affiliate.affiliate_code]
-        );
-
-        // 3. Sum commissions
-        const [commissionSum] = await db.execute(
-            `SELECT 
-                SUM(commission_amount_cents) AS total_earnings_cents,
-                SUM(CASE WHEN status = 'PENDING' THEN commission_amount_cents ELSE 0 END) AS pending_earnings_cents,
-                SUM(CASE WHEN status = 'PAID' THEN commission_amount_cents ELSE 0 END) AS paid_earnings_cents
-             FROM affiliate_commissions WHERE affiliate_id = ?`,
-            [affiliate.id]
-        );
-
-        res.json({
-            success: true,
-            affiliate_code: affiliate.affiliate_code,
-            total_referrals: referralCount[0].total || 0,
-            total_sales: affiliate.total_sales,
-            total_earnings_cents: commissionSum[0].total_earnings_cents || 0,
-            pending_earnings_cents: commissionSum[0].pending_earnings_cents || 0,
-            paid_earnings_cents: commissionSum[0].paid_earnings_cents || 0
-        });
-    } catch (error) {
-        console.error('Affiliate stats error:', error);
-        res.status(500).json({ error: 'Failed to fetch affiliate stats' });
     }
 });
 // 5. Notification Hook – Example: When Payment is Approved (add to existing route)
