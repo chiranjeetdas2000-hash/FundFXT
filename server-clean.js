@@ -37,7 +37,8 @@ async function refreshBiQuotePrices(){
   if(!r.ok)throw new Error('BiQuote HTTP '+r.status);
   const body=await r.json();
   const ticks=Array.isArray(body)?body:(Array.isArray(body.ticks)?body.ticks:(Array.isArray(body.data)?body.data:[]));
-  const list=ticks.length?ticks:Object.entries(body||{}).map(([symbol,t])=>({...t,symbol}));
+  const source=(body&&body.data&&typeof body.data==='object'&&!Array.isArray(body.data))?body.data:body;
+  const list=ticks.length?ticks:Object.entries(source||{}).map(([symbol,t])=>({...t,symbol:t?.symbol||symbol}));
   for(const raw of list){const p=normalizeBiQuoteTick(raw);if(!p||!SYMBOLS[p.symbol])continue;global.priceCache[p.symbol]=p;global.prices[p.symbol]=p;}
   if(!isForexWeekend()&&typeof processLivePrices==='function')processLivePrices().catch(e=>console.error('BiQuote trade engine:',e.message));
   return global.prices;
