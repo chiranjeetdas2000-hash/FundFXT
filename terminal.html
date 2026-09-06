@@ -215,6 +215,43 @@
             </div>
         </div>
     </div>
+    <!-- Mobile Bottom Navigation -->
+<div class="mobile-bottom-nav" id="mobileBottomNav">
+    <button class="m-nav-btn active" onclick="switchMobileTab('chart')">
+        <i class="fa-solid fa-chart-line"></i><span>Chart</span>
+    </button>
+    <button class="m-nav-btn" onclick="switchMobileTab('quotes')">
+        <i class="fa-solid fa-list"></i><span>Quotes</span>
+    </button>
+    <button class="m-nav-btn" onclick="switchMobileTab('trades')">
+        <i class="fa-solid fa-list-check"></i><span>Trades</span>
+    </button>
+    <button class="m-nav-btn" onclick="switchMobileTab('account')">
+        <i class="fa-solid fa-user"></i><span>Account</span>
+    </button>
+</div>
+
+<!-- Mobile Quotes Drawer (Left) -->
+<div class="mobile-drawer" id="mobileQuotesDrawer">
+    <div class="drawer-header">
+        <span>Market Watch</span>
+        <i class="fa-solid fa-xmark" onclick="closeDrawer()"></i>
+    </div>
+    <div class="drawer-content">
+        <!-- Market watch list yahan aayega (same as left-panel) -->
+    </div>
+</div>
+
+<!-- Mobile Order Sheet (Bottom) -->
+<div class="mobile-order-sheet" id="mobileOrderSheet">
+    <div class="sheet-header">
+        <span>Order Ticket</span>
+        <i class="fa-solid fa-xmark" onclick="closeOrderSheet()"></i>
+    </div>
+    <div class="sheet-content">
+        <!-- Order ticket form yahan aayega (same as right-panel) -->
+    </div>
+</div>
 
     <script>
         // --- STATE ---
