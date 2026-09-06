@@ -35,6 +35,8 @@ function showSection(sectionName) {
     if (sectionName === 'withdraw') loadWithdrawForm();
     if (sectionName === 'affiliate') fetchAffiliateStats();
     if (sectionName === 'certificates') fetchCertificates();
+    if (sectionName === 'support') { createSupportTicket(); fetchSupportTickets(); }
+    if (sectionName === 'certificates') fetchCertificates();
 }
 
 // USER DROPDOWN & NOTIFICATION TOGGLES
