@@ -40,9 +40,9 @@ app.get('/api/trade/get',authenticateToken,async(req,res,next)=>{
 // Block all position/order mutations during the weekend. Reads remain available.
 app.use((req,res,next)=>{
   if(isForexWeekend() && (
-    (req.method==='POST' && /^\\/api\\/trades\\/[^/]+\\/close$/.test(req.path)) ||
-    (req.method==='PATCH' && /^\\/api\\/trades\\/[^/]+$/.test(req.path)) ||
-    (req.method==='DELETE' && /^\\/api\\/trades\\/[^/]+$/.test(req.path)) ||
+    (req.method==='POST' && /^\/api\/trades\/[^/]+\/close$/.test(req.path)) ||
+    (req.method==='PATCH' && /^\/api\/trades\/[^/]+$/.test(req.path)) ||
+    (req.method==='DELETE' && /^\/api\/trades\/[^/]+$/.test(req.path)) ||
     (req.method==='POST' && req.path==='/api/trades/pending')
   )) return rejectWeekendExecution(res);
   next();
