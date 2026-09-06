@@ -1178,3 +1178,58 @@ app.delete('/api/trades/:tradeId', authenticateToken, async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+// ========== NOTIFICATION SYSTEM ==========
+
+// 1. Get User Notifications (with unread count)
+app.get('/api/notifications', authenticateToken, async (req, res) => {
+    try {
+        const [notifications] = await db.execute(
+            'SELECT * FROM notifications WHERE user_id = ? ORDER BY created_at DESC LIMIT 50',
+            [req.userId]
+        );
+        const [unreadCount] = await db.execute(
+            'SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read_at IS NULL',
+            [req.userId]
+        );
+        res.json({ success: true, notifications, unreadCount: unreadCount[0].count });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. Mark Single Notification as Read
+app.post('/api/notifications/:id/read', authenticateToken, async (req, res) => {
+    try {
+        await db.execute('UPDATE notifications SET read_at = NOW() WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Mark All Notifications as Read
+app.post('/api/notifications/read-all', authenticateToken, async (req, res) => {
+    try {
+        await db.execute('UPDATE notifications SET read_at = NOW() WHERE user_id = ? AND read_at IS NULL', [req.userId]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Helper Function to Create Notification (for internal use)
+async function createNotification(userId, type, title, message, link = null) {
+    try {
+        await db.execute(
+            'INSERT INTO notifications (user_id, type, title, message, link) VALUES (?, ?, ?, ?, ?)',
+            [userId, type, title, message, link]
+        );
+    } catch (error) {
+        console.error('Create notification error:', error.message);
+    }
+}
+
+// 5. Notification Hook – Example: When Payment is Approved (add to existing route)
+// In your admin payment-orders/:id/status route, after updating status:
+// await createNotification(order.user_id, 'PAYMENT_APPROVED', 'Payment Approved', 'Your payment has been approved. Account will be created soon.');
