@@ -1,0 +1,12 @@
+'use strict';
+const fs=require('fs');
+const Module=require('module');
+const path=require('path');
+const legacyPath=path.join(__dirname,'server.js');
+const source=fs.readFileSync(legacyPath,'utf8');
+const start=source.indexOf('// ========== FCS LIVE MARKET DATA ==========');
+const end=source.indexOf('// ---------- GET USER ORDERS (Example) ----------');
+if(start<0||end<0||end<=start)throw new Error('Unable to locate legacy trading section safely');
+const cleanTrading=fs.readFileSync(path.join(__dirname,'clean-trading-section.txt'),'utf8');
+const transformed=source.slice(0,start)+cleanTrading+'\n'+source.slice(end);
+const m=new Module(legacyPath,module.parent);m.filename=legacyPath;m.paths=Module._nodeModulePaths(__dirname);m._compile(transformed,legacyPath);
