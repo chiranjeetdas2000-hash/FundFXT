@@ -1230,6 +1230,101 @@ async function createNotification(userId, type, title, message, link = null) {
     }
 }
 
+
+// ========== ADMIN ADVANCED CONTROLS (STEP 4) ==========
+
+// 1. Add/Subtract Funds Manually
+app.post('/api/admin/accounts/:id/add-funds', authenticateAdmin, async (req, res) => {
+    const { amount_cents, reason } = req.body;
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ?', [req.params.id]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+
+        const newBalance = account.balance_cents + amount_cents;
+        await db.execute(
+            'UPDATE accounts SET balance_cents = ?, equity_cents = ? WHERE id = ?',
+            [newBalance, newBalance, req.params.id]
+        );
+
+        // Log audit
+        await db.execute(
+            'INSERT INTO audit_logs (actor_user_id, actor_role, action, entity_type, entity_id, metadata) VALUES (?, ?, ?, ?, ?, ?)',
+            [req.adminId, 'ADMIN', 'FUND_ADJUST', 'ACCOUNT', req.params.id, JSON.stringify({ amount_cents, reason })]
+        );
+
+        res.json({ success: true, new_balance: newBalance / 100 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. Unbreach Account & Reset
+app.post('/api/admin/accounts/:id/unbreach', authenticateAdmin, async (req, res) => {
+    const { new_balance_cents, reset_drawdown } = req.body;
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ?', [req.params.id]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+
+        const newBalance = new_balance_cents || account.initial_balance_cents;
+        await db.execute(
+            `UPDATE accounts SET status = 'ACTIVE', balance_cents = ?, equity_cents = ?, equity_hwm_cents = ?, 
+             day_start_balance_cents = ?, day_start_equity_cents = ?, current_daily_loss_cents = 0, 
+             current_max_drawdown_cents = 0, breached_at = NULL, breach_reason = NULL WHERE id = ?`,
+            [newBalance, newBalance, newBalance, newBalance, newBalance, req.params.id]
+        );
+
+        res.json({ success: true, message: 'Account unbreached & reset' });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Place Manual Trade on Behalf of User
+app.post('/api/admin/accounts/:id/manual-trade', authenticateAdmin, async (req, res) => {
+    const { symbol, side, volume, entry_price, sl, tp } = req.body;
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ?', [req.params.id]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+
+        const tradeId = 'ADM-' + Date.now().toString(36).toUpperCase();
+        const tradingDay = new Date().toISOString().split('T')[0];
+
+        await db.execute(
+            `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`,
+            [tradeId, account.id, account.account_code, account.user_id, symbol, side, volume, entry_price, tradingDay, sl || null, tp || null]
+        );
+
+        res.json({ success: true, trade_id: tradeId });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Allocate New Account to User
+app.post('/api/admin/users/:id/allocate-account', authenticateAdmin, async (req, res) => {
+    const { model_key } = req.body;
+    try {
+        const [configs] = await db.execute('SELECT * FROM challenge_configs WHERE model_key = ?', [model_key]);
+        if (!configs.length) return res.status(404).json({ error: 'Invalid challenge model' });
+        const config = configs[0];
+
+        const accountCode = 'ACC-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+        await db.execute(
+            `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, status)
+             VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
+            [accountCode, req.params.id, model_key, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents]
+        );
+
+        res.json({ success: true, account_code: accountCode });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 // 5. Notification Hook – Example: When Payment is Approved (add to existing route)
 // In your admin payment-orders/:id/status route, after updating status:
 // await createNotification(order.user_id, 'PAYMENT_APPROVED', 'Payment Approved', 'Your payment has been approved. Account will be created soon.');
