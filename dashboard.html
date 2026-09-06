@@ -32,6 +32,21 @@
                 </div>
             </div>
         </div>
+        <div class="notification-container">
+    <i class="fa-regular fa-bell bell-icon" onclick="toggleNotifications()" style="cursor: pointer; position: relative; font-size: 20px;">
+        <span class="badge" id="notificationBadge">0</span>
+    </i>
+    <!-- Notification Panel -->
+    <div class="notification-panel" id="notificationPanel" style="display: none; position: absolute; right: 0; top: 40px; width: 300px; max-height: 400px; overflow-y: auto; background: #11161D; border: 1px solid #2a2a2a; border-radius: 10px; z-index: 100;">
+        <div style="padding: 15px; border-bottom: 1px solid #2a2a2a; display: flex; justify-content: space-between;">
+            <h4>Notifications</h4>
+            <button onclick="markAllNotificationsRead()" style="background: transparent; border: none; color: #00B56A; cursor: pointer;">Mark all read</button>
+        </div>
+        <div id="notificationList" style="padding: 10px;">
+            <!-- Notifications will appear here -->
+        </div>
+    </div>
+</div>
     </header>
 
     <!-- SIDEBAR -->
