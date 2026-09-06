@@ -1,0 +1,50 @@
+name: Fix BiQuote price normalization
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  fix:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch BiQuote response handling and terminal last price
+        shell: python
+        run: |
+          from pathlib import Path
+
+          p=Path('server-clean.js')
+          s=p.read_text()
+          old="const ticks=Array.isArray(body)?body:(Array.isArray(body.ticks)?body.ticks:(Array.isArray(body.data)?body.data:[]));\n  const list=ticks.length?ticks:Object.entries(body||{}).map(([symbol,t])=>({...t,symbol}));"
+          new="const ticks=Array.isArray(body)?body:(Array.isArray(body.ticks)?body.ticks:(Array.isArray(body.data)?body.data:[]));\n  const source=(body&&body.data&&typeof body.data==='object'&&!Array.isArray(body.data))?body.data:body;\n  const list=ticks.length?ticks:Object.entries(source||{}).map(([symbol,t])=>({...t,symbol:t?.symbol||symbol}));"
+          if old not in s:
+              raise SystemExit('Expected BiQuote response parser not found')
+          s=s.replace(old,new,1)
+          p.write_text(s)
+
+          p=Path('terminal.js')
+          s=p.read_text()
+          old="box.innerHTML=q.map(s=>{const p=S.prices[s]||{},bid=Number(p.bid),ask=Number(p.ask),live=Number.isFinite(bid)&&Number.isFinite(ask),spread=live?Math.abs(ask-bid):null,spPct=live&&Number.isFinite(Number(p.spreadPercent))?Number(p.spreadPercent):(live&&Number((p.mid||((bid+ask)/2)))?spread/Number(p.mid||((bid+ask)/2))*100:null),ch=Number(p.changePercent),state=String(p.marketState||'open').toLowerCase(),stale=Boolean(p.stale);return `<button class=\"quote ${s===S.selected?'selected':''}\" data-symbol=\"${s}\"><span class=\"quote-main\"><b>${s}</b><small>${live&&!stale&&state!=='closed'?'● LIVE':'○ MARKET CLOSED'}</small></span><span class=\"quote-prices\"><b class=\"bid\">${price(bid,s)}</b><b class=\"ask\">${price(ask,s)}</b><small>${live?`Δ ${Number.isFinite(ch)?(ch>=0?'+':'')+ch.toFixed(2)+'%':'—'} · SPR ${price(spread,s)}${Number.isFinite(spPct)?` · ${spPct.toFixed(3)}%`:''}`:'Bid / Ask unavailable'}</small></span></button>`}).join('')"
+          new="box.innerHTML=q.map(s=>{const p=S.prices[s]||{},bid=Number(p.bid),ask=Number(p.ask),mid=Number(p.mid),last=Number.isFinite(mid)?mid:(Number.isFinite(bid)&&Number.isFinite(ask)?(bid+ask)/2:NaN),live=Number.isFinite(bid)&&Number.isFinite(ask),spread=live?Math.abs(ask-bid):null,spPct=live&&Number.isFinite(Number(p.spreadPercent))?Number(p.spreadPercent):(live&&Number.isFinite(last)&&last?spread/last*100:null),ch=Number(p.changePercent),state=String(p.marketState||'open').toLowerCase(),stale=Boolean(p.stale);return `<button class=\"quote ${s===S.selected?'selected':''}\" data-symbol=\"${s}\"><span class=\"quote-main\"><b>${s}</b><small>${live&&!stale&&state!=='closed'?'● LIVE':'○ MARKET CLOSED'}</small></span><span class=\"quote-prices\"><b class=\"last\">${price(last,s)}</b><b class=\"bid\">${price(bid,s)}</b><b class=\"ask\">${price(ask,s)}</b><small>${live?`Δ ${Number.isFinite(ch)?(ch>=0?'+':'')+ch.toFixed(2)+'%':'—'} · SPR ${price(spread,s)}${Number.isFinite(spPct)?` · ${spPct.toFixed(3)}%`:''}`:'Bid / Ask unavailable'}</small></span></button>`}).join('')"
+          if old in s:
+              s=s.replace(old,new,1)
+          old2="function renderSelectedPrice(){const p=S.prices[S.selected]||{};$('selectedSymbol').textContent=S.selected;$('selectedPrice').textContent=`Bid ${price(p.bid,S.selected)}  •  Ask ${price(p.ask,S.selected)}  •  Spread ${price(Number(p.ask)-Number(p.bid),S.selected)}`;$('chartSource').textContent='TRADINGVIEW CHART · BIQUOTE EXECUTION FEED'}"
+          new2="function renderSelectedPrice(){const p=S.prices[S.selected]||{},mid=Number(p.mid),last=Number.isFinite(mid)?mid:(Number.isFinite(Number(p.bid))&&Number.isFinite(Number(p.ask))?(Number(p.bid)+Number(p.ask))/2:NaN);$('selectedSymbol').textContent=S.selected;$('selectedPrice').textContent=`Last ${price(last,S.selected)}  •  Bid ${price(p.bid,S.selected)}  •  Ask ${price(p.ask,S.selected)}  •  Spread ${price(Number(p.ask)-Number(p.bid),S.selected)}  •  Change ${Number.isFinite(Number(p.changePercent))?(Number(p.changePercent)>=0?'+':'')+Number(p.changePercent).toFixed(2)+'%':'—'}`;$('chartSource').textContent='TRADINGVIEW CHART · BIQUOTE EXECUTION FEED'}"
+          if old2 not in s:
+              raise SystemExit('Expected terminal selected-price renderer not found')
+          s=s.replace(old2,new2,1)
+          p.write_text(s)
+      - name: Validate JavaScript
+        run: |
+          node --check server-clean.js
+          node --check terminal.js
+      - name: Commit fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add server-clean.js terminal.js
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Fix BiQuote price response parsing and show last price"
+          git push
