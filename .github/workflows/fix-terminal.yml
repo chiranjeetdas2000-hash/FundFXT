@@ -1,0 +1,201 @@
+name: One-shot terminal fix
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  fix-terminal:
+    if: ${{ !contains(github.event.head_commit.message, '[terminal-fix-bot]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch terminal.html
+        shell: python
+        run: |
+          import re
+          from pathlib import Path
+
+          p = Path('terminal.html')
+          s = p.read_text(encoding='utf-8')
+
+          # Load the account-authoritative trade list and render every OPEN trade.
+          start = s.find('async function loadPositions()')
+          end = s.find('async function loadHistory()', start)
+          if start == -1 or end == -1:
+              raise SystemExit('loadPositions/loadHistory anchors not found')
+
+          replacement = r'''async function loadPositions() {
+              const tbody = document.getElementById('positionsTableBody');
+              const emptyState = document.getElementById('emptyState');
+              if (!currentAccountCode) return;
+
+              try {
+                  const token = localStorage.getItem('fundfxt_token');
+                  const response = await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${encodeURIComponent(currentAccountCode)}`, {
+                      headers: { 'Authorization': `Bearer ${token}` },
+                      cache: 'no-store'
+                  });
+                  const data = await response.json();
+                  if (!response.ok || !data.success) throw new Error(data.error || 'Unable to load trades');
+
+                  const openTrades = (data.trades || []).filter(t => String(t.status || '').toUpperCase() === 'OPEN');
+                  if (!openTrades.length) {
+                      emptyState.style.display = 'block';
+                      tbody.innerHTML = '';
+                      return;
+                  }
+
+                  emptyState.style.display = 'none';
+                  const weekendClosed = typeof fundfxtWeekend === 'function' && fundfxtWeekend();
+                  tbody.innerHTML = openTrades.map(trade => {
+                      const pnl = Number(trade.floating_profit_cents || 0) / 100;
+                      const id = trade.trade_id || trade.id || '';
+                      return `
+                      <tr>
+                          <td>${id}</td>
+                          <td>${trade.symbol || '--'}</td>
+                          <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side || '--'}</td>
+                          <td>${trade.volume ?? '--'}</td>
+                          <td>${trade.entry_price ?? '--'}</td>
+                          <td>${weekendClosed ? '--' : (trade.current_price ?? '--')}</td>
+                          <td style="color: ${pnl >= 0 ? 'var(--green)' : 'var(--red)'};">$${pnl.toFixed(2)}</td>
+                          <td>
+                              <button class="btn-sm modify-btn" ${weekendClosed ? 'disabled title="Market closed — weekend holding"' : ''} onclick="modifyTrade('${id}')">Modify</button>
+                              <button class="btn-sm close-btn" ${weekendClosed ? 'disabled title="Market closed — weekend holding"' : ''} onclick="closeTrade('${id}')">Close</button>
+                          </td>
+                      </tr>`;
+                  }).join('');
+              } catch (err) {
+                  console.error('FundFXT loadPositions:', err);
+                  emptyState.style.display = 'block';
+                  emptyState.innerText = 'Unable to load open trades. Retrying…';
+              }
+          }
+
+          // Actions are guarded in the UI as well as by the backend.
+          async function modifyTrade(tradeId) {
+              if (typeof fundfxtWeekend === 'function' && fundfxtWeekend()) {
+                  alert('Market is closed on Saturday/Sunday. Existing positions remain open and cannot be modified.');
+                  return;
+              }
+              const newSL = prompt('Enter new Stop Loss (or leave blank to keep):');
+              const newTP = prompt('Enter new Take Profit (or leave blank to keep):');
+              const payload = {};
+              if (newSL !== null && newSL !== '') payload.stop_loss = parseFloat(newSL);
+              if (newTP !== null && newTP !== '') payload.take_profit = parseFloat(newTP);
+              if (Object.keys(payload).length === 0) return;
+              try {
+                  const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
+                      method: 'PATCH',
+                      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` },
+                      body: JSON.stringify(payload)
+                  });
+                  const data = await response.json();
+                  if (data.success) { alert('Trade modified!'); loadPositions(); }
+                  else alert(data.error || 'Failed to modify trade');
+              } catch (e) { alert('Unable to modify trade.'); }
+          }
+
+          async function closeTrade(tradeId) {
+              if (typeof fundfxtWeekend === 'function' && fundfxtWeekend()) {
+                  alert('Market is closed on Saturday/Sunday. Existing positions remain open.');
+                  return;
+              }
+              if (!confirm('Close this trade?')) return;
+              try {
+                  const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`, {
+                      method: 'POST',
+                      headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+                  });
+                  const data = await response.json();
+                  if (data.success) {
+                      alert(`Trade closed! P/L: $${Number(data.realized_profit || 0).toFixed(2)}`);
+                      loadPositions();
+                      loadHistory();
+                      fetchAccountSummary();
+                  } else alert(data.error || 'Failed to close trade');
+              } catch (e) { alert('Unable to close trade.'); }
+          }
+
+          '''
+          s = s[:start] + replacement + s[end:]
+
+          # Remove the later duplicate action definitions so the guarded versions above remain authoritative.
+          pattern = r'\n\s*// --- TRADE ACTIONS ---\s*\n\s*async function closeTrade\(tradeId\) \{.*?\n\s*async function cancelPending\(tradeId\) \{'
+          m = re.search(pattern, s, flags=re.S)
+          if m:
+              cancel_start = m.end() - len('async function cancelPending(tradeId) {')
+              s = s[:m.start()] + '\n        // --- TRADE ACTIONS ---\n        ' + s[cancel_start:]
+
+          # Make market/pending execution buttons unavailable on weekends.
+          guard = r'''
+        function fundfxtIsWeekendNow() {
+            const d = new Date().getUTCDay();
+            return d === 0 || d === 6;
+        }
+        function updateWeekendTradingUI() {
+            const closed = fundfxtIsWeekendNow();
+            document.querySelectorAll('.btn-buy, .btn-sell, .order-type-tab, #mktLots, #mktSL, #mktTP, #limitPrice').forEach(el => {
+                if (el) el.disabled = closed;
+            });
+        }
+'''
+          marker = "        // --- ORDER TYPE ---"
+          if 'function fundfxtIsWeekendNow()' not in s and marker in s:
+              s = s.replace(marker, guard + '\n' + marker, 1)
+
+          # Block execution before any network request even if the button is invoked programmatically.
+          needle = "        async function executeOrder(side) {\n            if (!currentAccountCode)"
+          if needle in s:
+              s = s.replace(needle, "        async function executeOrder(side) {\n            if (fundfxtIsWeekendNow()) return alert('Market is closed on Saturday/Sunday. Trading changes are unavailable.');\n            if (!currentAccountCode)", 1)
+
+          # Load the dedicated sync patch after the terminal's main script so its helper is available globally.
+          script_tag = '<script src="terminal-trades-fix.js"></script>'
+          if script_tag not in s:
+              s = s.replace('</body>', '    ' + script_tag + '\n</body>', 1)
+
+          # Periodically refresh all read-only trade views and refresh immediately after weekend -> weekday transition.
+          hook = r'''
+        (function initFundFXTTradeSync(){
+            let wasWeekend = fundfxtIsWeekendNow();
+            updateWeekendTradingUI();
+            setInterval(async () => {
+                const nowWeekend = fundfxtIsWeekendNow();
+                updateWeekendTradingUI();
+                if (nowWeekend !== wasWeekend) {
+                    wasWeekend = nowWeekend;
+                    loadPositions();
+                    loadHistory();
+                    loadPendingOrders();
+                    fetchAccountSummary();
+                } else if (currentAccountCode) {
+                    if (currentTab === 'positions') loadPositions();
+                    else if (currentTab === 'history') loadHistory();
+                    else if (currentTab === 'pending') loadPendingOrders();
+                }
+            }, 5000);
+        })();
+'''
+          if 'initFundFXTTradeSync' not in s:
+              pos = s.rfind('</script>')
+              if pos == -1: raise SystemExit('script closing tag not found')
+              s = s[:pos] + hook + s[pos:]
+
+          p.write_text(s, encoding='utf-8')
+
+      - name: Commit patched terminal
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add terminal.html
+          git diff --cached --quiet && exit 0
+          git commit -m "fix: wire terminal trade sync and weekend controls [terminal-fix-bot]"
+          git push
