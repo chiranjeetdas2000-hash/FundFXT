@@ -74,23 +74,30 @@
 
     <div class="main-content">
         
-        <!-- DASHBOARD SECTION -->
-        <div id="section-dashboard" class="view-section active">
-            <div class="header">
-                <h1>Overview</h1>
-                <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
-            </div>
-            <div class="stats-grid">
-                <div class="stat-card"><h4>Pending Requests</h4><div class="value" id="pendingCount">0</div></div>
-                <div class="stat-card"><h4>Total Revenue</h4><div class="value" id="totalRevenue">$0</div></div>
-            </div>
-            <div class="table-container">
-                <table id="dashboardTable">
-                    <thead><tr><th>Request ID</th><th>User</th><th>Challenge</th><th>Amount</th><th>Status</th></tr></thead>
-                    <tbody id="dashboardTableBody"></tbody>
-                </table>
-            </div>
-        </div>
+                <!-- DASHBOARD SECTION -->
+                <div id="section-dashboard" class="view-section active">
+                          <div class="header">
+                                <h1>Overview</h1>
+                                <button class="logout-btn" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</button>
+                          </div>
+                          
+                          <div class="stats-grid">
+                                <div class="stat-card">
+                                    <h4>Pending Requests</h4>
+                                    <div class="value" id="pendingCount">0</div>
+                                </div>
+                                <div class="stat-card"> 
+                                    <h4>Total Revenue</h4>
+                                    <div class="value" id="totalRevenue">$0</div>
+                                </div>
+                            </div>
+                            <div class="table-container">
+                                    <table id="dashboardTable">
+                                    <thead><tr><th>Request ID</th><th>User</th><th>Challenge</th><th>Amount</th><th>Status</th></tr></thead>
+                                    <tbody id="dashboardTableBody"></tbody>
+                                    </table>
+                            </div>
+                 </div>
 
         <!-- USERS SECTION -->
         <div id="section-users" class="view-section">
@@ -176,6 +183,32 @@
                 </div>
             </div>
         </div>
+        <!-- SYSTEM SETTINGS SECTION -->
+<div id="section-settings" class="view-section">
+    <div class="header"><h1>System Settings</h1></div>
+    
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; max-width: 600px;">
+        <h3 style="margin-bottom: 15px;">Payment Mode</h3>
+        <div style="margin-bottom: 20px;">
+            <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 8px;">
+                <input type="radio" name="paymentMode" value="MANUAL" id="modeManual"> Manual (Admin creates payment link)
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px;">
+                <input type="radio" name="paymentMode" value="AUTO" id="modeAuto"> Automatic (Razorpay checkout)
+            </label>
+        </div>
+        
+        <h3 style="margin-bottom: 15px;">Maintenance Mode</h3>
+        <label style="display: flex; align-items: center; gap: 10px; margin-bottom: 20px;">
+            <input type="checkbox" id="maintenanceMode"> Enable Maintenance Mode
+        </label>
+        
+        <div style="margin-top: 20px;">
+            <button class="action-btn" onclick="saveSettings()">Save Settings</button>
+            <span id="settingsMessage" style="margin-left: 10px; color: var(--text-muted);"></span>
+        </div>
+    </div>
+</div>
 
     </div>
 
