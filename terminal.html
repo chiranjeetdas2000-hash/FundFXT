@@ -457,6 +457,9 @@
             backendSocket.onclose = () => setTimeout(connectBackendWS, 3000);
         }
 
+        function fundfxtIsWeekendNow(){const d=new Date().getUTCDay();return d===0||d===6;}
+        function updateWeekendTradingUI(){const closed=fundfxtIsWeekendNow();document.querySelectorAll('.btn-buy,.btn-sell,.order-type-tab,#mktLots,#mktSL,#mktTP,#limitPrice').forEach(el=>{el.disabled=closed;});}
+
         // --- ORDER TYPE ---
         function setOrderType(type) {
             orderType = type;
@@ -478,6 +481,7 @@
 
         // --- EXECUTE ORDER ---
         async function executeOrder(side) {
+            if (fundfxtIsWeekendNow()) return alert('Market is closed on Saturday/Sunday. Trading changes are unavailable.');
             if (!currentAccountCode) return alert("No account selected!");
             
             const volume = parseFloat(document.getElementById('mktLots').value);
@@ -545,176 +549,75 @@
         }
 
        //  loadPositions function ko isse REPLACE karo
-          async function loadPositions() {
-              const tbody = document.getElementById('positionsTableBody');
-              const emptyState = document.getElementById('emptyState');
-    if (!currentAccountCode) return;
-
-    const response = await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${currentAccountCode}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-    });
-    const data = await response.json();
-
-    if (data.success) {
-        const openTrades = data.trades.filter(t => t.status === 'OPEN');
-        if (openTrades.length === 0) {
-            emptyState.style.display = 'block';
-            tbody.innerHTML = '';
-        } else {
-            emptyState.style.display = 'none';
-            tbody.innerHTML = openTrades.map(trade => `
-                <tr>
-                    <td>${trade.symbol}</td>
-                    <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
-                    <td>${trade.volume}</td>
-                    <td>${trade.entry_price}</td>
-                    <td>${trade.current_price || '--'}</td>
-                    <td style="color: ${trade.floating_profit_cents >= 0 ? 'var(--green)' : 'var(--red)'};">$${(trade.floating_profit_cents / 100).toFixed(2)}</td>
-                    <td>
-                        <button class="btn-sm modify-btn" onclick="modifyTrade('${trade.trade_id}')">Modify</button>
-                        <button class="btn-sm close-btn" onclick="closeTrade('${trade.trade_id}')">Close</button>
-                    </td>
-                </tr>
-            `).join('');
-        }
-    }
+          async function loadPositions(){
+    const tbody=document.getElementById('positionsTableBody');
+    const emptyState=document.getElementById('emptyState');
+    if(!currentAccountCode)return;
+    try{
+        const r=await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${encodeURIComponent(currentAccountCode)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`},cache:'no-store'});
+        const d=await r.json();
+        if(!r.ok||!d.success)throw new Error(d.error||'Unable to load trades');
+        const trades=d.trades||[];
+        const open=trades.filter(t=>String(t.status||'').toUpperCase()==='OPEN');
+        if(!open.length){emptyState.style.display='block';emptyState.innerText='No Open Trades';tbody.innerHTML='';return;}
+        emptyState.style.display='none';
+        const weekend=fundfxtIsWeekendNow();
+        tbody.innerHTML=open.map(t=>{
+            const pnl=Number(t.floating_profit_cents||0)/100;
+            const id=t.trade_id||t.id||'';
+            const side=String(t.side||'').toUpperCase();
+            return `<tr><td>${id}</td><td>${t.symbol||'--'}</td><td style="color:${side==='BUY'?'var(--green)':'var(--red)'}">${side||'--'}</td><td>${t.volume??'--'}</td><td>${t.entry_price??'--'}</td><td>${weekend?'--':(t.current_price??'--')}</td><td style="color:${pnl>=0?'var(--green)':'var(--red)'}">$${pnl.toFixed(2)}</td><td><button class="btn-sm modify-btn" ${weekend?'disabled title="Weekend — position cannot be modified"':''} onclick="modifyTrade('${id}')">Modify</button><button class="btn-sm close-btn" ${weekend?'disabled title="Weekend — position remains open"':''} onclick="closeTrade('${id}')">Close</button></td></tr>`;
+        }).join('');
+    }catch(e){console.error('FundFXT loadPositions:',e);emptyState.style.display='block';emptyState.innerText='Unable to load open trades. Retrying…';}
 }
 
-// ADD these 2 new functions at the bottom of the script
-async function modifyTrade(tradeId) {
-    const newSL = prompt('Enter new Stop Loss (or leave blank):');
-    const newTP = prompt('Enter new Take Profit (or leave blank):');
-    const payload = {};
-    if (newSL !== null && newSL !== '') payload.stop_loss = parseFloat(newSL);
-    if (newTP !== null && newTP !== '') payload.take_profit = parseFloat(newTP);
-    
-    if (Object.keys(payload).length === 0) return;
-    const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` },
-        body: JSON.stringify(payload)
-    });
-    const data = await response.json();
-    if (data.success) { alert('Trade modified!'); loadPositions(); }
-    else alert(data.error || 'Failed');
+async function modifyTrade(tradeId){
+    if(fundfxtIsWeekendNow())return alert('Market is closed on Saturday/Sunday. Existing positions remain open and cannot be modified.');
+    const newSL=prompt('Enter new Stop Loss (or leave blank):');
+    const newTP=prompt('Enter new Take Profit (or leave blank):');
+    const payload={};
+    if(newSL!==null&&newSL!=='')payload.stop_loss=parseFloat(newSL);
+    if(newTP!==null&&newTP!=='')payload.take_profit=parseFloat(newTP);
+    if(!Object.keys(payload).length)return;
+    try{const r=await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'Failed to modify trade');loadPositions();}catch(e){alert(e.message||'Unable to modify trade.');}
 }
 
-async function closeTrade(tradeId) {
-    if (!confirm('Close this trade?')) return;
-    const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-    });
-    const data = await response.json();
-    if (data.success) { alert(`Closed! P/L: $${data.realized_profit.toFixed(2)}`); loadPositions(); fetchAccountSummary(); }
-    else alert(data.error || 'Failed');
+async function closeTrade(tradeId){
+    if(fundfxtIsWeekendNow())return alert('Market is closed on Saturday/Sunday. Existing positions remain open.');
+    if(!confirm('Close this trade?'))return;
+    try{const r=await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`,{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`}});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'Failed to close trade');loadPositions();loadHistory();fetchAccountSummary();}catch(e){alert(e.message||'Unable to close trade.');}
 }
-        async function loadHistory() {
-            const tbody = document.getElementById('positionsTableBody');
-            const emptyState = document.getElementById('emptyState');
 
-            const response = await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${currentAccountCode}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-            });
-            const data = await response.json();
+async function loadHistory(){
+    const tbody=document.getElementById('positionsTableBody');
+    const emptyState=document.getElementById('emptyState');
+    if(!currentAccountCode)return;
+    try{
+        const r=await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${encodeURIComponent(currentAccountCode)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`},cache:'no-store'});
+        const d=await r.json(); if(!r.ok||!d.success)throw new Error(d.error||'Unable to load trade history');
+        const rows=(d.trades||[]).filter(t=>!['OPEN','PENDING','PLACED'].includes(String(t.status||'').toUpperCase()));
+        if(!rows.length){emptyState.style.display='block';emptyState.innerText='No Trade History';tbody.innerHTML='';return;}
+        emptyState.style.display='none';
+        tbody.innerHTML=rows.map(t=>{const pnl=Number(t.realized_profit_cents||0)/100;return `<tr><td>${t.trade_id||t.id||'--'}</td><td>${t.symbol||'--'}</td><td style="color:${String(t.side).toUpperCase()==='BUY'?'var(--green)':'var(--red)'}">${t.side||'--'}</td><td>${t.volume??'--'}</td><td>${t.entry_price??'--'}</td><td>${t.exit_price??'--'}</td><td style="color:${pnl>=0?'var(--green)':'var(--red)'}">$${pnl.toFixed(2)}</td><td><span style="color:var(--text-muted)">${t.status||'--'}${t.close_reason?' ('+t.close_reason+')':''}</span></td></tr>`;}).join('');
+    }catch(e){console.error('FundFXT loadHistory:',e);emptyState.style.display='block';emptyState.innerText='Unable to load trade history. Retrying…';}
+}
 
-            if (data.success) {
-                const closedTrades = data.trades.filter(t => t.status !== 'OPEN');
-                if (closedTrades.length === 0) {
-                    emptyState.style.display = 'block';
-                    tbody.innerHTML = '';
-                } else {
-                    emptyState.style.display = 'none';
-                    tbody.innerHTML = closedTrades.map(trade => `
-                        <tr>
-                            <td>${trade.trade_id}</td>
-                            <td>${trade.symbol}</td>
-                            <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
-                            <td>${trade.volume}</td>
-                            <td>${trade.entry_price}</td>
-                            <td>${trade.exit_price || '--'}</td>
-                            <td style="color: ${trade.realized_profit_cents >= 0 ? 'var(--green)' : 'var(--red)'};">$${(trade.realized_profit_cents / 100).toFixed(2)}</td>
-                            <td><span style="color: var(--text-muted);">${trade.status} (${trade.close_reason || ''})</span></td>
-                        </tr>
-                    `).join('');
-                }
-            }
-        }
+async function loadPendingOrders(){
+    const tbody=document.getElementById('positionsTableBody');
+    const emptyState=document.getElementById('emptyState');
+    if(!currentAccountCode)return;
+    try{
+        const r=await fetch(`https://fundfxt.onrender.com/api/trades/pending?account_code=${encodeURIComponent(currentAccountCode)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`},cache:'no-store'});
+        const d=await r.json(); if(!r.ok||!d.success)throw new Error(d.error||'Unable to load pending orders');
+        const rows=d.trades||[];
+        if(!rows.length){emptyState.style.display='block';emptyState.innerText='No Pending Orders';tbody.innerHTML='';return;}
+        emptyState.style.display='none';
+        tbody.innerHTML=rows.map(t=>`<tr><td>${t.trade_id||t.id||'--'}</td><td>${t.symbol||'--'}</td><td style="color:${String(t.side).toUpperCase()==='BUY'?'var(--green)':'var(--red)'}">${t.side||'--'} ${t.order_type||''}</td><td>${t.volume??'--'}</td><td>${t.entry_price??'--'}</td><td>--</td><td>--</td><td><button class="trade-action-btn" ${fundfxtIsWeekendNow()?'disabled':''} onclick="cancelPending('${t.trade_id||t.id}')">Cancel</button></td></tr>`).join('');
+    }catch(e){console.error('FundFXT loadPendingOrders:',e);emptyState.style.display='block';emptyState.innerText='Unable to load pending orders. Retrying…';}
+}
 
-        async function loadPendingOrders() {
-            const tbody = document.getElementById('positionsTableBody');
-            const emptyState = document.getElementById('emptyState');
-            
-            const response = await fetch(`https://fundfxt.onrender.com/api/trades/pending?account_code=${currentAccountCode}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                const pendingTrades = data.trades || [];
-                if (pendingTrades.length === 0) {
-                    emptyState.style.display = 'block';
-                    tbody.innerHTML = '';
-                } else {
-                    emptyState.style.display = 'none';
-                    tbody.innerHTML = pendingTrades.map(trade => `
-                        <tr>
-                            <td>${trade.trade_id}</td>
-                            <td>${trade.symbol}</td>
-                            <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
-                            <td>${trade.volume}</td>
-                            <td>${trade.entry_price}</td>
-                            <td>--</td>
-                            <td>--</td>
-                            <td><button class="trade-action-btn" onclick="cancelPending('${trade.trade_id}')">Cancel</button></td>
-                        </tr>
-                    `).join('');
-                }
-            }
-        }
-
-        // --- TRADE ACTIONS ---
-        async function closeTrade(tradeId) {
-            if (!confirm('Close this trade?')) return;
-            const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`, {
-                method: 'POST',
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-            });
-            const data = await response.json();
-            if (data.success) {
-                alert(`Trade closed! P/L: $${data.realized_profit.toFixed(2)}`);
-                loadPositions();
-                fetchAccountSummary();
-            } else {
-                alert(data.error || 'Failed to close');
-            }
-        }
-
-        async function modifyTrade(tradeId) {
-            const newSL = prompt('Enter new Stop Loss (or leave blank to keep):');
-            const newTP = prompt('Enter new Take Profit (or leave blank to keep):');
-            
-            const payload = {};
-            if (newSL !== null && newSL !== '') payload.stop_loss = parseFloat(newSL);
-            if (newTP !== null && newTP !== '') payload.take_profit = parseFloat(newTP);
-            
-            if (Object.keys(payload).length === 0) return;
-            
-            const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` },
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (data.success) {
-                alert('Trade modified!');
-                loadPositions();
-            } else {
-                alert(data.error || 'Failed to modify');
-            }
-        }
-
-        async function cancelPending(tradeId) {
+async function cancelPending(tradeId) {
+            if (fundfxtIsWeekendNow()) return alert('Market is closed on Saturday/Sunday. Existing pending orders remain unchanged.');
             if (!confirm('Cancel this pending order?')) return;
             const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
                 method: 'DELETE',
@@ -868,6 +771,7 @@ window.addEventListener('load', () => {
             loadPositions();
             fetchAccountSummary();
         };
-    </script>
+            (function initFundFXTTradeSync(){let wasWeekend=fundfxtIsWeekendNow();updateWeekendTradingUI();setInterval(()=>{const nowWeekend=fundfxtIsWeekendNow();updateWeekendTradingUI();if(nowWeekend!==wasWeekend){wasWeekend=nowWeekend;loadPositions();loadHistory();loadPendingOrders();fetchAccountSummary();}else if(currentAccountCode){if(currentTab==='positions')loadPositions();else if(currentTab==='history')loadHistory();else if(currentTab==='pending')loadPendingOrders();}},5000);})();
+</script>
 </body>
 </html>
