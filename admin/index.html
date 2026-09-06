@@ -571,6 +571,70 @@ async function saveSettings() {
         alert('Server error while saving settings');
     }
 }
+
+        // Fetch Affiliate Payouts
+async function fetchAffiliatePayouts() {
+    const tbody = document.getElementById('affiliatePayoutsBody');
+    if (!tbody) return;
+
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/admin/affiliate-payouts', {
+            headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}` }
+        });
+        const data = await response.json();
+        
+        if (data.success && data.payouts.length > 0) {
+            tbody.innerHTML = data.payouts.map(p => `
+                <tr>
+                    <td>${p.request_ref}</td>
+                    <td>${p.legal_name} (${p.affiliate_code})</td>
+                    <td>$${(p.amount_cents / 100).toFixed(2)}</td>
+                    <td><span class="status-badge">${p.status}</span></td>
+                    <td>
+                        <button class="action-btn" onclick="updateAffiliatePayout(${p.id}, 'PAID')">Mark Paid</button>
+                        <button class="action-btn reject" onclick="updateAffiliatePayout(${p.id}, 'REJECTED')">Reject</button>
+                    </td>
+                </tr>
+            `).join('');
+        } else {
+            tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; color: var(--text-muted);">No payout requests found.</td></tr>';
+        }
+    } catch (error) {
+        console.error('Fetch affiliate payouts error:', error);
+    }
+}
+
+// Update Payout Status
+async function updateAffiliatePayout(id, status) {
+    if (!confirm(`Mark this payout as ${status}?`)) return;
+    
+    try {
+        const response = await fetch(`https://fundfxt.onrender.com/api/admin/affiliate-payouts/${id}/status`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}` },
+            body: JSON.stringify({ status })
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert('Payout updated!');
+            fetchAffiliatePayouts();
+            fetchAffiliates(); // Refresh affiliate list
+        } else {
+            alert(data.error || 'Failed to update');
+        }
+    } catch (error) {
+        console.error('Update payout error:', error);
+    }
+}
+
+// Load affiliate payouts when showing affiliates section
+function showSection(sectionName) {
+    // ... existing code ...
+    if (sectionName === 'affiliates') {
+        fetchAffiliates();
+        fetchAffiliatePayouts(); // <--- Add this line
+    }
+}
         // Initial Load
         window.onload = () => fetchDashboard();
     </script>
