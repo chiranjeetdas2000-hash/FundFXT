@@ -9,8 +9,9 @@ const end=source.indexOf('// ---------- GET USER ORDERS (Example) ----------');
 if(start<0||end<0||end<=start)throw new Error('Unable to locate legacy trading section safely');
 let cleanTrading=fs.readFileSync(path.join(__dirname,'clean-trading-section.txt'),'utf8');
 
-// Weekend market-session guard. Existing Friday positions remain open over the weekend;
-// the first valid FCS quote after the weekend is used to evaluate SL/TP and floating P/L.
+// Forex weekend session guard. Friday positions remain open over Saturday/Sunday.
+// On the first valid FCS quote after the weekend, live P/L and SL/TP are evaluated
+// against that opening quote (including gaps through the SL/TP level).
 const weekendGuard = `
 function isForexWeekend(){
   const day=new Date().getUTCDay();
@@ -18,10 +19,9 @@ function isForexWeekend(){
 }
 function rejectWeekendExecution(res){
   if(!isForexWeekend()) return false;
-  res.status(ตลาดStatus()).json({error:'Forex market is closed on Saturday and Sunday. Orders cannot execute during the weekend.'});
+  res.status(409).json({error:'Forex market is closed on Saturday and Sunday. Orders cannot execute during the weekend.'});
   return true;
 }
-function ตลาดStatus(){ return 409; }
 `;
 cleanTrading=weekendGuard+cleanTrading;
 cleanTrading=cleanTrading.replace(
