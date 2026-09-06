@@ -312,50 +312,91 @@
 
         // ========== REQUEST PAYMENT ==========
         async function requestPayment() {
-            if (paymentBusy) return;
-            if (!customerVerified) { alert("Please verify account first."); return; }
-            if (!token) { alert("Please login to complete purchase."); window.location.href = 'auth.html'; return; }
-            
-            paymentBusy = true;
-            document.getElementById('buyBtn').disabled = true;
-            document.getElementById('buyBtn').innerText = 'Creating Request...';
-            
-            const affiliateCode = document.getElementById('affiliateCode').value;
-            const email = document.getElementById('lookupEmail').value;
-            
-            try {
-                const response = await fetch(`${API_BASE_URL}/api/payments/request`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-                    body: JSON.stringify({ model: selectedModel, affiliate_code: affiliateCode, email })
-                });
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('successModal').style.display = 'flex';
-                    document.getElementById('requestRef').innerText = data.request_ref;
-                    document.getElementById('requestEmail').innerText = email;
-                } else {
-                    alert(data.error || 'Request failed');
-                    document.getElementById('buyBtn').disabled = false;
-                    document.getElementById('buyBtn').innerText = 'Request Payment';
+    if (paymentBusy) return;
+    if (!customerVerified) { alert("Please verify account first."); return; }
+    if (!token) { alert("Please login to complete purchase."); window.location.href = 'auth.html'; return; }
+    
+    paymentBusy = true;
+    document.getElementById('buyBtn').disabled = true;
+    document.getElementById('buyBtn').innerText = 'Creating Request...';
+    
+    const affiliateCode = document.getElementById('affiliateCode').value;
+    const email = document.getElementById('lookupEmail').value;
+    
+    try {
+        // Fetch current payment mode from backend
+        const settingsRes = await fetch('https://fundfxt.onrender.com/api/settings');
+        const settingsData = await settingsRes.json();
+        const paymentMode = settingsData.settings?.payment_mode?.mode || 'MANUAL';
+        
+        // Call the payment request API
+        const response = await fetch(`${API_BASE_URL}/api/payments/request`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ model: selectedModel, affiliate_code: affiliateCode, email })
+        });
+        const data = await response.json();
+        
+        if (paymentMode === 'AUTO' && data.auto_payment) {
+            // ========== AUTO MODE: Open Razorpay Popup ==========
+            const options = {
+                key: data.key_id,
+                amount: data.amount,
+                currency: data.currency,
+                name: "FundFXT",
+                description: selectedModel === 'direct' ? "Direct Funded" : "2-Step Challenge",
+                order_id: data.razorpay_order_id,
+                prefill: {
+                    name: document.getElementById('dispName').innerText,
+                    email: email
+                },
+                theme: { color: "#00B56A" },
+                handler: async function (paymentResponse) {
+                    // Verify payment on backend
+                    const verifyResponse = await fetch(`${API_BASE_URL}/api/payments/verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+                        body: JSON.stringify(paymentResponse)
+                    });
+                    const verifyData = await verifyResponse.json();
+                    if (verifyData.success) {
+                        alert('✅ Payment Successful! Account will be created shortly.');
+                        window.location.href = 'dashboard.html';
+                    } else {
+                        alert('❌ Payment verification failed. Contact support.');
+                    }
+                    paymentBusy = false;
+                },
+                modal: {
+                    ondismiss: function() {
+                        paymentBusy = false;
+                        document.getElementById('buyBtn').disabled = false;
+                        document.getElementById('buyBtn').innerText = 'Request Payment';
+                    }
                 }
-            } catch (error) {
-                alert('Server connection error.');
+            };
+            const rzp = new Razorpay(options);
+            rzp.open();
+        } else {
+            // ========== MANUAL MODE: Show Request Submitted Modal ==========
+            if (data.success) {
+                document.getElementById('successModal').style.display = 'flex';
+                document.getElementById('requestRef').innerText = data.request_ref;
+                document.getElementById('requestEmail').innerText = email;
+            } else {
+                alert(data.error || 'Request failed');
                 document.getElementById('buyBtn').disabled = false;
                 document.getElementById('buyBtn').innerText = 'Request Payment';
-            } finally {
-                paymentBusy = false;
             }
+            paymentBusy = false;
         }
-
-        function closeModal() {
-            document.getElementById('successModal').style.display = 'none';
-            window.location.href = 'dashboard.html';
-        }
-
-        // ========== INIT ==========
-        updatePriceUI();
-    </script>
+    } catch (error) {
+        console.error('Request error:', error);
+        alert('Server connection error.');
+        document.getElementById('buyBtn').disabled = false;
+        document.getElementById('buyBtn').innerText = 'Request Payment';
+        paymentBusy = false;
+    }
+}    </script>
 </body>
 </html>
