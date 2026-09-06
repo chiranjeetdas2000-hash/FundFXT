@@ -1325,6 +1325,48 @@ app.post('/api/admin/users/:id/allocate-account', authenticateAdmin, async (req,
         res.status(500).json({ error: error.message });
     }
 });
+
+// ========== SYSTEM SETTINGS API ==========
+
+// Get all settings
+app.get('/api/settings', async (req, res) => {
+    try {
+        const [rows] = await db.query('SELECT * FROM settings');
+        const settings = {};
+        rows.forEach(row => {
+            settings[row.setting_key] = JSON.parse(row.setting_value);
+        });
+        res.json({ success: true, settings });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Update settings (admin only)
+app.post('/api/admin/settings', authenticateAdmin, async (req, res) => {
+    const { settings } = req.body;
+    try {
+        for (const [key, value] of Object.entries(settings)) {
+            await db.execute(
+                'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = VALUES(setting_value)',
+                [key, JSON.stringify(value)]
+            );
+        }
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Helper to get payment mode (used in payment request route)
+async function getPaymentMode() {
+    const [rows] = await db.query('SELECT setting_value FROM settings WHERE setting_key = "payment_mode"');
+    if (rows.length > 0) {
+        return JSON.parse(rows[0].setting_value).mode || 'MANUAL';
+    }
+    return 'MANUAL'; // default
+}
+
 // 5. Notification Hook – Example: When Payment is Approved (add to existing route)
 // In your admin payment-orders/:id/status route, after updating status:
 // await createNotification(order.user_id, 'PAYMENT_APPROVED', 'Payment Approved', 'Your payment has been approved. Account will be created soon.');
