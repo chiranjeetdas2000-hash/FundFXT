@@ -1564,6 +1564,107 @@ app.post('/api/admin/affiliates/:id/adjust-commission', authenticateAdmin, async
     }
 });
 
+
+// ========== CUSTOMER SUPPORT TICKETS ==========
+
+// 1. User: Create Support Ticket
+app.post('/api/support/ticket', authenticateToken, async (req, res) => {
+    const { subject, message } = req.body;
+    try {
+        if (!subject || !message) return res.status(400).json({ error: 'Subject and message required' });
+
+        const ticketRef = 'TKT-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+        await db.execute(
+            'INSERT INTO notifications (user_id, type, title, message, link) VALUES (?, ?, ?, ?, ?)',
+            [req.userId, 'SUPPORT_TICKET', subject, message, `/support?ticket=${ticketRef}`]
+        );
+
+        // Create ticket in a support_tickets table (if exists, else create)
+        // Assuming table already exists - if not, you'll need to create it manually
+        // For now, we'll just store as notification and return ref
+        res.json({ success: true, ticket_ref: ticketRef });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. User: Get My Tickets (via notifications or dedicated table)
+app.get('/api/support/tickets', authenticateToken, async (req, res) => {
+    try {
+        const [tickets] = await db.execute(
+            "SELECT * FROM notifications WHERE user_id = ? AND type = 'SUPPORT_TICKET' ORDER BY created_at DESC",
+            [req.userId]
+        );
+        res.json({ success: true, tickets });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Admin: Get All Support Tickets
+app.get('/api/admin/support/tickets', authenticateAdmin, async (req, res) => {
+    try {
+        const [tickets] = await db.query(`
+            SELECT n.*, u.legal_name, u.email 
+            FROM notifications n 
+            JOIN users u ON n.user_id = u.id 
+            WHERE n.type = 'SUPPORT_TICKET' 
+            ORDER BY n.created_at DESC
+        `);
+        res.json({ success: true, tickets });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Admin: Resolve Ticket (mark as read/resolved)
+app.post('/api/admin/support/tickets/:id/resolve', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    try {
+        await db.execute('UPDATE notifications SET read_at = NOW() WHERE id = ? AND type = "SUPPORT_TICKET"', [id]);
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// ========== CERTIFICATES (User View) ==========
+
+// 5. User: Get My Certificates
+app.get('/api/certificates/my', authenticateToken, async (req, res) => {
+    try {
+        const [certificates] = await db.execute(
+            `SELECT c.*, a.account_code 
+             FROM certificates c 
+             LEFT JOIN accounts a ON c.account_id = a.id 
+             WHERE c.user_id = ? 
+             ORDER BY c.issued_on DESC`,
+            [req.userId]
+        );
+        res.json({ success: true, certificates });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 6. Verify Certificate (Public - used for verification page)
+app.get('/api/certificates/verify/:certRef', async (req, res) => {
+    try {
+        const [cert] = await db.execute(
+            `SELECT c.*, u.legal_name, a.account_code 
+             FROM certificates c 
+             JOIN users u ON c.user_id = u.id 
+             LEFT JOIN accounts a ON c.account_id = a.id 
+             WHERE c.certificate_ref = ?`,
+            [req.params.certRef]
+        );
+        if (!cert.length) return res.status(404).json({ error: 'Certificate not found' });
+        res.json({ success: true, certificate: cert[0] });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 // 5. Notification Hook – Example: When Payment is Approved (add to existing route)
 // In your admin payment-orders/:id/status route, after updating status:
 // await createNotification(order.user_id, 'PAYMENT_APPROVED', 'Payment Approved', 'Your payment has been approved. Account will be created soon.');
