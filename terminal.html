@@ -98,6 +98,117 @@
             .bottom-panel { position: static; height: auto; margin-top: 10px; }
             .bottom-panel { left: 0; right: 0; }
         }
+        /* Mobile Bottom Navigation */
+.mobile-bottom-nav {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    z-index: 1000;
+    justify-content: space-around;
+    padding: 8px 0;
+}
+
+.m-nav-btn {
+    background: none;
+    border: none;
+    color: var(--text-muted);
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 8px;
+    border-radius: 8px;
+    flex: 1;
+}
+
+.m-nav-btn.active {
+    color: var(--green);
+    background: rgba(0,181,106,0.1);
+}
+
+.m-nav-btn i {
+    font-size: 20px;
+}
+
+/* Mobile Drawer */
+.mobile-drawer {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px;
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    z-index: 999;
+    transform: translateX(-100%);
+    transition: transform 0.3s;
+}
+
+.mobile-drawer.open {
+    transform: translateX(0);
+}
+
+.drawer-header {
+    padding: 15px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.drawer-content {
+    padding: 15px;
+    height: calc(100% - 50px);
+    overflow-y: auto;
+}
+
+/* Mobile Order Sheet */
+.mobile-order-sheet {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: var(--bg-card);
+    border-top: 1px solid var(--border);
+    z-index: 999;
+    transform: translateY(100%);
+    transition: transform 0.3s;
+    padding: 15px;
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+.mobile-order-sheet.open {
+    transform: translateY(0);
+}
+
+.sheet-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+/* Desktop Hide Mobile Elements */
+@media (max-width: 768px) {
+    .left-panel, .right-panel, .bottom-panel {
+        display: none;
+    }
+    .mobile-bottom-nav {
+        display: flex;
+    }
+    .center-panel {
+        height: calc(100vh - 90px);
+    }
+}
     </style>
 </head>
 <body>
