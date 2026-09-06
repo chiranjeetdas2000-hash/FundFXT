@@ -1,132 +1,20 @@
-name: One-shot terminal and trade consistency fix
-
+name: FundFXT consistency fix
 on:
   push:
     branches: [main]
-
 permissions:
   contents: write
-
 jobs:
-  fix:
+  patch:
     if: ${{ !contains(github.event.head_commit.message, '[terminal-fix-bot]') }}
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-
-      - name: Patch backend account-authoritative trade routes
-        shell: python
-        run: |
-          from pathlib import Path
-          p=Path('server-clean.js')
-          s=p.read_text(encoding='utf-8')
-          marker="// Block all position/order mutations during the weekend. Reads remain available."
-          block=r'''// Account-authoritative mutation routes. Trade ownership is derived from the
-// authenticated account, not from a possibly stale legacy trades.user_id value.
-app.post('/api/trades/:tradeId/close',authenticateToken,async(req,res)=>{try{
-  const [t]=await db.execute("SELECT tr.* FROM trades tr JOIN accounts a ON a.id=tr.account_id WHERE tr.trade_id=? AND a.user_id=? AND tr.status='OPEN'",[req.params.tradeId,req.userId]);
-  if(!t.length)return res.status(404).json({error:'Open trade not found'});
-  const q=liveQuote(t[0].symbol);if(!q)return res.status(503).json({error:'Live price unavailable'});
-  const exit=t[0].side==='BUY'?q.bid:q.ask;
-  const c=await closeTradeAtomic(t[0].trade_id,'MANUAL',exit);
-  if(!c)return res.status(409).json({error:'Trade was already closed'});
-  res.json({success:true,exit_price:exit,realized_profit:c.realized_profit_cents/100});
-}catch(e){res.status(500).json({error:e.message});}});
-
-app.patch('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
-  const [t]=await db.execute("SELECT tr.* FROM trades tr JOIN accounts a ON a.id=tr.account_id WHERE tr.trade_id=? AND a.user_id=? AND tr.status='OPEN'",[req.params.tradeId,req.userId]);
-  if(!t.length)return res.status(404).json({error:'Open trade not found'});
-  const sl=req.body.stop_loss===''||req.body.stop_loss==null?null:Number(req.body.stop_loss),tp=req.body.take_profit===''||req.body.take_profit==null?null:Number(req.body.take_profit);
-  validateStops(t[0].side,Number(t[0].entry_price),sl,tp);
-  await db.execute("UPDATE trades SET stop_loss=?,take_profit=? WHERE trade_id=? AND status='OPEN'",[sl,tp,t[0].trade_id]);
-  res.json({success:true});
-}catch(e){res.status(400).json({error:e.message});}});
-
-app.get('/api/trades/pending',authenticateToken,async(req,res)=>{try{
-  const code=String(req.query.account_code||'');
-  const [a]=await db.execute('SELECT id FROM accounts WHERE account_code=? AND user_id=?',[code,req.userId]);
-  if(!a.length)return res.status(404).json({success:false,error:'Account not found'});
-  const [t]=await db.execute("SELECT * FROM trades WHERE account_id=? AND status='PENDING' ORDER BY id DESC",[a[0].id]);
-  res.json({success:true,trades:t});
-}catch(e){res.status(500).json({success:false,error:e.message});}});
-
-app.delete('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
-  const [r]=await db.execute("UPDATE trades tr JOIN accounts a ON a.id=tr.account_id SET tr.status='CANCELLED',tr.exit_time=NOW(),tr.close_reason='CANCELLED' WHERE tr.trade_id=? AND a.user_id=? AND tr.status='PENDING'",[req.params.tradeId,req.userId]);
-  res.json({success:r.affectedRows===1});
-}catch(e){res.status(500).json({success:false,error:e.message});}});
-
-'''
-          if 'Account-authoritative mutation routes.' not in s:
-              if marker not in s: raise SystemExit('backend marker not found')
-              s=s.replace(marker,block+marker,1)
-          p.write_text(s,encoding='utf-8')
-
-      - name: Patch terminal trade rendering and weekend UI
-        shell: python
-        run: |
-          import re
-          from pathlib import Path
-          p=Path('terminal.html'); s=p.read_text(encoding='utf-8')
-          start=s.find('async function loadPositions()'); end=s.find('async function loadHistory()',start)
-          if start==-1 or end==-1: raise SystemExit('loadPositions/loadHistory anchors not found')
-          replacement=r'''async function loadPositions() {
-              const tbody=document.getElementById('positionsTableBody');
-              const emptyState=document.getElementById('emptyState');
-              if(!currentAccountCode)return;
-              try{
-                  const response=await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${encodeURIComponent(currentAccountCode)}`,{headers:{Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`},cache:'no-store'});
-                  const data=await response.json();
-                  if(!response.ok||!data.success)throw new Error(data.error||'Unable to load trades');
-                  const openTrades=(data.trades||[]).filter(t=>String(t.status||'').toUpperCase()==='OPEN');
-                  if(!openTrades.length){emptyState.style.display='block';tbody.innerHTML='';return;}
-                  emptyState.style.display='none';
-                  const weekend=fundfxtIsWeekendNow();
-                  tbody.innerHTML=openTrades.map(t=>{
-                      const pnl=Number(t.floating_profit_cents||0)/100;
-                      const id=t.trade_id||t.id||'';
-                      return `<tr><td>${id}</td><td>${t.symbol||'--'}</td><td style="color:${t.side==='BUY'?'var(--green)':'var(--red)'}">${t.side||'--'}</td><td>${t.volume??'--'}</td><td>${t.entry_price??'--'}</td><td>${weekend?'--':(t.current_price??'--')}</td><td style="color:${pnl>=0?'var(--green)':'var(--red)'}">$${pnl.toFixed(2)}</td><td><button class="btn-sm modify-btn" ${weekend?'disabled':''} onclick="modifyTrade('${id}')">Modify</button><button class="btn-sm close-btn" ${weekend?'disabled':''} onclick="closeTrade('${id}')">Close</button></td></tr>`;
-                  }).join('');
-              }catch(e){console.error('FundFXT loadPositions:',e);emptyState.style.display='block';emptyState.innerText='Unable to load open trades. Retrying…';}
-          }
-
-          async function modifyTrade(tradeId){
-              if(fundfxtIsWeekendNow())return alert('Market is closed on Saturday/Sunday. Existing positions remain open and cannot be modified.');
-              const newSL=prompt('Enter new Stop Loss (or leave blank to keep):');
-              const newTP=prompt('Enter new Take Profit (or leave blank to keep):');
-              const payload={}; if(newSL!==null&&newSL!=='')payload.stop_loss=parseFloat(newSL); if(newTP!==null&&newTP!=='')payload.take_profit=parseFloat(newTP); if(!Object.keys(payload).length)return;
-              try{const r=await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`,{method:'PATCH',headers:{'Content-Type':'application/json',Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'Failed to modify trade');loadPositions();}catch(e){alert(e.message||'Unable to modify trade.');}
-          }
-
-          async function closeTrade(tradeId){
-              if(fundfxtIsWeekendNow())return alert('Market is closed on Saturday/Sunday. Existing positions remain open.');
-              if(!confirm('Close this trade?'))return;
-              try{const r=await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`,{method:'POST',headers:{Authorization:`Bearer ${localStorage.getItem('fundfxt_token')}`}});const d=await r.json();if(!r.ok||!d.success)throw new Error(d.error||'Failed to close trade');loadPositions();loadHistory();fetchAccountSummary();}catch(e){alert(e.message||'Unable to close trade.');}
-          }
-
-          '''
-          s=s[:start]+replacement+s[end:]
-          if 'function fundfxtIsWeekendNow()' not in s:
-              marker='        // --- ORDER TYPE ---'
-              guard='''        function fundfxtIsWeekendNow(){ const d=new Date().getUTCDay(); return d===0||d===6; }
-        function updateWeekendTradingUI(){ const closed=fundfxtIsWeekendNow(); document.querySelectorAll('.btn-buy,.btn-sell,.order-type-tab,#mktLots,#mktSL,#mktTP,#limitPrice').forEach(el=>{el.disabled=closed;}); }
-'''
-              if marker not in s: raise SystemExit('order type marker not found')
-              s=s.replace(marker,guard+'\n'+marker,1)
-          needle='        async function executeOrder(side) {\n            if (!currentAccountCode)'
-          if needle in s: s=s.replace(needle,"        async function executeOrder(side) {\n            if (fundfxtIsWeekendNow()) return alert('Market is closed on Saturday/Sunday. Trading changes are unavailable.');\n            if (!currentAccountCode)",1)
-          if '<script src="terminal-trades-fix.js"></script>' not in s: s=s.replace('</body>','    <script src="terminal-trades-fix.js"></script>\n</body>',1)
-          if 'initFundFXTTradeSync' not in s:
-              hook='''        (function initFundFXTTradeSync(){ let wasWeekend=fundfxtIsWeekendNow(); updateWeekendTradingUI(); setInterval(()=>{ const nowWeekend=fundfxtIsWeekendNow(); updateWeekendTradingUI(); if(nowWeekend!==wasWeekend){wasWeekend=nowWeekend;loadPositions();loadHistory();loadPendingOrders();fetchAccountSummary();} else if(currentAccountCode){if(currentTab==='positions')loadPositions();else if(currentTab==='history')loadHistory();else if(currentTab==='pending')loadPendingOrders();}},5000); })();
-'''
-              pos=s.rfind('</script>');
-              if pos<0: raise SystemExit('script close not found')
-              s=s[:pos]+hook+s[pos:]
-          p.write_text(s,encoding='utf-8')
-
-      - name: Validate runtime JavaScript
+      - name: Patch terminal
+        run: python scripts/patch_terminal.py
+      - name: Validate JavaScript
         run: |
           node --check server-clean.js
           node --check trade-engine-v2.js
@@ -138,12 +26,11 @@ app.delete('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
           Path('/tmp/terminal-inline.js').write_text('\n'.join(scripts),encoding='utf-8')
           PY
           node --check /tmp/terminal-inline.js
-
-      - name: Commit fixes
+      - name: Commit terminal
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server-clean.js terminal.html
+          git add terminal.html
           git diff --cached --quiet && exit 0
-          git commit -m "fix: make account trade sync authoritative [terminal-fix-bot]"
+          git commit -m "fix: synchronize terminal trades [terminal-fix-bot]"
           git push
