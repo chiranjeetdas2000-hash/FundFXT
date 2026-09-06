@@ -208,6 +208,32 @@
     <div id="aff-payout-message" style="margin-top: 10px; color: var(--text-muted); display: none;"></div>
 </div>
         </div>
+        <!-- CUSTOMER SUPPORT SECTION -->
+<div id="view-support" class="view-section">
+    <h1>Customer Support</h1>
+    <p style="color: var(--text-muted); margin-bottom: 20px;">Submit your issues and track tickets.</p>
+
+    <!-- Ticket Form -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+        <h3>Create Ticket</h3>
+        <div style="margin-bottom: 10px;">
+            <input type="text" id="ticket-subject" placeholder="Subject" style="width: 100%; padding: 10px; background: #0a0e14; border: 1px solid var(--border); border-radius: 6px; color: white;">
+        </div>
+        <div style="margin-bottom: 10px;">
+            <textarea id="ticket-message" rows="4" placeholder="Describe your issue" style="width: 100%; padding: 10px; background: #0a0e14; border: 1px solid var(--border); border-radius: 6px; color: white;"></textarea>
+        </div>
+        <button class="btn" onclick="createSupportTicket()" style="background: var(--green); color: white;">Submit Ticket</button>
+        <div id="ticket-message" style="margin-top: 10px; color: var(--text-muted); display: none;"></div>
+    </div>
+
+    <!-- Ticket History -->
+    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+        <h3>Your Tickets</h3>
+        <div id="tickets-list">
+            <p style="color: var(--text-muted);">No tickets yet.</p>
+        </div>
+    </div>
+</div>
 
     </main>
 
