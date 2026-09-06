@@ -608,3 +608,32 @@ async function fetchSupportTickets() {
         console.error('Fetch tickets error:', error);
     }
 }
+async function fetchCertificates() {
+    const container = document.getElementById('certificates-container');
+    if (!container) return;
+
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/certificates/my', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success && data.certificates.length > 0) {
+            container.innerHTML = data.certificates.map(c => `
+                <div style="border: 1px solid var(--border); border-radius: 8px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <strong>${c.achievement}</strong><br>
+                        <span style="color: var(--text-muted); font-size: 12px;">Account: ${c.account_code || 'N/A'}</span><br>
+                        <span style="color: var(--text-muted); font-size: 12px;">Issued: ${new Date(c.issued_on).toLocaleDateString()}</span>
+                    </div>
+                    <div>
+                        <span style="color: var(--green); font-weight: bold;">Verified</span>
+                    </div>
+                </div>
+            `).join('');
+        } else {
+            container.innerHTML = '<div style="text-align: center; padding: 40px; color: var(--text-muted);">No certificates yet. Pass a challenge to earn one!</div>';
+        }
+    } catch (error) {
+        console.error('Fetch certificates error:', error);
+    }
+}
