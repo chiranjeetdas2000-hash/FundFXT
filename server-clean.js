@@ -36,9 +36,10 @@ app.get('/api/trade/get',authenticateToken,async(req,res,next)=>{
   }catch(e){return next(e);}
 });
 
-// Account-authoritative mutation routes. This fixes legacy rows whose trades.user_id is
-// stale/missing while account_id still correctly points to the authenticated account.
+// Account-authoritative mutation routes. They also enforce the weekend lock themselves,
+// because Express route order must never allow a mutation to bypass the global guard.
 app.post('/api/trades/:tradeId/close',authenticateToken,async(req,res)=>{try{
+  if(rejectWeekendExecution(res))return;
   const [t]=await db.execute("SELECT tr.* FROM trades tr JOIN accounts a ON a.id=tr.account_id WHERE tr.trade_id=? AND a.user_id=? AND tr.status='OPEN'",[req.params.tradeId,req.userId]);
   if(!t.length)return res.status(404).json({error:'Open trade not found'});
   const q=liveQuote(t[0].symbol);if(!q)return res.status(503).json({error:'Live price unavailable'});
@@ -49,6 +50,7 @@ app.post('/api/trades/:tradeId/close',authenticateToken,async(req,res)=>{try{
 }catch(e){res.status(500).json({error:e.message});}});
 
 app.patch('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
+  if(rejectWeekendExecution(res))return;
   const [t]=await db.execute("SELECT tr.* FROM trades tr JOIN accounts a ON a.id=tr.account_id WHERE tr.trade_id=? AND a.user_id=? AND tr.status='OPEN'",[req.params.tradeId,req.userId]);
   if(!t.length)return res.status(404).json({error:'Open trade not found'});
   const sl=req.body.stop_loss===''||req.body.stop_loss==null?null:Number(req.body.stop_loss),tp=req.body.take_profit===''||req.body.take_profit==null?null:Number(req.body.take_profit);
@@ -66,34 +68,29 @@ app.get('/api/trades/pending',authenticateToken,async(req,res)=>{try{
 }catch(e){res.status(500).json({success:false,error:e.message});}});
 
 app.delete('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
+  if(rejectWeekendExecution(res))return;
   const [r]=await db.execute("UPDATE trades tr JOIN accounts a ON a.id=tr.account_id SET tr.status='CANCELLED',tr.exit_time=NOW(),tr.close_reason='CANCELLED' WHERE tr.trade_id=? AND a.user_id=? AND tr.status='PENDING'",[req.params.tradeId,req.userId]);
   res.json({success:r.affectedRows===1});
 }catch(e){res.status(500).json({success:false,error:e.message});}});
 
-// Block all position/order mutations during the weekend. Reads remain available.
+// This middleware still protects the original legacy routes below these compatibility
+// routes, including pending POST. Direct guards above protect the routes defined here.
 app.use((req,res,next)=>{
   if(isForexWeekend() && (
     (req.method==='POST' && /^\/api\/trades\/[^/]+\/close$/.test(req.path)) ||
     (req.method==='PATCH' && /^\/api\/trades\/[^/]+$/.test(req.path)) ||
     (req.method==='DELETE' && /^\/api\/trades\/[^/]+$/.test(req.path)) ||
-    (req.method==='POST' && req.path==='/api/trades/pending')
+    (req.method==='POST' && req.path==='/api/trades/pending') ||
+    (req.method==='POST' && /^\/api\/accounts\/[^/]+\/flatten$/.test(req.path))
   )) return rejectWeekendExecution(res);
   next();
 });
 `;
 cleanTrading=weekendGuard+cleanTrading;
-cleanTrading=cleanTrading.replace(
-  "fcs.onmessage=data=>{",
-  "fcs.onmessage=data=>{if(isForexWeekend())return;"
-);
-cleanTrading=cleanTrading.replace(
-  "async function processLivePrices(){",
-  "async function processLivePrices(){if(isForexWeekend())return;"
-);
-cleanTrading=cleanTrading.replace(
-  "app.post('/api/trade/execute',authenticateToken,async(req,res)=>{try{",
-  "app.post('/api/trade/execute',authenticateToken,async(req,res)=>{try{if(rejectWeekendExecution(res))return;"
-);
+cleanTrading=cleanTrading.replace("fcs.onmessage=data=>{","fcs.onmessage=data=>{if(isForexWeekend())return;");
+cleanTrading=cleanTrading.replace("async function processLivePrices(){","async function processLivePrices(){if(isForexWeekend())return;");
+cleanTrading=cleanTrading.replace("app.post('/api/trade/execute',authenticateToken,async(req,res)=>{try{","app.post('/api/trade/execute',authenticateToken,async(req,res)=>{try{if(rejectWeekendExecution(res))return;");
+cleanTrading=cleanTrading.replace("app.post('/api/accounts/:id/flatten',authenticateToken,async(req,res)=>{try{","app.post('/api/accounts/:id/flatten',authenticateToken,async(req,res)=>{try{if(rejectWeekendExecution(res))return;");
 
 const transformed=source.slice(0,start)+cleanTrading+'\n'+source.slice(end);
 const m=new Module(legacyPath,module.parent);m.filename=legacyPath;m.paths=Module._nodeModulePaths(__dirname);m._compile(transformed,legacyPath);
