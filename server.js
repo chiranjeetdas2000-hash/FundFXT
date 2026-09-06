@@ -1982,6 +1982,45 @@ app.get('/api/certificates/verify/:certRef', async (req, res) => {
         res.status(500).json({ error: error.message });
     }
 });
+
+    // ========== AFFILIATE STATS API (P1 FIX) ==========
+app.get('/api/affiliate/stats', authenticateToken, async (req, res) => {
+    try {
+        // 1. Fetch affiliate record for the user
+        const [affiliateRows] = await db.execute('SELECT * FROM affiliates WHERE user_id = ? LIMIT 1', [req.userId]);
+        if (!affiliateRows.length) return res.status(404).json({ error: 'Affiliate account not found' });
+        const affiliate = affiliateRows[0];
+
+        // 2. Count distinct referred users via payment_orders
+        const [referralCount] = await db.execute(
+            'SELECT COUNT(DISTINCT user_id) AS total FROM payment_orders WHERE affiliate_code = ? AND status = "paid"',
+            [affiliate.affiliate_code]
+        );
+
+        // 3. Sum commissions
+        const [commissionSum] = await db.execute(
+            `SELECT 
+                SUM(commission_amount_cents) AS total_earnings_cents,
+                SUM(CASE WHEN status = 'PENDING' THEN commission_amount_cents ELSE 0 END) AS pending_earnings_cents,
+                SUM(CASE WHEN status = 'PAID' THEN commission_amount_cents ELSE 0 END) AS paid_earnings_cents
+             FROM affiliate_commissions WHERE affiliate_id = ?`,
+            [affiliate.id]
+        );
+
+        res.json({
+            success: true,
+            affiliate_code: affiliate.affiliate_code,
+            total_referrals: referralCount[0].total || 0,
+            total_sales: affiliate.total_sales,
+            total_earnings_cents: commissionSum[0].total_earnings_cents || 0,
+            pending_earnings_cents: commissionSum[0].pending_earnings_cents || 0,
+            paid_earnings_cents: commissionSum[0].paid_earnings_cents || 0
+        });
+    } catch (error) {
+        console.error('Affiliate stats error:', error);
+        res.status(500).json({ error: 'Failed to fetch affiliate stats' });
+    }
+});
 // 5. Notification Hook – Example: When Payment is Approved (add to existing route)
 // In your admin payment-orders/:id/status route, after updating status:
 // await createNotification(order.user_id, 'PAYMENT_APPROVED', 'Payment Approved', 'Your payment has been approved. Account will be created soon.');
