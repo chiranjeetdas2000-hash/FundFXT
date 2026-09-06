@@ -544,3 +544,67 @@ async function requestAffiliatePayout() {
         msg.innerText = 'Server connection error';
     }
 }
+
+// Create Support Ticket
+async function createSupportTicket() {
+    const subject = document.getElementById('ticket-subject').value;
+    const message = document.getElementById('ticket-message').value;
+    const msgDiv = document.getElementById('ticket-message');
+
+    if (!subject || !message) {
+        msgDiv.style.display = 'block';
+        msgDiv.style.color = 'var(--red)';
+        msgDiv.innerText = 'Please fill all fields.';
+        return;
+    }
+
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/support/ticket', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ subject, message })
+        });
+        const data = await response.json();
+        if (data.success) {
+            msgDiv.style.display = 'block';
+            msgDiv.style.color = 'var(--green)';
+            msgDiv.innerHTML = '✅ Ticket created! Reference: <strong>' + data.ticket_ref + '</strong>';
+            document.getElementById('ticket-subject').value = '';
+            document.getElementById('ticket-message').value = '';
+            fetchSupportTickets();
+        } else {
+            msgDiv.style.display = 'block';
+            msgDiv.style.color = 'var(--red)';
+            msgDiv.innerText = data.error || 'Failed to create ticket';
+        }
+    } catch (error) {
+        msgDiv.style.display = 'block';
+        msgDiv.style.color = 'var(--red)';
+        msgDiv.innerText = 'Server connection error';
+    }
+}
+
+// Fetch Support Tickets
+async function fetchSupportTickets() {
+    const listDiv = document.getElementById('tickets-list');
+    if (!listDiv) return;
+
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/support/tickets', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        if (data.success && data.tickets.length > 0) {
+            listDiv.innerHTML = data.tickets.map(t => `
+                <div style="padding: 10px; border-bottom: 1px solid var(--border);">
+                    <strong>${t.title}</strong><br>
+                    <span style="color: var(--text-muted); font-size: 12px;">${new Date(t.created_at).toLocaleString()}</span>
+                </div>
+            `).join('');
+        } else {
+            listDiv.innerHTML = '<p style="color: var(--text-muted);">No tickets yet.</p>';
+        }
+    } catch (error) {
+        console.error('Fetch tickets error:', error);
+    }
+}
