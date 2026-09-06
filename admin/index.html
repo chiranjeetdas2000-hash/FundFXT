@@ -96,8 +96,14 @@
             <div class="header"><h1>User Management</h1></div>
             <div class="table-container">
                 <table>
-                    <thead><tr><th>ID</th><th>Trader ID</th><th>Name</th><th>Email</th><th>Phone</th><th>KYC</th><th>Actions</th></tr></thead>
-                    <tbody id="usersTableBody"></tbody>
+<td>
+    <button class="action-btn" onclick="approveKyc(${u.id})">Approve KYC</button>
+    <button class="action-btn blue" onclick="resetPass(${u.id})">Reset Pass</button>
+    <button class="action-btn" onclick="addFunds(${u.id})">Add Funds</button>
+    <button class="action-btn blue" onclick="unbreach(${u.id})">Unbreach</button>
+    <button class="action-btn" onclick="allocateAccount(${u.id})">Allocate</button>
+    <button class="action-btn blue" onclick="manualTrade(${u.id})">Manual Trade</button>
+</td>
                 </table>
                 <div class="empty-state" id="usersEmpty">No users found.</div>
             </div>
