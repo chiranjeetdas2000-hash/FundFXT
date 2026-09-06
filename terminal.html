@@ -396,43 +396,71 @@
             if (tabName === 'pending') loadPendingOrders();
         }
 
-        async function loadPositions() {
-            const tbody = document.getElementById('positionsTableBody');
-            const emptyState = document.getElementById('emptyState');
-            
-            if (!currentAccountCode) return;
+       //  loadPositions function ko isse REPLACE karo
+          async function loadPositions() {
+              const tbody = document.getElementById('positionsTableBody');
+              const emptyState = document.getElementById('emptyState');
+    if (!currentAccountCode) return;
 
-            const response = await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${currentAccountCode}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
-            });
-            const data = await response.json();
+    const response = await fetch(`https://fundfxt.onrender.com/api/trade/get?account_code=${currentAccountCode}`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+    });
+    const data = await response.json();
 
-            if (data.success) {
-                const openTrades = data.trades.filter(t => t.status === 'OPEN');
-                if (openTrades.length === 0) {
-                    emptyState.style.display = 'block';
-                    tbody.innerHTML = '';
-                } else {
-                    emptyState.style.display = 'none';
-                    tbody.innerHTML = openTrades.map(trade => `
-                        <tr>
-                            <td>${trade.trade_id}</td>
-                            <td>${trade.symbol}</td>
-                            <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
-                            <td>${trade.volume}</td>
-                            <td>${trade.entry_price}</td>
-                            <td>${trade.current_price || '--'}</td>
-                            <td style="color: ${trade.floating_profit_cents >= 0 ? 'var(--green)' : 'var(--red)'};">$${(trade.floating_profit_cents / 100).toFixed(2)}</td>
-                            <td>
-                                <button class="trade-action-btn modify-btn" onclick="modifyTrade('${trade.trade_id}')">Modify</button>
-                                <button class="trade-action-btn" onclick="closeTrade('${trade.trade_id}')">Close</button>
-                            </td>
-                        </tr>
-                    `).join('');
-                }
-            }
+    if (data.success) {
+        const openTrades = data.trades.filter(t => t.status === 'OPEN');
+        if (openTrades.length === 0) {
+            emptyState.style.display = 'block';
+            tbody.innerHTML = '';
+        } else {
+            emptyState.style.display = 'none';
+            tbody.innerHTML = openTrades.map(trade => `
+                <tr>
+                    <td>${trade.symbol}</td>
+                    <td style="color: ${trade.side === 'BUY' ? 'var(--green)' : 'var(--red)'};">${trade.side}</td>
+                    <td>${trade.volume}</td>
+                    <td>${trade.entry_price}</td>
+                    <td>${trade.current_price || '--'}</td>
+                    <td style="color: ${trade.floating_profit_cents >= 0 ? 'var(--green)' : 'var(--red)'};">$${(trade.floating_profit_cents / 100).toFixed(2)}</td>
+                    <td>
+                        <button class="btn-sm modify-btn" onclick="modifyTrade('${trade.trade_id}')">Modify</button>
+                        <button class="btn-sm close-btn" onclick="closeTrade('${trade.trade_id}')">Close</button>
+                    </td>
+                </tr>
+            `).join('');
         }
+    }
+}
 
+// ADD these 2 new functions at the bottom of the script
+async function modifyTrade(tradeId) {
+    const newSL = prompt('Enter new Stop Loss (or leave blank):');
+    const newTP = prompt('Enter new Take Profit (or leave blank):');
+    const payload = {};
+    if (newSL !== null && newSL !== '') payload.stop_loss = parseFloat(newSL);
+    if (newTP !== null && newTP !== '') payload.take_profit = parseFloat(newTP);
+    
+    if (Object.keys(payload).length === 0) return;
+    const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` },
+        body: JSON.stringify(payload)
+    });
+    const data = await response.json();
+    if (data.success) { alert('Trade modified!'); loadPositions(); }
+    else alert(data.error || 'Failed');
+}
+
+async function closeTrade(tradeId) {
+    if (!confirm('Close this trade?')) return;
+    const response = await fetch(`https://fundfxt.onrender.com/api/trades/${tradeId}/close`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('fundfxt_token')}` }
+    });
+    const data = await response.json();
+    if (data.success) { alert(`Closed! P/L: $${data.realized_profit.toFixed(2)}`); loadPositions(); fetchAccountSummary(); }
+    else alert(data.error || 'Failed');
+}
         async function loadHistory() {
             const tbody = document.getElementById('positionsTableBody');
             const emptyState = document.getElementById('emptyState');
