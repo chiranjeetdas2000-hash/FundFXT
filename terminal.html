@@ -765,6 +765,100 @@ async function closeTrade(tradeId) {
             }
         }
 
+        // --- MOBILE UI FUNCTIONS ---
+let mobileTab = 'chart';
+
+function switchMobileTab(tab) {
+    mobileTab = tab;
+    document.querySelectorAll('.m-nav-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`.m-nav-btn[onclick="switchMobileTab('${tab}')"]`)?.classList.add('active');
+
+    // Hide/Show panels based on tab
+    const centerPanel = document.querySelector('.center-panel');
+    const leftPanel = document.querySelector('.left-panel');
+    const rightPanel = document.querySelector('.right-panel');
+    const bottomPanel = document.querySelector('.bottom-panel');
+
+    if (tab === 'chart') {
+        centerPanel.style.display = 'block';
+        leftPanel.style.display = 'none';
+        rightPanel.style.display = 'none';
+        bottomPanel.style.display = 'none';
+    } else if (tab === 'quotes') {
+        centerPanel.style.display = 'none';
+        leftPanel.style.display = 'block';
+        rightPanel.style.display = 'none';
+        bottomPanel.style.display = 'none';
+        // Update market watch content
+        renderPairs();
+    } else if (tab === 'trades') {
+        centerPanel.style.display = 'none';
+        leftPanel.style.display = 'none';
+        rightPanel.style.display = 'none';
+        bottomPanel.style.display = 'block';
+        loadPositions();
+    } else if (tab === 'account') {
+        centerPanel.style.display = 'none';
+        leftPanel.style.display = 'none';
+        rightPanel.style.display = 'block';
+        bottomPanel.style.display = 'none';
+        fetchAccountSummary();
+    }
+}
+
+// Drawer functions
+function openDrawer() {
+    document.getElementById('mobileQuotesDrawer').classList.add('open');
+}
+
+function closeDrawer() {
+    document.getElementById('mobileQuotesDrawer').classList.remove('open');
+}
+
+function openOrderSheet() {
+    document.getElementById('mobileOrderSheet').classList.add('open');
+}
+
+function closeOrderSheet() {
+    document.getElementById('mobileOrderSheet').classList.remove('open');
+}
+
+// On mobile, clicking chart should open drawer/sheet
+document.querySelector('.center-panel')?.addEventListener('click', (e) => {
+    if (window.innerWidth <= 768) {
+        // If click on chart area, open order sheet (or quotes drawer on left swipe)
+        // You can add more logic here
+    }
+});
+
+// On page load, if mobile, default to chart tab
+window.addEventListener('load', () => {
+    if (window.innerWidth <= 768) {
+        switchMobileTab('chart');
+        // Attach click handlers to open drawer/sheet
+        // For example, a floating button to open quotes
+        const quotesBtn = document.createElement('div');
+        quotesBtn.innerHTML = '<i class="fa-solid fa-list" style="font-size:20px;"></i>';
+        quotesBtn.style.cssText = 'position:fixed; left:10px; bottom:80px; background:var(--green); color:white; padding:12px; border-radius:50%; cursor:pointer; z-index:1001;';
+        quotesBtn.onclick = openDrawer;
+        document.body.appendChild(quotesBtn);
+
+        const orderBtn = document.createElement('div');
+        orderBtn.innerHTML = '<i class="fa-solid fa-plus" style="font-size:20px;"></i>';
+        orderBtn.style.cssText = 'position:fixed; right:10px; bottom:80px; background:var(--green); color:white; padding:12px; border-radius:50%; cursor:pointer; z-index:1001;';
+        orderBtn.onclick = openOrderSheet;
+        document.body.appendChild(orderBtn);
+
+        // Copy left panel content to drawer
+        document.querySelector('.drawer-content').innerHTML = document.querySelector('.left-panel').innerHTML;
+        // Copy right panel content to order sheet
+        document.querySelector('.sheet-content').innerHTML = document.querySelector('.right-panel').innerHTML;
+        // Ensure order sheet buttons work (re-bind event listeners)
+        document.querySelector('#mobileOrderSheet .btn-buy').onclick = () => executeOrder('BUY');
+        document.querySelector('#mobileOrderSheet .btn-sell').onclick = () => executeOrder('SELL');
+    }
+});
+
         // --- INIT ---
         window.onload = () => {
             getAccountCodeFromURL();
