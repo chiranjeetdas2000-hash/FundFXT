@@ -1,8 +1,11 @@
 services:
   - type: web
-    name: fundfxt
-    runtime: node
+    name: fundfxt-backend
+    env: node
+    plan: free
     buildCommand: npm install
     startCommand: node server-clean.js
-    healthCheckPath: /api/prices
     autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
