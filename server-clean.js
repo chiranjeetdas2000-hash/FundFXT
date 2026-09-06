@@ -23,9 +23,8 @@ function rejectWeekendExecution(res){
   return true;
 }
 
-// Compatibility route: return ALL trades belonging to the authenticated account.
-// Older OPEN rows may have a stale/missing user_id, while the account itself is valid.
-// The terminal must still see OPEN, CLOSED and PENDING records for the selected account.
+// Account-authoritative trade read route. A valid account owns its complete trade history;
+// legacy trade.user_id values are not trusted for terminal visibility.
 app.get('/api/trade/get',authenticateToken,async(req,res,next)=>{
   try{
     const accountCode=String(req.query.account_code||'');
@@ -34,8 +33,42 @@ app.get('/api/trade/get',authenticateToken,async(req,res,next)=>{
     if(!a.length) return res.status(404).json({success:false,error:'Account not found'});
     const [trades]=await db.execute('SELECT * FROM trades WHERE account_id=? ORDER BY COALESCE(entry_time,created_at) DESC,id DESC',[a[0].id]);
     return res.json({success:true,trades});
-  }catch(e){ return next(e); }
+  }catch(e){return next(e);}
 });
+
+// Account-authoritative mutation routes. This fixes legacy rows whose trades.user_id is
+// stale/missing while account_id still correctly points to the authenticated account.
+app.post('/api/trades/:tradeId/close',authenticateToken,async(req,res)=>{try{
+  const [t]=await db.execute("SELECT tr.* FROM trades tr JOIN accounts a ON a.id=tr.account_id WHERE tr.trade_id=? AND a.user_id=? AND tr.status='OPEN'",[req.params.tradeId,req.userId]);
+  if(!t.length)return res.status(404).json({error:'Open trade not found'});
+  const q=liveQuote(t[0].symbol);if(!q)return res.status(503).json({error:'Live price unavailable'});
+  const exit=t[0].side==='BUY'?q.bid:q.ask;
+  const c=await closeTradeAtomic(t[0].trade_id,'MANUAL',exit);
+  if(!c)return res.status(409).json({error:'Trade was already closed'});
+  res.json({success:true,exit_price:exit,realized_profit:c.realized_profit_cents/100});
+}catch(e){res.status(500).json({error:e.message});}});
+
+app.patch('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
+  const [t]=await db.execute("SELECT tr.* FROM trades tr JOIN accounts a ON a.id=tr.account_id WHERE tr.trade_id=? AND a.user_id=? AND tr.status='OPEN'",[req.params.tradeId,req.userId]);
+  if(!t.length)return res.status(404).json({error:'Open trade not found'});
+  const sl=req.body.stop_loss===''||req.body.stop_loss==null?null:Number(req.body.stop_loss),tp=req.body.take_profit===''||req.body.take_profit==null?null:Number(req.body.take_profit);
+  validateStops(t[0].side,Number(t[0].entry_price),sl,tp);
+  await db.execute("UPDATE trades SET stop_loss=?,take_profit=? WHERE trade_id=? AND status='OPEN'",[sl,tp,t[0].trade_id]);
+  res.json({success:true});
+}catch(e){res.status(400).json({error:e.message});}});
+
+app.get('/api/trades/pending',authenticateToken,async(req,res)=>{try{
+  const code=String(req.query.account_code||'');
+  const [a]=await db.execute('SELECT id FROM accounts WHERE account_code=? AND user_id=?',[code,req.userId]);
+  if(!a.length)return res.status(404).json({success:false,error:'Account not found'});
+  const [t]=await db.execute("SELECT * FROM trades WHERE account_id=? AND status='PENDING' ORDER BY id DESC",[a[0].id]);
+  res.json({success:true,trades:t});
+}catch(e){res.status(500).json({success:false,error:e.message});}});
+
+app.delete('/api/trades/:tradeId',authenticateToken,async(req,res)=>{try{
+  const [r]=await db.execute("UPDATE trades tr JOIN accounts a ON a.id=tr.account_id SET tr.status='CANCELLED',tr.exit_time=NOW(),tr.close_reason='CANCELLED' WHERE tr.trade_id=? AND a.user_id=? AND tr.status='PENDING'",[req.params.tradeId,req.userId]);
+  res.json({success:r.affectedRows===1});
+}catch(e){res.status(500).json({success:false,error:e.message});}});
 
 // Block all position/order mutations during the weekend. Reads remain available.
 app.use((req,res,next)=>{
