@@ -52,7 +52,13 @@ async function loadHomeData() {
     fetchProfile();
     fetchAccounts();
 }
-
+document.addEventListener('DOMContentLoaded', () => {
+    showSection('home');
+    fetchProfile();
+    fetchAccounts();
+    fetchAffiliateStats();
+    fetchNotifications();  // <--- Ye line add karo
+});
 // ========== FETCH PROFILE ==========
 async function fetchProfile() {
     try {
