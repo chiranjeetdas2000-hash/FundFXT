@@ -246,20 +246,20 @@ app.get('/api/user/profile', authenticateToken, async (req, res) => {
 });
 
 // ========== GET USER BY EMAIL ==========
-app.get('/api/get-user-by-email', async (req, res) => {
+// ========== GET USER BY EMAIL (SECURE - NO PII) ==========
+app.get('/api/get-user-by-email', authenticateToken, async (req, res) => {
     const { email } = req.query;
     if (!email) return res.status(400).json({ error: 'Email is required' });
     try {
-        const [rows] = await db.execute('SELECT legal_name, email, phone, address FROM users WHERE email = ?', [email]);
+        const [rows] = await db.execute('SELECT id, legal_name, email FROM users WHERE email = ?', [email]);
         if (rows.length > 0) {
-            const user = rows[0];
-            res.json({ exists: true, name: user.legal_name, email: user.email, phone: user.phone, address: user.address });
+            // Only return minimal info - no phone, no address
+            res.json({ exists: true, name: rows[0].legal_name, email: rows[0].email });
         } else {
             res.json({ exists: false });
         }
     } catch (error) { console.error(error); res.status(500).json({ error: error.message }); }
 });
-
 
 // ========== UPDATED RISK ENGINE ==========
 async function checkAccountRisk(account) {
