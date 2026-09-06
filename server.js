@@ -331,6 +331,16 @@ function generateRequestRef() {
     return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
+// ========== PAYMENT MODE HELPER ==========
+async function getPaymentMode() {
+    const [rows] = await db.query('SELECT setting_value FROM settings WHERE setting_key = "payment_mode"');
+    if (rows.length > 0) {
+        return JSON.parse(rows[0].setting_value).mode || 'MANUAL';
+    }
+    return 'MANUAL'; // Default
+}
+
+// ========== MODIFIED PAYMENT REQUEST ROUTE ==========
 app.post('/api/payments/request', authenticateToken, async (req, res) => {
     const { model, affiliate_code, email } = req.body;
     try {
@@ -348,6 +358,7 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
             if (affiliateUsers.length) affiliateName = affiliateUsers[0].legal_name;
         }
 
+        // Insert order with REQUESTED status
         await db.execute(
             `INSERT INTO payment_orders 
              (order_ref, user_id, provider, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at) 
@@ -356,6 +367,39 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
              pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
         );
 
+        // Fetch the Payment Mode from Settings
+        const paymentMode = await getPaymentMode();
+
+        // ================= AUTO MODE =================
+        if (paymentMode === 'AUTO') {
+            if (!razorpay) return res.status(503).json({ error: 'Payment gateway not configured' });
+
+            // Create Razorpay Order
+            const razorpayOrder = await razorpay.orders.create({
+                amount: pricing.finalAmountCents,
+                currency: pricing.currency,
+                receipt: requestRef,
+                notes: { user_id: String(req.userId), model: pricing.model }
+            });
+
+            // Update order status & provider order id
+            await db.execute(
+                'UPDATE payment_orders SET provider_order_id = ?, status = "PAYMENT_PENDING" WHERE order_ref = ?',
+                [razorpayOrder.id, requestRef]
+            );
+
+            return res.json({
+                success: true,
+                auto_payment: true,
+                razorpay_order_id: razorpayOrder.id,
+                key_id: process.env.RAZORPAY_KEY_ID,
+                amount: pricing.finalAmountCents,
+                currency: pricing.currency,
+                pricing
+            });
+        }
+
+        // ================= MANUAL MODE (DEFAULT) =================
         // Admin ko email bhejo (Full Details)
         const adminEmail = 'support.fundfxt@gmail.com';
         const subject = `New Payment Request: ${requestRef}`;
@@ -383,14 +427,15 @@ app.post('/api/payments/request', authenticateToken, async (req, res) => {
         
         await sendEmail(adminEmail, subject, html).catch(err => console.log('Email failed:', err.message));
 
-        res.json({ success: true, request_ref: requestRef, message: 'Payment request created. You will receive a payment link via email shortly.', pricing });
+        res.json({ success: true, request_ref: requestRef, manual_payment: true, message: 'Payment request created. You will receive a payment link via email shortly.', pricing });
+
     } catch (error) {
         console.error('Payment request error:', error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// ========== ADMIN AUTH ==========
+// ========== ADMIN AUTH (UNCHANGED) ==========
 app.post('/api/admin/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -414,7 +459,6 @@ function authenticateAdmin(req, res, next) {
         next();
     });
 }
-
 // ========== ADMIN ROUTES ==========
 
 // Get all users
