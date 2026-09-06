@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FundFXT | Account Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<style>
+:root{--bg:#0f0f0f;--card:#1a1a1a;--border:#2a2a2a;--green:#00b56a;--red:#ff4444;--muted:#888;--text:#fff}
+*{box-sizing:border-box;margin:0;padding:0;font-family:Poppins,sans-serif}body{background:var(--bg);color:var(--text);min-height:100vh}button,a{font:inherit}.top{height:70px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;background:#121212;position:sticky;top:0;z-index:10}.brand{font-size:22px;font-weight:800}.brand span{color:var(--green)}.top-center{text-align:center}.top-center small{display:block;color:var(--muted);font-size:11px}.top-center strong{font-size:15px}.back{border:1px solid var(--border);background:var(--card);color:#fff;border-radius:8px;padding:9px 13px;cursor:pointer}.wrap{max-width:1250px;margin:0 auto;padding:25px}.heading{display:flex;align-items:flex-end;justify-content:space-between;gap:15px;margin-bottom:22px}.heading h1{font-size:28px}.heading p{color:var(--muted);font-size:13px;margin-top:4px}.trade{background:var(--green);border:0;color:#fff;padding:12px 18px;border-radius:8px;font-weight:700;cursor:pointer}.trade:disabled{opacity:.45;cursor:not-allowed}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.stat{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:18px}.stat .label{font-size:12px;color:var(--muted);margin-bottom:8px}.stat .value{font-size:23px;font-weight:700}.green{color:var(--green)}.red{color:var(--red)}.section{margin-top:20px;background:var(--card);border:1px solid var(--border);border-radius:12px;padding:20px}.section h2{font-size:17px;margin-bottom:16px}.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}.metric{background:#141414;border:1px solid var(--border);border-radius:9px;padding:14px}.metric span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.metric strong{font-size:16px}.bar{height:7px;background:#282828;border-radius:10px;overflow:hidden;margin-top:9px}.bar i{display:block;height:100%;background:var(--green);width:0;border-radius:10px}.status{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:20px;background:#111;border:1px solid var(--border);font-size:11px;font-weight:700}.dot{width:7px;height:7px;border-radius:50%;background:var(--green)}.dot.red{background:var(--red)}.table-wrap{overflow:auto}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{padding:11px 8px;text-align:left;border-bottom:1px solid #262626;white-space:nowrap}.table th{color:var(--muted);font-weight:500}.empty,.loading{padding:35px;text-align:center;color:var(--muted)}.error{color:var(--red);padding:18px;background:#190e0e;border:1px solid #492020;border-radius:8px}.notice{margin-top:18px;padding:12px 14px;border-radius:8px;background:#101b16;border:1px solid #1e5a43;color:#9be8c7;font-size:12px;display:none}@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}.metrics{grid-template-columns:repeat(2,1fr)}}@media(max-width:600px){.top{padding:0 12px}.top-center{display:none}.wrap{padding:15px}.heading{align-items:stretch;flex-direction:column}.heading h1{font-size:23px}.trade{width:100%}.grid,.metrics{grid-template-columns:1fr 1fr}.stat .value{font-size:18px}.section{padding:15px}.back span{display:none}}
+</style>
+</head>
+<body>
+<header class="top"><button class="back" onclick="goBack()"><i class="fa-solid fa-arrow-left"></i> <span>Back</span></button><div class="brand">Fund<span>FXT</span></div><div class="top-center"><small>ACCOUNT</small><strong id="topAccount">Loading...</strong></div></header>
+<main class="wrap">
+<div class="heading"><div><h1 id="accountTitle">Account Dashboard</h1><p id="accountSubtitle">Loading account information...</p></div><button class="trade" id="tradeBtn" disabled onclick="openTerminal()"><i class="fa-solid fa-chart-line"></i> Open Trading Terminal</button></div>
+<div id="errorBox" class="error" style="display:none"></div>
+<div id="content" style="display:none">
+<div class="grid">
+<div class="stat"><div class="label">BALANCE</div><div class="value" id="balance">$0.00</div></div>
+<div class="stat"><div class="label">EQUITY</div><div class="value" id="equity">$0.00</div></div>
+<div class="stat"><div class="label">TOTAL P/L</div><div class="value" id="pnl">$0.00</div></div>
+<div class="stat"><div class="label">STATUS</div><div class="status" id="status"><i class="dot"></i>Loading</div></div>
+</div>
+<section class="section"><h2>Account Performance</h2><div class="metrics">
+<div class="metric"><span>Profit Target</span><strong id="target">—</strong><div class="bar"><i id="targetBar"></i></div></div>
+<div class="metric"><span>Daily Drawdown</span><strong id="daily">—</strong><div class="bar"><i id="dailyBar"></i></div></div>
+<div class="metric"><span>Maximum Drawdown</span><strong id="maxdd">—</strong><div class="bar"><i id="maxddBar"></i></div></div>
+<div class="metric"><span>Open Trades</span><strong id="openTrades">0</strong></div>
+<div class="metric"><span>Total Trades</span><strong id="totalTrades">0</strong></div>
+<div class="metric"><span>Win Rate</span><strong id="winRate">—</strong></div>
+</div><div id="notice" class="notice"></div></section>
+<section class="section"><h2>Open Positions</h2><div class="table-wrap"><table class="table"><thead><tr><th>Symbol</th><th>Side</th><th>Lots</th><th>Entry</th><th>Current</th><th>P/L</th><th>SL</th><th>TP</th></tr></thead><tbody id="positions"><tr><td colspan="8" class="loading">Loading...</td></tr></tbody></table></div></section>
+</div>
+</main>
+<script>
+const API='https://fundfxt.onrender.com';const token=localStorage.getItem('fundfxt_token');const params=new URLSearchParams(location.search);const accountCode=params.get('account_code');let account=null;let config=null;
+if(!token){location.href='auth.html'}
+if(accountCode)sessionStorage.setItem('fundfxt_selected_account',accountCode);
+function money(c){return '$'+(Number(c||0)/100).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
+function pct(v){return Number(v||0).toFixed(2)+'%'}
+function goBack(){location.href='dashboard.html'}
+function openTerminal(){if(account)location.href='terminal.html?account_code='+encodeURIComponent(account.account_code)}
+async function api(path){const r=await fetch(API+path,{headers:{Authorization:'Bearer '+token}});const d=await r.json();if(!r.ok)throw new Error(d.error||'Request failed');return d}
+function setBar(id,value){document.getElementById(id).style.width=Math.max(0,Math.min(100,Number(value)||0))+'%'}
+async function load(){
+ if(!accountCode){throw new Error('No account selected. Return to My Accounts and select an account.')}
+ const data=await api('/api/accounts');const accounts=data.accounts||[];account=accounts.find(a=>String(a.account_code)===String(accountCode));if(!account)throw new Error('Account not found or you do not have access to this account.');
+ document.getElementById('topAccount').textContent=account.account_code;document.getElementById('accountTitle').textContent=account.account_code;document.getElementById('accountSubtitle').textContent=(account.challenge_model||'Trading Account').replace(/_/g,' ').toUpperCase();document.getElementById('tradeBtn').disabled=!['ACTIVE','PASSED'].includes(account.status);
+ document.getElementById('balance').textContent=money(account.balance_cents);document.getElementById('equity').textContent=money(account.equity_cents);const pnl=Number(account.equity_cents||0)-Number(account.initial_balance_cents||0);const pe=document.getElementById('pnl');pe.textContent=money(pnl);pe.className='value '+(pnl>=0?'green':'red');
+ const status=document.getElementById('status');status.innerHTML='<i class="dot '+(['BREACHED','EXPIRED','CLOSED'].includes(account.status)?'red':'')+'"></i>'+account.status;
+ try{const cd=await fetch(API+'/api/challenges/'+encodeURIComponent(account.challenge_model),{headers:{Authorization:'Bearer '+token}});const cj=await cd.json();if(cj.success)config=cj.config}catch(e){}
+ const targetC=Number(config?.profit_target_cents||0);const targetPct=targetC?Math.max(0,pnl)/targetC*100:0;document.getElementById('target').textContent=targetC?money(Math.max(0,pnl))+' / '+money(targetC):'—';setBar('targetBar',targetPct);
+ const dailyLimit=Number(config?.daily_dd_bps||0)/10000*Number(account.day_start_balance_cents||account.initial_balance_cents||0);const dailyLoss=Math.max(0,Number(account.day_start_balance_cents||0)-Number(account.balance_cents||0));document.getElementById('daily').textContent=dailyLimit?money(dailyLoss)+' / '+money(dailyLimit):'—';setBar('dailyBar',dailyLimit?dailyLoss/dailyLimit*100:0);
+ const maxLimit=Number(config?.max_dd_bps||0)/10000*Number(account.initial_balance_cents||0);const maxLoss=Math.max(0,Number(account.initial_balance_cents||0)-Number(account.equity_cents||0));document.getElementById('maxdd').textContent=maxLimit?money(maxLoss)+' / '+money(maxLimit):'—';setBar('maxddBar',maxLimit?maxLoss/maxLimit*100:0);
+ try{const td=await api('/api/trade/get?account_code='+encodeURIComponent(account.account_code));const trades=td.trades||[];const open=trades.filter(t=>t.status==='OPEN');document.getElementById('openTrades').textContent=open.length;document.getElementById('totalTrades').textContent=trades.filter(t=>['OPEN','CLOSED'].includes(t.status)).length;const wins=trades.filter(t=>t.status==='CLOSED'&&Number(t.realized_profit_cents||0)>0).length;const closed=trades.filter(t=>t.status==='CLOSED').length;document.getElementById('winRate').textContent=closed?pct(wins/closed*100):'—';const body=document.getElementById('positions');if(!open.length){body.innerHTML='<tr><td colspan="8" class="empty">No open positions.</td></tr>'}else{body.innerHTML=open.map(t=>'<tr><td>'+t.symbol+'</td><td class="'+(t.side==='BUY'?'green':'red')+'">'+t.side+'</td><td>'+Number(t.volume||t.lots||0).toFixed(2)+'</td><td>'+t.entry_price+'</td><td>'+ (t.current_price??'—')+'</td><td class="'+(Number(t.unrealized_profit_cents||0)>=0?'green':'red')+'">'+money(t.unrealized_profit_cents||0)+'</td><td>'+(t.stop_loss??'—')+'</td><td>'+(t.take_profit??'—')+'</td></tr>').join('')}}catch(e){document.getElementById('positions').innerHTML='<tr><td colspan="8" class="empty">Trade data is temporarily unavailable.</td></tr>'}
+ document.getElementById('content').style.display='block';if(account.status==='BREACHED'){const n=document.getElementById('notice');n.style.display='block';n.style.background='#1b0e0e';n.style.borderColor='#5a2222';n.style.color='#ffaaaa';n.textContent='This account is breached. Trading is disabled by the account rules.'}
+}
+load().catch(e=>{document.getElementById('errorBox').textContent=e.message;document.getElementById('errorBox').style.display='block'})
+</script>
+</body></html>
