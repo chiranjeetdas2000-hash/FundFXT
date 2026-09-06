@@ -33,6 +33,12 @@ const db = mysql.createPool({
     }
 })();
 
+// ========== SECURITY CHECKS ==========
+if (!process.env.JWT_SECRET) {
+    console.error('❌ FATAL: JWT_SECRET is required');
+    process.exit(1);
+}
+
 // ========== EMAIL (RESEND) - FIXED ==========
 async function sendEmail(to, subject, html) {
     const API_KEY = process.env.EMAIL_PASS;
