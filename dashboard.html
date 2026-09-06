@@ -195,6 +195,18 @@
                 <div class="summary-card"><h4>Total Earnings</h4><div class="value green" id="aff-total-earnings">$0.00</div></div>
                 <div class="summary-card"><h4>Pending Earnings</h4><div class="value" id="aff-pending-earnings">$0.00</div></div>
             </div>
+            <!-- Affiliate Payout Section -->
+<div style="margin-top: 30px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
+    <h3 style="margin-bottom: 15px;">Request Commission Payout</h3>
+    <p style="color: var(--text-muted); margin-bottom: 15px;">Minimum withdrawal is $100.00</p>
+    
+    <div style="display: flex; gap: 10px;">
+        <input type="number" id="aff-payout-amount" placeholder="Enter amount (USD)" min="100" step="0.01" 
+               style="flex: 1; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: white;">
+        <button class="btn" onclick="requestAffiliatePayout()" style="background: var(--green); color: white; padding: 12px 20px; border-radius: 8px;">Request Payout</button>
+    </div>
+    <div id="aff-payout-message" style="margin-top: 10px; color: var(--text-muted); display: none;"></div>
+</div>
         </div>
 
     </main>
