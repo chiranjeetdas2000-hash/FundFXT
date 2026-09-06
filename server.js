@@ -126,49 +126,82 @@ app.post('/api/login', async (req, res) => {
 });
 
 // ========== FORGOT PASSWORD (OTP hashed) ==========
+// ========== FORGOT PASSWORD (SECURE) ==========
 app.post('/api/forgot-password', async (req, res) => {
     const { email } = req.body;
     try {
         const [rows] = await db.execute('SELECT * FROM users WHERE email = ?', [email]);
         if (!rows.length) return res.status(400).json({ error: 'Email not found' });
+
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+        const resetToken = crypto.randomBytes(32).toString('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(resetToken).digest('hex');
         const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Delete old OTPs & tokens
+        await db.execute('DELETE FROM email_verifications WHERE email = ? AND purpose = "PASSWORD_RESET"', [email]);
+
+        // Insert new OTP + Reset Token
         await db.execute(
-            'INSERT INTO email_verifications (email, purpose, otp_hash, expires_at) VALUES (?, ?, ?, ?)',
-            [email, 'PASSWORD_RESET', otpHash, expiresAt]
+            `INSERT INTO email_verifications (email, purpose, otp_hash, reset_token_hash, expires_at) VALUES (?, ?, ?, ?, ?)`,
+            [email, 'PASSWORD_RESET', otpHash, resetTokenHash, expiresAt]
         );
-        // Send OTP to admin (support@fundfxt) - or directly to user if you prefer
-        await sendEmail('support.fundfxt@gmail.com', `Password Reset OTP for ${email}`, 
-            `<h2>FundFXT Password Reset</h2><p>User Email: ${email}</p><p>OTP: <b>${otp}</b></p>`)
+
+        // Send OTP to Admin for manual forwarding
+        const adminEmail = 'support.fundfxt@gmail.com';
+        await sendEmail(adminEmail, `Password Reset OTP for ${email}`, 
+            `<p>User Email: ${email}</p><p>OTP: <b>${otp}</b></p>`)
             .catch(err => console.log('Email failed:', err.message));
-        res.json({ success: true });
+
+        // Return reset_token to frontend (this is the secure token for reset step)
+        res.json({ success: true, reset_token: resetToken });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// VERIFY OTP (Return reset_token)
 app.post('/api/verify-otp', async (req, res) => {
     const { email, otp } = req.body;
     try {
         const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
         const [rows] = await db.execute(
-            'SELECT * FROM email_verifications WHERE email = ? AND otp_hash = ? AND purpose = "PASSWORD_RESET" AND expires_at > NOW() AND consumed_at IS NULL',
+            `SELECT reset_token_hash FROM email_verifications 
+             WHERE email = ? AND otp_hash = ? AND purpose = 'PASSWORD_RESET' 
+             AND expires_at > NOW() AND consumed_at IS NULL`,
             [email, otpHash]
         );
         if (!rows.length) return res.status(400).json({ error: 'Invalid OTP' });
-        res.json({ success: true });
+
+        res.json({ success: true, verified: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
+// RESET PASSWORD (Now requires reset_token + OTP)
 app.post('/api/reset-password', async (req, res) => {
-    const { email, password } = req.body;
+    const { email, otp, password, reset_token } = req.body;
     try {
+        // Verify OTP + Token exist and valid
+        const otpHash = crypto.createHash('sha256').update(otp).digest('hex');
+        const resetTokenHash = crypto.createHash('sha256').update(reset_token || '').digest('hex');
+
+        const [rows] = await db.execute(
+            `SELECT * FROM email_verifications 
+             WHERE email = ? AND otp_hash = ? AND reset_token_hash = ? 
+             AND purpose = 'PASSWORD_RESET' AND expires_at > NOW() AND consumed_at IS NULL`,
+            [email, otpHash, resetTokenHash]
+        );
+        if (!rows.length) return res.status(400).json({ error: 'Invalid OTP or reset token' });
+
+        // Update password
         const hashed = await bcrypt.hash(password, 10);
         await db.execute('UPDATE users SET password_hash = ? WHERE email = ?', [hashed, email]);
+
+        // Consume OTP + token
         await db.execute('UPDATE email_verifications SET consumed_at = NOW() WHERE email = ?', [email]);
+
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
-
 // ========== AUTH MIDDLEWARE ==========
 function authenticateToken(req, res, next) {
     const token = req.headers['authorization']?.split(' ')[1];
@@ -337,6 +370,58 @@ function generateRequestRef() {
     return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
+// ========== RAZORPAY PAYMENT VERIFY ==========
+app.post('/api/payments/verify', authenticateToken, async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
+        return res.status(400).json({ error: 'Incomplete payment verification data' });
+    }
+
+    const connection = await db.getConnection();
+    try {
+        const [orderRows] = await connection.execute(
+            'SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1',
+            [razorpay_order_id, req.userId]
+        );
+        if (!orderRows.length) return res.status(404).json({ error: 'Payment order not found' });
+        const paymentOrder = orderRows[0];
+
+        // Verify Signature
+        const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
+            .update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
+        if (expected !== razorpay_signature) {
+            return res.status(400).json({ error: 'Payment signature verification failed' });
+        }
+
+        // Mark as PAID
+        await connection.execute(
+            `UPDATE payment_orders SET status = 'PAYMENT_DONE', provider_payment_id = ?, paid_at = NOW() WHERE id = ?`,
+            [razorpay_payment_id, paymentOrder.id]
+        );
+
+        // Create Account Automatically
+        const config = await getChallengeConfig(paymentOrder.model);
+        const accountCode = 'ACC-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+        await connection.execute(
+            `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, status)
+             VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
+            [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents]
+        );
+
+        await connection.execute(
+            `UPDATE payment_orders SET status = 'ACCOUNT_CREATED', account_code = ? WHERE id = ?`,
+            [accountCode, paymentOrder.id]
+        );
+
+        await connection.commit();
+        res.json({ success: true, account_code: accountCode, message: 'Payment verified & account created' });
+    } catch (error) {
+        await connection.rollback();
+        res.status(500).json({ error: error.message });
+    } finally {
+        connection.release();
+    }
+});
 // ========== PAYMENT MODE HELPER ==========
 async function getPaymentMode() {
     const [rows] = await db.query('SELECT setting_value FROM settings WHERE setting_key = "payment_mode"');
@@ -898,24 +983,64 @@ if (accounts.length > 0) {
 // ========== TRADE EXECUTION ==========
 app.post('/api/trade/execute', authenticateToken, async (req, res) => {
     const { account_code, symbol, side, volume, sl, tp } = req.body;
-    if (!['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'].includes(symbol)) return res.status(400).json({ error: 'Symbol not allowed' });
-    if (!global.priceCache || !global.priceCache[symbol]) return res.status(400).json({ error: 'Price not available yet' });
+
+    // 1. Symbol validation
+    if (!['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'].includes(symbol)) {
+        return res.status(400).json({ error: 'Invalid symbol' });
+    }
+
+    // 2. Volume validation (strict server-side)
+    if (!volume || volume < 0.01 || volume > 2.00) {
+        return res.status(400).json({ error: 'Volume must be between 0.01 and 2.00' });
+    }
+
+    // 3. Fetch Account
     const [accounts] = await db.execute('SELECT * FROM accounts WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
     if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
     const account = accounts[0];
+
+    // 4. Check Account Status
+    if (account.status !== 'ACTIVE') {
+        return res.status(403).json({ error: 'Account is not active for trading' });
+    }
+
+    // 5. Check One-Position Rule
+    const [openTrades] = await db.execute("SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN'", [account.id]);
+    if (openTrades.length > 0) {
+        return res.status(403).json({ error: 'Only one open position allowed' });
+    }
+
+    // 6. Check Trades Today Limit
+    const [tradesToday] = await db.execute(
+        "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+        [account.id]
+    );
+    const config = await getChallengeConfig(account.challenge_model);
+    if (tradesToday[0].count >= config.max_trades_per_day) {
+        return res.status(403).json({ error: `Max ${config.max_trades_per_day} trades per day reached` });
+    }
+
+    // 7. Check Risk Engine (Breached or not)
+    const risk = await checkAccountRisk(account);
+    if (risk.breached) {
+        return res.status(403).json({ error: 'Account breached. Trading disabled' });
+    }
+
+    // 8. Execute Trade
+    if (!global.priceCache[symbol]) return res.status(400).json({ error: 'Price not available' });
     const entry = side === 'BUY' ? global.priceCache[symbol].ask : global.priceCache[symbol].bid;
-    const tradeId = 'TR-' + Date.now() + Math.random().toString(36).substr(2, 5);
+
+    const tradeId = 'TR-' + Date.now().toString(36).toUpperCase();
     const tradingDay = new Date().toISOString().split('T')[0];
-    await db.execute(`INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`, [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null]);
+
+    await db.execute(
+        `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`,
+        [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null]
+    );
+
     res.json({ success: true, trade_id: tradeId, entry_price: entry });
 });
-
-app.get('/api/trade/get', authenticateToken, async (req, res) => {
-    const { account_code } = req.query;
-    const [trades] = await db.execute('SELECT * FROM trades WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
-    res.json({ trades });
-});
-
 // ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
 const server = app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
