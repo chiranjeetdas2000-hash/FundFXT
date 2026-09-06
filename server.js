@@ -663,6 +663,143 @@ function calculatePL(symbol, side, entry, current, volume) {
     return (diff / inst.pip) * (inst.size * inst.pip) * volume;
 }
 
+
+// ========== STEP 1: TRADING ENGINE & RISK MANAGEMENT ==========
+
+// 1. RISK ENGINE (Strict Rules Enforcement)
+async function checkAccountRisk(account) {
+    const config = await getChallengeConfig(account.challenge_model);
+    const equity = account.equity_cents;
+    const balance = account.balance_cents;
+    const dayStartBalance = account.day_start_balance_cents;
+    const initialBalance = account.initial_balance_cents;
+    const equityHwm = account.equity_hwm_cents;
+
+    let dailyLossLimit, maxDrawdownLimit, currentDailyLoss, currentMaxDrawdown;
+    let breached = false, reason = '';
+
+    if (account.challenge_model === 'prototype_5k') {
+        // Direct: Daily 2% (Balance based), Max 5% (Floating/Trailing based on HWM)
+        dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+        currentDailyLoss = dayStartBalance - balance;
+        maxDrawdownLimit = (config.max_dd_bps / 10000) * equityHwm;
+        currentMaxDrawdown = equityHwm - equity;
+    } else if (account.challenge_model === 'warrior_5k') {
+        // Warrior: Daily 5% (Balance based), Max 8% (Balance based - Static)
+        dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+        currentDailyLoss = dayStartBalance - balance;
+        maxDrawdownLimit = (config.max_dd_bps / 10000) * initialBalance;
+        currentMaxDrawdown = initialBalance - balance;
+    }
+
+    if (currentDailyLoss >= dailyLossLimit) { breached = true; reason = 'DAILY_LOSS_BREACH'; }
+    else if (currentMaxDrawdown >= maxDrawdownLimit) { breached = true; reason = 'MAX_DRAWDOWN_BREACH'; }
+
+    const [tradeCountRow] = await db.execute("SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'", [account.id]);
+    const tradesToday = tradeCountRow[0].count;
+
+    if (breached) {
+        await db.execute("UPDATE accounts SET status = 'BREACHED', breached_at = NOW(), breach_reason = ? WHERE id = ?", [reason, account.id]);
+        await db.execute("UPDATE trades SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' WHERE account_id = ? AND status = 'OPEN'", [account.id]);
+    }
+
+    return {
+        breached, reason,
+        allowed: !breached && tradesToday < config.max_trades_per_day,
+        tradesToday, maxTrades: config.max_trades_per_day,
+        dailyLossLimit: dailyLossLimit / 100, maxDrawdownLimit: maxDrawdownLimit / 100,
+        currentDailyLoss: currentDailyLoss / 100, currentMaxDrawdown: currentMaxDrawdown / 100
+    };
+}
+
+// 2. MANUAL CLOSE TRADE (Real-time P/L at market price)
+app.post('/api/trades/:tradeId/close', authenticateToken, async (req, res) => {
+    try {
+        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ?', [req.params.tradeId, req.userId]);
+        if (!trades.length) return res.status(404).json({ error: 'Trade not found' });
+        const trade = trades[0];
+        if (trade.status !== 'OPEN') return res.status(400).json({ error: 'Trade already closed' });
+
+        const priceCache = global.priceCache || {};
+        const price = priceCache[trade.symbol];
+        if (!price) return res.status(400).json({ error: 'Price not available' });
+
+        const exitPrice = trade.side === 'BUY' ? price.bid : price.ask;
+        const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, trade.volume) * 100);
+
+        await db.execute(
+            `UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = 'MANUAL' WHERE trade_id = ?`,
+            [exitPrice, realizedCents, req.params.tradeId]
+        );
+        await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);
+
+        res.json({ success: true, exit_price: exitPrice, realized_profit: realizedCents / 100 });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 3. MODIFY SL/TP
+app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
+    const { stop_loss, take_profit } = req.body;
+    try {
+        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = "OPEN"', [req.params.tradeId, req.userId]);
+        if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
+        await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [stop_loss || null, take_profit || null, req.params.tradeId]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 4. PENDING ORDERS (Limit & Stop)
+app.post('/api/trades/pending', authenticateToken, async (req, res) => {
+    const { account_code, symbol, side, volume, order_type, limit_price, sl, tp } = req.body;
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE account_code = ? AND user_id = ?', [account_code, req.userId]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+        const tradeId = 'PD-' + Date.now().toString(36).toUpperCase();
+        await db.execute(
+            `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), CURDATE(), ?, ?, 'PENDING')`,
+            [tradeId, account.id, account_code, req.userId, symbol, side, volume, limit_price, sl || null, tp || null]
+        );
+        res.json({ success: true, trade_id: tradeId, message: 'Pending order placed' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.get('/api/trades/pending', authenticateToken, async (req, res) => {
+    const { account_code } = req.query;
+    try {
+        const [trades] = await db.execute("SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING'", [account_code, req.userId]);
+        res.json({ success: true, trades });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+app.delete('/api/trades/:tradeId', authenticateToken, async (req, res) => {
+    try {
+        await db.execute("UPDATE trades SET status = 'CANCELLED' WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'", [req.params.tradeId, req.userId]);
+        res.json({ success: true });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
+
+// 5. FLATTEN ALL (Close all open trades for an account)
+app.post('/api/accounts/:id/flatten', authenticateToken, async (req, res) => {
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ? AND user_id = ?', [req.params.id, req.userId]);
+        if (!accounts.length) return res.status(404).json({ error: 'Account not found' });
+        const account = accounts[0];
+        
+        const [openTrades] = await db.execute("SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'", [account.id]);
+        for (const trade of openTrades) {
+            const price = global.priceCache[trade.symbol];
+            if (price) {
+                const exitPrice = trade.side === 'BUY' ? price.bid : price.ask;
+                const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, trade.volume) * 100);
+                await db.execute("UPDATE trades SET status = 'CLOSED', exit_price = ?, realized_profit_cents = ?, close_reason = 'FLATTEN' WHERE trade_id = ?", [exitPrice, realizedCents, trade.trade_id]);
+                await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);
+            }
+        }
+        res.json({ success: true, message: 'All trades flattened' });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});
 async function processLivePrices() {
     const priceCache = global.priceCache || {};
     const [trades] = await db.execute("SELECT * FROM trades WHERE status = 'OPEN'");
