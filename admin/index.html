@@ -376,7 +376,90 @@
             document.getElementById('issueModal').style.display = 'none';
             fetchCertificates();
         }
+// ========== ADVANCED ADMIN ACTIONS ==========
 
+// Add Funds
+async function addFunds(userId) {
+    const amount = prompt('Enter amount in USD (positive to add, negative to subtract):');
+    if (!amount) return;
+    
+    const response = await fetch(`https://fundfxt.onrender.com/api/admin/accounts/${userId}/add-funds`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}` },
+        body: JSON.stringify({ amount_cents: Math.round(parseFloat(amount) * 100), reason: 'Manual adjustment by admin' })
+    });
+    const data = await response.json();
+    if (data.success) {
+        alert(`Funds added! New balance: $${data.new_balance.toFixed(2)}`);
+        fetchUsers();
+    } else {
+        alert(data.error || 'Failed');
+    }
+}
+
+// Unbreach Account
+async function unbreach(userId) {
+    const amount = prompt('Enter new balance in USD (default: original starting balance):');
+    const newBalance = amount ? Math.round(parseFloat(amount) * 100) : null;
+    
+    const response = await fetch(`https://fundfxt.onrender.com/api/admin/accounts/${userId}/unbreach`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}` },
+        body: JSON.stringify({ new_balance_cents: newBalance })
+    });
+    const data = await response.json();
+    if (data.success) {
+        alert('Account unbreached & reset!');
+        fetchUsers();
+    } else {
+        alert(data.error || 'Failed');
+    }
+}
+
+// Allocate New Account
+async function allocateAccount(userId) {
+    const model = prompt('Enter challenge model (e.g., prototype_5k or warrior_5k):');
+    if (!model) return;
+    
+    const response = await fetch(`https://fundfxt.onrender.com/api/admin/users/${userId}/allocate-account`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}` },
+        body: JSON.stringify({ model_key: model })
+    });
+    const data = await response.json();
+    if (data.success) {
+        alert(`Account allocated! Code: ${data.account_code}`);
+        fetchUsers();
+    } else {
+        alert(data.error || 'Failed');
+    }
+}
+
+// Manual Trade
+async function manualTrade(userId) {
+    const accountCode = prompt('Enter account code (e.g., ACC-XXXX):');
+    if (!accountCode) return;
+    
+    const symbol = prompt('Enter symbol (e.g., EURUSD):');
+    const side = prompt('Enter side (BUY or SELL):').toUpperCase();
+    const volume = prompt('Enter volume (0.01 to 2.00):');
+    const entryPrice = prompt('Enter entry price:');
+    const sl = prompt('Enter stop loss (optional):');
+    const tp = prompt('Enter take profit (optional):');
+    
+    const response = await fetch(`https://fundfxt.onrender.com/api/admin/accounts/${userId}/manual-trade`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('fundfxt_admin_token')}` },
+        body: JSON.stringify({ symbol, side, volume, entry_price: parseFloat(entryPrice), sl: sl ? parseFloat(sl) : null, tp: tp ? parseFloat(tp) : null })
+    });
+    const data = await response.json();
+    if (data.success) {
+        alert(`Trade placed! ID: ${data.trade_id}`);
+        fetchUsers();
+    } else {
+        alert(data.error || 'Failed');
+    }
+}
         // Initial Load
         window.onload = () => fetchDashboard();
     </script>
