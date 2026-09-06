@@ -1,11 +1,14 @@
 {
   "name": "backend",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "FundFXT Backend Server",
   "main": "server.js",
   "scripts": {
     "start": "node server-clean.js",
     "test": "node --check server-clean.js && node --check trade-engine-v2.js"
+  },
+  "engines": {
+    "node": ">=18"
   },
   "keywords": [],
   "author": "",
