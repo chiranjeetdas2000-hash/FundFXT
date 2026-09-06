@@ -23,16 +23,27 @@ function rejectWeekendExecution(res){
   return true;
 }
 
-// Account-authoritative trade read route. A valid account owns its complete trade history;
-// legacy trade.user_id values are not trusted for terminal visibility.
+// Account-authoritative trade read routes. Read access is intentionally available on
+// weekends; the weekend guard applies only to trading mutations.
 app.get('/api/trade/get',authenticateToken,async(req,res,next)=>{
   try{
-    const accountCode=String(req.query.account_code||'');
+    const accountCode=String(req.query.account_code||'').trim();
     if(!accountCode) return res.status(400).json({success:false,error:'account_code is required'});
-    const [a]=await db.execute('SELECT id FROM accounts WHERE account_code=? AND user_id=?',[accountCode,req.userId]);
+    const [a]=await db.execute('SELECT id,account_code FROM accounts WHERE account_code=? AND user_id=?',[accountCode,req.userId]);
     if(!a.length) return res.status(404).json({success:false,error:'Account not found'});
     const [trades]=await db.execute('SELECT * FROM trades WHERE account_id=? ORDER BY COALESCE(entry_time,created_at) DESC,id DESC',[a[0].id]);
     return res.json({success:true,trades});
+  }catch(e){return next(e);}
+});
+
+app.get('/api/accounts/:id/trades',authenticateToken,async(req,res,next)=>{
+  try{
+    const accountId=Number(req.params.id);
+    if(!Number.isInteger(accountId)||accountId<=0)return res.status(400).json({success:false,error:'Invalid account id'});
+    const [a]=await db.execute('SELECT id,account_code,status FROM accounts WHERE id=? AND user_id=?',[accountId,req.userId]);
+    if(!a.length)return res.status(404).json({success:false,error:'Account not found'});
+    const [trades]=await db.execute('SELECT * FROM trades WHERE account_id=? ORDER BY COALESCE(entry_time,created_at) DESC,id DESC',[accountId]);
+    return res.json({success:true,trades,account:a[0],market_closed:isForexWeekend()});
   }catch(e){return next(e);}
 });
 
