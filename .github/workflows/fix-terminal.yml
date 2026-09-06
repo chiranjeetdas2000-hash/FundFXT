@@ -1,19 +1,14 @@
-name: FundFXT consistency fix
+name: FundFXT terminal validation
 on:
   push:
     branches: [main]
 permissions:
-  contents: write
+  contents: read
 jobs:
-  patch:
-    if: ${{ !contains(github.event.head_commit.message, '[terminal-fix-bot]') }}
+  validate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      - name: Patch terminal
-        run: python scripts/patch_terminal.py
       - name: Validate JavaScript
         run: |
           node --check server-clean.js
@@ -26,11 +21,8 @@ jobs:
           Path('/tmp/terminal-inline.js').write_text('\n'.join(scripts),encoding='utf-8')
           PY
           node --check /tmp/terminal-inline.js
-      - name: Commit terminal
+      - name: Verify terminal architecture
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add terminal.html
-          git diff --cached --quiet && exit 0
-          git commit -m "fix: synchronize terminal trades [terminal-fix-bot]"
-          git push
+          grep -q "lightweight-charts" terminal.html
+          grep -q "/api/trade/get?account_code=" terminal.html
+          grep -q "Only this account's positions" terminal.html
