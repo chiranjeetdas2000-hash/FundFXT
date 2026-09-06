@@ -505,3 +505,42 @@ function toggleNotifications() {
         panel.style.display = 'none';
     }
 }
+
+// Request Affiliate Payout
+async function requestAffiliatePayout() {
+    const amount = document.getElementById('aff-payout-amount').value;
+    const msg = document.getElementById('aff-payout-message');
+
+    if (!amount || parseFloat(amount) < 100) {
+        msg.style.display = 'block';
+        msg.style.color = 'var(--red)';
+        msg.innerText = 'Minimum payout is $100.00';
+        return;
+    }
+
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/affiliate/payout/request', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+            body: JSON.stringify({ amount_cents: Math.round(parseFloat(amount) * 100) })
+        });
+        const data = await response.json();
+
+        if (data.success) {
+            msg.style.display = 'block';
+            msg.style.color = 'var(--green)';
+            msg.innerHTML = `✅ Payout requested! Request ID: <strong>${data.request_ref}</strong><br>Admin will review it shortly.`;
+            document.getElementById('aff-payout-amount').value = '';
+            fetchAffiliateStats(); // Refresh stats (pending will be deducted)
+        } else {
+            msg.style.display = 'block';
+            msg.style.color = 'var(--red)';
+            msg.innerText = data.error || 'Failed to request payout';
+        }
+    } catch (error) {
+        console.error('Payout request error:', error);
+        msg.style.display = 'block';
+        msg.style.color = 'var(--red)';
+        msg.innerText = 'Server connection error';
+    }
+}
