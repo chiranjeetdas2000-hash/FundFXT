@@ -13,16 +13,15 @@ jobs:
         run: |
           node --check server-clean.js
           node --check trade-engine-v2.js
-          python - <<'PY'
-          from pathlib import Path
-          import re
-          s=Path('terminal.html').read_text(encoding='utf-8')
-          scripts=re.findall(r'<script(?![^>]*src=)[^>]*>(.*?)</script>',s,re.S|re.I)
-          Path('/tmp/terminal-inline.js').write_text('\n'.join(scripts),encoding='utf-8')
-          PY
-          node --check /tmp/terminal-inline.js
+          node --check terminal.js
       - name: Verify terminal architecture
         run: |
-          grep -q "lightweight-charts" terminal.html
-          grep -q "/api/trade/get?account_code=" terminal.html
-          grep -q "Only this account's positions" terminal.html
+          test -f terminal.html
+          test -f terminal.css
+          test -f terminal-polish.css
+          test -f terminal-fix.css
+          grep -q "tradingview.com/widgetembed" terminal.js
+          grep -q "/api/trade/get?account_code=" terminal.js
+          grep -q "fundfxt_chart_height" terminal.js
+          grep -q "candlestick-chart" terminal.html
+          grep -q "lucide" terminal.html
