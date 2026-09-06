@@ -39,11 +39,9 @@ jobs:
           p.write_text(s)
 
           p=Path('terminal.js')
-          s=p.read_text().replace("$('chartSource').textContent='TRADINGVIEW CHART · FCS EXECUTION FEED'","$('chartSource').textContent='TRADINGVIEW CHART · BIQUOTE EXECUTION FEED'")
-          old="const p=S.prices[s]||{},bid=Number(p.bid),ask=Number(p.ask),live=Number.isFinite(bid)&&Number.isFinite(ask),spread=live?Math.abs(ask-bid):null,ch=Number(p.changePercent);return `<button class=\"quote ${s===S.selected?'selected':''}\" data-symbol=\"${s}\"><span class=\"quote-main\"><b>${s}</b><small>${live?'● LIVE':'○ MARKET CLOSED'}</small></span><span class=\"quote-prices\"><b class=\"bid\">${price(bid,s)}</b><b class=\"ask\">${price(ask,s)}</b><small>${live?`Δ ${Number.isFinite(ch)?(ch>=0?'+':'')+ch.toFixed(2)+'%':'—'} · SPR ${price(spread,s)}`:'Bid / Ask unavailable'}</small></span></button>`})"
-          new="const p=S.prices[s]||{},bid=Number(p.bid),ask=Number(p.ask),live=Number.isFinite(bid)&&Number.isFinite(ask),spread=live?Math.abs(ask-bid):null,spPct=live&&Number.isFinite(Number(p.spreadPercent))?Number(p.spreadPercent):(live&&Number((p.mid||((bid+ask)/2)))?spread/Number(p.mid||((bid+ask)/2))*100:null),ch=Number(p.changePercent),state=String(p.marketState||'open').toLowerCase(),stale=Boolean(p.stale);return `<button class=\"quote ${s===S.selected?'selected':''}\" data-symbol=\"${s}\"><span class=\"quote-main\"><b>${s}</b><small>${live&&!stale&&state!=='closed'?'● LIVE':'○ MARKET CLOSED'}</small></span><span class=\"quote-prices\"><b class=\"bid\">${price(bid,s)}</b><b class=\"ask\">${price(ask,s)}</b><small>${live?`Δ ${Number.isFinite(ch)?(ch>=0?'+':'')+ch.toFixed(2)+'%':'—'} · SPR ${price(spread,s)}${Number.isFinite(spPct)?` · ${spPct.toFixed(3)}%`:''}`:'Bid / Ask unavailable'}</small></span></button>`})"
-          if old in s:
-              s=s.replace(old,new,1)
+          s=p.read_text()
+          s=s.replace("const DEFAULT_SYMBOLS=['EURUSD','GBPUSD','USDJPY','AUDUSD','USDCHF','USDCAD','NZDUSD','EURGBP','EURJPY','GBPJPY','XAUUSD','XAGUSD'];", "const DEFAULT_SYMBOLS=['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD','NZDUSD','EURGBP','EURJPY','EURAUD','EURCHF','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPNZD','AUDJPY','AUDNZD','AUDCAD','AUDCHF','CADJPY','CADCHF','CHFJPY','NZDJPY','NZDCHF','NZDCAD','XAUUSD','XAGUSD'];")
+          s=s.replace("function tvSymbol(s){const aliases={XAUUSD:'OANDA:XAUUSD',XAGUSD:'OANDA:XAGUSD'};return aliases[s]||`FX:${s}`}" , "function tvSymbol(s){return `OANDA:${String(s||'EURUSD').toUpperCase()}`}")
           p.write_text(s)
 
           p=Path('terminal-polish.css')
@@ -55,11 +53,12 @@ jobs:
         run: |
           node --check server-clean.js
           node --check terminal.js
+          node --check trade-engine-v2.js
       - name: Commit generated patch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add server-clean.js terminal.html terminal.js terminal-polish.css
+          git add server-clean.js terminal.html terminal.js terminal-polish.css trade-engine-v2.js
           if git diff --cached --quiet; then exit 0; fi
-          git commit -m "Connect terminal quotes and execution to BiQuote"
+          git commit -m "Connect all terminal pairs to OANDA TradingView charts"
           git push
