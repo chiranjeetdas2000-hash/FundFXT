@@ -1410,6 +1410,159 @@ async function getPaymentMode() {
     }
     return 'MANUAL'; // default
 }
+// ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
+
+// 1. User: Request Affiliate Payout (Min $100)
+app.post('/api/affiliate/payout/request', authenticateToken, async (req, res) => {
+    const { amount_cents } = req.body;
+    
+    try {
+        // Fetch user's affiliate record
+        const [affiliates] = await db.execute('SELECT * FROM affiliates WHERE user_id = ?', [req.userId]);
+        if (!affiliates.length) return res.status(404).json({ error: 'Affiliate account not found' });
+        const affiliate = affiliates[0];
+
+        // Validate amount (Min $100 = 10000 cents)
+        const minimumPayout = 10000; // $100
+        if (!amount_cents || amount_cents < minimumPayout) {
+            return res.status(400).json({ error: 'Minimum payout is $100.00' });
+        }
+
+        // Check pending earnings are sufficient
+        if (amount_cents > affiliate.pending_earnings_cents) {
+            return res.status(400).json({ error: 'Insufficient pending earnings' });
+        }
+
+        // Generate request reference
+        const requestRef = 'AF-PAY-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
+
+        // Create payout request (kind = AFFILIATE)
+        await db.execute(
+            `INSERT INTO payout_requests (request_ref, user_id, kind, amount_cents, currency, method, payout_details, status, created_at)
+             VALUES (?, ?, 'AFFILIATE', ?, 'USD', 'BANK', ?, 'PENDING', NOW())`,
+            [requestRef, req.userId, amount_cents, JSON.stringify({ type: 'AFFILIATE_COMMISSION' })]
+        );
+
+        // Deduct pending earnings immediately to prevent double spend
+        await db.execute('UPDATE affiliates SET pending_earnings_cents = pending_earnings_cents - ? WHERE id = ?', [amount_cents, affiliate.id]);
+
+        // Notify Admin via Email
+        const [users] = await db.execute('SELECT legal_name, email FROM users WHERE id = ?', [req.userId]);
+        if (users.length) {
+            await sendEmail('support.fundfxt@gmail.com', `New Affiliate Payout Request: ${requestRef}`, 
+                `<h3>Affiliate Payout Request</h3><p>User: ${users[0].legal_name}</p><p>Amount: $${(amount_cents / 100).toFixed(2)}</p>`)
+                .catch(err => console.log('Affiliate payout email failed:', err.message));
+        }
+
+        res.json({ success: true, request_ref: requestRef });
+    } catch (error) {
+        console.error('Affiliate payout request error:', error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 2. User: View Affiliate Payout History
+app.get('/api/affiliate/payouts', authenticateToken, async (req, res) => {
+    try {
+        const [payouts] = await db.execute(
+            "SELECT * FROM payout_requests WHERE user_id = ? AND kind = 'AFFILIATE' ORDER BY created_at DESC",
+            [req.userId]
+        );
+        res.json({ success: true, payouts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 3. Admin: List All Affiliate Payout Requests
+app.get('/api/admin/affiliate-payouts', authenticateAdmin, async (req, res) => {
+    try {
+        const [payouts] = await db.query(`
+            SELECT pr.*, u.legal_name, u.email, a.affiliate_code
+            FROM payout_requests pr
+            JOIN users u ON pr.user_id = u.id
+            LEFT JOIN affiliates a ON a.user_id = pr.user_id
+            WHERE pr.kind = 'AFFILIATE'
+            ORDER BY pr.created_at DESC
+        `);
+        res.json({ success: true, payouts });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 4. Admin: Update Affiliate Payout Status (Approve/Reject/Paid)
+app.post('/api/admin/affiliate-payouts/:id/status', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { status } = req.body;
+
+    try {
+        const [payouts] = await db.execute('SELECT * FROM payout_requests WHERE id = ?', [id]);
+        if (!payouts.length) return res.status(404).json({ error: 'Payout not found' });
+        const payout = payouts[0];
+
+        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
+
+        // If PAID, mark associated commissions as PAID
+        if (status === 'PAID') {
+            await db.execute(
+                `UPDATE affiliate_commissions SET status = 'PAID' 
+                 WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?) 
+                 AND status = 'PENDING'`,
+                [payout.user_id]
+            );
+            // Update affiliate paid earnings
+            await db.execute(
+                `UPDATE affiliates SET paid_earnings_cents = paid_earnings_cents + ? WHERE user_id = ?`,
+                [payout.amount_cents, payout.user_id]
+            );
+        }
+        // If REJECTED, refund pending earnings
+        if (status === 'REJECTED') {
+            await db.execute(
+                'UPDATE affiliates SET pending_earnings_cents = pending_earnings_cents + ? WHERE user_id = ?',
+                [payout.amount_cents, payout.user_id]
+            );
+        }
+
+        res.json({ success: true });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// 5. Admin: Manually Adjust Affiliate Commission
+app.post('/api/admin/affiliates/:id/adjust-commission', authenticateAdmin, async (req, res) => {
+    const { id } = req.params;
+    const { amount_cents, type } = req.body; // type: 'ADD' or 'SUBTRACT'
+
+    try {
+        const [affiliates] = await db.execute('SELECT * FROM affiliates WHERE id = ?', [id]);
+        if (!affiliates.length) return res.status(404).json({ error: 'Affiliate not found' });
+        const affiliate = affiliates[0];
+
+        let newTotal = affiliate.total_earnings_cents;
+        let newPending = affiliate.pending_earnings_cents;
+
+        if (type === 'ADD') {
+            newTotal += amount_cents;
+            newPending += amount_cents;
+        } else {
+            if (amount_cents > newPending) return res.status(400).json({ error: 'Cannot subtract more than pending balance' });
+            newTotal -= amount_cents;
+            newPending -= amount_cents;
+        }
+
+        await db.execute(
+            'UPDATE affiliates SET total_earnings_cents = ?, pending_earnings_cents = ? WHERE id = ?',
+            [newTotal, newPending, id]
+        );
+
+        res.json({ success: true, new_total: newTotal, new_pending: newPending });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
 
 // 5. Notification Hook – Example: When Payment is Approved (add to existing route)
 // In your admin payment-orders/:id/status route, after updating status:
