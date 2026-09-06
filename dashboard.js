@@ -431,3 +431,71 @@ async function checkAccountRisk(account) {
         currentMaxDrawdown: currentMaxDrawdown / 100
     };
 }
+
+// Notification Functions
+let notificationUnread = 0;
+
+async function fetchNotifications() {
+    try {
+        const response = await fetch('https://fundfxt.onrender.com/api/notifications', {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            notificationUnread = data.unreadCount;
+            document.getElementById('notificationBadge').innerText = notificationUnread;
+            document.getElementById('notificationBadge').style.display = notificationUnread > 0 ? 'block' : 'none';
+            
+            const list = document.getElementById('notificationList');
+            if (data.notifications.length === 0) {
+                list.innerHTML = '<p style="color: #94A3B8; text-align: center;">No notifications yet</p>';
+            } else {
+                list.innerHTML = data.notifications.map(n => `
+                    <div style="padding: 10px; border-bottom: 1px solid #2a2a2a; cursor: pointer;" onclick="markNotificationRead(${n.id})">
+                        <div style="font-size: 14px; font-weight: 600;">${n.title}</div>
+                        <div style="font-size: 12px; color: #94A3B8;">${n.message}</div>
+                        <div style="font-size: 11px; color: #666;">${new Date(n.created_at).toLocaleString()}</div>
+                        ${n.read_at ? '' : '<span style="color: #00B56A; font-size: 11px;">● New</span>'}
+                    </div>
+                `).join('');
+            }
+        }
+    } catch (error) {
+        console.error('Fetch notifications error:', error);
+    }
+}
+
+async function markNotificationRead(id) {
+    try {
+        await fetch(`https://fundfxt.onrender.com/api/notifications/${id}/read`, {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        fetchNotifications();
+    } catch (error) {
+        console.error('Mark read error:', error);
+    }
+}
+
+async function markAllNotificationsRead() {
+    try {
+        await fetch('https://fundfxt.onrender.com/api/notifications/read-all', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        fetchNotifications();
+    } catch (error) {
+        console.error('Mark all read error:', error);
+    }
+}
+
+function toggleNotifications() {
+    const panel = document.getElementById('notificationPanel');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        fetchNotifications();
+    } else {
+        panel.style.display = 'none';
+    }
+}
