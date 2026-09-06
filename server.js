@@ -944,7 +944,36 @@ async function processLivePrices() {
         const currentPrice = trade.side === 'BUY' ? price.bid : price.ask;
         const floatingCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, currentPrice, trade.volume) * 100);
         await db.execute('UPDATE trades SET current_price = ?, floating_profit_cents = ? WHERE trade_id = ?', [currentPrice, floatingCents, trade.trade_id]);
+        // ===== PENDING ORDERS EXECUTION =====
+async function executePendingOrders() {
+    const [pendingTrades] = await db.execute("SELECT * FROM trades WHERE status = 'PENDING'");
+    for (const pending of pendingTrades) {
+        const price = global.priceCache[pending.symbol];
+        if (!price) continue;
+
+        const currentBid = price.bid;
+        const currentAsk = price.ask;
+        let shouldExecute = false;
+
+        if (pending.side === 'BUY') {
+            if (pending.entry_price >= currentAsk) shouldExecute = true; // Limit Buy
+        } else {
+            if (pending.entry_price <= currentBid) shouldExecute = true; // Limit Sell
+        }
+
+        if (shouldExecute) {
+            await db.execute(
+                `UPDATE trades SET status = 'OPEN', entry_time = NOW(), current_price = ? WHERE trade_id = ?`,
+                [currentAsk, pending.trade_id]
+            );
+        }
+    }
+}
+
+// Call this inside processLivePrices() after open trade updates
+await executePendingOrders();
         // Ye code processLivePrices function ke andar, trade loop ke andar paste karo
+        
 const [accounts] = await db.execute('SELECT * FROM accounts WHERE id = ?', [trade.account_id]);
 if (accounts.length > 0) {
     const account = accounts[0];
@@ -960,22 +989,19 @@ if (accounts.length > 0) {
 
     // Check Risk
     const risk = await checkAccountRisk(account); // Reload updated account info if needed
-    if (risk.breached) {
-        await db.execute("UPDATE trades SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' WHERE account_id = ? AND status = 'OPEN'", [account.id]);
-    }
-}
-        let closeReason = null;
-        if (trade.side === 'BUY') {
-            if (trade.stop_loss && currentPrice <= trade.stop_loss) closeReason = 'SL';
-            if (trade.take_profit && currentPrice >= trade.take_profit) closeReason = 'TP';
-        } else {
-            if (trade.stop_loss && currentPrice >= trade.stop_loss) closeReason = 'SL';
-            if (trade.take_profit && currentPrice <= trade.take_profit) closeReason = 'TP';
-        }
-        if (closeReason) {
-            const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, currentPrice, trade.volume) * 100);
-            await db.execute(`UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = ? WHERE trade_id = ?`, [currentPrice, realizedCents, closeReason, trade.trade_id]);
-            await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);
+   if (breached) {
+    // Close all open trades properly with realized P/L
+    const [openTrades] = await db.execute('SELECT * FROM trades WHERE account_id = ? AND status = "OPEN"', [account.id]);
+    for (const trade of openTrades) {
+        const price = global.priceCache[trade.symbol];
+        if (price) {
+            const exitPrice = trade.side === 'BUY' ? price.bid : price.ask;
+            const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, trade.volume) * 100);
+            await db.execute(
+                `UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = 'BREACH' WHERE trade_id = ?`,
+                [exitPrice, realizedCents, trade.trade_id]
+            );
+            await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);
         }
     }
 }
