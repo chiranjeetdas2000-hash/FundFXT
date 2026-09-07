@@ -1,51 +1,84 @@
 'use strict';
+
+// FundFXT account menu: compact account icon, rules/compliance, profile, settings and logout.
 (function(){
+  const API='https://fundfxt.onrender.com';
   const $=id=>document.getElementById(id);
-  const esc=v=>String(v??'—').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m));
-  const num=(...v)=>{for(const x of v){const n=Number(x);if(Number.isFinite(n))return n}return null};
-  let cachedTrades=[];
-
-  function hardenRuntime(){
-    if(typeof window.renderSelectedPrice==='function'&&!window.renderSelectedPrice.__fxSafe){const original=window.renderSelectedPrice;const safe=function(){try{return original.apply(this,arguments)}catch(e){console.warn('FundFXT renderSelectedPrice recovered',e)}};safe.__fxSafe=true;window.renderSelectedPrice=safe}
-    if(typeof window.renderButtons==='function'&&!window.renderButtons.__fxSafe){const original=window.renderButtons;const safe=function(){try{return original.apply(this,arguments)}catch(e){console.warn('FundFXT renderButtons recovered',e)}};safe.__fxSafe=true;window.renderButtons=safe}
-    if(typeof window.renderAccount==='function'&&!window.renderAccount.__fxSafe){const original=window.renderAccount;const safe=function(){try{return original.apply(this,arguments)}catch(e){console.warn('FundFXT renderAccount recovered',e)}};safe.__fxSafe=true;window.renderAccount=safe}
-    if(typeof window.loadTrades==='function'&&!window.loadTrades.__fxSafe){const original=window.loadTrades;const safe=async function(){try{return await original.apply(this,arguments)}catch(e){console.warn('FundFXT trade sync recovered',e);const box=$('tradeScroll');if(box)box.innerHTML=`<div class="empty"><strong>Trade sync failed</strong><span>${esc(e.message||'Unable to sync trades')}</span></div>`}};safe.__fxSafe=true;window.loadTrades=safe}
-    if(typeof window.syncAll==='function'&&!window.syncAll.__fxSafe){const original=window.syncAll;const safe=async function(){try{return await original.apply(this,arguments)}catch(e){console.warn('FundFXT sync cycle recovered',e)}};safe.__fxSafe=true;window.syncAll=safe}
-  }
-
-  async function loadMenuData(){
-    const token=localStorage.getItem('fundfxt_token');if(!token)return;
-    const headers={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
-    try{
-      const r=await fetch('https://fundfxt.onrender.com/api/accounts',{headers});if(!r.ok)throw Error(`Account API HTTP ${r.status}`);const accounts=await r.json();const list=Array.isArray(accounts)?accounts:(accounts.accounts||[]);const code=$('accountCode')?.textContent?.trim();const a=list.find(x=>x.account_code===code)||list[0];if(a)window.__fxMenuAccount=a;
-      const selectedCode=a?.account_code||code;if(selectedCode){const tr=await fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(selectedCode),{headers});if(tr.ok){const td=await tr.json();cachedTrades=Array.isArray(td.trades)?td.trades:[]}}
-    }catch(e){console.warn('FundFXT account menu data load failed',e)}
-    render();
-  }
+  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const token=()=>localStorage.getItem('fundfxt_token')||'';
+  const requested=()=>new URLSearchParams(location.search).get('account')||localStorage.getItem('fundfxt_selected_account')||'';
+  const accountCode=()=>requested()||$('accountCode')?.textContent?.trim()||'';
 
   function inject(){
-    if($('fxAccountMenu'))return;
-    const style=document.createElement('style');style.textContent=`
-      .fx-account-trigger{width:38px;height:38px;border:1px solid #263746;border-radius:10px;background:#0b1117;color:#fff;display:grid;place-items:center;cursor:pointer;transition:.2s}.fx-account-trigger:hover,.fx-account-trigger.active{border-color:#00d084;background:#10231d;color:#00d084;box-shadow:0 0 0 3px #00d08412}.fx-account-trigger svg{width:19px;height:19px}
-      .fx-account-menu{position:fixed;z-index:120;top:67px;right:16px;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 82px);overflow:auto;background:#0d1319;border:1px solid #263746;border-radius:15px;box-shadow:0 24px 70px #000b;padding:10px;opacity:0;transform:translateY(-8px) scale(.98);pointer-events:none;transition:.18s ease}.fx-account-menu.open{opacity:1;transform:none;pointer-events:auto}.fx-menu-section{border:1px solid #1b2a35;background:#0b1117;border-radius:11px;padding:11px;margin:6px 0}.fx-menu-head{display:flex;align-items:center;justify-content:space-between;gap:10px}.fx-menu-label{font-size:8px;color:#7f8d9a;letter-spacing:.08em;font-weight:700}.fx-menu-value{font-size:12px;color:#fff;font-weight:800}.fx-menu-sub{font-size:8px;color:#7f8d9a;margin-top:4px}.fx-rule{display:grid;grid-template-columns:1fr auto;gap:8px;padding:8px 0;border-top:1px solid #1b2a35}.fx-rule:first-of-type{border-top:0}.fx-rule b{font-size:9px}.fx-rule span{font-size:8px;color:#aeb9c3;text-align:right}.fx-menu-title{font-size:10px;font-weight:800;margin-bottom:7px}.fx-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px}.fx-profile-cell{padding:8px;border:1px solid #1b2a35;border-radius:8px;background:#101820}.fx-profile-cell small{display:block;color:#7f8d9a;font-size:7px}.fx-profile-cell b{display:block;margin-top:3px;font-size:9px;overflow:hidden;text-overflow:ellipsis}.fx-menu-action{width:100%;height:34px;border:1px solid #263746;background:#121a22;color:#fff;border-radius:8px;font-size:8px;font-weight:800;cursor:pointer;margin-top:6px}.fx-menu-action:hover{border-color:#3a5266}.fx-menu-action.logout{color:#ff4d5a}.fx-consistency{display:flex;align-items:center;justify-content:space-between;padding:8px 9px;border:1px solid #263746;background:#101820;border-radius:8px;margin-top:7px}.fx-consistency b{font-size:10px}.fx-consistency span{font-size:8px;color:#00d084}.fx-consistency.warn span{color:#f5b942}.fx-rules-note{font-size:7px;color:#687784;margin-top:7px;line-height:1.4}.fx-menu-backdrop{position:fixed;inset:0;z-index:110;background:transparent;display:none}.fx-menu-backdrop.open{display:block}.topbar .acct,.topbar #refresh{display:none!important}.top-right{display:flex!important;align-items:center;gap:8px}.top-center span:nth-child(3){display:none!important}.top-center{gap:26px!important}.top-center span{font-size:9px}.top-center span:first-child b,.top-center span:nth-child(2) b{font-size:11px;color:#fff}.top-center #market{font-weight:800;color:#00d084}
-      @media(max-width:820px){.topbar{padding:0 9px!important}.brand{font-size:18px!important}.top-center{display:none!important}.top-right{margin-left:auto!important}.fx-account-trigger{width:35px;height:35px}.fx-account-menu{top:61px;right:9px;width:calc(100vw - 18px)}}
-    `;document.head.appendChild(style);
-    const backdrop=document.createElement('div');backdrop.id='fxAccountBackdrop';backdrop.className='fx-menu-backdrop';document.body.appendChild(backdrop);
-    const trigger=document.createElement('button');trigger.id='fxAccountTrigger';trigger.className='fx-account-trigger';trigger.setAttribute('aria-label','Account menu');trigger.title='Account';trigger.innerHTML='<i data-lucide="user-round"></i>';document.querySelector('.top-right')?.prepend(trigger);
-    const menu=document.createElement('div');menu.id='fxAccountMenu';menu.className='fx-account-menu';menu.innerHTML=`<section class="fx-menu-section"><div class="fx-menu-head"><div><div class="fx-menu-label">TRADING ACCOUNT</div><div id="fxMenuAccount" class="fx-menu-value">—</div><div id="fxMenuStatus" class="fx-menu-sub">Loading…</div></div><i data-lucide="shield-check"></i></div></section><section class="fx-menu-section"><div class="fx-menu-title">Account Rules &amp; Compliance</div><div id="fxRules"></div><div id="fxConsistency" class="fx-consistency"><b>Consistency</b><span>Calculating…</span></div><div class="fx-rules-note">Rules and progress are based on the selected account and recorded trades.</div></section><section class="fx-menu-section"><div class="fx-menu-title">Profile</div><div class="fx-profile-grid"><div class="fx-profile-cell"><small>ACCOUNT</small><b id="fxProfileAccount">—</b></div><div class="fx-profile-cell"><small>STATUS</small><b id="fxProfileStatus">—</b></div><div class="fx-profile-cell"><small>BALANCE</small><b id="fxProfileBalance">—</b></div><div class="fx-profile-cell"><small>EQUITY</small><b id="fxProfileEquity">—</b></div></div></section><section class="fx-menu-section"><div class="fx-menu-title">Settings</div><button id="fxSettingsBtn" class="fx-menu-action">TRADING TERMINAL SETTINGS</button></section><button id="fxLogoutBtn" class="fx-menu-action logout">LOGOUT</button>`;document.body.appendChild(menu);
-    const close=()=>{menu.classList.remove('open');backdrop.classList.remove('open');trigger.classList.remove('active')};const open=()=>{render();loadMenuData();menu.classList.add('open');backdrop.classList.add('open');trigger.classList.add('active');window.lucide?.createIcons?.({attrs:{'stroke-width':2}})};
-    trigger.onclick=()=>menu.classList.contains('open')?close():open();backdrop.onclick=close;document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});$('fxLogoutBtn').onclick=()=>{localStorage.removeItem('fundfxt_token');location.href='/login.html'};$('fxSettingsBtn').onclick=()=>{close();window.toast?.('Settings panel will be connected next.')};
-    document.querySelector('.account-panel')?.remove();document.querySelector('.mobile-nav button[data-view="account"]')?.remove();window.lucide?.createIcons?.({attrs:{'stroke-width':2}});
+    const right=document.querySelector('.top-right');
+    if(!right||$('fxAccountBtn'))return;
+    const b=document.createElement('button');
+    b.id='fxAccountBtn';b.className='icon-btn fx-account-btn';b.type='button';b.title='Account';b.setAttribute('aria-label','Account');
+    b.innerHTML='<i data-lucide="user-round"></i>';
+    right.appendChild(b);
+    const menu=document.createElement('div');menu.id='fxAccountMenu';menu.className='fx-account-menu';menu.hidden=true;
+    menu.innerHTML=`
+      <div class="fx-menu-head"><div><strong>Trading Account</strong><small id="fxMenuStatus">Loading…</small></div><button type="button" class="fx-menu-close" id="fxMenuClose">×</button></div>
+      <div class="fx-menu-section"><span>Account ID</span><b id="fxMenuAccount">—</b></div>
+      <div class="fx-menu-section"><strong>Account Rules &amp; Compliance</strong>
+        <div class="fx-rule"><span>Daily Drawdown</span><b id="fxDailyDD">—</b></div>
+        <div class="fx-rule"><span>Max Drawdown</span><b id="fxMaxDD">—</b></div>
+        <div class="fx-rule"><span>Max Trades</span><b id="fxMaxTrades">3</b></div>
+        <div class="fx-rule"><span>Consistency</span><b id="fxConsistency">—</b></div>
+      </div>
+      <div class="fx-menu-section"><strong>Profile</strong>
+        <div class="fx-profile"><span>Account</span><b id="fxProfileAccount">—</b></div>
+        <div class="fx-profile"><span>Status</span><b id="fxProfileStatus">—</b></div>
+        <div class="fx-profile"><span>Balance</span><b id="fxProfileBalance">—</b></div>
+        <div class="fx-profile"><span>Equity</span><b id="fxProfileEquity">—</b></div>
+      </div>
+      <button type="button" class="fx-menu-action" id="fxSettings"><i data-lucide="settings"></i> Settings</button>
+      <button type="button" class="fx-menu-action danger" id="fxLogout"><i data-lucide="log-out"></i> Logout</button>`;
+    document.body.appendChild(menu);
+    b.onclick=()=>{menu.hidden=!menu.hidden; if(!menu.hidden)render()};
+    $('fxMenuClose').onclick=()=>menu.hidden=true;
+    $('fxLogout').onclick=()=>{localStorage.removeItem('fundfxt_token');localStorage.removeItem('fundfxt_selected_account');location.href='/login.html'};
+    $('fxSettings').onclick=()=>window.toast?window.toast('Settings panel will be connected next.'):alert('Settings panel will be connected next.');
+    document.addEventListener('click',e=>{if(!menu.contains(e.target)&&e.target!==b&&!b.contains(e.target))menu.hidden=true});
+    if(window.lucide?.createIcons)window.lucide.createIcons();
   }
 
-  function render(){
-    const a=window.__fxMenuAccount||{};const code=a.account_code||$('accountCode')?.textContent||'—',status=a.status||'ACTIVE';
-    if($('fxMenuAccount'))$('fxMenuAccount').textContent=code;if($('fxMenuStatus'))$('fxMenuStatus').textContent=`${status} · Selected account`;if($('fxProfileAccount'))$('fxProfileAccount').textContent=code;if($('fxProfileStatus'))$('fxProfileStatus').textContent=status;if($('fxProfileBalance'))$('fxProfileBalance').textContent=$('balance')?.textContent||'—';if($('fxProfileEquity'))$('fxProfileEquity').textContent=$('equity')?.textContent||'—';
-    const daily=num(a.daily_drawdown_percent,a.daily_drawdown,a.daily_loss_limit_percent),maxdd=num(a.max_drawdown_percent,a.max_drawdown,a.total_drawdown_percent),maxTrades=num(a.max_trades,a.trade_limit,a.max_open_trades)??3,limit=num(a.consistency_percent,a.consistency_rule,a.max_consistency_percent)??35,open=cachedTrades.filter(t=>String(t.status).toUpperCase()==='OPEN').length,profits=cachedTrades.filter(t=>Number(t.realized_profit_cents)>0).map(t=>Number(t.realized_profit_cents)/100),total=profits.reduce((x,y)=>x+y,0),largest=profits.length?Math.max(...profits):0,consistency=total>0?largest/total*100:0;
-    const rules=$('fxRules');if(rules)rules.replaceChildren(...[['Daily Drawdown',daily!=null?`${daily}%`:'Configured',daily!=null?`${daily}% limit`:'Account rule'],['Max Drawdown',maxdd!=null?`${maxdd}%`:'Configured',maxdd!=null?`${maxdd}% limit`:'Account rule'],['Max Trades',String(maxTrades),`${open}/${maxTrades} open`]].map(r=>{const d=document.createElement('div');d.className='fx-rule';d.innerHTML=`<b>${esc(r[0])}</b><span>${esc(r[1])} · ${esc(r[2])}</span>`;return d}));const c=$('fxConsistency');if(c){const s=c.querySelector('span');if(s)s.textContent=`${consistency.toFixed(1)}% / ${limit}%`;c.classList.toggle('warn',consistency>limit)}
+  async function getJSON(url){
+    const r=await fetch(url,{headers:{Authorization:'Bearer '+token()}});if(!r.ok)throw Error('HTTP '+r.status);return r.json();
+  }
+  function pct(v){return Number.isFinite(Number(v))?Number(v).toFixed(2)+'%':'—'}
+  function money(v){return Number.isFinite(Number(v))?'$'+(Number(v)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}):'—'}
+
+  async function render(){
+    const code=accountCode(); if(!code)return;
+    try{
+      const [ad,td]=await Promise.all([getJSON(API+'/api/accounts'),getJSON(API+'/api/trade/get?account_code='+encodeURIComponent(code))]);
+      const list=Array.isArray(ad)?ad:(ad.accounts||[]);const a=list.find(x=>x.account_code===code)||list[0]||{};
+      const trades=Array.isArray(td?.trades)?td.trades:[];
+      const profitable=trades.filter(t=>String(t.status||'').toUpperCase()!=='OPEN'&&Number(t.profit_cents??t.realized_profit_cents??t.pnl_cents)>0);
+      const total=profitable.reduce((s,t)=>s+Number(t.profit_cents??t.realized_profit_cents??t.pnl_cents),0);
+      const largest=profitable.reduce((m,t)=>Math.max(m,Number(t.profit_cents??t.realized_profit_cents??t.pnl_cents)),0);
+      const consistency=total>0?largest/total*100:NaN;
+      const status=String(a.status||'ACTIVE').toUpperCase();
+      $('fxMenuAccount').textContent=a.account_code||code;$('fxMenuStatus').textContent=status+' · Selected account';
+      $('fxProfileAccount').textContent=a.account_code||code;$('fxProfileStatus').textContent=status;$('fxProfileBalance').textContent=money(a.balance_cents);$('fxProfileEquity').textContent=money(a.equity_cents);
+      $('fxDailyDD').textContent=a.daily_drawdown_percent!=null?pct(a.daily_drawdown_percent):a.daily_drawdown!=null?pct(a.daily_drawdown):'—';
+      $('fxMaxDD').textContent=a.max_drawdown_percent!=null?pct(a.max_drawdown_percent):a.max_drawdown!=null?pct(a.max_drawdown):'—';
+      $('fxMaxTrades').textContent=a.max_trades!=null?String(a.max_trades):'3';
+      $('fxConsistency').textContent=Number.isFinite(consistency)?pct(consistency)+' / 35% limit':'— / 35% limit';
+    }catch(e){$('fxMenuStatus').textContent='Account data unavailable';console.warn('FundFXT account menu sync failed',e)}
   }
 
-  hardenRuntime();
-  document.addEventListener('DOMContentLoaded',()=>{hardenRuntime();inject();setTimeout(loadMenuData,600)});
-  window.refreshFundFXTAccountMenu=()=>loadMenuData();
+  function hideLegacy(){document.querySelectorAll('.account-panel').forEach(el=>el.remove());document.querySelectorAll('[data-mobile-account],#mobileAccount,.mobile-account').forEach(el=>el.remove())}
+
+  // Prevent optional UI cleanup from breaking the terminal's live refresh loop.
+  function harden(){
+    ['renderAccount','renderSelectedPrice','renderButtons','renderTrades','renderQuotes'].forEach(name=>{
+      const fn=window[name];if(typeof fn!=='function'||fn.__fxSafe)return;
+      const safe=function(){try{return fn.apply(this,arguments)}catch(e){console.warn('FundFXT '+name+' skipped:',e);return null}};safe.__fxSafe=true;window[name]=safe;
+    });
+  }
+
+  document.addEventListener('DOMContentLoaded',()=>{harden();hideLegacy();inject();render();setInterval(render,5000)});
+  window.addEventListener('error',e=>console.warn('FundFXT UI error',e.error||e.message));
 })();
