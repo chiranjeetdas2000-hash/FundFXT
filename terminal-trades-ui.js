@@ -13,55 +13,25 @@
   function ensureModal(){if(document.getElementById('slTpModal'))return;const modal=document.createElement('div');modal.id='slTpModal';modal.className='trade-modal hidden';modal.innerHTML=`<div class="trade-modal-backdrop" data-modal-close></div><div class="trade-modal-card" role="dialog" aria-modal="true" aria-labelledby="slTpTitle"><div class="trade-modal-head"><div><span class="trade-modal-kicker">POSITION MANAGEMENT</span><h3 id="slTpTitle">Modify SL / TP</h3></div><button type="button" class="trade-modal-x" data-modal-close aria-label="Close">×</button></div><div class="trade-modal-summary"><div><span>PAIR</span><b id="modSymbol">—</b></div><div><span>ORDER ID</span><b id="modTradeId">—</b></div><div><span>DIRECTION</span><b id="modSide">—</b></div><div><span>LOT SIZE</span><b id="modVolume">—</b></div><div><span>ENTRY PRICE</span><b id="modEntry">—</b></div></div><div class="existing-risk hidden" id="existingRisk"><div><span>PREVIOUS SL</span><b id="previousSL">Not set</b></div><div><span>PREVIOUS TP</span><b id="previousTP">Not set</b></div></div><div class="trade-modal-fields"><label class="mod-field sl-field"><span>STOP LOSS</span><input id="modSL" type="number" step="any" placeholder="Enter SL"></label><label class="mod-field tp-field"><span>TAKE PROFIT</span><input id="modTP" type="number" step="any" placeholder="Enter TP"></label></div><div id="modHint" class="trade-modal-hint hidden"></div><div id="modError" class="trade-modal-error hidden"></div><button id="modSave" type="button" class="modify-primary">MODIFY POSITION</button></div>`;document.body.appendChild(modal);modal.querySelectorAll('[data-modal-close]').forEach(x=>x.addEventListener('click',closeModal));document.getElementById('modSave').addEventListener('click',saveModify)}
   let activeId='';
   function closeModal(){document.getElementById('slTpModal')?.classList.add('hidden');activeId=''}
-  function fillSummary(trade,fallback){
-    const symbol=trade?.symbol||fallback.symbol||'—';
-    const tradeId=trade?.trade_id||fallback.tradeId||'—';
-    const side=String(trade?.side||fallback.side||'BUY').toUpperCase();
-    const volume=trade?.volume??fallback.volume??'—';
-    const entry=trade?.entry_price??fallback.entry??'—';
-    document.getElementById('modSymbol').textContent=fmt(symbol);
-    document.getElementById('modTradeId').textContent=fmt(tradeId);
-    const sideEl=document.getElementById('modSide');sideEl.textContent=side;sideEl.className=side==='SELL'?'mod-sell':'mod-buy';
-    document.getElementById('modVolume').textContent=fmt(volume);
-    document.getElementById('modEntry').textContent=fmt(entry);
-  }
+  function fillSummary(trade,fallback){const symbol=trade?.symbol||fallback.symbol||'—',tradeId=trade?.trade_id||fallback.tradeId||'—',side=String(trade?.side||fallback.side||'BUY').toUpperCase(),volume=trade?.volume??fallback.volume??'—',entry=trade?.entry_price??fallback.entry??'—';document.getElementById('modSymbol').textContent=fmt(symbol);document.getElementById('modTradeId').textContent=fmt(tradeId);const sideEl=document.getElementById('modSide');sideEl.textContent=side;sideEl.className=side==='SELL'?'mod-sell':'mod-buy';document.getElementById('modVolume').textContent=fmt(volume);document.getElementById('modEntry').textContent=fmt(entry)}
   async function openModal(id){
     ensureModal();
     const card=[...document.querySelectorAll('#tradeScroll .trade-card')].find(x=>x.dataset.tradeId===id);
     const fallback=card?readCard(card):{symbol:'—',tradeId:id,side:'BUY',volume:'—',entry:'—'};
-    activeId=id;
-    fillSummary(null,fallback);
-    document.getElementById('modSL').value='';document.getElementById('modTP').value='';
-    document.getElementById('modSave').textContent='MODIFY POSITION';document.getElementById('modSave').disabled=false;
-    document.getElementById('existingRisk').classList.add('hidden');document.getElementById('modHint').classList.add('hidden');
-    const err=document.getElementById('modError');err.classList.add('hidden');err.textContent='';
-    document.getElementById('slTpModal').classList.remove('hidden');
+    activeId=id;fillSummary(null,fallback);document.getElementById('modSL').value='';document.getElementById('modTP').value='';document.getElementById('modSave').textContent='MODIFY POSITION';document.getElementById('modSave').disabled=false;document.getElementById('existingRisk').classList.add('hidden');document.getElementById('modHint').classList.add('hidden');const err=document.getElementById('modError');err.classList.add('hidden');err.textContent='';document.getElementById('slTpModal').classList.remove('hidden');
     try{
-      const account=document.getElementById('accountCode')?.textContent?.trim();
-      if(!account)throw Error('Trading account unavailable');
+      const account=document.getElementById('rightAccount')?.textContent?.trim()||localStorage.getItem('fundfxt_selected_account')||'';
+      if(!account||account==='—')throw Error('Trading account unavailable');
       const result=await request('/api/trade/get?account_code='+encodeURIComponent(account));
       const trades=Array.isArray(result.trades)?result.trades:[];
       const trade=trades.find(t=>String(t.trade_id)===String(id));
       if(!trade)throw Error('Trade details could not be found for this position.');
-      // Use the database trade record as the single source of truth for modal details.
       fillSummary(trade,fallback);
-      const prevSL=trade.stop_loss!=null&&trade.stop_loss!==''?trade.stop_loss:null;
-      const prevTP=trade.take_profit!=null&&trade.take_profit!==''?trade.take_profit:null;
-      document.getElementById('previousSL').textContent=prevSL!=null?prevSL:'Not set';
-      document.getElementById('previousTP').textContent=prevTP!=null?prevTP:'Not set';
-      if(prevSL!=null)document.getElementById('modSL').value=prevSL;
-      if(prevTP!=null)document.getElementById('modTP').value=prevTP;
-      if(prevSL!=null||prevTP!=null){
-        document.getElementById('existingRisk').classList.remove('hidden');
-        document.getElementById('modHint').textContent='Previous protection is loaded. Change one or both values and save a new modification.';
-        document.getElementById('modHint').classList.remove('hidden');
-        document.getElementById('modSave').textContent='RE-MODIFY & SAVE';
-      }
-    }catch(e){
-      document.getElementById('modHint').textContent=e.message||'Trade details could not be loaded.';
-      document.getElementById('modHint').classList.remove('hidden');
-      err.textContent=e.message||'Unable to load trade details.';err.classList.remove('hidden');
-    }
+      const prevSL=trade.stop_loss!=null&&trade.stop_loss!==''?trade.stop_loss:null,prevTP=trade.take_profit!=null&&trade.take_profit!==''?trade.take_profit:null;
+      document.getElementById('previousSL').textContent=prevSL!=null?prevSL:'Not set';document.getElementById('previousTP').textContent=prevTP!=null?prevTP:'Not set';
+      if(prevSL!=null)document.getElementById('modSL').value=prevSL;if(prevTP!=null)document.getElementById('modTP').value=prevTP;
+      if(prevSL!=null||prevTP!=null){document.getElementById('existingRisk').classList.remove('hidden');document.getElementById('modHint').textContent='Previous protection is loaded. Change one or both values and save a new modification.';document.getElementById('modHint').classList.remove('hidden');document.getElementById('modSave').textContent='RE-MODIFY & SAVE'}
+    }catch(e){document.getElementById('modHint').textContent=e.message||'Trade details could not be loaded.';document.getElementById('modHint').classList.remove('hidden');err.textContent=e.message||'Unable to load trade details.';err.classList.remove('hidden')}
     document.getElementById('modSL').focus();
   }
   async function saveModify(){
@@ -70,7 +40,14 @@
     if((sl!==null&&!Number.isFinite(sl))||(tp!==null&&!Number.isFinite(tp))){error.textContent='Please enter valid SL / TP prices.';error.classList.remove('hidden');return}
     const button=document.getElementById('modSave');button.disabled=true;button.textContent='SAVING…';error.classList.add('hidden');
     try{
-      await request('/api/trades/'+encodeURIComponent(activeId),{method:'PATCH',body:JSON.stringify({stop_loss:sl,take_profit:tp})});
+      const result=await request('/api/trades/'+encodeURIComponent(activeId),{method:'PATCH',body:JSON.stringify({stop_loss:sl,take_profit:tp})});
+      if(!result?.success)throw Error(result?.error||'SL / TP update was not confirmed');
+      const account=document.getElementById('rightAccount')?.textContent?.trim()||localStorage.getItem('fundfxt_selected_account')||'';
+      if(account&&account!=='—'){
+        const verify=await request('/api/trade/get?account_code='+encodeURIComponent(account));
+        const saved=(verify.trades||[]).find(t=>String(t.trade_id)===String(activeId));
+        if(!saved||Number(saved.stop_loss??NaN)!==Number(sl??NaN)||Number(saved.take_profit??NaN)!==Number(tp??NaN))throw Error('SL / TP update was not persisted by the server');
+      }
       closeModal();if(window.toast)window.toast('SL / TP updated successfully');if(typeof window.loadTrades==='function')await window.loadTrades();
     }catch(e){error.textContent=e.message||'Unable to modify position.';error.classList.remove('hidden')}
     finally{button.disabled=false;button.textContent='MODIFY POSITION'}
