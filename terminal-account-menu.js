@@ -12,7 +12,7 @@
       const list=Array.isArray(accounts)?accounts:(accounts.accounts||[]);const code=$('accountCode')?.textContent?.trim();const a=list.find(x=>x.account_code===code)||list[0];if(a)window.__fxMenuAccount=a;
       if(code){const td=await fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(code),{headers}).then(r=>r.json());cachedTrades=Array.isArray(td.trades)?td.trades:[]}
       render();
-    }catch(e){render()}
+    }catch(e){console.warn('FundFXT account menu data load failed',e);render()}
   }
   function inject(){
     if($('fxAccountMenu'))return;
@@ -29,9 +29,11 @@
     document.querySelector('.account-panel')?.remove();document.querySelector('.mobile-nav button[data-view="account"]')?.remove();window.lucide?.createIcons?.({attrs:{'stroke-width':2}});
   }
   function render(){
-    const a=window.__fxMenuAccount||{};const code=a.account_code||$('accountCode')?.textContent||'—',status=a.status||'ACTIVE';$('fxMenuAccount')?.textContent=code;$('fxMenuStatus')?.textContent=`${status} · Selected account`;$('fxProfileAccount')?.textContent=code;$('fxProfileStatus')?.textContent=status;$('fxProfileBalance')?.textContent=$('balance')?.textContent||'—';$('fxProfileEquity')?.textContent=$('equity')?.textContent||'—';
+    const a=window.__fxMenuAccount||{};const code=a.account_code||$('accountCode')?.textContent||'—',status=a.status||'ACTIVE';
+    const accountEl=$('fxMenuAccount'),statusEl=$('fxMenuStatus'),profileAccountEl=$('fxProfileAccount'),profileStatusEl=$('fxProfileStatus'),balanceEl=$('fxProfileBalance'),equityEl=$('fxProfileEquity');
+    if(accountEl)accountEl.textContent=code;if(statusEl)statusEl.textContent=`${status} · Selected account`;if(profileAccountEl)profileAccountEl.textContent=code;if(profileStatusEl)profileStatusEl.textContent=status;if(balanceEl)balanceEl.textContent=$('balance')?.textContent||'—';if(equityEl)equityEl.textContent=$('equity')?.textContent||'—';
     const daily=num(a.daily_drawdown_percent,a.daily_drawdown,a.daily_loss_limit_percent);const maxdd=num(a.max_drawdown_percent,a.max_drawdown,a.total_drawdown_percent);const maxTrades=num(a.max_trades,a.trade_limit,a.max_open_trades)??3;const consistencyLimit=num(a.consistency_percent,a.consistency_rule,a.max_consistency_percent)??35;const open=cachedTrades.filter(t=>String(t.status).toUpperCase()==='OPEN').length;const profits=cachedTrades.filter(t=>Number(t.realized_profit_cents)>0).map(t=>Number(t.realized_profit_cents)/100);const total=profits.reduce((x,y)=>x+y,0);const largest=profits.length?Math.max(...profits):0;const consistency=total>0?largest/total*100:0;
-    $('fxRules')?.replaceChildren(...[['Daily Drawdown',daily!=null?`${daily}%`:'Configured',daily!=null?`${daily}% limit`:'Account rule'],['Max Drawdown',maxdd!=null?`${maxdd}%`:'Configured',maxdd!=null?`${maxdd}% limit`:'Account rule'],['Max Trades',String(maxTrades),`${open}/${maxTrades} open`]].map(r=>{const d=document.createElement('div');d.className='fx-rule';d.innerHTML=`<b>${esc(r[0])}</b><span>${esc(r[1])} · ${esc(r[2])}</span>`;return d}));const c=$('fxConsistency');if(c){c.querySelector('span').textContent=`${consistency.toFixed(1)}% / ${consistencyLimit}%`;c.classList.toggle('warn',consistency>consistencyLimit)}
+    const rulesEl=$('fxRules');if(rulesEl)rulesEl.replaceChildren(...[['Daily Drawdown',daily!=null?`${daily}%`:'Configured',daily!=null?`${daily}% limit`:'Account rule'],['Max Drawdown',maxdd!=null?`${maxdd}%`:'Configured',maxdd!=null?`${maxdd}% limit`:'Account rule'],['Max Trades',String(maxTrades),`${open}/${maxTrades} open`]].map(r=>{const d=document.createElement('div');d.className='fx-rule';d.innerHTML=`<b>${esc(r[0])}</b><span>${esc(r[1])} · ${esc(r[2])}</span>`;return d}));const c=$('fxConsistency');if(c){const span=c.querySelector('span');if(span)span.textContent=`${consistency.toFixed(1)}% / ${consistencyLimit}%`;c.classList.toggle('warn',consistency>consistencyLimit)}
   }
   document.addEventListener('DOMContentLoaded',()=>{inject();setTimeout(loadMenuData,600)});
   window.refreshFundFXTAccountMenu=()=>{loadMenuData()};
