@@ -1,0 +1,1 @@
+/* FundFXT landing-page JavaScript. */
