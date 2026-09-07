@@ -12,6 +12,7 @@
       if (!box) return;
 
       box.querySelectorAll('.quote').forEach(button => {
+        const clickHandler = button.onclick;
         const symbol = button.dataset.symbol || '';
         const bid = button.querySelector('.bid')?.textContent || '—';
         const ask = button.querySelector('.ask')?.textContent || '—';
@@ -33,6 +34,8 @@
               <small>S ${spreadMatch ? spreadMatch[1] : '—'}</small>
             </span>
           </span>`;
+
+        if (clickHandler) button.onclick = clickHandler;
       });
     };
   }
@@ -47,7 +50,8 @@
       const ask = spans.find(x => /\bASK\b/i.test(x.textContent))?.querySelector('b')?.textContent || '—';
       const spread = spans.find(x => /\bSPR\b|\bS\b/i.test(x.textContent))?.querySelector('b')?.textContent || '—';
       const mid = (Number(bid) + Number(ask)) / 2;
-      const midText = Number.isFinite(mid) ? mid.toFixed(/JPY$/i.test(document.getElementById('selectedSymbol')?.textContent || '') ? 3 : 5) : '—';
+      const symbol = document.getElementById('selectedSymbol')?.textContent || '';
+      const midText = Number.isFinite(mid) ? mid.toFixed(/JPY$/i.test(symbol) ? 3 : /XAU|XAG|BTC|ETH/i.test(symbol) ? 2 : 5) : '—';
 
       box.innerHTML = `
         <span class="quote-order-bid"><small>BID</small><b>${bid}</b></span>
