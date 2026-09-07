@@ -1,0 +1,42 @@
+name: Finalize trade SL TP backend
+on:
+  push:
+    paths:
+      - '.github/workflows/finalize-trade-sltp.yml'
+permissions:
+  contents: write
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fix malformed trade query and validate syntax
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('server.js')
+          lines = p.read_text().splitlines()
+          target = "        const [trades] = await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\", [req.params.tradeId, req.userId]);"
+          changed = False
+          for i, line in enumerate(lines):
+              if "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status =" in line and "req.params.tradeId" in line:
+                  lines[i] = target
+                  changed = True
+                  break
+          if not changed:
+              raise SystemExit('Target trade query not found; refusing unsafe edit')
+          p.write_text('\n'.join(lines) + '\n')
+          PY
+          node --check server.js
+      - name: Commit repaired server
+        run: |
+          git config user.name 'FundFXT Bot'
+          git config user.email 'actions@users.noreply.github.com'
+          git add server.js
+          git diff --cached --quiet || git commit -m 'Fix trade SL TP query syntax'
+          git push
+      - name: Remove one-time workflow
+        run: |
+          git rm .github/workflows/finalize-trade-sltp.yml
+          git commit -m 'Remove temporary SL TP repair workflow'
+          git push
