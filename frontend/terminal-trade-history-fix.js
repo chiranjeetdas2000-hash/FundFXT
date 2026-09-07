@@ -1,46 +1,31 @@
 'use strict';
-// FundFXT: history cards must show the persisted exit price and realized P/L.
 (function(){
+  let timer=0;
+  function price(v,s){if(v==null||!Number.isFinite(Number(v)))return '—';return Number(v).toFixed(/JPY$/i.test(s)?3:/XAU|XAG|BTC|ETH/i.test(s)?2:5)}
   function sync(){
     const box=document.getElementById('tradeScroll');
     const active=document.querySelector('.right-tab.active')?.dataset.tab||'';
-    if(!box||active!=='HISTORY')return;
-    const cards=box.querySelectorAll('.trade-card');
-    cards.forEach(card=>{
-      const id=card.querySelector('.trade-top small')?.textContent?.trim();
-      if(!id)return;
-      // terminal.js does not retain the trade object on the card, so use the
-      // latest S.trades record to source the authoritative persisted values.
-      const state=window.S;
-      const trade=state?.trades?.find(t=>String(t.trade_id)===String(id));
-      if(!trade)return;
-      const cells=card.querySelectorAll('.trade-meta > div');
-      if(cells[1]){
-        const label=cells[1].querySelector('span');
-        const value=cells[1].querySelector('b');
-        if(label)label.textContent='Exit';
-        if(value&&trade.exit_price!=null&&window.price){
-          value.textContent=window.price(trade.exit_price,trade.symbol);
-        }else if(value&&trade.exit_price!=null){
-          value.textContent=String(trade.exit_price);
-        }
-      }
-      if(cells[2]){
-        const value=cells[2].querySelector('b');
-        const cents=Number(trade.realized_profit_cents||0);
-        if(value&&Number.isFinite(cents)){
-          const pl=cents/100;
-          value.textContent=(pl>=0?'+':'')+'$'+pl.toFixed(2);
-          value.className='pl '+(pl>=0?'green':'red');
-        }
-      }
-    });
+    const code=document.getElementById('rightAccount')?.textContent?.trim()||localStorage.getItem('fundfxt_selected_account')||'';
+    const token=localStorage.getItem('fundfxt_token');
+    if(!box||active!=='HISTORY'||!code||!token)return;
+    fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(code),{headers:{Authorization:'Bearer '+token}})
+      .then(r=>r.ok?r.json():null).then(d=>{
+        if(!d)return;
+        const trades=Array.isArray(d.trades)?d.trades:[];
+        box.querySelectorAll('.trade-card').forEach(card=>{
+          const id=card.querySelector('.trade-top small')?.textContent?.trim();
+          const t=trades.find(x=>String(x.trade_id)===String(id));
+          if(!t)return;
+          const cells=card.querySelectorAll('.trade-meta > div');
+          if(cells[1]){cells[1].querySelector('span')&&(cells[1].querySelector('span').textContent='Exit');cells[1].querySelector('b')&&(cells[1].querySelector('b').textContent=price(t.exit_price,t.symbol))}
+          if(cells[2]){const pl=Number(t.realized_profit_cents||0)/100;const b=cells[2].querySelector('b');if(b){b.textContent=(pl>=0?'+':'')+'$'+pl.toFixed(2);b.className='pl '+(pl>=0?'green':'red')}}
+        });
+      }).catch(()=>{});
   }
   document.addEventListener('DOMContentLoaded',()=>{
-    const box=document.getElementById('tradeScroll');
-    if(!box)return;
-    new MutationObserver(()=>setTimeout(sync,0)).observe(box,{childList:true,subtree:true,characterData:true});
-    document.querySelectorAll('.right-tab').forEach(b=>b.addEventListener('click',()=>setTimeout(sync,0)));
-    setInterval(sync,1000);
+    const box=document.getElementById('tradeScroll');if(!box)return;
+    new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(sync,100)}).observe(box,{childList:true,subtree:true,characterData:true});
+    document.querySelectorAll('.right-tab').forEach(b=>b.addEventListener('click',()=>setTimeout(sync,120)));
+    setInterval(sync,1500);
   });
 })();
