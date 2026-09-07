@@ -1,0 +1,1 @@
+/* FundFXT frontend styles live here. Keep one CSS file per page or isolated feature. */
