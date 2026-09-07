@@ -16,7 +16,7 @@ jobs:
           from pathlib import Path
           p=Path('server.js')
           s=p.read_text()
-          old='status = \\"OPEN\\"'
+          old='status = "OPEN"'
           new="status = 'OPEN'"
           count=s.count(old)
           if count == 0:
