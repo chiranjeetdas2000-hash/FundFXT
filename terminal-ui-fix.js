@@ -1,52 +1,37 @@
 'use strict';
 
-// FundFXT terminal UI fixes: compact Market Watch with Pair, MID, Spread and Change.
-(function () {
-  const originalRenderQuotes = window.renderQuotes;
-
-  if (typeof originalRenderQuotes !== 'function') return;
-
-  window.renderQuotes = function () {
-    originalRenderQuotes();
-    const box = document.getElementById('watchlist');
-    if (!box) return;
-
-    box.querySelectorAll('.quote').forEach(button => {
-      const symbol = button.dataset.symbol || button.querySelector('.quote-main b')?.textContent || '';
-      const priceBox = button.querySelector('.quote-prices');
-      const mid = priceBox?.querySelector('.last')?.textContent || '—';
-      const rawStats = priceBox?.querySelector('small')?.textContent || '';
-      const changeMatch = rawStats.match(/Δ\s*([+-]?\d+(?:\.\d+)?%)/i);
-      const spreadMatch = rawStats.match(/(?:SPR|S)\s*([0-9.]+)/i);
-      const change = changeMatch ? changeMatch[1] : '—';
-      const spread = spreadMatch ? spreadMatch[1] : '—';
-
-      button.innerHTML = `
-        <span class="quote-main">
-          <b class="watch-symbol">${symbol}</b>
-          <span class="quote-detail quote-spread">S ${spread}</span>
-          <span class="quote-detail quote-change">Δ ${change}</span>
-        </span>
-        <span class="quote-mid">
-          <small>MID</small>
-          <b>${mid}</b>
-        </span>`;
+// FundFXT: normalize Market Watch rows after every terminal render.
+// This is intentionally independent of terminal.js load order so pair names remain visible.
+(function(){
+  function normalize(){
+    const box=document.getElementById('watchlist');
+    if(!box)return;
+    box.querySelectorAll('.quote').forEach(button=>{
+      const symbol=button.dataset.symbol||button.querySelector('.quote-main b')?.textContent?.trim()||'';
+      const priceBox=button.querySelector('.quote-prices');
+      if(!symbol||!priceBox)return;
+      const mid=priceBox.querySelector('.last')?.textContent||'—';
+      const raw=priceBox.querySelector('small')?.textContent||'';
+      const changeMatch=raw.match(/Δ\s*([+-]?\d+(?:\.\d+)?%)/i);
+      const spreadMatch=raw.match(/(?:SPR|S)\s*([0-9.]+)/i);
+      const change=changeMatch?changeMatch[1]:'—';
+      const spread=spreadMatch?spreadMatch[1]:'—';
+      button.innerHTML=`<span class="quote-main"><b class="watch-symbol">${symbol}</b><span class="quote-detail quote-spread">S ${spread}</span><span class="quote-detail quote-change">Δ ${change}</span></span><span class="quote-mid"><small>MID</small><b>${mid}</b></span>`;
       button.removeAttribute('title');
     });
-
-    const market = document.getElementById('market');
-    if (market) {
-      const hasLive = [...box.querySelectorAll('.quote')].some(button => {
-        const mid = button.querySelector('.quote-mid b')?.textContent || '';
-        return mid !== '—';
-      });
-      market.textContent = hasLive ? '● LIVE' : '● OFFLINE';
-      market.classList.toggle('live', hasLive);
-      market.classList.toggle('offline', !hasLive);
-      market.style.color = hasLive ? '#00b56a' : '#ff4444';
+    const market=document.getElementById('market');
+    if(market){
+      const live=[...box.querySelectorAll('.quote-mid b')].some(x=>x.textContent.trim()!=='—');
+      market.textContent=live?'● LIVE':'● OFFLINE';
+      market.classList.toggle('live',live);market.classList.toggle('offline',!live);
+      market.style.color=live?'#00b56a':'#ff4444';
     }
-
-    const status = document.querySelector('#watch .status');
-    if (status) status.remove();
-  };
+  }
+  document.addEventListener('DOMContentLoaded',()=>{
+    const box=document.getElementById('watchlist');
+    if(!box)return;
+    const observer=new MutationObserver(()=>normalize());
+    observer.observe(box,{childList:true,subtree:true});
+    normalize();
+  });
 })();
