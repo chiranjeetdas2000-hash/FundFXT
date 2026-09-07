@@ -7,12 +7,13 @@
   <title>FundFXT | Trading Terminal</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="terminal.css?v=20260907-2">
-  <link rel="stylesheet" href="terminal-polish.css?v=20260907-2">
-  <link rel="stylesheet" href="terminal-fix.css?v=20260907-2">
-  <link rel="stylesheet" href="terminal-trades-ui.css?v=20260907-2">
+  <link rel="stylesheet" href="terminal.css?v=20260907-3">
+  <link rel="stylesheet" href="terminal-polish.css?v=20260907-3">
+  <link rel="stylesheet" href="terminal-fix.css?v=20260907-3">
+  <link rel="stylesheet" href="terminal-trades-ui.css?v=20260907-3">
+  <link rel="stylesheet" href="terminal-account-menu.css?v=20260907-3">
   <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-  <script src="terminal-account-bridge.js?v=20260907-1"></script>
+  <script src="terminal-account-bridge.js?v=20260907-2"></script>
 </head>
 <body>
   <div id="toast" class="toast hidden"></div>
@@ -31,7 +32,7 @@
     <main class="workspace">
       <section id="watch" class="panel watch mobile-active">
         <div class="panel-title"><div><h2>Market Watch</h2><span class="muted">BiQuote live quotes</span></div><span class="muted">LIVE</span></div>
-        <input id="search" class="search" placeholder="Search symbols…">
+        <input id="search" class="search" placeholder="Search symbols…" autocomplete="off">
         <div id="watchlist" class="watchlist"></div>
         <div class="status open">● Quotes synced with BiQuote price feed</div>
       </section>
@@ -61,10 +62,10 @@
       <button data-view="right" aria-label="Trades" title="Trades"><i data-lucide="briefcase-business"></i><span>Trades</span></button>
     </nav>
   </div>
-  <script src="terminal.js?v=20260907-2" defer></script>
-  <script src="terminal-ui-fix.js?v=20260907-2" defer></script>
-  <script src="terminal-chart-once.js?v=20260907-2" defer></script>
-  <script src="terminal-trades-ui.js?v=20260907-2" defer></script>
-  <script src="terminal-account-menu.js?v=20260907-2" defer></script>
+  <script src="terminal.js?v=20260907-3" defer></script>
+  <script src="terminal-market-watch.js?v=20260907-3" defer></script>
+  <script src="terminal-chart-once.js?v=20260907-3" defer></script>
+  <script src="terminal-trades-ui.js?v=20260907-3" defer></script>
+  <script src="terminal-account-menu.js?v=20260907-3" defer></script>
 </body>
 </html>
