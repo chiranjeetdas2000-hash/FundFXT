@@ -1,0 +1,108 @@
+name: Fix TradingView chart embedding
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/fix-tradingview-iframe.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Replace chart loader and quote layout
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+          import re
+
+          p=Path('terminal.js')
+          s=p.read_text()
+
+          # Quotes: pair + spread on the left, BID/ASK on the right.
+          pattern=r'function renderQuotes\(\)\{.*?\n\}\nfunction renderSelectedPrice'
+          replacement=r'''function renderQuotes(){
+            const box=$('watchlist');if(!box)return;
+            const term=($('search')?.value||'').trim().toLowerCase();
+            const q=S.symbols.filter(s=>String(s).toLowerCase().includes(term));
+            box.innerHTML=q.map(s=>{
+              const p=S.prices[s]||{},bid=Number(p.bid),ask=Number(p.ask);
+              const live=Number.isFinite(bid)&&Number.isFinite(ask);
+              const spread=live?(Number.isFinite(Number(p.spread))?Number(p.spread):Math.abs(ask-bid)):NaN;
+              const state=String(p.marketState||'open').toLowerCase(),stale=Boolean(p.stale);
+              const liveText=live&&!stale&&state!=='closed'?'LIVE':'MARKET CLOSED';
+              return `<button class="quote ${s===S.selected?'selected':''}" data-symbol="${s}">
+                <span class="quote-main"><b>${s}</b><small>${liveText}</small><em>Spread ${price(spread,s)}</em></span>
+                <span class="quote-side">
+                  <span class="quote-side-cell bid-cell"><label>BID</label><b>${price(bid,s)}</b></span>
+                  <span class="quote-side-cell ask-cell"><label>ASK</label><b>${price(ask,s)}</b></span>
+                </span>
+              </button>`
+            }).join('')||'<div class="empty"><strong>No symbols found</strong><span>Try another pair name.</span></div>';
+            box.querySelectorAll('.quote').forEach(x=>x.onclick=()=>{S.selected=x.dataset.symbol;renderQuotes();renderSelectedPrice();renderButtons();showPanel('center');loadTV()})
+          }
+          function renderSelectedPrice'''
+          s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('renderQuotes target not found')
+
+          # Use a plain iframe pointing to our tiny TradingView-only embed page.
+          pattern=r'function tvSymbol\(s\)\{.*?\n\}\nasync function loadTrades'
+          replacement=r'''function tvSymbol(s){return `OANDA:${String(s||'EURUSD').toUpperCase()}`}
+function loadTV(){
+  const host=$('tv');if(!host)return;
+  const symbol=tvSymbol(S.selected);
+  const interval=document.querySelector('.tf.active')?.dataset.interval||'15';
+  const frame=document.createElement('iframe');
+  frame.title=`TradingView chart ${S.selected}`;
+  frame.setAttribute('allowfullscreen','true');
+  frame.loading='eager';
+  frame.src='/tv-chart.html?symbol='+encodeURIComponent(symbol)+'&interval='+encodeURIComponent(interval);
+  frame.style.cssText='display:block;width:100%;height:100%;min-height:320px;border:0;background:#0b0f14;';
+  frame.onload=()=>{$('chartFallback')?.classList.add('hidden')};
+  frame.onerror=()=>{$('chartFallback')?.classList.remove('hidden');toast(`TradingView chart failed to load for ${S.selected}`)};
+  host.replaceChildren(frame);
+  $('chartFallback')?.classList.add('hidden');
+  applyChartHeight();
+}
+async function loadTrades'''
+          s,n=re.subn(pattern,replacement,s,count=1,flags=re.S)
+          if n!=1: raise SystemExit('loadTV target not found')
+          p.write_text(s)
+
+          Path('tv-chart.html').write_text('''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FundFXT TradingView Chart</title><style>html,body,#chart{margin:0;width:100%;height:100%;min-height:320px;background:#0b0f14;overflow:hidden}body{font-family:Inter,Arial,sans-serif}</style></head><body><div id="chart"><div class="tradingview-widget-container" style="height:100%;width:100%"><div class="tradingview-widget-container__widget" style="height:calc(100% - 32px);width:100%"></div><script>const q=new URLSearchParams(location.search);const symbol=q.get("symbol")||"OANDA:EURUSD";const interval=q.get("interval")||"15";const cfg={autosize:true,symbol,interval,timezone:"exchange",theme:"dark",style:"1",locale:"en",allow_symbol_change:true,calendar:false,withdateranges:true,save_image:false,details:false,hotlist:false,support_host:"https://www.tradingview.com"};const script=document.createElement("script");script.src="https://s3.tradingview.com/external-embedding/embed-widget-advanced-chart.js";script.type="text/javascript";script.async=true;script.text=JSON.stringify(cfg);document.currentScript.parentNode.appendChild(script);</script></div></div></body></html>''')
+
+          p=Path('terminal-polish.css')
+          css=p.read_text()
+          css += r'''
+
+/* Simple quote board: pair/spread left, BID/ASK right. */
+.quote{display:grid!important;grid-template-columns:minmax(90px,1fr) auto!important;align-items:center!important;gap:12px!important;min-height:68px!important;padding:9px 11px!important}
+.quote-main{display:flex!important;flex-direction:column!important;align-items:flex-start!important;min-width:0!important;text-align:left!important}
+.quote-main b{color:#fff!important;font-size:13px!important;font-weight:800!important;line-height:1.1!important}
+.quote-main small{font-size:7px!important;color:#647583!important;margin-top:4px!important}
+.quote-main em{font-size:8px!important;color:#8a99a5!important;font-style:normal!important;margin-top:3px!important}
+.quote-side{display:grid!important;grid-template-columns:minmax(66px,auto) minmax(66px,auto)!important;gap:7px!important;align-items:center!important}
+.quote-side-cell{display:flex!important;flex-direction:column!important;align-items:flex-end!important;justify-content:center!important;min-width:66px!important;padding:4px 6px!important;border-radius:7px!important;background:#091016!important;border:1px solid #1b2a35!important}
+.quote-side-cell label{font-size:7px!important;letter-spacing:.7px!important;color:#71818d!important;font-weight:800!important;margin-bottom:3px!important}
+.quote-side-cell b{font-size:11px!important;font-weight:800!important;line-height:1.1!important;white-space:nowrap!important}
+.bid-cell b{color:var(--fx-red)!important}.ask-cell b{color:var(--fx-green)!important}
+.quote:hover .quote-side-cell,.quote.selected .quote-side-cell{border-color:#345064!important}
+@media(max-width:520px){.quote{grid-template-columns:minmax(78px,1fr) auto!important;gap:7px!important}.quote-side{grid-template-columns:minmax(60px,auto) minmax(60px,auto)!important;gap:4px!important}.quote-side-cell{min-width:60px!important;padding:4px!important}.quote-side-cell b{font-size:9px!important}.quote-main b{font-size:11px!important}.quote-main em{font-size:7px!important}}
+.tv-wrap{width:100%!important;height:100%!important;min-height:320px!important;overflow:hidden!important;background:#0b0f14!important}.tv-wrap iframe{width:100%!important;height:100%!important;min-height:320px!important;border:0!important;display:block!important}
+'''
+          p.write_text(css)
+          PY
+      - name: Validate
+        run: node --check terminal.js
+      - name: Commit fixes
+        run: |
+          git config user.name 'FundFXT Bot'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add terminal.js terminal-polish.css tv-chart.html
+          git diff --cached --quiet && exit 0
+          git commit -m 'Fix TradingView iframe chart and quote layout [skip ci]'
+          git push
