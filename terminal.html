@@ -15,7 +15,6 @@
 </head>
 <body>
   <div id="toast" class="toast hidden"></div>
-
   <div class="app">
     <header class="topbar">
       <div class="brand">Fund<i>FXT</i></div>
@@ -26,144 +25,49 @@
         <span id="market">● LIVE</span>
       </div>
       <div class="top-right">
-        <div class="acct">
-          <small>TRADING ACCOUNT</small>
-          <b id="accountCode">—</b>
-        </div>
-        <button id="refresh" class="icon-btn" aria-label="Refresh" title="Refresh">
-          <i data-lucide="refresh-cw"></i>
-        </button>
+        <div class="acct"><small>TRADING ACCOUNT</small><b id="accountCode">—</b></div>
+        <button id="refresh" class="icon-btn" aria-label="Refresh" title="Refresh"><i data-lucide="refresh-cw"></i></button>
       </div>
     </header>
-
     <main class="workspace">
       <section id="watch" class="panel watch mobile-active">
-        <div class="panel-title">
-          <div>
-            <h2>Market Watch</h2>
-            <span class="muted">BiQuote live quotes</span>
-          </div>
-          <span class="muted">LIVE</span>
-        </div>
+        <div class="panel-title"><div><h2>Market Watch</h2><span class="muted">BiQuote live quotes</span></div><span class="muted">LIVE</span></div>
         <input id="search" class="search" placeholder="Search symbols…">
         <div id="watchlist" class="watchlist"></div>
         <div class="status open">● Quotes synced with BiQuote price feed</div>
       </section>
-
       <section id="center" class="panel center">
-        <div class="chart-head">
-          <div>
-            <div id="selectedSymbol" class="selected-symbol">EURUSD</div>
-            <div id="selectedPrice" class="selected-price">Bid — • Ask —</div>
-          </div>
-          <span id="chartSource" class="muted">TRADINGVIEW CHART · BIQUOTE EXECUTION FEED</span>
-        </div>
-
-        <div id="chartWrap" class="chart-wrap">
-          <div id="tv" class="tv-wrap"></div>
-          <div id="chartFallback" class="chart-fallback hidden">
-            <div><b>TradingView chart</b><br>Select a pair from Market Watch.</div>
-          </div>
-          <div id="chartResize" class="chart-resize" aria-label="Resize chart" title="Drag to resize chart">
-            <span></span>
-          </div>
-        </div>
-
-        <div class="timebar">
-          <button class="tf active" data-interval="1">1m</button>
-          <button class="tf" data-interval="5">5m</button>
-          <button class="tf" data-interval="15">15m</button>
-          <button class="tf" data-interval="30">30m</button>
-          <button class="tf" data-interval="60">1H</button>
-          <button class="tf" data-interval="240">4H</button>
-          <button class="tf" data-interval="D">1D</button>
-        </div>
-
-        <div class="ticket">
-          <div class="ticket-grid">
-            <div class="field">
-              <label>ORDER</label>
-              <select id="orderType">
-                <option value="MARKET">Market</option>
-                <option value="LIMIT">Limit</option>
-                <option value="STOP">Stop</option>
-              </select>
-            </div>
-            <div class="field">
-              <label>VOLUME</label>
-              <input id="volume" type="number" min="0.01" max="2" step="0.01" value="0.01">
-            </div>
-            <div id="quoteBox" class="quoteBox">Bid — / Ask —</div>
-            <div id="pendingFields" class="field hidden">
-              <label>ENTRY</label>
-              <input id="entry" type="number">
-            </div>
-            <div class="field">
-              <label>STOP LOSS</label>
-              <input id="sl" type="number" placeholder="Optional">
-            </div>
-            <div class="field">
-              <label>TAKE PROFIT</label>
-              <input id="tp" type="number" placeholder="Optional">
-            </div>
-          </div>
-          <div class="ticket-actions">
-            <button id="sell" class="trade-btn sell">SELL —</button>
-            <button id="buy" class="trade-btn buy">BUY —</button>
-          </div>
-        </div>
+        <div class="chart-head"><div><div id="selectedSymbol" class="selected-symbol">EURUSD</div><div id="selectedPrice" class="selected-price">Bid — • Ask —</div></div><span id="chartSource" class="muted">TRADINGVIEW CHART · BIQUOTE EXECUTION FEED</span></div>
+        <div id="chartWrap" class="chart-wrap"><div id="tv" class="tv-wrap"></div><div id="chartFallback" class="chart-fallback hidden"><div><b>TradingView chart</b><br>Select a pair from Market Watch.</div></div><div id="chartResize" class="chart-resize" aria-label="Resize chart" title="Drag to resize chart"><span></span></div></div>
+        <div class="timebar"><button class="tf active" data-interval="1">1m</button><button class="tf" data-interval="5">5m</button><button class="tf" data-interval="15">15m</button><button class="tf" data-interval="30">30m</button><button class="tf" data-interval="60">1H</button><button class="tf" data-interval="240">4H</button><button class="tf" data-interval="D">1D</button></div>
+        <div class="ticket"><div class="ticket-grid">
+          <div class="field"><label>ORDER</label><select id="orderType"><option value="MARKET">Market</option><option value="LIMIT">Limit</option><option value="STOP">Stop</option></select></div>
+          <div class="field"><label>VOLUME</label><input id="volume" type="number" min="0.01" max="2" step="0.01" value="0.01"></div>
+          <div id="quoteBox" class="quoteBox">Bid — / Ask —</div>
+          <div id="pendingFields" class="field hidden"><label>ENTRY</label><input id="entry" type="number"></div>
+          <div class="field"><label>STOP LOSS</label><input id="sl" type="number" placeholder="Optional"></div>
+          <div class="field"><label>TAKE PROFIT</label><input id="tp" type="number" placeholder="Optional"></div>
+        </div><div class="ticket-actions"><button id="sell" class="trade-btn sell">SELL —</button><button id="buy" class="trade-btn buy">BUY —</button></div></div>
       </section>
-
       <aside id="right" class="panel right">
-        <div class="panel-title">
-          <div>
-            <h2>Trading</h2>
-            <span class="muted">Account positions</span>
-          </div>
-          <span id="rightAccount" class="muted">—</span>
-        </div>
-        <div class="right-tabs">
-          <button class="right-tab active" data-tab="OPEN">Open</button>
-          <button class="right-tab" data-tab="PENDING">Pending</button>
-          <button class="right-tab" data-tab="HISTORY">History</button>
-        </div>
-        <div id="tradeScroll" class="trade-scroll">
-          <div class="empty"><strong>Loading trades…</strong><span>Syncing selected account.</span></div>
-        </div>
+        <div class="panel-title"><div><h2>Trading</h2><span class="muted">Account positions</span></div><span id="rightAccount" class="muted">—</span></div>
+        <div class="right-tabs"><button class="right-tab active" data-tab="OPEN">Open</button><button class="right-tab" data-tab="PENDING">Pending</button><button class="right-tab" data-tab="HISTORY">History</button></div>
+        <div id="tradeScroll" class="trade-scroll"><div class="empty"><strong>Loading trades…</strong><span>Syncing selected account.</span></div></div>
         <div class="status" id="accountStatus">Market data and trade data are syncing…</div>
       </aside>
-
-      <section id="account" class="panel account-panel">
-        <div class="panel-title"><h2>Account</h2></div>
-        <div style="padding:16px">
-          <div class="muted">AUTHENTICATED TRADING ACCOUNT</div>
-          <h3 id="accountName">—</h3>
-          <div id="accountStatusMobile" class="muted">—</div>
-          <br>
-          <button id="logoutBtn" class="mini close">Logout</button>
-        </div>
-      </section>
+      <section id="account" class="panel account-panel"><div class="panel-title"><h2>Account</h2></div><div style="padding:16px"><div class="muted">AUTHENTICATED TRADING ACCOUNT</div><h3 id="accountName">—</h3><div id="accountStatusMobile" class="muted">—</div><br><button id="logoutBtn" class="mini close">Logout</button></div></section>
     </main>
-
     <nav class="mobile-nav" aria-label="Terminal navigation">
-      <button class="active" data-view="watch" aria-label="Quotes" title="Quotes">
-        <i data-lucide="list"></i><span>Quotes</span>
-      </button>
-      <button data-view="center" aria-label="Trading chart" title="Trading chart">
-        <i data-lucide="candlestick-chart"></i><span>Chart</span>
-      </button>
-      <button data-view="right" aria-label="Trades" title="Trades">
-        <i data-lucide="briefcase-business"></i><span>Trades</span>
-      </button>
-      <button data-view="account" aria-label="Account" title="Account">
-        <i data-lucide="wallet-cards"></i><span>Account</span>
-      </button>
+      <button class="active" data-view="watch" aria-label="Quotes" title="Quotes"><i data-lucide="list"></i><span>Quotes</span></button>
+      <button data-view="center" aria-label="Trading chart" title="Trading chart"><i data-lucide="candlestick-chart"></i><span>Chart</span></button>
+      <button data-view="right" aria-label="Trades" title="Trades"><i data-lucide="briefcase-business"></i><span>Trades</span></button>
+      <button data-view="account" aria-label="Account" title="Account"><i data-lucide="wallet-cards"></i><span>Account</span></button>
     </nav>
   </div>
-
   <script src="terminal.js" defer></script>
   <script src="terminal-ui-fix.js" defer></script>
   <script src="terminal-chart-once.js" defer></script>
   <script src="terminal-trades-ui.js" defer></script>
+  <script src="terminal-account-menu.js" defer></script>
 </body>
 </html>
