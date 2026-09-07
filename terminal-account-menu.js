@@ -4,16 +4,30 @@
   const esc=v=>String(v??'—').replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m));
   const num=(...v)=>{for(const x of v){const n=Number(x);if(Number.isFinite(n))return n}return null};
   let cachedTrades=[];
+
+  // Runtime hardening: the account panel is intentionally removed, so legacy
+  // render functions must never assume those DOM nodes still exist.
+  function hardenRuntime(){
+    const wrap=(name,fn)=>{if(typeof window[name]!=='function'||window[name].__fxSafe)return;const safe=function(...args){try{return fn.apply(this,args)}catch(e){console.warn(`FundFXT ${name} render error`,e);return undefined}};safe.__fxSafe=true;window[name]=safe};
+    wrap('renderSelectedPrice',function(){const p=window.S?.prices?.[window.S?.selected]||{};const symbol=$( 'selectedSymbol');const selected=window.S?.selected||'EURUSD';if(symbol)symbol.textContent=selected;const priceFn=window.price||((v)=>v==null?'—':String(v));const mid=Number(p.mid),bid=Number(p.bid),ask=Number(p.ask),last=Number.isFinite(mid)?mid:(Number.isFinite(bid)&&Number.isFinite(ask)?(bid+ask)/2:NaN),spr=Number.isFinite(Number(p.spread))?Number(p.spread):(Number.isFinite(bid)&&Number.isFinite(ask)?ask-bid:NaN),cp=Number(p.changePercent);const out=$( 'selectedPrice');if(out)out.textContent=`Last ${priceFn(last,selected)}  •  Bid ${priceFn(bid,selected)}  •  Ask ${priceFn(ask,selected)}  •  Spread ${priceFn(spr,selected)}  •  Change ${Number.isFinite(cp)?(cp>=0?'+':'')+cp.toFixed(2)+'%':'—'}`;const source=$( 'chartSource');if(source)source.textContent='TRADINGVIEW CHART · BIQUOTE EXECUTION FEED'});
+    wrap('renderButtons',function(){const S=window.S;if(!S)return;const p=S.prices?.[S.selected]||{},priceFn=window.price||((v)=>v==null?'—':String(v)),bid=priceFn(p.bid,S.selected),ask=priceFn(p.ask,S.selected),spr=priceFn(Number(p.ask)-Number(p.bid),S.selected),buy=$( 'buy'),sell=$( 'sell'),quote=$( 'quoteBox');if(buy){buy.textContent=`BUY  ${ask}`;buy.disabled=!Number.isFinite(Number(p.ask))}if(sell){sell.textContent=`SELL  ${bid}`;sell.disabled=!Number.isFinite(Number(p.bid))}if(quote)quote.innerHTML=`<span class="execution-bid">BID <b>${bid}</b></span><span class="execution-ask">ASK <b>${ask}</b></span><span class="execution-spread">S <b>${spr}</b></span>`});
+    wrap('renderAccount',function(){const a=window.S?.account||{};if($( 'balance'))$( 'balance').textContent=(window.money||String)(a.balance_cents);if($( 'equity'))$( 'equity').textContent=(window.money||String)(a.equity_cents);if($( 'accountStatus'))$( 'accountStatus').textContent=`${a.status||'ACTIVE'} · ${a.account_code||''}`;if($( 'accountStatusMobile'))$( 'accountStatusMobile').textContent=`${a.status||'ACTIVE'} · ${a.account_code||''}`});
+    wrap('loadTrades',async function(){if(!window.S?.account)return;try{const original=arguments.callee.__original;return await original.apply(this,arguments)}catch(e){console.warn('FundFXT trade sync failed',e);const box=$( 'tradeScroll');if(box)box.innerHTML=`<div class="empty"><strong>Trade sync failed</strong><span>${esc(e.message||'Unable to sync trades')}</span></div>`}});
+    // The previous wrapper above needs the original function reference.
+    if(window.loadTrades&&!window.loadTrades.__original&&typeof window.loadTrades==='function'){window.loadTrades.__original=window.loadTrades}
+    if(typeof window.syncAll==='function'&&!window.syncAll.__fxSafe){const originalSync=window.syncAll;const safeSync=async function(...args){try{return await originalSync.apply(this,args)}catch(e){console.warn('FundFXT sync cycle recovered from UI error',e)}};safeSync.__fxSafe=true;window.syncAll=safeSync}
+  }
+
   async function loadMenuData(){
-    const token=localStorage.getItem('fundfxt_token'); if(!token)return;
+    const token=localStorage.getItem('fundfxt_token');if(!token)return;
     const headers={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
     try{
-      const accounts=await fetch('https://fundfxt.onrender.com/api/accounts',{headers}).then(r=>r.json());
-      const list=Array.isArray(accounts)?accounts:(accounts.accounts||[]);const code=$('accountCode')?.textContent?.trim();const a=list.find(x=>x.account_code===code)||list[0];if(a)window.__fxMenuAccount=a;
-      if(code){const td=await fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(code),{headers}).then(r=>r.json());cachedTrades=Array.isArray(td.trades)?td.trades:[]}
-      render();
-    }catch(e){console.warn('FundFXT account menu data load failed',e);render()}
+      const r=await fetch('https://fundfxt.onrender.com/api/accounts',{headers});const accounts=await r.json();const list=Array.isArray(accounts)?accounts:(accounts.accounts||[]);const code=$('accountCode')?.textContent?.trim();const a=list.find(x=>x.account_code===code)||list[0];if(a)window.__fxMenuAccount=a;
+      const selectedCode=a?.account_code||code;if(selectedCode){const tr=await fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(selectedCode),{headers});const td=await tr.json();cachedTrades=Array.isArray(td.trades)?td.trades:[]}
+    }catch(e){console.warn('FundFXT account menu data load failed',e)}
+    render();
   }
+
   function inject(){
     if($('fxAccountMenu'))return;
     const style=document.createElement('style');style.textContent=`
@@ -28,13 +42,16 @@
     trigger.onclick=()=>menu.classList.contains('open')?close():open();backdrop.onclick=close;document.addEventListener('keydown',e=>{if(e.key==='Escape')close()});$('fxLogoutBtn').onclick=()=>{localStorage.removeItem('fundfxt_token');location.href='/login.html'};$('fxSettingsBtn').onclick=()=>{close();window.toast?.('Settings panel will be connected next.')};
     document.querySelector('.account-panel')?.remove();document.querySelector('.mobile-nav button[data-view="account"]')?.remove();window.lucide?.createIcons?.({attrs:{'stroke-width':2}});
   }
+
   function render(){
     const a=window.__fxMenuAccount||{};const code=a.account_code||$('accountCode')?.textContent||'—',status=a.status||'ACTIVE';
-    const accountEl=$('fxMenuAccount'),statusEl=$('fxMenuStatus'),profileAccountEl=$('fxProfileAccount'),profileStatusEl=$('fxProfileStatus'),balanceEl=$('fxProfileBalance'),equityEl=$('fxProfileEquity');
-    if(accountEl)accountEl.textContent=code;if(statusEl)statusEl.textContent=`${status} · Selected account`;if(profileAccountEl)profileAccountEl.textContent=code;if(profileStatusEl)profileStatusEl.textContent=status;if(balanceEl)balanceEl.textContent=$('balance')?.textContent||'—';if(equityEl)equityEl.textContent=$('equity')?.textContent||'—';
-    const daily=num(a.daily_drawdown_percent,a.daily_drawdown,a.daily_loss_limit_percent);const maxdd=num(a.max_drawdown_percent,a.max_drawdown,a.total_drawdown_percent);const maxTrades=num(a.max_trades,a.trade_limit,a.max_open_trades)??3;const consistencyLimit=num(a.consistency_percent,a.consistency_rule,a.max_consistency_percent)??35;const open=cachedTrades.filter(t=>String(t.status).toUpperCase()==='OPEN').length;const profits=cachedTrades.filter(t=>Number(t.realized_profit_cents)>0).map(t=>Number(t.realized_profit_cents)/100);const total=profits.reduce((x,y)=>x+y,0);const largest=profits.length?Math.max(...profits):0;const consistency=total>0?largest/total*100:0;
-    const rulesEl=$('fxRules');if(rulesEl)rulesEl.replaceChildren(...[['Daily Drawdown',daily!=null?`${daily}%`:'Configured',daily!=null?`${daily}% limit`:'Account rule'],['Max Drawdown',maxdd!=null?`${maxdd}%`:'Configured',maxdd!=null?`${maxdd}% limit`:'Account rule'],['Max Trades',String(maxTrades),`${open}/${maxTrades} open`]].map(r=>{const d=document.createElement('div');d.className='fx-rule';d.innerHTML=`<b>${esc(r[0])}</b><span>${esc(r[1])} · ${esc(r[2])}</span>`;return d}));const c=$('fxConsistency');if(c){const span=c.querySelector('span');if(span)span.textContent=`${consistency.toFixed(1)}% / ${consistencyLimit}%`;c.classList.toggle('warn',consistency>consistencyLimit)}
+    if($('fxMenuAccount'))$('fxMenuAccount').textContent=code;if($('fxMenuStatus'))$('fxMenuStatus').textContent=`${status} · Selected account`;if($('fxProfileAccount'))$('fxProfileAccount').textContent=code;if($('fxProfileStatus'))$('fxProfileStatus').textContent=status;if($('fxProfileBalance'))$('fxProfileBalance').textContent=$('balance')?.textContent||'—';if($('fxProfileEquity'))$('fxProfileEquity').textContent=$('equity')?.textContent||'—';
+    const daily=num(a.daily_drawdown_percent,a.daily_drawdown,a.daily_loss_limit_percent),maxdd=num(a.max_drawdown_percent,a.max_drawdown,a.total_drawdown_percent),maxTrades=num(a.max_trades,a.trade_limit,a.max_open_trades)??3,limit=num(a.consistency_percent,a.consistency_rule,a.max_consistency_percent)??35,open=cachedTrades.filter(t=>String(t.status).toUpperCase()==='OPEN').length,profits=cachedTrades.filter(t=>Number(t.realized_profit_cents)>0).map(t=>Number(t.realized_profit_cents)/100),total=profits.reduce((x,y)=>x+y,0),largest=profits.length?Math.max(...profits):0,consistency=total>0?largest/total*100:0;
+    const rules=$('fxRules');if(rules)rules.replaceChildren(...[['Daily Drawdown',daily!=null?`${daily}%`:'Configured',daily!=null?`${daily}% limit`:'Account rule'],['Max Drawdown',maxdd!=null?`${maxdd}%`:'Configured',maxdd!=null?`${maxdd}% limit`:'Account rule'],['Max Trades',String(maxTrades),`${open}/${maxTrades} open`]].map(r=>{const d=document.createElement('div');d.className='fx-rule';d.innerHTML=`<b>${esc(r[0])}</b><span>${esc(r[1])} · ${esc(r[2])}</span>`;return d}));const c=$('fxConsistency');if(c){const s=c.querySelector('span');if(s)s.textContent=`${consistency.toFixed(1)}% / ${limit}%`;c.classList.toggle('warn',consistency>limit)}
   }
-  document.addEventListener('DOMContentLoaded',()=>{inject();setTimeout(loadMenuData,600)});
-  window.refreshFundFXTAccountMenu=()=>{loadMenuData()};
+
+  document.addEventListener('DOMContentLoaded',()=>{hardenRuntime();inject();setTimeout(loadMenuData,600)});
+  // Defer hardening to script execution as well, before DOMContentLoaded fires.
+  hardenRuntime();
+  window.refreshFundFXTAccountMenu=()=>loadMenuData();
 })();
