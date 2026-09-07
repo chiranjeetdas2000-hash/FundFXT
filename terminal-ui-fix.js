@@ -1,63 +1,54 @@
 'use strict';
 
-// FundFXT terminal UI fixes: market-watch quotes and order-ticket quote layout.
+// FundFXT terminal UI fixes: Market Watch shows Pair, MID, Spread and Change only.
 (function () {
   const originalRenderQuotes = window.renderQuotes;
-  const originalRenderButtons = window.renderButtons;
 
-  if (typeof originalRenderQuotes === 'function') {
-    window.renderQuotes = function () {
-      originalRenderQuotes();
-      const box = document.getElementById('watchlist');
-      if (!box) return;
+  if (typeof originalRenderQuotes !== 'function') return;
 
-      box.querySelectorAll('.quote').forEach(button => {
-        const clickHandler = button.onclick;
-        const symbol = button.dataset.symbol || '';
-        const bid = button.querySelector('.bid')?.textContent || '—';
-        const ask = button.querySelector('.ask')?.textContent || '—';
-        const status = button.querySelector('.quote-main small, .qsub')?.textContent || '○ MARKET CLOSED';
-        const stats = button.querySelector('.quote-prices small, .qchange')?.textContent || '';
-        const changeMatch = stats.match(/Δ\s*([+-]?\d+(?:\.\d+)?%)/i);
-        const spreadMatch = stats.match(/(?:SPR|S)\s*([0-9.]+)/i);
+  window.renderQuotes = function () {
+    originalRenderQuotes();
+    const box = document.getElementById('watchlist');
+    if (!box) return;
 
-        button.innerHTML = `
-          <span class="quote-main">
-            <b>${symbol}</b>
-            <small>${status}</small>
-          </span>
-          <span class="quote-side">
-            <span class="quote-price quote-bid"><small>BID</small><b>${bid}</b></span>
-            <span class="quote-price quote-ask"><small>ASK</small><b>${ask}</b></span>
-            <span class="quote-stats">
-              <small>Δ ${changeMatch ? changeMatch[1] : '—'}</small>
-              <small>S ${spreadMatch ? spreadMatch[1] : '—'}</small>
-            </span>
-          </span>`;
+    box.querySelectorAll('.quote').forEach(button => {
+      const symbol = button.dataset.symbol || button.querySelector('.quote-main b')?.textContent || '';
+      const priceBox = button.querySelector('.quote-prices');
+      const mid = priceBox?.querySelector('.last')?.textContent || '—';
+      const rawStats = priceBox?.querySelector('small')?.textContent || '';
+      const changeMatch = rawStats.match(/Δ\s*([+-]?\d+(?:\.\d+)?%)/i);
+      const spreadMatch = rawStats.match(/(?:SPR|S)\s*([0-9.]+)/i);
+      const change = changeMatch ? changeMatch[1] : '—';
+      const spread = spreadMatch ? spreadMatch[1] : '—';
 
-        if (clickHandler) button.onclick = clickHandler;
+      button.innerHTML = `
+        <span class="quote-main">
+          <b>${symbol}</b>
+          <span class="quote-detail">S ${spread}</span>
+          <span class="quote-detail">Δ ${change}</span>
+        </span>
+        <span class="quote-mid">
+          <small>MID</small>
+          <b>${mid}</b>
+        </span>`;
+      button.removeAttribute('title');
+    });
+
+    // Connection state belongs to the Market Watch header, not every pair row.
+    const market = document.getElementById('market');
+    if (market) {
+      const hasLive = [...box.querySelectorAll('.quote')].some(button => {
+        const mid = button.querySelector('.quote-mid b')?.textContent || '';
+        return mid !== '—';
       });
-    };
-  }
+      market.textContent = hasLive ? '● LIVE' : '● OFFLINE';
+      market.classList.toggle('live', hasLive);
+      market.classList.toggle('offline', !hasLive);
+      market.style.color = hasLive ? '#00b56a' : '#ff4444';
+    }
 
-  if (typeof originalRenderButtons === 'function') {
-    window.renderButtons = function () {
-      originalRenderButtons();
-      const box = document.getElementById('quoteBox');
-      if (!box) return;
-      const spans = [...box.querySelectorAll('span')];
-      const bid = spans.find(x => /\bBID\b/i.test(x.textContent))?.querySelector('b')?.textContent || '—';
-      const ask = spans.find(x => /\bASK\b/i.test(x.textContent))?.querySelector('b')?.textContent || '—';
-      const spread = spans.find(x => /\bSPR\b|\bS\b/i.test(x.textContent))?.querySelector('b')?.textContent || '—';
-      const mid = (Number(bid) + Number(ask)) / 2;
-      const symbol = document.getElementById('selectedSymbol')?.textContent || '';
-      const midText = Number.isFinite(mid) ? mid.toFixed(/JPY$/i.test(symbol) ? 3 : /XAU|XAG|BTC|ETH/i.test(symbol) ? 2 : 5) : '—';
-
-      box.innerHTML = `
-        <span class="quote-order-bid"><small>BID</small><b>${bid}</b></span>
-        <span class="quote-order-ask"><small>ASK</small><b>${ask}</b></span>
-        <span class="quote-order-spread"><small>S</small><b>${spread}</b></span>
-        <span class="quote-order-mid"><small>MID</small><b>${midText}</b></span>`;
-    };
-  }
+    // Remove the old per-list connection indicator below the pairs.
+    const status = document.querySelector('#watch .status');
+    if (status) status.remove();
+  };
 })();
