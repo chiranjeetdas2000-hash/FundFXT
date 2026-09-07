@@ -1,6 +1,7 @@
 'use strict';
-// FundFXT terminal API guard: keep auth current and make BiQuote the final
-// market-data fallback when the backend cache is empty or missing symbols.
+// FundFXT terminal API guard: keep auth current, recover market quotes directly
+// from BiQuote when the backend cache is empty, and recover trade history through
+// the account-scoped endpoint if the legacy trade route fails.
 (function(){
   const API='https://fundfxt.onrender.com';
   const SYMBOLS=['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD','NZDUSD','EURGBP','EURJPY','EURAUD','EURCHF','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPNZD','AUDJPY','AUDNZD','AUDCAD','AUDCHF','CADJPY','CADCHF','CHFJPY','NZDJPY','NZDCHF','NZDCAD','XAUUSD','XAGUSD'];
@@ -13,6 +14,28 @@
     const body=await r.json();
     const source=body&&body.data&&typeof body.data==='object'&&!Array.isArray(body.data)?body.data:body;
     return source&&typeof source==='object'?source:{};
+  }
+
+  async function recoverTrades(url,opts,response){
+    if(response.ok)return response;
+    try{
+      const accountCode=new URL(url).searchParams.get('account_code')||'';
+      if(!accountCode)return response;
+      const ah=new Headers(opts.headers||{});
+      const accountsResponse=await original(API+'/api/accounts',{headers:ah});
+      if(!accountsResponse.ok)return response;
+      const accountsBody=await accountsResponse.json();
+      const accounts=Array.isArray(accountsBody)?accountsBody:(accountsBody.accounts||[]);
+      const account=accounts.find(a=>String(a.account_code)===String(accountCode));
+      if(!account?.id)return response;
+      const fallback=await original(API+'/api/accounts/'+encodeURIComponent(account.id)+'/trades',{headers:ah});
+      if(!fallback.ok)return response;
+      const body=await fallback.json();
+      return new Response(JSON.stringify({success:true,account_code:accountCode,trades:Array.isArray(body.trades)?body.trades:[]}),{status:200,headers:{'Content-Type':'application/json'}});
+    }catch(e){
+      console.warn('FundFXT trade API recovery failed',e);
+      return response;
+    }
   }
 
   window.fetch=async function(input,init){
@@ -46,6 +69,11 @@
             return new Response(JSON.stringify({success:true,source:'BiQuote-direct',symbols:Object.keys(direct),prices:direct}),{status:200,headers:{'Content-Type':'application/json'}});
           }catch(f){console.warn('FundFXT BiQuote direct fallback failed',f)}
         }
+      }
+
+      if(url.startsWith(API+'/api/trade/get')){
+        const recovered=await recoverTrades(url,opts,response);
+        if(recovered!==response)return recovered;
       }
 
       if((response.status===401||response.status===403)&&location.pathname.includes('terminal')){
