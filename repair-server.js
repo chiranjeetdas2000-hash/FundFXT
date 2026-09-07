@@ -2,12 +2,23 @@ const fs = require('fs');
 const { spawnSync } = require('child_process');
 
 const file = 'server.js';
+let source = fs.readFileSync(file, 'utf8');
+
+// Repair every malformed trade lookup created by the earlier automated patch.
+const malformed = /const\s+\[trades\]\s*=\s*await\s+db\.execute\(\s*'SELECT \* FROM trades WHERE trade_id = \? AND user_id = \? AND status = "OPEN",\s*\[req\.params\.tradeId,\s*req\.userId\]\s*\);/g;
+const validLookup = `const [trades] = await db.execute(
+            "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
+            [req.params.tradeId, req.userId]
+        );`;
+
+const before = source;
+source = source.replace(malformed, validLookup);
+
+// If the dedicated SL/TP route still contains the old implementation, replace it safely.
 const marker = '// 3. MODIFY SL/TP';
 const endMarker = '// 4. PENDING ORDERS';
-const source = fs.readFileSync(file, 'utf8');
 const start = source.indexOf(marker);
 const end = source.indexOf(endMarker, start);
-
 if (start < 0 || end < 0) {
   throw new Error('Cannot safely locate the SL/TP route in server.js');
 }
@@ -65,10 +76,12 @@ app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
 
 `;
 
-const repaired = source.slice(0, start) + route + source.slice(end);
-if (repaired !== source) {
-  fs.writeFileSync(file, repaired);
-  console.log('FundFXT: SL/TP route repaired before startup.');
+source = source.slice(0, start) + route + source.slice(end);
+if (source !== before) {
+  fs.writeFileSync(file, source);
+  console.log('FundFXT: all malformed SL/TP SQL and route code repaired.');
+} else {
+  console.log('FundFXT: no source changes were necessary.');
 }
 
 const check = spawnSync(process.execPath, ['--check', file], { stdio: 'inherit' });
