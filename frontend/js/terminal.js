@@ -1,0 +1,1 @@
+/* FundFXT terminal JavaScript. */
