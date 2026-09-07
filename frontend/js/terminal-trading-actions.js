@@ -1,1 +1,0 @@
-/* FundFXT terminal trading actions. */
