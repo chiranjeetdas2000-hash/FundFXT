@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node server-clean.js
+    startCommand: node backend/server.js
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
