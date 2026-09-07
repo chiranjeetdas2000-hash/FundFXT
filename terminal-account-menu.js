@@ -5,25 +5,20 @@
   const num=(...v)=>{for(const x of v){const n=Number(x);if(Number.isFinite(n))return n}return null};
   let cachedTrades=[];
 
-  // Runtime hardening: the account panel is intentionally removed, so legacy
-  // render functions must never assume those DOM nodes still exist.
   function hardenRuntime(){
-    const wrap=(name,fn)=>{if(typeof window[name]!=='function'||window[name].__fxSafe)return;const safe=function(...args){try{return fn.apply(this,args)}catch(e){console.warn(`FundFXT ${name} render error`,e);return undefined}};safe.__fxSafe=true;window[name]=safe};
-    wrap('renderSelectedPrice',function(){const p=window.S?.prices?.[window.S?.selected]||{};const symbol=$( 'selectedSymbol');const selected=window.S?.selected||'EURUSD';if(symbol)symbol.textContent=selected;const priceFn=window.price||((v)=>v==null?'—':String(v));const mid=Number(p.mid),bid=Number(p.bid),ask=Number(p.ask),last=Number.isFinite(mid)?mid:(Number.isFinite(bid)&&Number.isFinite(ask)?(bid+ask)/2:NaN),spr=Number.isFinite(Number(p.spread))?Number(p.spread):(Number.isFinite(bid)&&Number.isFinite(ask)?ask-bid:NaN),cp=Number(p.changePercent);const out=$( 'selectedPrice');if(out)out.textContent=`Last ${priceFn(last,selected)}  •  Bid ${priceFn(bid,selected)}  •  Ask ${priceFn(ask,selected)}  •  Spread ${priceFn(spr,selected)}  •  Change ${Number.isFinite(cp)?(cp>=0?'+':'')+cp.toFixed(2)+'%':'—'}`;const source=$( 'chartSource');if(source)source.textContent='TRADINGVIEW CHART · BIQUOTE EXECUTION FEED'});
-    wrap('renderButtons',function(){const S=window.S;if(!S)return;const p=S.prices?.[S.selected]||{},priceFn=window.price||((v)=>v==null?'—':String(v)),bid=priceFn(p.bid,S.selected),ask=priceFn(p.ask,S.selected),spr=priceFn(Number(p.ask)-Number(p.bid),S.selected),buy=$( 'buy'),sell=$( 'sell'),quote=$( 'quoteBox');if(buy){buy.textContent=`BUY  ${ask}`;buy.disabled=!Number.isFinite(Number(p.ask))}if(sell){sell.textContent=`SELL  ${bid}`;sell.disabled=!Number.isFinite(Number(p.bid))}if(quote)quote.innerHTML=`<span class="execution-bid">BID <b>${bid}</b></span><span class="execution-ask">ASK <b>${ask}</b></span><span class="execution-spread">S <b>${spr}</b></span>`});
-    wrap('renderAccount',function(){const a=window.S?.account||{};if($( 'balance'))$( 'balance').textContent=(window.money||String)(a.balance_cents);if($( 'equity'))$( 'equity').textContent=(window.money||String)(a.equity_cents);if($( 'accountStatus'))$( 'accountStatus').textContent=`${a.status||'ACTIVE'} · ${a.account_code||''}`;if($( 'accountStatusMobile'))$( 'accountStatusMobile').textContent=`${a.status||'ACTIVE'} · ${a.account_code||''}`});
-    wrap('loadTrades',async function(){if(!window.S?.account)return;try{const original=arguments.callee.__original;return await original.apply(this,arguments)}catch(e){console.warn('FundFXT trade sync failed',e);const box=$( 'tradeScroll');if(box)box.innerHTML=`<div class="empty"><strong>Trade sync failed</strong><span>${esc(e.message||'Unable to sync trades')}</span></div>`}});
-    // The previous wrapper above needs the original function reference.
-    if(window.loadTrades&&!window.loadTrades.__original&&typeof window.loadTrades==='function'){window.loadTrades.__original=window.loadTrades}
-    if(typeof window.syncAll==='function'&&!window.syncAll.__fxSafe){const originalSync=window.syncAll;const safeSync=async function(...args){try{return await originalSync.apply(this,args)}catch(e){console.warn('FundFXT sync cycle recovered from UI error',e)}};safeSync.__fxSafe=true;window.syncAll=safeSync}
+    if(typeof window.renderSelectedPrice==='function'&&!window.renderSelectedPrice.__fxSafe){const original=window.renderSelectedPrice;const safe=function(){try{return original.apply(this,arguments)}catch(e){console.warn('FundFXT renderSelectedPrice recovered',e)}};safe.__fxSafe=true;window.renderSelectedPrice=safe}
+    if(typeof window.renderButtons==='function'&&!window.renderButtons.__fxSafe){const original=window.renderButtons;const safe=function(){try{return original.apply(this,arguments)}catch(e){console.warn('FundFXT renderButtons recovered',e)}};safe.__fxSafe=true;window.renderButtons=safe}
+    if(typeof window.renderAccount==='function'&&!window.renderAccount.__fxSafe){const original=window.renderAccount;const safe=function(){try{return original.apply(this,arguments)}catch(e){console.warn('FundFXT renderAccount recovered',e)}};safe.__fxSafe=true;window.renderAccount=safe}
+    if(typeof window.loadTrades==='function'&&!window.loadTrades.__fxSafe){const original=window.loadTrades;const safe=async function(){try{return await original.apply(this,arguments)}catch(e){console.warn('FundFXT trade sync recovered',e);const box=$('tradeScroll');if(box)box.innerHTML=`<div class="empty"><strong>Trade sync failed</strong><span>${esc(e.message||'Unable to sync trades')}</span></div>`}};safe.__fxSafe=true;window.loadTrades=safe}
+    if(typeof window.syncAll==='function'&&!window.syncAll.__fxSafe){const original=window.syncAll;const safe=async function(){try{return await original.apply(this,arguments)}catch(e){console.warn('FundFXT sync cycle recovered',e)}};safe.__fxSafe=true;window.syncAll=safe}
   }
 
   async function loadMenuData(){
     const token=localStorage.getItem('fundfxt_token');if(!token)return;
     const headers={Authorization:`Bearer ${token}`,'Content-Type':'application/json'};
     try{
-      const r=await fetch('https://fundfxt.onrender.com/api/accounts',{headers});const accounts=await r.json();const list=Array.isArray(accounts)?accounts:(accounts.accounts||[]);const code=$('accountCode')?.textContent?.trim();const a=list.find(x=>x.account_code===code)||list[0];if(a)window.__fxMenuAccount=a;
-      const selectedCode=a?.account_code||code;if(selectedCode){const tr=await fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(selectedCode),{headers});const td=await tr.json();cachedTrades=Array.isArray(td.trades)?td.trades:[]}
+      const r=await fetch('https://fundfxt.onrender.com/api/accounts',{headers});if(!r.ok)throw Error(`Account API HTTP ${r.status}`);const accounts=await r.json();const list=Array.isArray(accounts)?accounts:(accounts.accounts||[]);const code=$('accountCode')?.textContent?.trim();const a=list.find(x=>x.account_code===code)||list[0];if(a)window.__fxMenuAccount=a;
+      const selectedCode=a?.account_code||code;if(selectedCode){const tr=await fetch('https://fundfxt.onrender.com/api/trade/get?account_code='+encodeURIComponent(selectedCode),{headers});if(tr.ok){const td=await tr.json();cachedTrades=Array.isArray(td.trades)?td.trades:[]}}
     }catch(e){console.warn('FundFXT account menu data load failed',e)}
     render();
   }
@@ -50,8 +45,7 @@
     const rules=$('fxRules');if(rules)rules.replaceChildren(...[['Daily Drawdown',daily!=null?`${daily}%`:'Configured',daily!=null?`${daily}% limit`:'Account rule'],['Max Drawdown',maxdd!=null?`${maxdd}%`:'Configured',maxdd!=null?`${maxdd}% limit`:'Account rule'],['Max Trades',String(maxTrades),`${open}/${maxTrades} open`]].map(r=>{const d=document.createElement('div');d.className='fx-rule';d.innerHTML=`<b>${esc(r[0])}</b><span>${esc(r[1])} · ${esc(r[2])}</span>`;return d}));const c=$('fxConsistency');if(c){const s=c.querySelector('span');if(s)s.textContent=`${consistency.toFixed(1)}% / ${limit}%`;c.classList.toggle('warn',consistency>limit)}
   }
 
-  document.addEventListener('DOMContentLoaded',()=>{hardenRuntime();inject();setTimeout(loadMenuData,600)});
-  // Defer hardening to script execution as well, before DOMContentLoaded fires.
   hardenRuntime();
+  document.addEventListener('DOMContentLoaded',()=>{hardenRuntime();inject();setTimeout(loadMenuData,600)});
   window.refreshFundFXTAccountMenu=()=>loadMenuData();
 })();
