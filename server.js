@@ -5,20 +5,19 @@ const path = require('path');
 const target = path.join(__dirname, 'backend', 'server.js');
 let source = fs.readFileSync(target, 'utf8');
 
-// Repair the known malformed SL/TP SQL line safely by matching the complete line,
-// then keep settled account figures synchronized with persisted trade results.
+// Repair the malformed SL/TP SQL line without hard-coding any account/trade values.
 source = source.split('\n').map(line => {
-  if (line.includes("const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = \"OPEN\", [req.params.tradeId, req.userId]);")) {
+  if (line.includes('const [trades] = await db.execute') && line.includes('FROM trades WHERE trade_id = ?') && line.includes('status = "OPEN"') && line.includes('req.params.tradeId')) {
     return "        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = ?', [req.params.tradeId, req.userId, 'OPEN']);";
   }
   return line;
 }).join('\n');
 
-const balanceTradeLine = "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);";
-const balanceAccountLine = "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);";
-source = source.split(balanceTradeLine).join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);");
-source = source.split(balanceAccountLine).join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, account.id]);");
+// Keep settled account balance/equity synchronized with the realized result.
+source = source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);");
+source = source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, account.id]);");
 
+// Reconcile account figures from persisted closed/open trade P/L on every account fetch.
 const accountsOld = `app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
         const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
