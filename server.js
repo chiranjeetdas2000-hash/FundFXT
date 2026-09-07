@@ -932,7 +932,7 @@ app.post('/api/trades/:tradeId/close', authenticateToken, async (req, res) => {
 app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
     const { stop_loss, take_profit } = req.body;
     try {
-        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = "OPEN"', [req.params.tradeId, req.userId]);
+        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'', [req.params.tradeId, req.userId]);
         if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
         await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [stop_loss || null, take_profit || null, req.params.tradeId]);
         res.json({ success: true });
@@ -1357,7 +1357,7 @@ app.post('/api/trades/:tradeId/close', authenticateToken, async (req, res) => {
 app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
     const { stop_loss, take_profit } = req.body;
     try {
-        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = "OPEN"', [req.params.tradeId, req.userId]);
+        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'', [req.params.tradeId, req.userId]);
         if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
         
         await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [stop_loss || null, take_profit || null, req.params.tradeId]);
