@@ -1,17 +1,21 @@
 name: Finalize trade SL TP backend
+
 on:
   push:
     paths:
       - '.github/workflows/finalize-trade-sltp.yml'
       - 'server.js'
   workflow_dispatch:
+
 permissions:
   contents: write
+
 jobs:
   fix:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - name: Repair trade SL TP route and validate syntax
         shell: bash
         run: |
@@ -19,63 +23,75 @@ jobs:
           from pathlib import Path
           p = Path('server.js')
           s = p.read_text()
-          marker = "// 3. MODIFY SL/TP"
+          marker = '// 3. MODIFY SL/TP'
           start = s.find(marker)
           if start < 0:
               raise SystemExit('MODIFY SL/TP route marker not found; refusing unsafe edit')
           end = s.find('// 4. PENDING ORDERS', start)
           if end < 0:
               raise SystemExit('PENDING ORDERS marker not found; refusing unsafe edit')
+
           route = r'''// 3. MODIFY SL/TP
-app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
-    const tradeId = String(req.params.tradeId || '').trim();
-    const rawSL = req.body?.stop_loss ?? req.body?.sl ?? null;
-    const rawTP = req.body?.take_profit ?? req.body?.tp ?? null;
-    const stopLoss = rawSL === '' || rawSL === null ? null : Number(rawSL);
-    const takeProfit = rawTP === '' || rawTP === null ? null : Number(rawTP);
+          app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
+              const tradeId = String(req.params.tradeId || '').trim();
+              const rawSL = req.body?.stop_loss ?? req.body?.sl ?? null;
+              const rawTP = req.body?.take_profit ?? req.body?.tp ?? null;
+              const stopLoss = rawSL === '' || rawSL === null ? null : Number(rawSL);
+              const takeProfit = rawTP === '' || rawTP === null ? null : Number(rawTP);
 
-    try {
-        if (!tradeId) return res.status(400).json({ error: 'Trade ID is required' });
-        if ((stopLoss !== null && !Number.isFinite(stopLoss)) || (takeProfit !== null && !Number.isFinite(takeProfit))) {
-            return res.status(400).json({ error: 'Invalid stop loss or take profit price' });
-        }
+              try {
+                  if (!tradeId) return res.status(400).json({ error: 'Trade ID is required' });
+                  if ((stopLoss !== null && !Number.isFinite(stopLoss)) || (takeProfit !== null && !Number.isFinite(takeProfit))) {
+                      return res.status(400).json({ error: 'Invalid stop loss or take profit price' });
+                  }
 
-        const [trades] = await db.execute(
-            "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
-            [tradeId, req.userId]
-        );
-        if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
+                  const [trades] = await db.execute(
+                      "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
+                      [tradeId, req.userId]
+                  );
+                  if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
 
-        const trade = trades[0];
-        validateStops(trade.side, Number(trade.entry_price), stopLoss, takeProfit);
+                  const trade = trades[0];
+                  const entry = Number(trade.entry_price);
+                  if (trade.side === 'BUY') {
+                      if (stopLoss !== null && stopLoss >= entry) return res.status(400).json({ error: 'BUY stop loss must be below entry' });
+                      if (takeProfit !== null && takeProfit <= entry) return res.status(400).json({ error: 'BUY take profit must be above entry' });
+                  } else if (trade.side === 'SELL') {
+                      if (stopLoss !== null && stopLoss <= entry) return res.status(400).json({ error: 'SELL stop loss must be above entry' });
+                      if (takeProfit !== null && takeProfit >= entry) return res.status(400).json({ error: 'SELL take profit must be below entry' });
+                  } else {
+                      return res.status(400).json({ error: 'Invalid trade side' });
+                  }
 
-        const [result] = await db.execute(
-            "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
-            [stopLoss, takeProfit, tradeId, req.userId]
-        );
-        if (result.affectedRows !== 1) return res.status(409).json({ error: 'Trade could not be modified' });
+                  const [result] = await db.execute(
+                      "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
+                      [stopLoss, takeProfit, tradeId, req.userId]
+                  );
+                  if (result.affectedRows !== 1) return res.status(409).json({ error: 'Trade could not be modified' });
 
-        const [updated] = await db.execute(
-            'SELECT trade_id, symbol, side, volume, entry_price, stop_loss, take_profit, status FROM trades WHERE trade_id = ? AND user_id = ? LIMIT 1',
-            [tradeId, req.userId]
-        );
+                  const [updated] = await db.execute(
+                      'SELECT trade_id, symbol, side, volume, entry_price, stop_loss, take_profit, status FROM trades WHERE trade_id = ? AND user_id = ? LIMIT 1',
+                      [tradeId, req.userId]
+                  );
 
-        console.log('SL/TP modified:', tradeId, stopLoss, takeProfit);
-        return res.json({
-            success: true,
-            trade: updated[0] || { trade_id: tradeId, stop_loss: stopLoss, take_profit: takeProfit }
-        });
-    } catch (error) {
-        console.error('SL/TP modify error:', error.message);
-        return res.status(400).json({ error: error.message });
-    }
-});
+                  console.log('SL/TP modified:', tradeId, stopLoss, takeProfit);
+                  return res.json({
+                      success: true,
+                      trade: updated[0] || { trade_id: tradeId, stop_loss: stopLoss, take_profit: takeProfit }
+                  });
+              } catch (error) {
+                  console.error('SL/TP modify error:', error.message);
+                  return res.status(400).json({ error: error.message });
+              }
+          });
 
-'''
+          '''
           p.write_text(s[:start] + route + s[end:])
           PY
+
           node --check server.js
-          node -e "require('fs').readFileSync('server.js','utf8'); console.log('server.js syntax OK')"
+          echo 'server.js syntax validation passed'
+
       - name: Commit repaired server
         run: |
           git config user.name 'FundFXT Bot'
