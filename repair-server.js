@@ -77,9 +77,22 @@ app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
 `;
 
 source = source.slice(0, start) + route + source.slice(end);
+
+// The live terminal reads /api/trade/get. The current server.js did not expose
+// that route, so the terminal could execute trades but could never retrieve them.
+// Inject the authenticated endpoint once, before the websocket/server startup.
+const tradeGetMarker = '// ========== TERMINAL OPEN TRADE API ==========';
+if (!source.includes(tradeGetMarker)) {
+  const websocketMarker = '// ========== WEBSOCKET SERVER ==========';
+  const websocketAt = source.indexOf(websocketMarker);
+  if (websocketAt < 0) throw new Error('Cannot locate websocket startup marker for trade GET route');
+  const tradeGetRoute = `${tradeGetMarker}\napp.get('/api/trade/get', authenticateToken, async (req, res) => {\n    try {\n        const accountCode = String(req.query.account_code || '').trim();\n        if (!accountCode) return res.status(400).json({ success: false, error: 'account_code is required' });\n        const [accounts] = await db.execute('SELECT id FROM accounts WHERE account_code = ? AND user_id = ? LIMIT 1', [accountCode, req.userId]);\n        if (!accounts.length) return res.status(404).json({ success: false, error: 'Account not found' });\n        const [trades] = await db.execute(\n            'SELECT * FROM trades WHERE account_id = ? AND user_id = ? ORDER BY entry_time DESC, id DESC',\n            [accounts[0].id, req.userId]\n        );\n        return res.json({ success: true, trades });\n    } catch (error) {\n        console.error('Trade fetch error:', error.message);\n        return res.status(500).json({ success: false, error: error.message });\n    }\n});\n\n`;
+  source = source.slice(0, websocketAt) + tradeGetRoute + source.slice(websocketAt);
+}
+
 if (source !== before) {
   fs.writeFileSync(file, source);
-  console.log('FundFXT: all malformed SL/TP SQL and route code repaired.');
+  console.log('FundFXT: SL/TP SQL repaired and terminal trade GET route injected.');
 } else {
   console.log('FundFXT: no source changes were necessary.');
 }
