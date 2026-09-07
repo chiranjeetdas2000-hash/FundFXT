@@ -1,51 +1,21 @@
 // Render compatibility entrypoint + startup repair for the organized backend.
-const fs = require('fs');
-const path = require('path');
-
-const target = path.join(__dirname, 'backend', 'server.js');
-let source = fs.readFileSync(target, 'utf8');
-
-// Repair the malformed SL/TP SQL line without hard-coding any account/trade values.
-source = source.split('\n').map(line => {
-  if (line.includes('const [trades] = await db.execute') && line.includes('FROM trades WHERE trade_id = ?') && line.includes('status = "OPEN"') && line.includes('req.params.tradeId')) {
-    return "        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = ?', [req.params.tradeId, req.userId, 'OPEN']);";
-  }
-  return line;
-}).join('\n');
-
-// Keep settled account balance/equity synchronized with the realized result.
-source = source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);");
-source = source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, account.id]);");
-
-// Reconcile account figures from persisted closed/open trade P/L on every account fetch.
-const accountsOld = `app.get('/api/accounts', authenticateToken, async (req, res) => {
-    try {
-        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
-        res.json({ accounts });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});`;
-const accountsNew = `app.get('/api/accounts', authenticateToken, async (req, res) => {
-    try {
-        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
-        for (const account of accounts) {
-            const [closedRows] = await db.execute("SELECT COALESCE(SUM(realized_profit_cents),0) AS realized FROM trades WHERE account_id = ? AND status = 'CLOSED'", [account.id]);
-            const [openRows] = await db.execute("SELECT COALESCE(SUM(floating_profit_cents),0) AS floating FROM trades WHERE account_id = ? AND status = 'OPEN'", [account.id]);
-            const realized = Number(closedRows[0]?.realized || 0);
-            const floating = Number(openRows[0]?.floating || 0);
-            const initial = Number(account.initial_balance_cents || 0);
-            const canonicalBalance = initial + realized;
-            const canonicalEquity = canonicalBalance + floating;
-            if (Number(account.balance_cents) !== canonicalBalance || Number(account.equity_cents) !== canonicalEquity) {
-                await db.execute('UPDATE accounts SET balance_cents = ?, equity_cents = ? WHERE id = ?', [canonicalBalance, canonicalEquity, account.id]);
-                account.balance_cents = canonicalBalance;
-                account.equity_cents = canonicalEquity;
-            }
-        }
-        res.json({ accounts });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});`;
-if (source.includes(accountsOld)) source = source.replace(accountsOld, accountsNew);
-
-fs.writeFileSync(target, source, 'utf8');
-console.log('FundFXT: backend trade/account settlement repair applied before startup.');
+const fs=require('fs');const path=require('path');
+const target=path.join(__dirname,'backend','server.js');let source=fs.readFileSync(target,'utf8');
+// Repair malformed SL/TP query safely at startup.
+source=source.split('\n').map(line=>line.includes('const [trades] = await db.execute')&&line.includes('FROM trades WHERE trade_id = ?')&&line.includes('status = "OPEN"')&&line.includes('req.params.tradeId')?"        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = ?', [req.params.tradeId, req.userId, 'OPEN']);":line).join('\n');
+// Keep settled balance and equity synchronized after a full close.
+source=source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);");
+source=source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, account.id]);");
+// Reconcile account values from persisted trade P/L.
+const accountsOld=`app.get('/api/accounts', authenticateToken, async (req, res) => {\n    try {\n        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);\n        res.json({ accounts });\n    } catch (error) { res.status(500).json({ error: error.message }); }\n});`;
+const accountsNew=`app.get('/api/accounts', authenticateToken, async (req, res) => {\n    try {\n        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);\n        for (const account of accounts) {\n            const [closedRows] = await db.execute("SELECT COALESCE(SUM(realized_profit_cents),0) AS realized FROM trades WHERE account_id = ? AND status = 'CLOSED'", [account.id]);\n            const [openRows] = await db.execute("SELECT COALESCE(SUM(floating_profit_cents),0) AS floating FROM trades WHERE account_id = ? AND status = 'OPEN'", [account.id]);\n            const realized=Number(closedRows[0]?.realized||0),floating=Number(openRows[0]?.floating||0),initial=Number(account.initial_balance_cents||0);\n            const balance=initial+realized,equity=balance+floating;\n            if(Number(account.balance_cents)!==balance||Number(account.equity_cents)!==equity){await db.execute('UPDATE accounts SET balance_cents = ?, equity_cents = ? WHERE id = ?',[balance,equity,account.id]);account.balance_cents=balance;account.equity_cents=equity;}\n        }\n        res.json({ accounts });\n    } catch (error) { res.status(500).json({ error: error.message }); }\n});`;
+if(source.includes(accountsOld))source=source.replace(accountsOld,accountsNew);
+// Add partial-close support without changing the existing full-close contract.
+const marker='// ========== WEBSOCKET SERVER ==========';
+if(!source.includes("/api/trades/:tradeId/partial-close")){
+ const partial=`// ========== PARTIAL CLOSE ==========\napp.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req,res)=>{\n try{\n  const closeVolume=Number(req.body.volume);\n  if(!Number.isFinite(closeVolume)||closeVolume<=0)return res.status(400).json({error:'Invalid close volume'});\n  const [rows]=await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = \'OPEN\'', [req.params.tradeId,req.userId]);\n  if(!rows.length)return res.status(404).json({error:'Open trade not found'});\n  const trade=rows[0];\n  const originalVolume=Number(trade.volume);\n  if(closeVolume>=originalVolume)return res.status(400).json({error:'Use full close for the complete position'});\n  if(Math.round(closeVolume*100)!==closeVolume*100)return res.status(400).json({error:'Close volume must use 0.01 lot steps'});\n  const price=global.priceCache?.[trade.symbol];\n  if(!price)return res.status(400).json({error:'Price not available'});\n  const exitPrice=trade.side==='BUY'?price.bid:price.ask;\n  const realizedCents=Math.round(calculatePL(trade.symbol,trade.side,Number(trade.entry_price),exitPrice,closeVolume)*100);\n  const remaining=Math.round((originalVolume-closeVolume)*100)/100;\n  await db.execute('UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0 WHERE trade_id = ?',[remaining,exitPrice,trade.trade_id]);\n  const partialId='TRP-'+Date.now().toString(36).toUpperCase();\n  await db.execute(`INSERT INTO trades (trade_id,account_id,account_code,user_id,symbol,side,volume,entry_price,entry_time,trading_day,stop_loss,take_profit,status,exit_price,exit_time,realized_profit_cents,close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')`,[partialId,trade.account_id,trade.account_code,trade.user_id,trade.symbol,trade.side,closeVolume,trade.entry_price,trade.entry_time,trade.stop_loss,trade.take_profit,exitPrice,realizedCents]);\n  await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?',[realizedCents,realizedCents,trade.account_id]);\n  res.json({success:true,trade_id:partialId,remaining_volume:remaining,exit_price:exitPrice,realized_profit:realizedCents/100});\n }catch(error){res.status(500).json({error:error.message})}\n});\n\n`;
+ source=source.replace(marker,partial+marker);
+}
+fs.writeFileSync(target,source,'utf8');
+console.log('FundFXT: backend trade/account settlement repair + partial close support applied before startup.');
 require('./backend/server.js');
