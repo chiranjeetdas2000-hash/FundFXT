@@ -5,7 +5,6 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const crypto = require('crypto');
-const FCSClient = require('./fcs-client-lib'); // Official FCS library
 require('dotenv').config();
 
 const app = express();
@@ -741,53 +740,110 @@ app.post('/api/admin/certificates/issue', authenticateAdmin, async (req, res) =>
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// ========== FCS LIVE MARKET DATA ==========
-const FCS_API_KEY = process.env.FCS_API_KEY || 'fcs_socket_demo';
-const fcs = new FCSClient(FCS_API_KEY);
-fcs.showLogs = true;
+// ========== BIQUOTE LIVE MARKET DATA ==========
+const BIQUOTE_BASE = 'https://biquote.io';
+const BIQUOTE_SYMBOLS = [
+    'EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD','NZDUSD',
+    'EURGBP','EURJPY','EURAUD','EURCHF','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPNZD',
+    'AUDJPY','AUDNZD','AUDCAD','AUDCHF','CADJPY','CADCHF','CHFJPY','NZDJPY','NZDCHF','NZDCAD',
+    'XAUUSD','XAGUSD'
+];
+global.prices = global.prices || {};
+global.priceCache = global.priceCache || {};
 
-fcs.onconnected = () => {
-    console.log('✅ FCS Connected successfully');
-    const symbols = ['FX:EURUSD', 'FX:GBPUSD', 'FX:USDJPY', 'FX:AUDUSD', 'FX:XAUUSD'];
-    symbols.forEach(sym => {
-        fcs.join(sym, '15');
-    });
-};
+function isForexWeekend() {
+    const d = new Date().getUTCDay();
+    return d === 0 || d === 6;
+}
 
-fcs.onmessage = (data) => {
-    if (data.type === 'price' && data.prices) {
-        const sym = data.symbol.replace('FX:', '');
-        const last = data.prices.c;
-        const spread = sym.includes('JPY') ? 0.015 : 0.00015;
-        const ask = last + spread;
-        const bid = last - spread;
-        global.prices = global.prices || {};
-        global.priceCache = global.priceCache || {};
-        global.prices[sym] = { bid, ask, change: data.prices.ch || 0, changePercent: data.prices.chp || 0 };
-        global.priceCache[sym] = { bid, ask };
-        processLivePrices();
+function normalizeBiQuoteTick(t) {
+    if (!t || !t.symbol) return null;
+    const symbol = String(t.symbol).toUpperCase();
+    const bid = Number(t.bid), ask = Number(t.ask), mid = Number(t.mid);
+    if (!Number.isFinite(bid) || !Number.isFinite(ask)) return null;
+    const m = Number.isFinite(mid) ? mid : (bid + ask) / 2;
+    const spread = Number.isFinite(Number(t.spread)) ? Number(t.spread) : Math.abs(ask - bid);
+    const dayPct = Number(t.dayDiffPercent ?? t.changePercent ?? t.chp);
+    const change = Number(t.changeAmount ?? t.change ?? t.ch);
+    return {
+        symbol, bid, ask, mid: m,
+        // BiQuote documents last=0 for FX/CFD; mid is the usable last/single price.
+        last: Number.isFinite(Number(t.last)) && Number(t.last) !== 0 ? Number(t.last) : m,
+        spread,
+        spreadPercent: m ? (spread / m) * 100 : 0,
+        change: Number.isFinite(change) ? change : (Number.isFinite(dayPct) ? m * dayPct / 100 : 0),
+        changePercent: Number.isFinite(dayPct) ? dayPct : 0,
+        marketState: t.marketState || 'open',
+        stale: Boolean(t.stale),
+        quoteAgeSeconds: Number(t.quoteAgeSeconds || 0),
+        updatedAt: Date.now(),
+        source: 'BiQuote'
+    };
+}
+
+async function refreshBiQuotePrices() {
+    const qs = BIQUOTE_SYMBOLS.map(x => 'symbols=' + encodeURIComponent(x)).join('&');
+    const r = await fetch(BIQUOTE_BASE + '/api/latest?' + qs, { headers: { accept: 'application/json' } });
+    if (!r.ok) throw new Error('BiQuote HTTP ' + r.status);
+    const body = await r.json();
+    const ticks = Array.isArray(body) ? body :
+        (Array.isArray(body.ticks) ? body.ticks :
+        (Array.isArray(body.data) ? body.data : []));
+    const source = body && body.data && typeof body.data === 'object' && !Array.isArray(body.data) ? body.data : body;
+    const list = ticks.length ? ticks : Object.entries(source || {}).map(([symbol, t]) => ({ ...(t || {}), symbol: (t && t.symbol) || symbol }));
+    for (const raw of list) {
+        const q = normalizeBiQuoteTick(raw);
+        if (!q || !BIQUOTE_SYMBOLS.includes(q.symbol)) continue;
+        global.prices[q.symbol] = q;
+        global.priceCache[q.symbol] = q;
     }
-};
+    // Quotes remain available when the market is closed, but the trade engine must not mutate positions on weekends.
+    if (!isForexWeekend() && typeof processLivePrices === 'function') {
+        processLivePrices().catch(e => console.error('BiQuote trade engine:', e.message));
+    }
+    return global.prices;
+}
 
-fcs.onclose = (event) => {
-    console.log(`❌ FCS disconnected (${event.code}): ${event.reason || 'no reason'}`);
-};
+refreshBiQuotePrices().then(() => console.log('BiQuote feed connected')).catch(e => console.error('BiQuote initial fetch failed:', e.message));
+setInterval(() => refreshBiQuotePrices().catch(e => console.error('BiQuote refresh failed:', e.message)), 1000);
 
-fcs.onerror = (err) => {
-    console.error('FCS error:', err.message || err);
-};
+// Terminal market-data endpoint. Authenticated because the terminal is account-bound.
+app.get('/api/prices', authenticateToken, (req, res) => {
+    res.json({ success: true, source: 'BiQuote', symbols: BIQUOTE_SYMBOLS, prices: global.prices || {} });
+});
 
-fcs.connect().catch(err => {
-    console.error('FCS connection failed:', err.message);
+// Same account-scoped trade fetch used by the Account Dashboard.
+app.get('/api/trade/get', authenticateToken, async (req, res) => {
+    try {
+        const accountCode = String(req.query.account_code || '').trim();
+        if (!accountCode) return res.status(400).json({ success: false, error: 'account_code is required' });
+        const [accounts] = await db.execute(
+            'SELECT id, account_code FROM accounts WHERE account_code = ? AND user_id = ? LIMIT 1',
+            [accountCode, req.userId]
+        );
+        if (!accounts.length) return res.status(404).json({ success: false, error: 'Account not found' });
+        const [trades] = await db.execute(
+            'SELECT * FROM trades WHERE account_id = ? ORDER BY COALESCE(entry_time, created_at) DESC, id DESC',
+            [accounts[0].id]
+        );
+        res.json({ success: true, account_code: accountCode, trades });
+    } catch (e) {
+        console.error('Trade fetch error:', e.message);
+        res.status(500).json({ success: false, error: e.message });
+    }
 });
 
 // ========== TRADE ENGINE ==========
 const instruments = {
-    EURUSD: { pip: 0.0001, size: 100000 },
-    GBPUSD: { pip: 0.0001, size: 100000 },
-    AUDUSD: { pip: 0.0001, size: 100000 },
-    USDJPY: { pip: 0.01, size: 100000 },
-    XAUUSD: { pip: 0.1, size: 100 }
+    EURUSD:{pip:0.0001,size:100000}, GBPUSD:{pip:0.0001,size:100000}, USDCHF:{pip:0.0001,size:100000},
+    AUDUSD:{pip:0.0001,size:100000}, USDCAD:{pip:0.0001,size:100000}, NZDUSD:{pip:0.0001,size:100000},
+    EURGBP:{pip:0.0001,size:100000}, EURJPY:{pip:0.01,size:100000}, EURAUD:{pip:0.0001,size:100000},
+    EURCHF:{pip:0.0001,size:100000}, EURNZD:{pip:0.0001,size:100000}, GBPJPY:{pip:0.01,size:100000},
+    GBPCHF:{pip:0.0001,size:100000}, GBPAUD:{pip:0.0001,size:100000}, GBPNZD:{pip:0.0001,size:100000},
+    AUDJPY:{pip:0.01,size:100000}, AUDNZD:{pip:0.0001,size:100000}, AUDCAD:{pip:0.0001,size:100000},
+    AUDCHF:{pip:0.0001,size:100000}, CADJPY:{pip:0.01,size:100000}, CADCHF:{pip:0.0001,size:100000},
+    CHFJPY:{pip:0.01,size:100000}, NZDJPY:{pip:0.01,size:100000}, NZDCHF:{pip:0.0001,size:100000},
+    NZDCAD:{pip:0.0001,size:100000}, USDJPY:{pip:0.01,size:100000}, XAUUSD:{pip:0.01,size:100}, XAGUSD:{pip:0.001,size:5000}
 };
 
 function calculatePL(symbol, side, entry, current, volume) {
@@ -985,7 +1041,7 @@ app.post('/api/trade/execute', authenticateToken, async (req, res) => {
     const { account_code, symbol, side, volume, sl, tp } = req.body;
 
     // 1. Symbol validation
-    if (!['EURUSD', 'GBPUSD', 'USDJPY', 'AUDUSD', 'XAUUSD'].includes(symbol)) {
+    if (!Object.prototype.hasOwnProperty.call(instruments, symbol)) {
         return res.status(400).json({ error: 'Invalid symbol' });
     }
 
