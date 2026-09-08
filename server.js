@@ -41,6 +41,101 @@ const groupedPL = `function calculatePL(symbol, side, entry, current, volume) {
 }`;
 source = source.replace(/function calculatePL\(symbol, side, entry, current, volume\) \{[\s\S]*?\n\}/, groupedPL);
 
+// Replace the legacy account list route with a normalized account/rules payload.
+// Rule values come from challenge_configs where available; model-specific Warrior rules
+// are explicit and the API never invents a profit target when the DB has none.
+const accountRoute = `app.get('/api/accounts', authenticateToken, async (req, res) => {
+    try {
+        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
+        const normalized = [];
+        for (const account of accounts) {
+            let config = null;
+            try { config = await getChallengeConfig(account.challenge_model); } catch (_) {}
+
+            const model = String(account.challenge_model || '').toLowerCase();
+            const warrior = model === 'warrior_5k' || model === 'warrior';
+            const direct = model === 'prototype_5k' || model === 'direct' || model === 'direct_funded';
+            const initial = Number(account.initial_balance_cents || account.balance_cents || 0);
+
+            const pickNumber = (...values) => {
+                for (const value of values) {
+                    const n = Number(value);
+                    if (Number.isFinite(n)) return n;
+                }
+                return null;
+            };
+
+            // Never manufacture a profit target. Only expose one when an actual account/config field exists.
+            const profitTargetCents = pickNumber(
+                account.profit_target_cents,
+                account.target_profit_cents,
+                account.target_cents,
+                config && config.profit_target_cents,
+                config && config.target_profit_cents,
+                config && config.target_cents
+            );
+
+            const consistencyLimit = pickNumber(
+                account.consistency_limit_percent,
+                account.consistency_bps != null ? Number(account.consistency_bps) / 100 : null,
+                config && config.consistency_limit_percent,
+                config && config.consistency_bps != null ? Number(config.consistency_bps) / 100 : null,
+                warrior || direct ? 35 : null
+            );
+
+            const maxTrades = pickNumber(account.max_trades_per_day, config && config.max_trades_per_day, warrior ? 3 : null);
+            const dailyDDbps = pickNumber(account.daily_dd_bps, config && config.daily_dd_bps, warrior ? 500 : direct ? 200 : null);
+            const maxDDbps = pickNumber(account.max_dd_bps, config && config.max_dd_bps, warrior ? 800 : direct ? 500 : null);
+
+            // Consistency = largest profitable trading day / total profitable trading result.
+            let consistencyAchieved = 0;
+            try {
+                const [days] = await db.execute(
+                    `SELECT trading_day, SUM(CASE WHEN realized_profit_cents > 0 THEN realized_profit_cents ELSE 0 END) AS day_profit
+                     FROM trades WHERE account_id = ? AND status = 'CLOSED' GROUP BY trading_day`,
+                    [account.id]
+                );
+                const profits = days.map(r => Number(r.day_profit || 0)).filter(v => v > 0);
+                const totalProfit = profits.reduce((s, v) => s + v, 0);
+                if (totalProfit > 0) consistencyAchieved = (Math.max(...profits) / totalProfit) * 100;
+            } catch (_) {}
+
+            const balance = Number(account.balance_cents || 0);
+            const equity = Number(account.equity_cents || balance);
+            const targetProgress = profitTargetCents && profitTargetCents > 0
+                ? Math.max(0, Math.min(100, ((balance - initial) / profitTargetCents) * 100))
+                : null;
+
+            const phase = account.phase || account.account_phase || account.challenge_phase || (warrior ? 'Warrior' : direct ? 'Direct Funded' : '—');
+            const accountType = account.account_type || (warrior ? 'Warrior' : direct ? 'Direct Funded' : 'Challenge');
+
+            normalized.push({
+                ...account,
+                account_profile: {
+                    accountType,
+                    phase,
+                    model: account.challenge_model || null,
+                    isDirectFunded: direct,
+                    isWarrior: warrior,
+                    rules: {
+                        maxTradesPerDay: maxTrades,
+                        consistencyLimitPercent: consistencyLimit,
+                        consistencyAchievedPercent: Number(consistencyAchieved.toFixed(2)),
+                        dailyDrawdownPercent: dailyDDbps == null ? null : dailyDDbps / 100,
+                        maxDrawdownPercent: maxDDbps == null ? null : maxDDbps / 100,
+                        dailyDrawdownCents: dailyDDbps == null ? null : Math.round(initial * dailyDDbps / 10000),
+                        maxDrawdownCents: maxDDbps == null ? null : Math.round(initial * maxDDbps / 10000),
+                        profitTargetCents,
+                        targetProgressPercent: targetProgress == null ? null : Number(targetProgress.toFixed(2))
+                    }
+                }
+            });
+        }
+        res.json({ accounts: normalized });
+    } catch (error) { res.status(500).json({ error: error.message }); }
+});`;
+source = source.replace(/app\.get\('\/api\/accounts', authenticateToken, async \(req, res\) => \{[\s\S]*?\n\}\);/, accountRoute);
+
 const marker = '// ========== WEBSOCKET SERVER ==========';
 
 if (!source.includes("/api/trades/:tradeId/partial-close")) {
@@ -102,5 +197,5 @@ app.post('/api/trades/:tradeId/modify', authenticateToken, async (req, res) => {
 }
 
 fs.writeFileSync(target, source, 'utf8');
-console.log('FundFXT: grouped USD P&L + partial close + TP/SL modification repairs applied before startup.');
+console.log('FundFXT: account profile/rules + grouped USD P&L + partial close + TP/SL repairs applied before startup.');
 require('./backend/server.js');
