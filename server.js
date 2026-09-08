@@ -3,7 +3,8 @@ const fs=require('fs');const path=require('path');
 const target=path.join(__dirname,'backend','server.js');let source=fs.readFileSync(target,'utf8');
 
 // Repair malformed full-close SQL safely before backend startup.
-source=source.split('\n').map(line=>line.includes('const [trades] = await db.execute')&&line.includes('FROM trades WHERE trade_id = ?')&&line.includes('req.params.tradeId')&&line.includes("status = 'OPEN'")?"        const [trades] = await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\", [req.params.tradeId, req.userId]);":line).join('\n');
+const fixedTradeQuery=`        const [trades] = await db.execute(\`SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\`, [req.params.tradeId, req.userId]);`;
+source=source.split('\n').map(line=>line.includes('const [trades] = await db.execute')&&line.includes('req.params.tradeId')?fixedTradeQuery:line).join('\n');
 
 // Keep realized balance/equity synchronized after full closes.
 source=source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);");
