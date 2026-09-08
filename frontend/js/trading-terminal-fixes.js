@@ -14,22 +14,22 @@ async function getTrades(a){try{const d=await api('/api/trade/get?account_code='
 function accountRules(a){
   const p=a.account_profile||{},r=p.rules||{};
   const initial=n(a.initial_balance_cents||a.balance_cents),balance=n(a.balance_cents),equity=n(a.equity_cents||a.balance_cents);
+  const isWarrior=!!p.isWarrior;
   const target=r.profitTargetCents;
   const targetProgress=r.targetProgressPercent;
-  const consistencyLimit=r.consistencyLimitPercent;
+  const consistencyLimit=isWarrior?30:r.consistencyLimitPercent;
   const consistencyAchieved=r.consistencyAchievedPercent;
   const maxTrades=r.maxTradesPerDay;
   const tradesToday=r.tradesToday;
   const dailyPct=r.dailyDrawdownPercent;
   const dailyLimit=r.dailyDrawdownCents;
   const dailyUsed=r.dailyDrawdownUsedCents;
-  const maxPct=r.maxDrawdownPercent??r.maximumDrawdownPercent;
+  const maxPct=r.dailyDrawdownPercent==null? (r.maxDrawdownPercent??r.maximumDrawdownPercent) : (r.maxDrawdownPercent??r.maximumDrawdownPercent);
   const maxLimit=r.maxDrawdownCents;
   const maxUsed=r.maxDrawdownUsedCents;
   const type=p.accountType||'Trading Account';
   const funding=p.fundingModel||'—';
   const phase=p.phase==null?'—':String(p.phase).toLowerCase().includes('phase')?p.phase:'Phase '+p.phase;
-  const isWarrior=!!p.isWarrior;
   const consistencyOk=consistencyLimit==null||consistencyAchieved==null||consistencyAchieved<=consistencyLimit;
   return `<div class="account-rules account-rules-detailed"><h4>Account Details &amp; Rules</h4>
     <div class="account-rule-model"><b>${esc(type)}</b><span>${esc(funding)}</span></div>
@@ -42,14 +42,14 @@ function accountRules(a){
       ${target!=null?`<div class="rule"><span>Profit target</span><b>${money(target)}</b></div>`:`<div class="rule"><span>Profit target</span><b>Not configured</b></div>`}
       <div class="rule"><span>Profit achieved</span><b>${money(Math.max(0,n(r.profitAchievedCents)))}</b></div>
     </div>
-    ${target!=null?`<div class="rule-label"><span>Profit target progress</span><b>${pct(targetProgress)}</b></div><div class="rule-progress"><i style="width:${Math.max(0,Math.min(100,n(targetProgress)))}%"></i></div>`:`<div class="rule-note">No profit target is configured for this model in the backend. Nothing is estimated or invented here.</div>`}
+    ${target!=null?`<div class="rule-label"><span>Profit target progress</span><b>${pct(targetProgress)}</b></div><div class="rule-progress"><i style="width:${Math.max(0,Math.min(100,n(targetProgress)))}%"></i></div>`:`<div class="rule-note">No profit target is configured for this account model. Nothing is estimated or invented.</div>`}
     ${dailyPct!=null?`<div class="rule-label"><span>Daily drawdown limit</span><b>${dailyPct}% · ${money(dailyLimit)}</b></div><div class="rule-label"><span>Daily drawdown used</span><b>${money(dailyUsed)} (${pct(dailyLimit?Math.min(100,dailyUsed/dailyLimit*100):0)})</b></div><div class="rule-progress rule-danger"><i style="width:${dailyLimit?Math.min(100,dailyUsed/dailyLimit*100):0}%"></i></div>`:''}
     ${maxPct!=null?`<div class="rule-label"><span>Maximum drawdown</span><b>${maxPct}% · ${money(maxLimit)}</b></div><div class="rule-label"><span>Maximum drawdown used</span><b>${money(maxUsed)} (${pct(maxLimit?Math.min(100,maxUsed/maxLimit*100):0)})</b></div><div class="rule-progress rule-danger"><i style="width:${maxLimit?Math.min(100,maxUsed/maxLimit*100):0}%"></i></div>`:''}
     ${maxTrades!=null?`<div class="rule-label"><span>Trades today</span><b>${tradesToday}/${maxTrades}</b></div><div class="rule-progress"><i style="width:${maxTrades?Math.min(100,tradesToday/maxTrades*100):0}%"></i></div>`:''}
     ${consistencyLimit!=null?`<div class="rule-label"><span>Consistency rule</span><b>≤ ${pct(consistencyLimit)}</b></div><div class="rule"><span>Consistency achieved</span><b>${pct(consistencyAchieved)}${consistencyOk?' ✓':' ⚠'}</b></div>`:''}
-    ${isWarrior&&maxTrades===3?'<div class="rule-note">Warrior rule: maximum 3 trades per day.</div>':''}
+    ${isWarrior?'<div class="rule-note">Warrior rules: maximum 3 trades per day and 30% consistency limit.</div>':''}
     <div class="rule-grid"><div class="rule"><span>Current balance</span><b>${money(balance)}</b></div><div class="rule"><span>Current equity</span><b>${money(equity)}</b></div><div class="rule"><span>Initial balance</span><b>${money(initial)}</b></div></div>
-    <div class="rule-note">All limits, targets and account classification above are supplied by the backend challenge configuration. The terminal does not use a hard-coded $3,000 target.</div>
+    <div class="rule-note">Account classification and limits come from the backend account/challenge data. The terminal no longer hard-codes a $3,000 profit target.</div>
   </div>`;
 }
 async function renderAccountPopover(){
