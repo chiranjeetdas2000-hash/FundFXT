@@ -1,46 +1,50 @@
-/* ===== FUNDfxT MARKET WATCH FINAL FIX =====
-   Pair rows intentionally show only Pair + BID + daily change.
-   Spread, Ask and Mid labels/columns are removed.
-   LIVE status accepts bid, ask or mid because some CFD/FX feeds expose mid first.
-*/
+/* ===== FUNDfxT MARKET WATCH — BID / ASK / SPREAD ===== */
 (function(){
   'use strict';
-  const num=v=>Number.isFinite(Number(v));
-  const price=(v,s)=>num(v)?Number(v).toFixed(/JPY$/i.test(s)?3:/XAU|XAG|BTC|ETH/i.test(s)?2:5):'—';
-
+  const finite=v=>Number.isFinite(Number(v));
+  const fmt=(v,s)=>finite(v)?Number(v).toFixed(/JPY$/i.test(s)?3:/XAU|XAG|BTC|ETH/i.test(s)?2:5):'—';
+  const spreadFmt=(v,s)=>{
+    if(!finite(v))return '—';
+    const n=Number(v);
+    return n<1?fmt(n,s):n.toFixed(2);
+  };
   function patchRows(){
     if(typeof T==='undefined')return;
     const box=document.getElementById('watchlist');
     if(!box)return;
-
-    // Do not rebuild the list here; the original terminal controller owns favorites/search/clicks.
-    // Only replace the rendered quote columns so every refresh remains compatible with it.
     box.querySelectorAll('.quote').forEach(row=>{
       const symbol=row.dataset.symbol||row.querySelector('.watch-symbol')?.textContent?.trim()||'';
       const p=T.prices?.[symbol]||{};
-      const bid=num(p.bid)?Number(p.bid):Number(p.mid);
+      const bid=finite(p.bid)?Number(p.bid):Number(p.mid);
+      const ask=finite(p.ask)?Number(p.ask):Number(p.mid);
+      const rawSpread=finite(p.spread)?Number(p.spread):(finite(bid)&&finite(ask)?Math.abs(ask-bid):NaN);
       const change=Number(p.changePercent);
       const main=row.querySelector('.quote-main');
       if(main){
         let ch=main.querySelector('.quote-change');
         if(!ch){ch=document.createElement('span');ch.className='quote-change';main.appendChild(ch)}
-        ch.textContent='Δ '+(num(change)?(change>=0?'+':'')+change.toFixed(2)+'%':'—');
+        ch.classList.toggle('positive',change>=0&&finite(change));
+        ch.classList.toggle('negative',change<0&&finite(change));
+        ch.textContent=finite(change)?((change>=0?'+':'')+change.toFixed(2)+'%'):'—';
       }
-      row.querySelector('.quote-spread')?.remove();
       row.querySelector('.quote-mid')?.remove();
       let bidEl=row.querySelector('.quote-bid');
-      if(!bidEl){bidEl=document.createElement('span');bidEl.className='quote-bid';row.appendChild(bidEl)}
-      bidEl.innerHTML='<small>BID</small><b>'+price(bid,symbol)+'</b>';
+      if(!bidEl){bidEl=document.createElement('span');bidEl.className='quote-cell quote-bid';row.appendChild(bidEl)}
+      bidEl.className='quote-cell quote-bid';
+      bidEl.innerHTML='<small>BID</small><b>'+fmt(bid,symbol)+'</b>';
+      let askEl=row.querySelector('.quote-ask');
+      if(!askEl){askEl=document.createElement('span');askEl.className='quote-cell quote-ask';row.appendChild(askEl)}
+      askEl.className='quote-cell quote-ask';
+      askEl.innerHTML='<small>ASK</small><b>'+fmt(ask,symbol)+'</b>';
+      let spreadEl=row.querySelector('.quote-spread');
+      if(!spreadEl){spreadEl=document.createElement('span');spreadEl.className='quote-cell quote-spread';row.appendChild(spreadEl)}
+      spreadEl.className='quote-cell spread quote-spread';
+      spreadEl.innerHTML='<small>SPREAD</small><b>'+spreadFmt(rawSpread,symbol)+'</b>';
     });
-
-    const live=Object.values(T.prices||{}).some(p=>num(p?.bid)||num(p?.ask)||num(p?.mid));
+    const live=Object.values(T.prices||{}).some(p=>finite(p?.bid)||finite(p?.ask)||finite(p?.mid));
     const market=document.getElementById('market');
-    if(market){
-      market.textContent=live?'● LIVE':'● OFFLINE';
-      market.style.color=live?'var(--green)':'var(--red)';
-    }
+    if(market){market.textContent=live?'● LIVE':'● OFFLINE';market.style.color=live?'var(--green)':'var(--red)'}
   }
-
   function install(){
     const box=document.getElementById('watchlist');
     if(!box)return;
@@ -55,11 +59,7 @@
     if(search)search.addEventListener('input',()=>setTimeout(patchRows,0));
     setInterval(patchRows,500);
   }
-
   const wait=setInterval(()=>{
-    if(document.readyState!=='loading'&&document.getElementById('watchlist')&&typeof T!=='undefined'){
-      clearInterval(wait);
-      install();
-    }
+    if(document.readyState!=='loading'&&document.getElementById('watchlist')&&typeof T!=='undefined'){clearInterval(wait);install()}
   },50);
 })();
