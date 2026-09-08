@@ -1,13 +1,26 @@
-/* ===== FUNDfxT MARKET WATCH — BID / ASK / SPREAD ===== */
+/* ===== FUNDfxT MARKET WATCH — LIVE BID / ASK / SPREAD ===== */
 (function(){
   'use strict';
   const finite=v=>Number.isFinite(Number(v));
   const fmt=(v,s)=>finite(v)?Number(v).toFixed(/JPY$/i.test(s)?3:/XAU|XAG|BTC|ETH/i.test(s)?2:5):'—';
+
+  // Spread display: remove the leading zeroes only, while preserving the
+  // meaningful digits after the first non-zero digit.
+  // Examples: 0.000008 -> 8, 0.000015 -> 15, 0.000150 -> 15.
   const spreadFmt=(v,s)=>{
     if(!finite(v))return '—';
-    const n=Number(v);
-    return n<1?fmt(n,s):n.toFixed(2);
+    const n=Math.abs(Number(v));
+    if(n===0)return '0';
+    if(n>=1)return Number(n.toFixed(6)).toString();
+    let text=n.toFixed(8).replace(/0+$/,'');
+    const dot=text.indexOf('.');
+    if(dot>=0){
+      let digits=text.slice(dot+1).replace(/^0+/,'');
+      return digits||'0';
+    }
+    return text.replace(/^0+/,'')||'0';
   };
+
   function patchHeader(){
     const box=document.getElementById('watchlist');
     if(!box)return;
@@ -20,6 +33,7 @@
       box.parentElement?.insertBefore(h,box);
     }
   }
+
   function patchSelected(){
     if(typeof T==='undefined')return;
     const symbol=document.getElementById('selectedSymbol');
@@ -37,6 +51,7 @@
     }
     badge.innerHTML='<span>SPREAD</span><b>'+spreadFmt(spread,T.selected)+'</b>';
   }
+
   function patchRows(){
     if(typeof T==='undefined')return;
     const box=document.getElementById('watchlist');
@@ -49,6 +64,7 @@
       const ask=finite(p.ask)?Number(p.ask):Number(p.mid);
       const rawSpread=finite(p.spread)?Number(p.spread):(finite(bid)&&finite(ask)?Math.abs(ask-bid):NaN);
       const change=Number(p.changePercent);
+
       const main=row.querySelector('.quote-main');
       if(main){
         let ch=main.querySelector('.quote-change');
@@ -57,25 +73,30 @@
         ch.classList.toggle('negative',change<0&&finite(change));
         ch.textContent=finite(change)?((change>=0?'+':'')+change.toFixed(2)+'%'):'—';
       }
+
       row.querySelector('.quote-mid')?.remove();
       let bidEl=row.querySelector('.quote-bid');
       if(!bidEl){bidEl=document.createElement('span');bidEl.className='quote-cell quote-bid';row.appendChild(bidEl)}
       bidEl.className='quote-cell quote-bid';
       bidEl.innerHTML='<small>BID</small><b>'+fmt(bid,symbol)+'</b>';
+
       let askEl=row.querySelector('.quote-ask');
       if(!askEl){askEl=document.createElement('span');askEl.className='quote-cell quote-ask';row.appendChild(askEl)}
       askEl.className='quote-cell quote-ask';
       askEl.innerHTML='<small>ASK</small><b>'+fmt(ask,symbol)+'</b>';
+
       let spreadEl=row.querySelector('.quote-spread');
       if(!spreadEl){spreadEl=document.createElement('span');spreadEl.className='quote-cell quote-spread';row.appendChild(spreadEl)}
       spreadEl.className='quote-cell spread quote-spread';
       spreadEl.innerHTML='<small>SPREAD</small><b>'+spreadFmt(rawSpread,symbol)+'</b>';
     });
     patchSelected();
+
     const live=Object.values(T.prices||{}).some(p=>finite(p?.bid)||finite(p?.ask)||finite(p?.mid));
     const market=document.getElementById('market');
     if(market){market.textContent=live?'● LIVE':'● OFFLINE';market.style.color=live?'var(--green)':'var(--red)'}
   }
+
   function install(){
     const box=document.getElementById('watchlist');
     if(!box)return;
@@ -90,7 +111,11 @@
     if(search)search.addEventListener('input',()=>setTimeout(patchRows,0));
     setInterval(patchRows,500);
   }
+
   const wait=setInterval(()=>{
-    if(document.readyState!=='loading'&&document.getElementById('watchlist')&&typeof T!=='undefined'){clearInterval(wait);install()}
+    if(document.readyState!=='loading'&&document.getElementById('watchlist')&&typeof T!=='undefined'){
+      clearInterval(wait);
+      install();
+    }
   },50);
 })();
