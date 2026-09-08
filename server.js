@@ -10,7 +10,7 @@ source = source.split('\n').map(line => line.includes('req.params.tradeId') && l
 
 source = source.replace(
   /await db\.execute\('UPDATE accounts SET balance_cents = balance_cents \+ \? WHERE id = \?', \[realizedCents, (trade|account)\.account_id\]\);/g,
-  "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, $1.account_id]);"
+  "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, realizedCents, $1.account_id]);"
 );
 
 const groupedPL = `function calculatePL(symbol, side, entry, current, volume) {
@@ -37,6 +37,7 @@ const groupedPL = `function calculatePL(symbol, side, entry, current, volume) {
 }`;
 source = source.replace(/function calculatePL\(symbol, side, entry, current, volume\) \{[\s\S]*?\n\}/, groupedPL);
 
+// Rich account metadata is derived from the same challenge model/config used by the risk engine.
 const accountRoute = `app.get('/api/accounts', authenticateToken, async (req, res) => {
     try {
         const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);
@@ -45,8 +46,8 @@ const accountRoute = `app.get('/api/accounts', authenticateToken, async (req, re
             let config = null;
             try { config = await getChallengeConfig(account.challenge_model); } catch (_) {}
             const model = String(account.challenge_model || '').toLowerCase();
-            const warrior = model === 'warrior_5k' || model === 'warrior';
-            const direct = model === 'prototype_5k' || model === 'direct' || model === 'direct_funded';
+            const warrior = model === 'warrior_5k' || model === 'warrior' || model.includes('warrior');
+            const direct = model === 'prototype_5k' || model === 'direct' || model === 'direct_funded' || model.includes('direct');
             const initial = Number(account.initial_balance_cents || account.balance_cents || 0);
             const pickNumber = (...values) => {
                 for (const value of values) {
@@ -55,9 +56,11 @@ const accountRoute = `app.get('/api/accounts', authenticateToken, async (req, re
                 }
                 return null;
             };
-            const profitTargetCents = pickNumber(account.profit_target_cents, account.target_profit_cents, account.target_cents, config && config.profit_target_cents, config && config.target_profit_cents, config && config.target_cents);
-            const consistencyLimit = pickNumber(account.consistency_limit_percent, account.consistency_bps != null ? Number(account.consistency_bps) / 100 : null, config && config.consistency_limit_percent, config && config.consistency_bps != null ? Number(config.consistency_bps) / 100 : null, warrior || direct ? 35 : null);
-            const maxTrades = pickNumber(account.max_trades_per_day, config && config.max_trades_per_day, warrior ? 3 : null);
+            // The 5K FundFXT model has a $400 target. Prefer a configured DB value when present; never invent $3,000.
+            const configuredTarget = pickNumber(account.profit_target_cents, account.target_profit_cents, account.target_cents, config && config.profit_target_cents, config && config.target_profit_cents, config && config.target_cents);
+            const profitTargetCents = configuredTarget != null ? configuredTarget : 40000;
+            const consistencyLimit = pickNumber(account.consistency_limit_percent, account.consistency_bps != null ? Number(account.consistency_bps) / 100 : null, config && config.consistency_limit_percent, config && config.consistency_bps != null ? Number(config.consistency_bps) / 100 : null, 35);
+            const maxTrades = pickNumber(account.max_trades_per_day, config && config.max_trades_per_day, 3) || 3;
             const dailyDDbps = pickNumber(account.daily_dd_bps, config && config.daily_dd_bps, warrior ? 500 : direct ? 200 : null);
             const maxDDbps = pickNumber(account.max_dd_bps, config && config.max_dd_bps, warrior ? 800 : direct ? 500 : null);
             let consistencyAchieved = 0;
@@ -67,12 +70,15 @@ const accountRoute = `app.get('/api/accounts', authenticateToken, async (req, re
                 const totalProfit = profits.reduce((s, v) => s + v, 0);
                 if (totalProfit > 0) consistencyAchieved = (Math.max(...profits) / totalProfit) * 100;
             } catch (_) {}
+            const [todayRows] = await db.execute("SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()", [account.id]);
+            const [openRows] = await db.execute("SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND status = 'OPEN'", [account.id]);
             const balance = Number(account.balance_cents || 0);
             const equity = Number(account.equity_cents || balance);
-            const targetProgress = profitTargetCents && profitTargetCents > 0 ? Math.max(0, Math.min(100, ((balance - initial) / profitTargetCents) * 100)) : null;
-            const phase = account.phase || account.account_phase || account.challenge_phase || (warrior ? 'Warrior' : direct ? 'Direct Funded' : '—');
+            const profitAchievedCents = Math.max(0, balance - initial);
+            const targetProgress = Math.max(0, Math.min(100, (profitAchievedCents / profitTargetCents) * 100));
+            const phase = account.phase || account.account_phase || account.challenge_phase || (warrior ? 'Warrior' : direct ? 'Direct Funded' : 'Phase 1');
             const accountType = account.account_type || (warrior ? 'Warrior' : direct ? 'Direct Funded' : 'Challenge');
-            normalized.push({ ...account, account_profile: { accountType, phase, model: account.challenge_model || null, isDirectFunded: direct, isWarrior: warrior, rules: { maxTradesPerDay: maxTrades, consistencyLimitPercent: consistencyLimit, consistencyAchievedPercent: Number(consistencyAchieved.toFixed(2)), dailyDrawdownPercent: dailyDDbps == null ? null : dailyDDbps / 100, maxDrawdownPercent: maxDDbps == null ? null : maxDDbps / 100, dailyDrawdownCents: dailyDDbps == null ? null : Math.round(initial * dailyDDbps / 10000), maxDrawdownCents: maxDDbps == null ? null : Math.round(initial * maxDDbps / 10000), profitTargetCents, targetProgressPercent: targetProgress == null ? null : Number(targetProgress.toFixed(2)) } } });
+            normalized.push({ ...account, account_profile: { accountType, phase, model: account.challenge_model || null, isDirectFunded: direct, isWarrior: warrior, rules: { maxTradesPerDay: Math.min(maxTrades, 3), tradesToday: Number(todayRows[0].count || 0), openPositions: Number(openRows[0].count || 0), maxOpenPositions: 1, consistencyLimitPercent: consistencyLimit, consistencyAchievedPercent: Number(consistencyAchieved.toFixed(2)), dailyDrawdownPercent: dailyDDbps == null ? null : dailyDDbps / 100, maxDrawdownPercent: maxDDbps == null ? null : maxDDbps / 100, dailyDrawdownCents: dailyDDbps == null ? null : Math.round(initial * dailyDDbps / 10000), maxDrawdownCents: maxDDbps == null ? null : Math.round(initial * maxDDbps / 10000), profitTargetCents, profitAchievedCents, targetProgressPercent: Number(targetProgress.toFixed(2)) } } });
         }
         res.json({ accounts: normalized });
     } catch (error) { res.status(500).json({ error: error.message }); }
@@ -136,5 +142,5 @@ app.post('/api/trades/:tradeId/modify', authenticateToken, async (req, res) => {
 }
 
 fs.writeFileSync(target, source, 'utf8');
-console.log('FundFXT: account profile/rules + grouped USD P&L + partial close + TP/SL repairs applied before startup.');
+console.log('FundFXT: account profile/rules + correct 5K $400 target + grouped USD P&L + partial close + TP/SL repairs applied before startup.');
 require('./backend/server.js');
