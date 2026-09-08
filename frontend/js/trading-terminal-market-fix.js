@@ -8,10 +8,40 @@
     const n=Number(v);
     return n<1?fmt(n,s):n.toFixed(2);
   };
+  function patchHeader(){
+    const box=document.getElementById('watchlist');
+    if(!box)return;
+    let h=document.getElementById('marketQuoteHeader');
+    if(!h){
+      h=document.createElement('div');
+      h.id='marketQuoteHeader';
+      h.className='market-quote-header';
+      h.innerHTML='<span>PAIR</span><span>BID</span><span>ASK</span><span>SPREAD</span>';
+      box.parentElement?.insertBefore(h,box);
+    }
+  }
+  function patchSelected(){
+    if(typeof T==='undefined')return;
+    const symbol=document.getElementById('selectedSymbol');
+    if(!symbol)return;
+    const p=T.prices?.[T.selected]||{};
+    const bid=finite(p.bid)?Number(p.bid):Number(p.mid);
+    const ask=finite(p.ask)?Number(p.ask):Number(p.mid);
+    const spread=finite(p.spread)?Number(p.spread):(finite(bid)&&finite(ask)?Math.abs(ask-bid):NaN);
+    let badge=document.getElementById('selectedSpread');
+    if(!badge){
+      badge=document.createElement('span');
+      badge.id='selectedSpread';
+      badge.className='selected-spread';
+      symbol.insertAdjacentElement('afterend',badge);
+    }
+    badge.innerHTML='<span>SPREAD</span><b>'+spreadFmt(spread,T.selected)+'</b>';
+  }
   function patchRows(){
     if(typeof T==='undefined')return;
     const box=document.getElementById('watchlist');
     if(!box)return;
+    patchHeader();
     box.querySelectorAll('.quote').forEach(row=>{
       const symbol=row.dataset.symbol||row.querySelector('.watch-symbol')?.textContent?.trim()||'';
       const p=T.prices?.[symbol]||{};
@@ -41,6 +71,7 @@
       spreadEl.className='quote-cell spread quote-spread';
       spreadEl.innerHTML='<small>SPREAD</small><b>'+spreadFmt(rawSpread,symbol)+'</b>';
     });
+    patchSelected();
     const live=Object.values(T.prices||{}).some(p=>finite(p?.bid)||finite(p?.ask)||finite(p?.mid));
     const market=document.getElementById('market');
     if(market){market.textContent=live?'● LIVE':'● OFFLINE';market.style.color=live?'var(--green)':'var(--red)'}
