@@ -26,8 +26,6 @@
     try{const d=await rawJson('/api/trade/get?account_code='+encodeURIComponent(account.account_code));return Array.isArray(d.trades)?d.trades:[];}catch{return []}
   }
 
-  // THE ONLY balance/equity calculation used by the terminal:
-  // opening balance + realized P/L from CLOSED trades; equity additionally includes OPEN floating P/L.
   function ledger(account,trades){
     const initial=Math.round(num(account.initial_balance_cents||account.balance_cents));
     const closed=trades.filter(t=>String(t.status).toUpperCase()==='CLOSED');
@@ -37,8 +35,6 @@
     return {initial,balance:initial+realized,equity:initial+realized+floating,realized,floating,openCount:open.length};
   }
 
-  // Normalize /api/accounts for the existing terminal controller so it cannot alternate
-  // between cached DB balance/equity and the trade-ledger calculation.
   const originalFetch=window.fetch.bind(window);
   window.fetch=async function(input,init){
     const url=typeof input==='string'?input:(input&&input.url)||'';
@@ -71,15 +67,9 @@
     const maxUsedPct=maxLimit>0?Math.min(100,maxUsed/maxLimit*100):0;
     const maxTrades=warrior?3:(r.maxTradesPerDay!=null?num(r.maxTradesPerDay):null);
     const tradesToday=r.tradesToday!=null?num(r.tradesToday):trades.filter(t=>String(t.entry_time||t.exit_time||t.created_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).length;
-    const consistencyLimit=warrior?35:(r.consistencyLimitPercent!=null?num(r.consistencyLimitPercent):null);
-    let consistency= r.consistencyAchievedPercent!=null?num(r.consistencyAchievedPercent):0;
-    if(consistencyLimit!=null && r.consistencyAchievedPercent==null){
-      const days={};
-      trades.filter(t=>String(t.status).toUpperCase()==='CLOSED'&&num(t.realized_profit_cents)>0).forEach(t=>{const d=String(t.exit_time||t.entry_time||t.trading_day||'').slice(0,10);if(d)days[d]=(days[d]||0)+num(t.realized_profit_cents)});
-      const vals=Object.values(days),total=vals.reduce((s,v)=>s+v,0);consistency=total>0?Math.max(...vals)/total*100:0;
-    }
-    // Never invent a profit target. The backend must explicitly expose a verified target source.
-    const verifiedTarget=p.profitTargetSource?r.profitTargetCents:null;
+    const consistencyLimit=r.consistencyLimitPercent!=null?num(r.consistencyLimitPercent):null;
+    const consistency=r.consistencyAchievedPercent!=null?num(r.consistencyAchievedPercent):0;
+    const verifiedTarget=r.profitTargetCents!=null?num(r.profitTargetCents):null;
     const targetProgress=verifiedTarget&&verifiedTarget>0?Math.max(0,Math.min(100,(x.balance-x.initial)/verifiedTarget*100)):null;
     const rule=(label,value)=>`<div class="rule"><span>${label}</span><b>${value}</b></div>`;
     const bar=(label,value,danger=false)=>{const v=Math.max(0,Math.min(100,num(value)));return `<div class="rule-label"><span>${label}</span><b>${pct(value)}</b></div><div class="rule-progress${danger?' rule-danger':''}"><i style="width:${v}%"></i></div>`};
@@ -91,9 +81,9 @@
         ${rule('Realized P/L',`${x.realized>=0?'+':''}${money(x.realized)}`)}${rule('Floating P/L',`${x.floating>=0?'+':''}${money(x.floating)}`)}
         ${rule('Profit target',verifiedTarget==null?'Not configured':money(verifiedTarget))}
         ${dailyLimit!=null?rule('Daily drawdown limit',`${r.dailyDrawdownPercent!=null?num(r.dailyDrawdownPercent)+'% · ':''}${money(dailyLimit)}`):''}
-        ${maxLimit!=null?rule('Maximum drawdown limit',`${r.maxDrawdownPercent!=null?num(r.maxDrawdownPercent)+'% · ':''}${money(maxLimit)}`):''}
+        ${maxLimit!=null?rule('Maximum drawdown limit',`${r.maximumDrawdownPercent!=null?num(r.maximumDrawdownPercent)+'% · ':''}${money(maxLimit)}`):''}
         ${maxTrades!=null?rule('Trades today',`${tradesToday} / ${maxTrades}`):''}
-        ${rule('Open positions',`${x.openCount} / 1`)}
+        ${rule('Open positions',`${x.openCount} / ${r.maxOpenPositions!=null?num(r.maxOpenPositions):1}`)}
         ${consistencyLimit!=null?rule('Consistency limit',`≤ ${pct(consistencyLimit)}`)+rule('Consistency achieved',pct(consistency)):''}
       </div>
       ${verifiedTarget!=null?bar('Profit target progress',targetProgress):'<div class="rule-note">No verified profit target is supplied by the backend for this account. Nothing is estimated.</div>'}
@@ -101,7 +91,7 @@
       ${maxLimit!=null?bar('Maximum drawdown used',maxUsedPct,true):''}
       ${maxTrades!=null?bar('Daily trades used',maxTrades?tradesToday/maxTrades*100:0,true):''}
       ${consistencyLimit!=null?bar('Consistency usage',consistencyLimit?consistency/consistencyLimit*100:0,true):''}
-      ${warrior?'<div class="rule-note"><b>Warrior rules:</b> maximum 3 trades per day · 35% consistency limit · maximum 1 open position.</div>':''}
+      ${warrior?'<div class="rule-note"><b>Warrior rules:</b> maximum 3 trades per day · consistency limit is shown from backend configuration · maximum open positions is shown above.</div>':''}
     </div>`;
   }
 
@@ -110,7 +100,7 @@
     const list=d.accounts||[];const a=selectedAccount(list);
     if(!a)throw Error('No trading account available');
     const t=await tradesFor(a);const x=ledger(a,t);
-    return {...a,balance_cents:x.balance,equity_cents:x.equity_cents??x.equity,__trades:t};
+    return {...a,balance_cents:x.balance,equity_cents:x.equity,__trades:t};
   }
 
   async function renderAccountPopover(){
