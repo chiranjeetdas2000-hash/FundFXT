@@ -2,28 +2,23 @@
 .watchlist{width:100%;overflow-x:hidden;scrollbar-width:thin}
 .watch-header,.quote{display:grid;grid-template-columns:minmax(0,1.45fr) 82px 105px 105px;gap:8px;align-items:center;width:100%;box-sizing:border-box}
 .watch-header{padding:7px 10px;color:#7f8b95;font-size:8px;text-transform:uppercase;letter-spacing:.04em;border-bottom:1px solid var(--line)}
-.watch-header span{text-align:right}
-.watch-header span:first-child{text-align:left}
+.watch-header span{text-align:right}.watch-header span:first-child{text-align:left}
 .quote{padding:8px 10px;margin:2px 0;min-height:58px;border:1px solid transparent;border-radius:10px;background:transparent;color:#fff;cursor:pointer}
 .quote:hover,.quote.selected{background:var(--panel2);border-color:var(--line)}
 .quote-main{min-width:0!important;display:block!important;overflow:hidden;text-align:left}
 .watch-symbol{display:block!important;visibility:visible!important;opacity:1!important;font-size:13px;font-weight:800;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .quote-change{display:block!important;margin-top:4px;font-size:8px;line-height:1.1;color:var(--muted);white-space:nowrap}
 .quote-spread,.quote-price{min-width:0;display:flex;align-items:center;justify-content:flex-end;white-space:nowrap}
-.quote-spread{color:var(--purple)}
-.quote-price{flex-direction:column}
+.quote-spread{color:var(--purple)}.quote-price{flex-direction:column}
 .quote-spread b,.quote-price b{font-size:10px;line-height:1.2;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
-.quote-ask b{font-weight:700;color:var(--green)}
-.quote-bid b{font-weight:700;color:var(--red)}
-.quote-price small{font-size:6px;letter-spacing:.4px}
-.quote-spread small{display:none!important}
-.watchlist .favorite-star{border:0;background:none;color:#5e6b76;font-size:15px;cursor:pointer;padding:2px}
-.watchlist .favorite-star.active{color:#ffd166}
+.quote-ask b{font-weight:700;color:var(--green)}.quote-bid b{font-weight:700;color:var(--red)}
+.quote-price small{font-size:6px;letter-spacing:.4px}.quote-spread small{display:none!important}
+.watchlist .favorite-star{border:0;background:none;color:#5e6b76;font-size:15px;cursor:pointer;padding:2px}.watchlist .favorite-star.active{color:#ffd166}
 .quote-row-right{display:flex;align-items:center;justify-content:flex-end;gap:5px}
-.pair-add-list{display:grid;gap:6px;max-height:50dvh;overflow:auto}
-.pair-add-item{display:flex;align-items:center;justify-content:space-between;padding:9px;border:1px solid var(--line);border-radius:8px;background:#101820;color:#fff}
-.pair-add-item button{border:0;background:none;color:var(--green);font-size:9px}
+.pair-add-list{display:grid;gap:6px;max-height:50dvh;overflow:auto}.pair-add-item{display:flex;align-items:center;justify-content:space-between;padding:9px;border:1px solid var(--line);border-radius:8px;background:#101820;color:#fff}.pair-add-item button{border:0;background:none;color:var(--green);font-size:9px}
 .favorite-empty{padding:24px 10px;text-align:center;color:var(--muted);font-size:9px}
 .account-rules-detailed{margin-top:10px}.account-rules-detailed .rule-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}.account-rules-detailed .rule{padding:7px 8px;border:1px solid var(--line);border-radius:7px;background:rgba(255,255,255,.018)}.account-rules-detailed .rule span{display:block;color:var(--muted);font-size:8px;margin-bottom:3px}.account-rules-detailed .rule b{font-size:10px}.account-rule-model{display:flex;justify-content:space-between;gap:8px;padding:9px;border:1px solid rgba(0,208,132,.22);border-radius:8px;margin:7px 0 8px;background:rgba(0,208,132,.045)}.account-rule-model b{font-size:10px;color:var(--green)}.account-rule-model span{font-size:8px;color:var(--muted);align-self:center}.rule-label{display:flex;justify-content:space-between;margin:9px 1px 4px;color:var(--muted);font-size:8px}.rule-label b{color:#fff}.rule-note{margin-top:9px;padding:8px;border-radius:7px;background:rgba(255,255,255,.025);color:var(--muted);font-size:8px;line-height:1.35}
-@media(max-width:1100px){.watch-header,.quote{grid-template-columns:minmax(0,1.2fr) 72px 88px 88px;gap:6px}.watch-header{padding-left:7px;padding-right:7px}.quote{padding-left:7px;padding-right:7px}.quote-spread b,.quote-price b{font-size:9px}}
+/* Keep all four desktop columns inside the watch panel. */
+@media(min-width:1101px){.workspace{grid-template-columns:350px minmax(0,1fr) 320px}}
+@media(max-width:1100px) and (min-width:821px){.workspace{grid-template-columns:300px minmax(0,1fr) 300px}.watch-header,.quote{grid-template-columns:minmax(0,1.2fr) 72px 88px 88px;gap:6px}.watch-header{padding-left:7px;padding-right:7px}.quote{padding-left:7px;padding-right:7px}.quote-spread b,.quote-price b{font-size:9px}}
 @media(max-width:820px){.watch-header,.quote{grid-template-columns:minmax(0,1fr) 56px 72px 72px;gap:4px}.watch-header{font-size:7px;padding-left:5px;padding-right:5px}.quote{padding:8px 5px;min-height:56px}.watch-symbol{font-size:12px}.quote-change{font-size:7px;margin-top:4px}.quote-spread b,.quote-price b{font-size:9px}.quote-price small{font-size:5px}.account-rules-detailed .rule-grid{grid-template-columns:1fr 1fr}}
