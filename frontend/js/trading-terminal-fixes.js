@@ -62,6 +62,8 @@ async function renderAccountPopover(){
   el.querySelector('#closeAccountPopoverTop').onclick=()=>el.remove();
   el.querySelector('#terminalLogout').onclick=()=>{localStorage.removeItem('fundfxt_token');localStorage.removeItem('fundfxt_selected_account');location.href='/dashboard.html'};
 }
+async function syncFavorites(){try{const a=await getAccount();const fav=window.T&&Array.isArray(window.T.favorites)?window.T.favorites:JSON.parse(localStorage.getItem('fundfxt_favorite_pairs')||'[]');await fetch(API+'/api/favorite-pairs',{method:'PUT',headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json'},body:JSON.stringify({account_code:a.account_code,favorites:fav})})}catch{}}
+async function restoreFavorites(){try{const a=await getAccount(),d=await api('/api/favorite-pairs?account_code='+encodeURIComponent(a.account_code));if(Array.isArray(d.favorites)&&d.favorites.length){localStorage.setItem('fundfxt_favorite_pairs',JSON.stringify(d.favorites));if(window.T){window.T.favorites=d.favorites;if(typeof window.renderPairs==='function')window.renderPairs()}}}catch{}}
 function syncTop(a){const b=document.getElementById('balance'),e=document.getElementById('equity');if(b)b.textContent=money(a.balance_cents);if(e)e.textContent=money(a.equity_cents)}
 function install(){
   const accountBtn=document.getElementById('accountMenuBtn');
@@ -69,6 +71,8 @@ function install(){
   document.querySelectorAll('.right-tab').forEach(btn=>btn.addEventListener('click',()=>setActiveTradeTab(btn.dataset.tab),true));
   setActiveTradeTab('OPEN');
   document.addEventListener('click',e=>{const p=document.querySelector('.account-popover');if(p&&!p.contains(e.target)&&e.target!==accountBtn)p.remove()});
+  document.addEventListener('click',e=>{if(e.target.closest('[data-fav]'))setTimeout(syncFavorites,200)},true);
+  restoreFavorites();
   setInterval(async()=>{try{const a=await getAccount();syncTop(a);const p=document.querySelector('.account-popover');if(!p)return;const b=p.querySelector('#accountPopupBalance'),e=p.querySelector('#accountPopupEquity');if(b)b.textContent=money(a.balance_cents);if(e)e.textContent=money(a.equity_cents);p.querySelector('#accountRulesMount').innerHTML=accountRules(a,await getTrades(a))}catch{}},1000);
 }
 const wait=setInterval(()=>{if(document.readyState!=='loading'&&document.getElementById('accountMenuBtn')&&typeof T!=='undefined'){clearInterval(wait);install()}},50);
