@@ -1,4 +1,4 @@
-/* ===== FUNDfxT BACKEND ACCOUNT PROFILE OVERLAY ===== */
+/* ===== FUNDFXT ACCOUNT OVERVIEW — BACKEND DATA ONLY ===== */
 (function(){
 'use strict';
 const API='https://fundfxt.onrender.com';
@@ -6,9 +6,80 @@ const token=()=>localStorage.getItem('fundfxt_token')||'';
 const money=c=>'$'+(Number(c||0)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
 const pct=v=>v==null?'—':Number(v).toFixed(1)+'%';
 const esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-async function account(){const r=await fetch(API+'/api/accounts',{headers:{Authorization:'Bearer '+token()}});const d=await r.json();if(!r.ok)throw Error(d.error||'Unable to load account');const a=(d.accounts||[]);const q=new URLSearchParams(location.search);const wanted=q.get('account_code')||q.get('account')||localStorage.getItem('fundfxt_selected_account');return a.find(x=>String(x.account_code)===String(wanted))||a[0]}
-function html(a){const p=a.account_profile||{},r=p.rules||{};const warrior=!!p.isWarrior;const direct=!!p.isDirectFunded;const balance=Number(a.balance_cents||0),equity=Number(a.equity_cents||balance),target=r.profitTargetCents==null?null:Number(r.profitTargetCents),achieved=Number(r.profitAchievedCents||Math.max(0,balance-Number(a.initial_balance_cents||balance))),progress=r.targetProgressPercent==null?null:Number(r.targetProgressPercent),cons=r.consistencyAchievedPercent==null?null:Number(r.consistencyAchievedPercent),cl=r.consistencyLimitPercent==null?null:Number(r.consistencyLimitPercent),tradesToday=r.tradesToday==null?null:Number(r.tradesToday),maxTrades=r.maxTradesPerDay==null?null:Number(r.maxTradesPerDay),daily=r.dailyDrawdownPercent==null?null:Number(r.dailyDrawdownPercent),maxdd=r.maxDrawdownPercent==null?null:Number(r.maxDrawdownPercent);const dailyUsed=r.dailyDrawdownCents!=null&&r.dailyDrawdownCents>0&&daily!=null&&daily>0?Math.min(100,Math.max(0,Number(r.dailyDrawdownCents)/100/(Number(a.initial_balance_cents||a.balance_cents||0)/100*daily/100)*100)):0;const maxUsed=r.maxDrawdownCents!=null&&r.maxDrawdownCents>0&&maxdd!=null&&maxdd>0?Math.min(100,Math.max(0,Number(r.maxDrawdownCents)/100/(Number(a.initial_balance_cents||a.balance_cents||0)/100*maxdd/100)*100)):0;return `<div class="account-rules account-rules-detailed"><h4>Account Details &amp; Rules</h4><div class="account-rule-model"><b>${esc(p.accountType||'Trading Account')}</b><span>${esc(p.phase||'—')}</span></div><div class="rule-grid"><div class="rule"><span>Account type</span><b>${esc(p.accountType||'—')}</b></div><div class="rule"><span>Funding model</span><b>${direct?'Direct Funded':warrior?'Warrior':'Challenge'}</b></div><div class="rule"><span>Phase / stage</span><b>${esc(p.phase||'—')}</b></div><div class="rule"><span>Model</span><b>${esc(p.model||a.challenge_model||'—')}</b></div><div class="rule"><span>Initial balance</span><b>${money(a.initial_balance_cents||a.balance_cents)}</b></div>${target!=null?`<div class="rule"><span>Profit target</span><b>${money(target)}</b></div><div class="rule"><span>Profit achieved</span><b>${money(achieved)}</b></div>`:'<div class="rule"><span>Profit target</span><b>Not configured</b></div>'}${daily!=null?`<div class="rule"><span>Daily drawdown</span><b>${daily}%${r.dailyDrawdownCents!=null?' · '+money(r.dailyDrawdownCents):''}</b></div>`:''}${maxdd!=null?`<div class="rule"><span>Maximum drawdown</span><b>${maxdd}%${r.maxDrawdownCents!=null?' · '+money(r.maxDrawdownCents):''}</b></div>`:''}${maxTrades!=null?`<div class="rule"><span>Trades per day</span><b>${tradesToday==null?'—':tradesToday} / ${maxTrades}</b></div>`:''}${cl!=null?`<div class="rule"><span>Consistency rule</span><b>≤ ${pct(cl)}</b></div><div class="rule"><span>Consistency achieved</span><b>${pct(cons)}</b></div>`:''}</div>${target!=null?`<div class="rule-label"><span>Profit target progress</span><b>${pct(progress)}</b></div><div class="rule-progress"><i style="width:${Math.min(100,Math.max(0,progress||0))}%"></i></div>`:''}${daily!=null?`<div class="rule-label"><span>Daily drawdown used</span><b>${pct(dailyUsed)}</b></div><div class="rule-progress rule-danger"><i style="width:${dailyUsed}%"></i></div>`:''}${maxdd!=null?`<div class="rule-label"><span>Maximum drawdown used</span><b>${pct(maxUsed)}</b></div><div class="rule-progress rule-danger"><i style="width:${maxUsed}%"></i></div>`:''}${maxTrades!=null?`<div class="rule-label"><span>Daily trades used</span><b>${tradesToday==null?'—':tradesToday}/${maxTrades}</b></div><div class="rule-progress"><i style="width:${Math.min(100,(tradesToday||0)/maxTrades*100)}%"></i></div>`:''}${cl!=null?`<div class="rule-label"><span>Consistency progress</span><b>${pct(cons)} of ${pct(cl)} limit</b></div><div class="rule-progress"><i style="width:${Math.min(100,Math.max(0,(cons||0)/cl*100))}%"></i></div>`:''}<div class="rule-label"><span>Current balance</span><b id="profileBalance">${money(balance)}</b></div><div class="rule-label"><span>Current equity</span><b id="profileEquity">${money(equity)}</b></div><div class="rule-note">All rule values above are read from the backend account profile/challenge configuration. No fixed $3,000 target or other frontend-invented target is used.</div></div>`}
-async function show(){document.querySelector('.account-popover')?.remove();const a=await account();if(!a)return;localStorage.setItem('fundfxt_selected_account',a.account_code);const el=document.createElement('div');el.className='account-popover';el.innerHTML=`<div class="account-popover-head"><div><h3>Account Overview</h3><div class="account-id">${esc(a.account_code)}</div></div><button class="account-popover-close" type="button">×</button></div><div class="account-values"><div class="account-value"><span>Balance</span><b id="profileTopBalance">${money(a.balance_cents)}</b></div><div class="account-value"><span>Equity</span><b id="profileTopEquity">${money(a.equity_cents)}</b></div></div>${html(a)}<div class="modal-actions"><button class="danger" id="terminalProfileLogout" type="button">Logout</button></div>`;document.body.appendChild(el);el.querySelector('.account-popover-close').onclick=()=>el.remove();el.querySelector('#terminalProfileLogout').onclick=()=>{localStorage.removeItem('fundfxt_token');localStorage.removeItem('fundfxt_selected_account');location.href='/dashboard.html'}}
-function install(){const b=document.getElementById('accountMenuBtn');if(!b)return;b.onclick=async e=>{e.stopPropagation();try{if(document.querySelector('.account-popover'))document.querySelector('.account-popover').remove();else await show()}catch(err){if(typeof feedback==='function')feedback(err.message)}};setInterval(async()=>{const p=document.querySelector('.account-popover');if(!p)return;try{const a=await account();if(!a)return;const bal=p.querySelector('#profileTopBalance'),eq=p.querySelector('#profileTopEquity'),pb=p.querySelector('#profileBalance'),pe=p.querySelector('#profileEquity');if(bal)bal.textContent=money(a.balance_cents);if(eq)eq.textContent=money(a.equity_cents);if(pb)pb.textContent=money(a.balance_cents);if(pe)pe.textContent=money(a.equity_cents)}catch{}} ,1000)}
-const t=setInterval(()=>{if(document.readyState!=='loading'&&document.getElementById('accountMenuBtn')){clearInterval(t);install()}},50);
+async function getAccount(){
+  const r=await fetch(API+'/api/accounts',{headers:{Authorization:'Bearer '+token()}});
+  const d=await r.json();
+  if(!r.ok)throw Error(d.error||'Unable to load account');
+  const list=d.accounts||[];
+  const q=new URLSearchParams(location.search);
+  const wanted=q.get('account_code')||q.get('account')||localStorage.getItem('fundfxt_selected_account');
+  return list.find(a=>String(a.account_code)===String(wanted))||list[0]||null;
+}
+function bar(label,value,danger=false){
+  const v=Math.max(0,Math.min(100,Number(value)||0));
+  return `<div class="rule-label"><span>${label}</span><b>${pct(value)}</b></div><div class="rule-progress${danger?' rule-danger':''}"><i style="width:${v}%"></i></div>`;
+}
+function renderRules(a){
+  const p=a.account_profile||{},r=p.rules||{};
+  const target=r.profitTargetCents;
+  const achieved=Number(r.profitAchievedCents||0);
+  const targetProgress=r.targetProgressPercent;
+  const dailyLimit=r.dailyDrawdownCents;
+  const dailyUsed=Number(r.dailyDrawdownUsedCents||0);
+  const maxLimit=r.maxDrawdownCents;
+  const maxUsed=Number(r.maxDrawdownUsedCents||0);
+  const dailyUsedPct=dailyLimit>0?Math.min(100,dailyUsed/dailyLimit*100):null;
+  const maxUsedPct=maxLimit>0?Math.min(100,maxUsed/maxLimit*100):null;
+  const consistencyLimit=r.consistencyLimitPercent;
+  const consistencyAchieved=r.consistencyAchievedPercent;
+  const trades=r.tradesToday;
+  const maxTrades=r.maxTradesPerDay;
+  return `<div class="account-rules account-rules-detailed">
+    <div class="account-rule-model"><b>${esc(p.accountType||'Trading Account')}</b><span>${esc(p.fundingModel||'Challenge')} · ${esc(p.phase||'—')}</span></div>
+    <div class="rule-grid">
+      <div class="rule"><span>Account</span><b>${esc(p.accountType||'—')}</b></div>
+      <div class="rule"><span>Phase</span><b>${esc(p.phase||'—')}</b></div>
+      <div class="rule"><span>Profit target</span><b>${target==null?'Not configured':money(target)}</b></div>
+      <div class="rule"><span>Profit achieved</span><b>${money(achieved)}</b></div>
+      <div class="rule"><span>Daily drawdown limit</span><b>${dailyLimit==null?'Not configured':money(dailyLimit)}</b></div>
+      <div class="rule"><span>Daily drawdown used</span><b>${dailyLimit==null?'—':money(dailyUsed)}</b></div>
+      <div class="rule"><span>Maximum drawdown limit</span><b>${maxLimit==null?'Not configured':money(maxLimit)}</b></div>
+      <div class="rule"><span>Maximum drawdown used</span><b>${maxLimit==null?'—':money(maxUsed)}</b></div>
+      ${maxTrades!=null?`<div class="rule"><span>Trades today</span><b>${trades??'—'} / ${maxTrades}</b></div>`:''}
+      ${consistencyLimit!=null?`<div class="rule"><span>Consistency limit</span><b>≤ ${pct(consistencyLimit)}</b></div><div class="rule"><span>Consistency achieved</span><b>${pct(consistencyAchieved)}</b></div>`:''}
+    </div>
+    ${target!=null?bar('Profit target progress',targetProgress):''}
+    ${dailyLimit!=null?bar('Daily drawdown used',dailyUsedPct,true):''}
+    ${maxLimit!=null?bar('Maximum drawdown used',maxUsedPct,true):''}
+    ${consistencyLimit!=null?bar('Consistency usage',consistencyLimit>0?Math.min(100,(Number(consistencyAchieved)||0)/consistencyLimit*100):0,true):''}
+    ${maxTrades!=null?bar('Daily trades used',maxTrades>0?Number(trades||0)/maxTrades*100:0,true):''}
+  </div>`;
+}
+function build(a){
+  const p=a.account_profile||{};
+  const el=document.createElement('div');
+  el.className='account-popover';
+  el.innerHTML=`<div class="account-popover-head"><div><h3>Account Overview</h3><div class="account-id">${esc(a.account_code)}</div></div><button class="account-popover-close" type="button" aria-label="Close">×</button></div>${renderRules(a)}`;
+  document.body.appendChild(el);
+  el.querySelector('.account-popover-close').onclick=()=>el.remove();
+  return el;
+}
+async function show(){
+  document.querySelector('.account-popover')?.remove();
+  const a=await getAccount();
+  if(!a)return;
+  localStorage.setItem('fundfxt_selected_account',a.account_code);
+  build(a);
+}
+function install(){
+  const btn=document.getElementById('accountMenuBtn');
+  if(!btn)return;
+  btn.onclick=async e=>{
+    e.stopPropagation();
+    if(document.querySelector('.account-popover')){document.querySelector('.account-popover').remove();return;}
+    try{await show();}catch(err){if(typeof feedback==='function')feedback(err.message);}
+  };
+  document.addEventListener('click',e=>{const p=document.querySelector('.account-popover');if(p&&!p.contains(e.target)&&e.target!==btn)p.remove();});
+}
+const wait=setInterval(()=>{if(document.readyState!=='loading'&&document.getElementById('accountMenuBtn')){clearInterval(wait);install();}},50);
 })();
