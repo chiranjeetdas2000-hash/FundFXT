@@ -4,6 +4,7 @@
   const API='https://fundfxt.onrender.com';
   const token=()=>localStorage.getItem('fundfxt_token')||'';
   const money=c=>'$'+(Number(c||0)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const pct=v=>v==null?'—':Number(v).toFixed(1)+'%';
 
   function setActiveTradeTab(tab){
     document.querySelectorAll('.right-tab').forEach(btn=>{
@@ -25,26 +26,37 @@
   function accountRules(a){
     const initial=Number(a.initial_balance_cents||a.balance_cents||0)/100;
     const balance=Number(a.balance_cents||0)/100;
-    const equity=Number(a.equity_cents||0)/100;
-    const target=initial*.60;
-    const profit=Math.max(0,balance-initial);
-    const progress=target>0?Math.min(100,profit/target*100):0;
-    const dailyLimit=initial*.30;
-    const totalLimit=initial*.50;
-    const drawdown=Math.max(0,initial-equity);
-    const dailyUsed=dailyLimit>0?Math.min(100,drawdown/dailyLimit*100):0;
-    const totalUsed=totalLimit>0?Math.min(100,drawdown/totalLimit*100):0;
-    return `<div class="account-rules"><h4>Account Rules &amp; Progress</h4>
-      <div class="rule"><span>Profit target</span><b>${money(target*100)}</b></div>
-      <div class="rule"><span>Target progress</span><b>${progress.toFixed(1)}%</b></div>
-      <div class="rule-progress"><i style="width:${progress}%"></i></div>
-      <div class="rule"><span>Daily drawdown limit</span><b>${money(dailyLimit*100)}</b></div>
-      <div class="rule"><span>Daily drawdown used</span><b>${dailyUsed.toFixed(1)}%</b></div>
-      <div class="rule-progress rule-danger"><i style="width:${dailyUsed}%"></i></div>
-      <div class="rule"><span>Total drawdown limit</span><b>${money(totalLimit*100)}</b></div>
-      <div class="rule"><span>Total drawdown used</span><b>${totalUsed.toFixed(1)}%</b></div>
+    const equity=Number(a.equity_cents||balance*100)/100;
+    const p=a.account_profile||{};
+    const r=p.rules||{};
+    const dailyLimit=r.dailyDrawdownCents!=null?money(r.dailyDrawdownCents):'—';
+    const maxLimit=r.maxDrawdownCents!=null?money(r.maxDrawdownCents):'—';
+    const target=r.profitTargetCents!=null?money(r.profitTargetCents):'Not set';
+    const targetProgress=r.targetProgressPercent;
+    const consistencyLimit=r.consistencyLimitPercent;
+    const consistencyAchieved=r.consistencyAchievedPercent;
+    const consistencyProgress=consistencyLimit!=null&&consistencyLimit>0&&consistencyAchieved!=null?Math.min(100,(consistencyAchieved/consistencyLimit)*100):0;
+    const dailyUsed=r.dailyDrawdownCents>0?Math.min(100,Math.max(0,(initial*100-equity*100)/r.dailyDrawdownCents*100)):0;
+    const type=p.accountType||'—';
+    const phase=p.phase||'—';
+    const model=p.model||a.challenge_model||'—';
+    return `<div class="account-rules"><h4>Account Details &amp; Rules</h4>
+      <div class="rule"><span>Account type</span><b>${type}</b></div>
+      <div class="rule"><span>Phase</span><b>${phase}</b></div>
+      <div class="rule"><span>Model</span><b>${model}</b></div>
+      <div class="rule"><span>Initial balance</span><b>${money(a.initial_balance_cents||a.balance_cents)}</b></div>
+      <div class="rule"><span>Daily drawdown</span><b>${dailyLimit}${r.dailyDrawdownPercent!=null?' ('+Number(r.dailyDrawdownPercent).toFixed(1)+'%)':''}</b></div>
+      <div class="rule"><span>Max drawdown</span><b>${maxLimit}${r.maxDrawdownPercent!=null?' ('+Number(r.maxDrawdownPercent).toFixed(1)+'%)':''}</b></div>
+      <div class="rule"><span>Max trades / day</span><b>${r.maxTradesPerDay==null?'—':r.maxTradesPerDay}</b></div>
+      <div class="rule"><span>Consistency limit</span><b>${pct(consistencyLimit)}</b></div>
+      <div class="rule"><span>Consistency achieved</span><b>${pct(consistencyAchieved)}</b></div>
+      <div class="rule-progress"><i style="width:${consistencyProgress}%"></i></div>
+      <div class="rule"><span>Profit target</span><b>${target}</b></div>
+      ${targetProgress==null?'':`<div class="rule"><span>Target progress</span><b>${pct(targetProgress)}</b></div><div class="rule-progress"><i style="width:${Math.min(100,Math.max(0,targetProgress))}%"></i></div>`}
       <div class="rule"><span>Current balance</span><b>${money(a.balance_cents)}</b></div>
       <div class="rule"><span>Current equity</span><b>${money(a.equity_cents)}</b></div>
+      <div class="rule"><span>Drawdown used</span><b>${pct(dailyUsed)}</b></div>
+      <div class="rule-progress rule-danger"><i style="width:${dailyUsed}%"></i></div>
     </div>`;
   }
 
