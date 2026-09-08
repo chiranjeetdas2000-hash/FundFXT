@@ -15,6 +15,10 @@ const accountsOld=`app.get('/api/accounts', authenticateToken, async (req, res) 
 const accountsNew=`app.get('/api/accounts', authenticateToken, async (req, res) => {\n    try {\n        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);\n        for (const account of accounts) {\n            const [closedRows] = await db.execute(\"SELECT COALESCE(SUM(realized_profit_cents),0) AS realized FROM trades WHERE account_id = ? AND status = 'CLOSED'\", [account.id]);\n            const [openRows] = await db.execute(\"SELECT COALESCE(SUM(floating_profit_cents),0) AS floating FROM trades WHERE account_id = ? AND status = 'OPEN'\", [account.id]);\n            const realized=Number(closedRows[0]?.realized||0),floating=Number(openRows[0]?.floating||0),initial=Number(account.initial_balance_cents||0);\n            const balance=initial+realized,equity=balance+floating;\n            if(Number(account.balance_cents)!==balance||Number(account.equity_cents)!==equity){await db.execute('UPDATE accounts SET balance_cents = ?, equity_cents = ? WHERE id = ?',[balance,equity,account.id]);account.balance_cents=balance;account.equity_cents=equity;}\n        }\n        res.json({ accounts });\n    } catch (error) { res.status(500).json({ error: error.message }); }\n});`;
 if(source.includes(accountsOld))source=source.replace(accountsOld,accountsNew);
 
+// Replace the old pip/points P&L formula with grouped quote-currency -> USD conversion.
+const oldPL=`function calculatePL(symbol, side, entry, current, volume) {\n    const inst = instruments[symbol];\n    if (!inst) return 0;\n    let diff = (current - entry);\n    if (side === 'SELL') diff = -diff;\n    return (diff / inst.pip) * (inst.size * inst.pip) * volume;\n}`;
+const groupedPL=`function calculatePL(symbol, side, entry, current, volume) {\n    const inst = instruments[symbol];\n    if (!inst) return 0;\n    const pair=String(symbol).toUpperCase();\n    const base=pair.slice(0,3), quote=pair.slice(3,6);\n    const signedMove=String(side).toUpperCase()==='BUY' ? Number(current)-Number(entry) : Number(entry)-Number(current);\n    const quotePL=signedMove*Number(inst.size)*Number(volume);\n    if(quote==='USD') return quotePL;\n    const quotes=global.prices||{};\n    const direct=quotes[quote+'USD'];\n    const inverse=quotes['USD'+quote];\n    let usdPerQuote=0;\n    if(direct){ const px=Number(direct.mid||direct.bid||direct.ask); if(Number.isFinite(px)&&px>0) usdPerQuote=px; }\n    else if(inverse){ const px=Number(inverse.mid||inverse.bid||inverse.ask); if(Number.isFinite(px)&&px>0) usdPerQuote=1/px; }\n    if(!usdPerQuote) throw new Error('USD conversion quote unavailable for '+quote);\n    return quotePL*usdPerQuote;\n}`;
+if(source.includes(oldPL))source=source.replace(oldPL,groupedPL);\n
 // Partial close: closes only the requested volume and leaves the remainder OPEN.
 const marker='// ========== WEBSOCKET SERVER ==========';
 if(!source.includes("/api/trades/:tradeId/partial-close")){
@@ -28,5 +32,5 @@ if(!source.includes("/api/trades/:tradeId/modify")){
  source=source.replace(marker,modify+marker);
 }
 fs.writeFileSync(target,source,'utf8');
-console.log('FundFXT: backend trade/account settlement repair + partial close + open trade modification support applied before startup.');
+console.log('FundFXT: backend trade/account settlement repair + grouped USD P&L + partial close + open trade modification support applied before startup.');
 require('./backend/server.js');
