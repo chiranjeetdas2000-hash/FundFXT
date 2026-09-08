@@ -5,9 +5,9 @@ const path = require('path');
 const target = path.join(__dirname, 'backend', 'server.js');
 let source = fs.readFileSync(target, 'utf8');
 
-// Replace the known malformed full-close query line before Node parses the backend.
-const fixedTradeQuery = "        const [trades] = await db.execute(`SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'`, [req.params.tradeId, req.userId]);";
-source = source.split('\n').map(line => line.includes('req.params.tradeId') ? fixedTradeQuery : line).join('\n');
+// Replace the malformed legacy full-close/modify query with parser-safe SQL.
+const fixedTradeQuery = "        const [trades] = await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\", [req.params.tradeId, req.userId]);";
+source = source.split('\n').map(line => line.includes('req.params.tradeId') && line.includes('const [trades]') ? fixedTradeQuery : line).join('\n');
 
 // Keep realized balance/equity synchronized after full closes.
 source = source.replace(
@@ -43,7 +43,6 @@ source = source.replace(/function calculatePL\(symbol, side, entry, current, vol
 
 const marker = '// ========== WEBSOCKET SERVER ==========';
 
-// Partial close uses the same grouped USD P/L engine.
 if (!source.includes("/api/trades/:tradeId/partial-close")) {
     const partial = `// ========== PARTIAL CLOSE ==========
 app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, res) => {
@@ -51,7 +50,7 @@ app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, re
         const closeVolume = Number(req.body.volume);
         if (!Number.isFinite(closeVolume) || closeVolume <= 0) return res.status(400).json({ error: 'Invalid close volume' });
         if (Math.round(closeVolume * 100) !== closeVolume * 100) return res.status(400).json({ error: 'Close volume must use 0.01 lot steps' });
-        const [rows] = await db.execute("SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'", [req.params.tradeId, req.userId]);
+        const [rows] = await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\", [req.params.tradeId, req.userId]);
         if (!rows.length) return res.status(404).json({ error: 'Open trade not found' });
         const trade = rows[0];
         const originalVolume = Number(trade.volume);
@@ -63,7 +62,7 @@ app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, re
         const remaining = Math.round((originalVolume - closeVolume) * 100) / 100;
         await db.execute('UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0 WHERE trade_id = ?', [remaining, exitPrice, trade.trade_id]);
         const partialId = 'TRP-' + Date.now().toString(36).toUpperCase();
-        await db.execute("INSERT INTO trades (trade_id,account_id,account_code,user_id,symbol,side,volume,entry_price,entry_time,trading_day,stop_loss,take_profit,status,exit_price,exit_time,realized_profit_cents,close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')", [partialId, trade.account_id, trade.account_code, trade.user_id, trade.symbol, trade.side, closeVolume, trade.entry_price, trade.entry_time, trade.stop_loss, trade.take_profit, exitPrice, realizedCents]);
+        await db.execute(\"INSERT INTO trades (trade_id,account_id,account_code,user_id,symbol,side,volume,entry_price,entry_time,trading_day,stop_loss,take_profit,status,exit_price,exit_time,realized_profit_cents,close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')\", [partialId, trade.account_id, trade.account_code, trade.user_id, trade.symbol, trade.side, closeVolume, trade.entry_price, trade.entry_time, trade.stop_loss, trade.take_profit, exitPrice, realizedCents]);
         await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);
         res.json({ success: true, trade_id: partialId, remaining_volume: remaining, exit_price: exitPrice, realized_profit: realizedCents / 100 });
     } catch (error) {
@@ -75,12 +74,11 @@ app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, re
     source = source.replace(marker, partial + marker);
 }
 
-// Modify TP/SL on an existing OPEN trade.
 if (!source.includes("/api/trades/:tradeId/modify")) {
     const modify = `// ========== MODIFY OPEN TRADE ==========
 app.post('/api/trades/:tradeId/modify', authenticateToken, async (req, res) => {
     try {
-        const [rows] = await db.execute("SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'", [req.params.tradeId, req.userId]);
+        const [rows] = await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\", [req.params.tradeId, req.userId]);
         if (!rows.length) return res.status(404).json({ error: 'Open trade not found' });
         const trade = rows[0];
         const side = String(trade.side).toUpperCase();
