@@ -5,38 +5,30 @@ const path = require('path');
 const target = path.join(__dirname, 'backend', 'server.js');
 let source = fs.readFileSync(target, 'utf8');
 
-// Fix the malformed full-close query from the legacy backend.
-source = source.replace(
-  /const \[trades\] = await db\.execute\([^\n]*req\.params\.tradeId[^\n]*\);/,
-  "const [trades] = await db.execute(`SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'`, [req.params.tradeId, req.userId]);"
-);
+// Replace the known malformed full-close query line before Node parses the backend.
+const fixedTradeQuery = "        const [trades] = await db.execute(`SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'`, [req.params.tradeId, req.userId]);";
+source = source.split('\n').map(line => line.includes('req.params.tradeId') ? fixedTradeQuery : line).join('\n');
 
-// Keep account balance/equity synchronized after realized P/L.
+// Keep realized balance/equity synchronized after full closes.
 source = source.replace(
   /await db\.execute\('UPDATE accounts SET balance_cents = balance_cents \+ \? WHERE id = \?', \[realizedCents, (trade|account)\.account_id\]\);/g,
-  "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, realizedCents, $1.account_id]);"
+  "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, $1.account_id]);"
 );
 
-// One grouped P/L engine for the whole symbol universe.
-// Group 1: quote currency = USD (EURUSD, GBPUSD, AUDUSD, NZDUSD, XAUUSD, XAGUSD).
-// Group 2: quote currency is another currency and has a direct XXXUSD conversion.
-// Group 3: quote currency is another currency and only USDXXX is available, so invert it.
+// Grouped real-world USD P/L calculation. No pip/point shortcut.
+// Group A: quote currency USD. Group B: direct XXXUSD conversion. Group C: inverse USDXXX conversion.
 const groupedPL = `function calculatePL(symbol, side, entry, current, volume) {
     const inst = instruments[symbol];
     if (!inst) throw new Error('Unsupported symbol: ' + symbol);
     const pair = String(symbol).toUpperCase();
     const quote = pair.slice(3, 6);
-    const signedMove = String(side).toUpperCase() === 'BUY'
-        ? Number(current) - Number(entry)
-        : Number(entry) - Number(current);
+    const signedMove = String(side).toUpperCase() === 'BUY' ? Number(current) - Number(entry) : Number(entry) - Number(current);
     const quotePL = signedMove * Number(inst.size) * Number(volume);
     if (quote === 'USD') return quotePL;
-
     const prices = global.prices || {};
     const direct = prices[quote + 'USD'];
     const inverse = prices['USD' + quote];
     let usdPerQuote = 0;
-
     if (direct) {
         const px = Number(direct.mid || direct.bid || direct.ask);
         if (Number.isFinite(px) && px > 0) usdPerQuote = px;
@@ -44,14 +36,14 @@ const groupedPL = `function calculatePL(symbol, side, entry, current, volume) {
         const px = Number(inverse.mid || inverse.bid || inverse.ask);
         if (Number.isFinite(px) && px > 0) usdPerQuote = 1 / px;
     }
-
     if (!usdPerQuote) throw new Error('USD conversion quote unavailable for ' + quote);
     return quotePL * usdPerQuote;
 }`;
 source = source.replace(/function calculatePL\(symbol, side, entry, current, volume\) \{[\s\S]*?\n\}/, groupedPL);
 
-// Partial close uses the exact same grouped USD P/L engine as full close/open floating P/L.
 const marker = '// ========== WEBSOCKET SERVER ==========';
+
+// Partial close uses the same grouped USD P/L engine.
 if (!source.includes("/api/trades/:tradeId/partial-close")) {
     const partial = `// ========== PARTIAL CLOSE ==========
 app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, res) => {
@@ -71,7 +63,7 @@ app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, re
         const remaining = Math.round((originalVolume - closeVolume) * 100) / 100;
         await db.execute('UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0 WHERE trade_id = ?', [remaining, exitPrice, trade.trade_id]);
         const partialId = 'TRP-' + Date.now().toString(36).toUpperCase();
-        await db.execute("INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status, exit_price, exit_time, realized_profit_cents, close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')", [partialId, trade.account_id, trade.account_code, trade.user_id, trade.symbol, trade.side, closeVolume, trade.entry_price, trade.entry_time, trade.stop_loss, trade.take_profit, exitPrice, realizedCents]);
+        await db.execute("INSERT INTO trades (trade_id,account_id,account_code,user_id,symbol,side,volume,entry_price,entry_time,trading_day,stop_loss,take_profit,status,exit_price,exit_time,realized_profit_cents,close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')", [partialId, trade.account_id, trade.account_code, trade.user_id, trade.symbol, trade.side, closeVolume, trade.entry_price, trade.entry_time, trade.stop_loss, trade.take_profit, exitPrice, realizedCents]);
         await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);
         res.json({ success: true, trade_id: partialId, remaining_volume: remaining, exit_price: exitPrice, realized_profit: realizedCents / 100 });
     } catch (error) {
