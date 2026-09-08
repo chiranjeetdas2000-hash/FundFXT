@@ -1,36 +1,116 @@
-// Render compatibility entrypoint + startup repair for the organized backend.
-const fs=require('fs');const path=require('path');
-const target=path.join(__dirname,'backend','server.js');let source=fs.readFileSync(target,'utf8');
+// FundFXT Render compatibility entrypoint + production trade repairs.
+const fs = require('fs');
+const path = require('path');
 
-// Repair malformed full-close SQL safely before backend startup.
-const fixedTradeQuery=`        const [trades] = await db.execute(\`SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\`, [req.params.tradeId, req.userId]);`;
-source=source.split('\n').map(line=>line.includes('const [trades] = await db.execute')&&line.includes('req.params.tradeId')?fixedTradeQuery:line).join('\n');
+const target = path.join(__dirname, 'backend', 'server.js');
+let source = fs.readFileSync(target, 'utf8');
 
-// Keep realized balance/equity synchronized after full closes.
-source=source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, trade.account_id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);");
-source=source.split("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?', [realizedCents, account.id]);").join("await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ?', [realizedCents, realizedCents, account.id]);");
+// Fix the malformed full-close query from the legacy backend.
+source = source.replace(
+  /const \[trades\] = await db\.execute\([^\n]*req\.params\.tradeId[^\n]*\);/,
+  "const [trades] = await db.execute(`SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'`, [req.params.tradeId, req.userId]);"
+);
 
-// Reconcile account balance/equity from persisted closed/open P/L.
-const accountsOld=`app.get('/api/accounts', authenticateToken, async (req, res) => {\n    try {\n        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);\n        res.json({ accounts });\n    } catch (error) { res.status(500).json({ error: error.message }); }\n});`;
-const accountsNew=`app.get('/api/accounts', authenticateToken, async (req, res) => {\n    try {\n        const [accounts] = await db.execute('SELECT * FROM accounts WHERE user_id = ?', [req.userId]);\n        for (const account of accounts) {\n            const [closedRows] = await db.execute(\"SELECT COALESCE(SUM(realized_profit_cents),0) AS realized FROM trades WHERE account_id = ? AND status = 'CLOSED'\", [account.id]);\n            const [openRows] = await db.execute(\"SELECT COALESCE(SUM(floating_profit_cents),0) AS floating FROM trades WHERE account_id = ? AND status = 'OPEN'\", [account.id]);\n            const realized=Number(closedRows[0]?.realized||0),floating=Number(openRows[0]?.floating||0),initial=Number(account.initial_balance_cents||0);\n            const balance=initial+realized,equity=balance+floating;\n            if(Number(account.balance_cents)!==balance||Number(account.equity_cents)!==equity){await db.execute('UPDATE accounts SET balance_cents = ?, equity_cents = ? WHERE id = ?',[balance,equity,account.id]);account.balance_cents=balance;account.equity_cents=equity;}\n        }\n        res.json({ accounts });\n    } catch (error) { res.status(500).json({ error: error.message }); }\n});`;
-if(source.includes(accountsOld))source=source.replace(accountsOld,accountsNew);
+// Keep account balance/equity synchronized after realized P/L.
+source = source.replace(
+  /await db\.execute\('UPDATE accounts SET balance_cents = balance_cents \+ \? WHERE id = \?', \[realizedCents, (trade|account)\.account_id\]\);/g,
+  "await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, realizedCents, $1.account_id]);"
+);
 
-// Replace the old pip/points P&L formula with grouped quote-currency -> USD conversion.
-const oldPL=`function calculatePL(symbol, side, entry, current, volume) {\n    const inst = instruments[symbol];\n    if (!inst) return 0;\n    let diff = (current - entry);\n    if (side === 'SELL') diff = -diff;\n    return (diff / inst.pip) * (inst.size * inst.pip) * volume;\n}`;
-const groupedPL=`function calculatePL(symbol, side, entry, current, volume) {\n    const inst = instruments[symbol];\n    if (!inst) return 0;\n    const pair=String(symbol).toUpperCase();\n    const base=pair.slice(0,3), quote=pair.slice(3,6);\n    const signedMove=String(side).toUpperCase()==='BUY' ? Number(current)-Number(entry) : Number(entry)-Number(current);\n    const quotePL=signedMove*Number(inst.size)*Number(volume);\n    if(quote==='USD') return quotePL;\n    const quotes=global.prices||{};\n    const direct=quotes[quote+'USD'];\n    const inverse=quotes['USD'+quote];\n    let usdPerQuote=0;\n    if(direct){ const px=Number(direct.mid||direct.bid||direct.ask); if(Number.isFinite(px)&&px>0) usdPerQuote=px; }\n    else if(inverse){ const px=Number(inverse.mid||inverse.bid||inverse.ask); if(Number.isFinite(px)&&px>0) usdPerQuote=1/px; }\n    if(!usdPerQuote) throw new Error('USD conversion quote unavailable for '+quote);\n    return quotePL*usdPerQuote;\n}`;
-if(source.includes(oldPL))source=source.replace(oldPL,groupedPL);\n
-// Partial close: closes only the requested volume and leaves the remainder OPEN.
-const marker='// ========== WEBSOCKET SERVER ==========';
-if(!source.includes("/api/trades/:tradeId/partial-close")){
- const partial=`// ========== PARTIAL CLOSE ==========\napp.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req,res)=>{\n try{\n  const closeVolume=Number(req.body.volume);\n  if(!Number.isFinite(closeVolume)||closeVolume<=0)return res.status(400).json({error:'Invalid close volume'});\n  const [rows]=await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\",[req.params.tradeId,req.userId]);\n  if(!rows.length)return res.status(404).json({error:'Open trade not found'});\n  const trade=rows[0],originalVolume=Number(trade.volume);\n  if(closeVolume>=originalVolume)return res.status(400).json({error:'Use full close for the complete position'});\n  if(Math.round(closeVolume*100)!==closeVolume*100)return res.status(400).json({error:'Close volume must use 0.01 lot steps'});\n  const price=global.priceCache?.[trade.symbol];\n  if(!price)return res.status(400).json({error:'Price not available'});\n  const exitPrice=trade.side==='BUY'?price.bid:price.ask;\n  const contract=/XAU|GOLD/i.test(trade.symbol)?100:/XAG/i.test(trade.symbol)?5000:100000;\n  const diff=trade.side==='BUY'?exitPrice-Number(trade.entry_price):Number(trade.entry_price)-exitPrice;\n  const realizedCents=Math.round(diff*closeVolume*contract*100);\n  const remaining=Math.round((originalVolume-closeVolume)*100)/100;\n  await db.execute('UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0 WHERE trade_id = ?',[remaining,exitPrice,trade.trade_id]);\n  const partialId='TRP-'+Date.now().toString(36).toUpperCase();\n  await db.execute(\"INSERT INTO trades (trade_id,account_id,account_code,user_id,symbol,side,volume,entry_price,entry_time,trading_day,stop_loss,take_profit,status,exit_price,exit_time,realized_profit_cents,close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')\",[partialId,trade.account_id,trade.account_code,trade.user_id,trade.symbol,trade.side,closeVolume,trade.entry_price,trade.entry_time,trade.stop_loss,trade.take_profit,exitPrice,realizedCents]);\n  await db.execute('UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?',[realizedCents,trade.account_id]);\n  res.json({success:true,trade_id:partialId,remaining_volume:remaining,exit_price:exitPrice,realized_profit:realizedCents/100});\n }catch(error){res.status(500).json({error:error.message})}\n});\n\n`;
- source=source.replace(marker,partial+marker);
+// One grouped P/L engine for the whole symbol universe.
+// Group 1: quote currency = USD (EURUSD, GBPUSD, AUDUSD, NZDUSD, XAUUSD, XAGUSD).
+// Group 2: quote currency is another currency and has a direct XXXUSD conversion.
+// Group 3: quote currency is another currency and only USDXXX is available, so invert it.
+const groupedPL = `function calculatePL(symbol, side, entry, current, volume) {
+    const inst = instruments[symbol];
+    if (!inst) throw new Error('Unsupported symbol: ' + symbol);
+    const pair = String(symbol).toUpperCase();
+    const quote = pair.slice(3, 6);
+    const signedMove = String(side).toUpperCase() === 'BUY'
+        ? Number(current) - Number(entry)
+        : Number(entry) - Number(current);
+    const quotePL = signedMove * Number(inst.size) * Number(volume);
+    if (quote === 'USD') return quotePL;
+
+    const prices = global.prices || {};
+    const direct = prices[quote + 'USD'];
+    const inverse = prices['USD' + quote];
+    let usdPerQuote = 0;
+
+    if (direct) {
+        const px = Number(direct.mid || direct.bid || direct.ask);
+        if (Number.isFinite(px) && px > 0) usdPerQuote = px;
+    } else if (inverse) {
+        const px = Number(inverse.mid || inverse.bid || inverse.ask);
+        if (Number.isFinite(px) && px > 0) usdPerQuote = 1 / px;
+    }
+
+    if (!usdPerQuote) throw new Error('USD conversion quote unavailable for ' + quote);
+    return quotePL * usdPerQuote;
+}`;
+source = source.replace(/function calculatePL\(symbol, side, entry, current, volume\) \{[\s\S]*?\n\}/, groupedPL);
+
+// Partial close uses the exact same grouped USD P/L engine as full close/open floating P/L.
+const marker = '// ========== WEBSOCKET SERVER ==========';
+if (!source.includes("/api/trades/:tradeId/partial-close")) {
+    const partial = `// ========== PARTIAL CLOSE ==========
+app.post('/api/trades/:tradeId/partial-close', authenticateToken, async (req, res) => {
+    try {
+        const closeVolume = Number(req.body.volume);
+        if (!Number.isFinite(closeVolume) || closeVolume <= 0) return res.status(400).json({ error: 'Invalid close volume' });
+        if (Math.round(closeVolume * 100) !== closeVolume * 100) return res.status(400).json({ error: 'Close volume must use 0.01 lot steps' });
+        const [rows] = await db.execute("SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'", [req.params.tradeId, req.userId]);
+        if (!rows.length) return res.status(404).json({ error: 'Open trade not found' });
+        const trade = rows[0];
+        const originalVolume = Number(trade.volume);
+        if (closeVolume >= originalVolume) return res.status(400).json({ error: 'Use full close for the complete position' });
+        const price = global.priceCache?.[trade.symbol];
+        if (!price) return res.status(503).json({ error: 'Live price unavailable' });
+        const exitPrice = trade.side === 'BUY' ? Number(price.bid) : Number(price.ask);
+        const realizedCents = Math.round(calculatePL(trade.symbol, trade.side, Number(trade.entry_price), exitPrice, closeVolume) * 100);
+        const remaining = Math.round((originalVolume - closeVolume) * 100) / 100;
+        await db.execute('UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0 WHERE trade_id = ?', [remaining, exitPrice, trade.trade_id]);
+        const partialId = 'TRP-' + Date.now().toString(36).toUpperCase();
+        await db.execute("INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status, exit_price, exit_time, realized_profit_cents, close_reason) VALUES (?,?,?,?,?,?,?, ?, ?,CURDATE(),?,?, 'CLOSED', ?, NOW(), ?, 'MANUAL_PARTIAL')", [partialId, trade.account_id, trade.account_code, trade.user_id, trade.symbol, trade.side, closeVolume, trade.entry_price, trade.entry_time, trade.stop_loss, trade.take_profit, exitPrice, realizedCents]);
+        await db.execute('UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?', [realizedCents, realizedCents, trade.account_id]);
+        res.json({ success: true, trade_id: partialId, remaining_volume: remaining, exit_price: exitPrice, realized_profit: realizedCents / 100 });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+`;
+    source = source.replace(marker, partial + marker);
 }
 
-// Modify SL/TP on an existing OPEN trade. Empty/null removes the selected protection.
-if(!source.includes("/api/trades/:tradeId/modify")){
- const modify=`// ========== MODIFY OPEN TRADE ==========\napp.post('/api/trades/:tradeId/modify', authenticateToken, async (req,res)=>{\n try{\n  const [rows]=await db.execute(\"SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'\",[req.params.tradeId,req.userId]);\n  if(!rows.length)return res.status(404).json({error:'Open trade not found'});\n  const trade=rows[0],side=String(trade.side).toUpperCase(),entry=Number(trade.entry_price);\n  const hasTP=Object.prototype.hasOwnProperty.call(req.body,'tp'),hasSL=Object.prototype.hasOwnProperty.call(req.body,'sl');\n  let tp=hasTP?(req.body.tp===null||req.body.tp===''?null:Number(req.body.tp)):trade.take_profit;\n  let sl=hasSL?(req.body.sl===null||req.body.sl===''?null:Number(req.body.sl)):trade.stop_loss;\n  if((tp!==null&&!Number.isFinite(tp))||(sl!==null&&!Number.isFinite(sl)))return res.status(400).json({error:'Invalid TP or SL price'});\n  if(sl!==null&&((side==='BUY'&&sl>=entry)||(side==='SELL'&&sl<=entry)))return res.status(400).json({error:'Invalid Stop Loss for this direction'});\n  if(tp!==null&&((side==='BUY'&&tp<=entry)||(side==='SELL'&&tp>=entry)))return res.status(400).json({error:'Invalid Take Profit for this direction'});\n  await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?',[sl,tp,trade.trade_id]);\n  res.json({success:true,trade_id:trade.trade_id,stop_loss:sl,take_profit:tp});\n }catch(error){res.status(500).json({error:error.message})}\n});\n\n`;
- source=source.replace(marker,modify+marker);
+// Modify TP/SL on an existing OPEN trade.
+if (!source.includes("/api/trades/:tradeId/modify")) {
+    const modify = `// ========== MODIFY OPEN TRADE ==========
+app.post('/api/trades/:tradeId/modify', authenticateToken, async (req, res) => {
+    try {
+        const [rows] = await db.execute("SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'", [req.params.tradeId, req.userId]);
+        if (!rows.length) return res.status(404).json({ error: 'Open trade not found' });
+        const trade = rows[0];
+        const side = String(trade.side).toUpperCase();
+        const entry = Number(trade.entry_price);
+        const hasTP = Object.prototype.hasOwnProperty.call(req.body, 'tp');
+        const hasSL = Object.prototype.hasOwnProperty.call(req.body, 'sl');
+        const tp = hasTP ? (req.body.tp === null || req.body.tp === '' ? null : Number(req.body.tp)) : trade.take_profit;
+        const sl = hasSL ? (req.body.sl === null || req.body.sl === '' ? null : Number(req.body.sl)) : trade.stop_loss;
+        if ((tp !== null && !Number.isFinite(tp)) || (sl !== null && !Number.isFinite(sl))) return res.status(400).json({ error: 'Invalid TP or SL price' });
+        if (sl !== null && ((side === 'BUY' && sl >= entry) || (side === 'SELL' && sl <= entry))) return res.status(400).json({ error: 'Invalid Stop Loss for this direction' });
+        if (tp !== null && ((side === 'BUY' && tp <= entry) || (side === 'SELL' && tp >= entry))) return res.status(400).json({ error: 'Invalid Take Profit for this direction' });
+        await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [sl, tp, trade.trade_id]);
+        res.json({ success: true, trade_id: trade.trade_id, stop_loss: sl, take_profit: tp });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+`;
+    source = source.replace(marker, modify + marker);
 }
-fs.writeFileSync(target,source,'utf8');
-console.log('FundFXT: backend trade/account settlement repair + grouped USD P&L + partial close + open trade modification support applied before startup.');
+
+fs.writeFileSync(target, source, 'utf8');
+console.log('FundFXT: grouped USD P&L + partial close + TP/SL modification repairs applied before startup.');
 require('./backend/server.js');
