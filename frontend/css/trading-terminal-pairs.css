@@ -1,34 +1,29 @@
-/* ===== FUNDFXT PAIRS — FINAL CONSISTENT QUOTE ROW ===== */
-.watchlist{font-variant-numeric:tabular-nums}
+/* ===== FUNDFXT PAIRS — FIT INSIDE WATCHLIST ===== */
+.watchlist{font-variant-numeric:tabular-nums;width:100%;max-width:100%;overflow-x:hidden;box-sizing:border-box}
 .watchlist .quote{
   position:relative!important;
   display:grid!important;
-  grid-template-columns:minmax(78px,1.25fr) 64px 94px 94px!important;
+  grid-template-columns:minmax(62px,1.15fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr)!important;
   grid-template-rows:1fr auto!important;
-  column-gap:10px!important;
+  column-gap:6px!important;
   row-gap:3px!important;
   align-items:center!important;
   width:100%!important;
-  min-height:56px!important;
-  padding:8px 8px 7px!important;
+  max-width:100%!important;
+  min-width:0!important;
+  min-height:54px!important;
+  padding:7px 6px 6px!important;
   margin:2px 0!important;
   box-sizing:border-box!important;
+  overflow:hidden!important;
 }
-.watchlist .quote-pair{grid-column:1!important;grid-row:1!important;justify-self:start!important;align-self:center!important;color:#fff!important;font-size:13px!important;font-weight:800!important;line-height:1!important;letter-spacing:.02em!important;white-space:nowrap!important}
-.watchlist .quote-value{grid-row:1!important;align-self:center!important;justify-self:end!important;display:block!important;width:100%!important;text-align:right!important;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;font-size:12px!important;font-weight:800!important;line-height:1!important;letter-spacing:0!important;white-space:nowrap!important}
-.watchlist .quote-spread-value{grid-column:2!important;color:#c77dff!important}
-.watchlist .quote-ask-value{grid-column:3!important;color:var(--green)!important}
-.watchlist .quote-bid-value{grid-column:4!important;color:var(--red)!important}
-.watchlist .quote-change{grid-column:1!important;grid-row:2!important;justify-self:start!important;display:block!important;margin:0!important;color:var(--muted)!important;font-size:7px!important;line-height:1!important;white-space:nowrap!important}
+.watchlist .quote-pair{grid-column:1!important;grid-row:1!important;justify-self:start!important;align-self:center!important;min-width:0!important;max-width:100%!important;color:#fff!important;font-size:12px!important;font-weight:800!important;line-height:1!important;letter-spacing:.02em!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.watchlist .quote-value{grid-row:1!important;align-self:center!important;justify-self:stretch!important;display:block!important;width:100%!important;min-width:0!important;text-align:right!important;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,"Liberation Mono",monospace!important;font-size:11px!important;font-weight:800!important;line-height:1!important;letter-spacing:0!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
+.watchlist .quote-spread-value{grid-column:2!important;color:#c77dff!important}.watchlist .quote-ask-value{grid-column:3!important;color:var(--green)!important}.watchlist .quote-bid-value{grid-column:4!important;color:var(--red)!important}
+.watchlist .quote-change{grid-column:1!important;grid-row:2!important;justify-self:start!important;min-width:0!important;display:block!important;margin:0!important;color:var(--muted)!important;font-size:6px!important;line-height:1!important;white-space:nowrap!important;overflow:hidden!important;text-overflow:ellipsis!important}
 .watchlist .quote.selected{background:var(--panel2)!important;border-color:var(--line)!important}
 .watchlist .favorite-empty{padding:24px 10px;text-align:center;color:var(--muted);font-size:9px}
-.pair-add-toolbar{margin-bottom:8px}
-.pair-add-toolbar .search{margin:0;width:100%}
-.pair-add-list{display:grid;gap:6px;max-height:55dvh;overflow:auto}
-.pair-add-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#101820;color:#fff}
-.pair-add-item div{display:flex;flex-direction:column;gap:3px;min-width:0}
-.pair-add-item b{font-size:10px}
-.pair-add-item small{font-size:7px;color:var(--muted)}
-.pair-add-item button{border:1px solid var(--line);border-radius:6px;background:#0b1218;color:var(--green);padding:5px 8px;font-size:8px;cursor:pointer}
-@media(max-width:820px){.watchlist .quote{grid-template-columns:minmax(65px,1.15fr) 52px 76px 76px!important;column-gap:7px!important;min-height:52px!important;padding:7px 5px 6px!important}.watchlist .quote-pair{font-size:11px!important}.watchlist .quote-value{font-size:10px!important}.watchlist .quote-change{font-size:6px!important}}
-@media(max-width:520px){.watchlist .quote{grid-template-columns:minmax(58px,1.12fr) 46px 68px 68px!important;column-gap:6px!important}.watchlist .quote-pair{font-size:10px!important}.watchlist .quote-value{font-size:9px!important}}
+.pair-add-toolbar{margin-bottom:8px}.pair-add-toolbar .search{margin:0;width:100%}
+.pair-add-list{display:grid;gap:6px;max-height:55dvh;overflow:auto}.pair-add-item{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px;border:1px solid var(--line);border-radius:8px;background:#101820;color:#fff}.pair-add-item div{display:flex;flex-direction:column;gap:3px;min-width:0}.pair-add-item b{font-size:10px}.pair-add-item small{font-size:7px;color:var(--muted)}.pair-add-item button{border:1px solid var(--line);border-radius:6px;background:#0b1218;color:var(--green);padding:5px 8px;font-size:8px;cursor:pointer}
+@media(max-width:820px){.watchlist .quote{grid-template-columns:minmax(58px,1.1fr) minmax(0,.7fr) minmax(0,1fr) minmax(0,1fr)!important;column-gap:5px!important;min-height:52px!important;padding:7px 5px 6px!important}.watchlist .quote-pair{font-size:11px!important}.watchlist .quote-value{font-size:10px!important}}
+@media(max-width:520px){.watchlist .quote{grid-template-columns:minmax(52px,1.08fr) minmax(0,.68fr) minmax(0,1fr) minmax(0,1fr)!important;column-gap:4px!important}.watchlist .quote-pair{font-size:10px!important}.watchlist .quote-value{font-size:9px!important}}
