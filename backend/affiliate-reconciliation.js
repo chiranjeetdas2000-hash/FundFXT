@@ -26,98 +26,74 @@ async function tableExists(name) {
   return Number(rows[0]?.n || 0) > 0;
 }
 
-async function columns(table) {
-  const [rows] = await pool.execute(
-    'SELECT column_name FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = ?',
-    [table]
-  );
-  return new Set(rows.map(r => String(r.column_name)));
-}
-
-async function ensureLedger() {
+async function ensureCommissionTable() {
   await pool.execute(`CREATE TABLE IF NOT EXISTS affiliate_commissions (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
-    affiliate_user_id BIGINT NOT NULL,
-    affiliate_code VARCHAR(128) NULL,
-    customer_user_id BIGINT NULL,
-    order_id BIGINT NULL,
-    order_ref VARCHAR(128) NULL,
+    affiliate_id BIGINT NOT NULL,
+    order_id BIGINT NOT NULL,
+    referred_user_id BIGINT NULL,
     model VARCHAR(64) NULL,
-    paid_amount_cents BIGINT NOT NULL,
-    commission_cents BIGINT NOT NULL,
-    status VARCHAR(32) NOT NULL DEFAULT 'AVAILABLE',
-    source VARCHAR(32) NOT NULL DEFAULT 'RECONCILIATION',
+    commission_amount_cents BIGINT NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'PENDING',
     created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_affiliate_order (affiliate_user_id, order_id)
+    UNIQUE KEY uq_affiliate_order (affiliate_id, order_id)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4`);
-}
-
-function pick(cols, names) {
-  return names.find(n => cols.has(n)) || null;
-}
-
-function sqlIdent(name) {
-  return '`' + String(name).replace(/`/g, '``') + '`';
 }
 
 async function reconcileAffiliateCommissions() {
   try {
-    if (!(await tableExists('users'))) return { checked: 0, credited: 0 };
-    const orderTable = ['payment_orders', 'payment_requests', 'orders', 'challenge_orders']
-      .find(asyncName => false);
-    let ordersTable = null;
-    for (const candidate of ['payment_orders', 'payment_requests', 'orders', 'challenge_orders']) {
-      if (await tableExists(candidate)) { ordersTable = candidate; break; }
+    if (!(await tableExists('payment_orders')) || !(await tableExists('affiliates')) || !(await tableExists('users'))) {
+      return { checked: 0, credited: 0, reason: 'Required affiliate/payment tables are not present' };
     }
-    if (!ordersTable) return { checked: 0, credited: 0 };
 
-    await ensureLedger();
-    const cols = await columns(ordersTable);
-    const userCols = await columns('users');
-    const idCol = pick(cols, ['id', 'order_id']);
-    const statusCol = pick(cols, ['status', 'payment_status']);
-    const amountCol = pick(cols, ['final_amount_cents', 'paid_amount_cents', 'amount_cents', 'price_cents', 'total_cents']);
-    const userIdCol = pick(cols, ['user_id', 'customer_id']);
-    const affiliateCol = pick(cols, ['affiliate_code', 'referred_by_code', 'referral_code']);
-    const modelCol = pick(cols, ['model', 'challenge_model']);
-    const refCol = pick(cols, ['order_ref', 'order_code', 'reference']);
-    if (!idCol || !amountCol || !statusCol) return { checked: 0, credited: 0 };
-
-    const select = [
-      `o.${sqlIdent(idCol)} AS order_id`,
-      `o.${sqlIdent(amountCol)} AS paid_amount_cents`,
-      `o.${sqlIdent(statusCol)} AS order_status`,
-      userIdCol ? `o.${sqlIdent(userIdCol)} AS customer_user_id` : 'NULL AS customer_user_id',
-      affiliateCol ? `o.${sqlIdent(affiliateCol)} AS order_affiliate_code` : 'NULL AS order_affiliate_code',
-      modelCol ? `o.${sqlIdent(modelCol)} AS model` : 'NULL AS model',
-      refCol ? `o.${sqlIdent(refCol)} AS order_ref` : 'NULL AS order_ref'
-    ];
-    const join = userIdCol && userCols.has('id') ? ` LEFT JOIN users u ON u.id = o.${sqlIdent(userIdCol)}` : '';
-    const customerReferral = userCols.has('referred_by_code') ? 'u.referred_by_code' : 'NULL';
-    select.push(`${customerReferral} AS customer_affiliate_code`);
-
-    const [orders] = await pool.execute(`SELECT ${select.join(', ')} FROM ${sqlIdent(ordersTable)} o${join} WHERE UPPER(o.${sqlIdent(statusCol)}) IN (${[...SUCCESS_STATUSES].map(() => '?').join(',')})`, [...SUCCESS_STATUSES]);
+    await ensureCommissionTable();
+    const [orders] = await pool.execute(`
+      SELECT po.id AS order_id,
+             po.user_id AS customer_user_id,
+             po.affiliate_code,
+             po.model,
+             po.final_amount_cents,
+             po.status,
+             po.order_ref
+      FROM payment_orders po
+      WHERE UPPER(po.status) IN (${[...SUCCESS_STATUSES].map(() => '?').join(',')})
+        AND po.affiliate_code IS NOT NULL
+        AND TRIM(po.affiliate_code) <> ''
+    `, [...SUCCESS_STATUSES]);
 
     let credited = 0;
-    for (const o of orders) {
-      const affiliateCode = String(o.order_affiliate_code || o.customer_affiliate_code || '').trim();
-      const paid = Number(o.paid_amount_cents || 0);
-      if (!affiliateCode || !Number.isFinite(paid) || paid <= 0) continue;
+    for (const order of orders) {
+      const paid = Number(order.final_amount_cents || 0);
+      if (!Number.isFinite(paid) || paid <= 0) continue;
 
-      const [affRows] = await pool.execute('SELECT id, affiliate_code FROM users WHERE affiliate_code = ? LIMIT 1', [affiliateCode]);
-      if (!affRows.length) continue;
-      const affiliate = affRows[0];
-      const commission = Math.round(paid * 0.20) + 100;
-
-      const [result] = await pool.execute(
-        `INSERT IGNORE INTO affiliate_commissions
-          (affiliate_user_id, affiliate_code, customer_user_id, order_id, order_ref, model, paid_amount_cents, commission_cents, status, source)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'AVAILABLE', 'RECONCILIATION')`,
-        [affiliate.id, affiliate.affiliate_code || affiliateCode, o.customer_user_id || null, o.order_id, o.order_ref || null, o.model || null, Math.round(paid), commission]
+      const [affiliateRows] = await pool.execute(
+        'SELECT a.id AS affiliate_id, a.user_id FROM affiliates a JOIN users u ON u.id = a.user_id WHERE u.affiliate_code = ? LIMIT 1',
+        [String(order.affiliate_code).trim()]
       );
-      if (result.affectedRows) credited += 1;
+      if (!affiliateRows.length) continue;
+      const affiliate = affiliateRows[0];
+
+      const [existing] = await pool.execute(
+        'SELECT id FROM affiliate_commissions WHERE affiliate_id = ? AND order_id = ? LIMIT 1',
+        [affiliate.affiliate_id, order.order_id]
+      );
+      if (existing.length) continue;
+
+      const commissionCents = Math.floor(paid * 0.20 + 100);
+      await pool.execute(
+        `INSERT INTO affiliate_commissions
+          (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status)
+         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+        [affiliate.affiliate_id, order.order_id, order.customer_user_id || null, order.model || null, commissionCents]
+      );
+      await pool.execute(
+        'UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?',
+        [commissionCents, affiliate.affiliate_id]
+      );
+      credited += 1;
     }
+
     return { checked: orders.length, credited };
   } catch (error) {
     console.error('FundFXT affiliate reconciliation error:', error.message);
