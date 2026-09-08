@@ -3,9 +3,9 @@
   'use strict';
   const finite=v=>Number.isFinite(Number(v));
   const fmt=(v,s)=>finite(v)?Number(v).toFixed(/JPY$/i.test(s)?3:/XAU|XAG|BTC|ETH/i.test(s)?2:5):'—';
-  // Spread display rule: remove leading zeroes, keep only numeric digits, then take the first two digits.
-  // Examples: 0.00015 -> 15, 0.0015 -> 15, 0.015 -> 15, 1538 -> 15.
-  const spreadFmt=v=>{if(!finite(v))return '—';const n=Math.abs(Number(v));if(n===0)return '0';const digits=n.toFixed(8).replace(/[^0-9]/g,'').replace(/^0+/,'');return (digits||'0').slice(0,2)};
+  // Show the actual spread value received from the market feed, using the same
+  // instrument precision as bid/ask. Never truncate it to arbitrary digits.
+  const spreadFmt=(v,s)=>fmt(v,s);
   function patchSelected(){
     if(typeof T==='undefined')return;
     const symbol=document.getElementById('selectedSymbol');if(!symbol)return;
@@ -13,7 +13,7 @@
     const spread=finite(p.spread)?Number(p.spread):(finite(p.ask)&&finite(p.bid)?Math.abs(Number(p.ask)-Number(p.bid)):NaN);
     let badge=document.getElementById('selectedSpread');
     if(!badge){badge=document.createElement('span');badge.id='selectedSpread';badge.className='selected-spread';symbol.insertAdjacentElement('afterend',badge)}
-    badge.innerHTML='<span>SPREAD</span><b>'+spreadFmt(spread)+'</b>';
+    badge.innerHTML='<span>SPREAD</span><b>'+spreadFmt(spread,T.selected)+'</b>';
   }
   function patchRows(){
     if(typeof T==='undefined')return;
@@ -37,7 +37,7 @@
       row.querySelector('.quote-mid')?.remove();
       let spreadEl=row.querySelector('.quote-spread');
       if(!spreadEl){spreadEl=document.createElement('span');spreadEl.className='quote-cell quote-spread';row.appendChild(spreadEl)}
-      spreadEl.className='quote-cell spread quote-spread';spreadEl.style.setProperty('grid-column','2');spreadEl.innerHTML='<b>'+spreadFmt(rawSpread)+'</b>';
+      spreadEl.className='quote-cell spread quote-spread';spreadEl.style.setProperty('grid-column','2');spreadEl.innerHTML='<b>'+spreadFmt(rawSpread,symbol)+'</b>';
       let askEl=row.querySelector('.quote-ask');
       if(!askEl){askEl=document.createElement('span');askEl.className='quote-cell quote-ask';row.appendChild(askEl)}
       askEl.className='quote-cell quote-ask';askEl.style.setProperty('grid-column','3');askEl.innerHTML='<b>'+fmt(ask,symbol)+'</b>';
