@@ -23,7 +23,7 @@
 
   async function tradesFor(account){
     if(!account)return [];
-    try{const d=await rawJson('/api/trade/get?account_code='+encodeURIComponent(account.account_code));return Array.isArray(d.trades)?d.trades:[];}catch{return []}
+    try{const d=await rawJson('/api/trade/get?account_code='+encodeURIComponent(account.account_code));return Array.isArray(d.trades)?d.trades:[]}catch{return []}
   }
 
   function ledger(account,trades){
@@ -69,7 +69,8 @@
     const tradesToday=r.tradesToday!=null?num(r.tradesToday):trades.filter(t=>String(t.entry_time||t.exit_time||t.created_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).length;
     const consistencyLimit=r.consistencyLimitPercent!=null?num(r.consistencyLimitPercent):null;
     const consistency=r.consistencyAchievedPercent!=null?num(r.consistencyAchievedPercent):0;
-    const verifiedTarget=r.profitTargetCents!=null?num(r.profitTargetCents):null;
+    // Only trust a profit target when the backend explicitly marks it as configured data.
+    const verifiedTarget=r.profitTargetSource==='challenge_config'&&r.profitTargetCents!=null?num(r.profitTargetCents):null;
     const targetProgress=verifiedTarget&&verifiedTarget>0?Math.max(0,Math.min(100,(x.balance-x.initial)/verifiedTarget*100)):null;
     const rule=(label,value)=>`<div class="rule"><span>${label}</span><b>${value}</b></div>`;
     const bar=(label,value,danger=false)=>{const v=Math.max(0,Math.min(100,num(value)));return `<div class="rule-label"><span>${label}</span><b>${pct(value)}</b></div><div class="rule-progress${danger?' rule-danger':''}"><i style="width:${v}%"></i></div>`};
@@ -77,7 +78,7 @@
       <div class="account-rule-model"><b>${esc(type)}</b><span>${esc(funding)} · ${esc(phase)}</span></div>
       <div class="rule-grid">
         ${rule('Account type',esc(type))}${rule('Funding model',esc(funding))}${rule('Phase / stage',esc(phase))}${rule('Challenge model',esc(model))}${rule('Direct funded',p.isDirectFunded?'Yes':'No')}
-        ${rule('Initial balance',money(x.initial))}${rule('Current balance',`<span id="accountRuleBalance">${money(x.balance)}</span>`)}${rule('Current equity',`<span id="accountRuleEquity">${money(x.equity)}</span>`)}
+        ${rule('Account size',money(x.initial))}${rule('Initial balance',money(x.initial))}${rule('Current balance',`<span id="accountRuleBalance">${money(x.balance)}</span>`)}${rule('Current equity',`<span id="accountRuleEquity">${money(x.equity)}</span>`)}
         ${rule('Realized P/L',`${x.realized>=0?'+':''}${money(x.realized)}`)}${rule('Floating P/L',`${x.floating>=0?'+':''}${money(x.floating)}`)}
         ${rule('Profit target',verifiedTarget==null?'Not configured':money(verifiedTarget))}
         ${dailyLimit!=null?rule('Daily drawdown limit',`${r.dailyDrawdownPercent!=null?num(r.dailyDrawdownPercent)+'% · ':''}${money(dailyLimit)}`):''}
@@ -86,7 +87,7 @@
         ${rule('Open positions',`${x.openCount} / ${r.maxOpenPositions!=null?num(r.maxOpenPositions):1}`)}
         ${consistencyLimit!=null?rule('Consistency limit',`≤ ${pct(consistencyLimit)}`)+rule('Consistency achieved',pct(consistency)):''}
       </div>
-      ${verifiedTarget!=null?bar('Profit target progress',targetProgress):'<div class="rule-note">No verified profit target is supplied by the backend for this account. Nothing is estimated.</div>'}
+      ${verifiedTarget!=null?bar('Profit target progress',targetProgress):'<div class="rule-note"><b>Profit target:</b> Not displayed because the backend has not supplied a verified target for this account. No target is estimated.</div>'}
       ${dailyLimit!=null?bar('Daily drawdown used',dailyUsedPct,true):''}
       ${maxLimit!=null?bar('Maximum drawdown used',maxUsedPct,true):''}
       ${maxTrades!=null?bar('Daily trades used',maxTrades?tradesToday/maxTrades*100:0,true):''}
