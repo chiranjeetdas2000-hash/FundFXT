@@ -670,9 +670,9 @@ app.post('/api/admin/payment-requests/:id/reject', authenticateAdmin, async (req
 // Mark link sent
 app.post('/api/admin/payment-requests/:id/mark-link-sent', authenticateAdmin, async (req, res) => {
     const { id } = req.params;
-    const { payment_link } = req.body;
+    const { razorpay_link } = req.body;
     try {
-        await db.execute('UPDATE payment_orders SET status = "LINK_SENT", payment_link = ? WHERE id = ?', [payment_link || null, id]);
+        await db.execute('UPDATE payment_orders SET status = "LINK_SENT", razorpay_link = ? WHERE id = ?', [razorpay_link|| null, id]);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
@@ -682,7 +682,7 @@ app.get('/api/admin/withdrawals', authenticateAdmin, async (req, res) => {
     try {
         const [withdrawals] = await db.query(`
             SELECT pr.*, u.legal_name, u.email as user_email, a.account_code 
-            FROM payout_requests pr 
+            FROM withdrawal_request pr 
             JOIN users u ON pr.user_id = u.id 
             LEFT JOIN accounts a ON pr.account_id = a.id 
             ORDER BY pr.created_at DESC
@@ -696,7 +696,7 @@ app.post('/api/admin/withdrawals/:id/status', authenticateAdmin, async (req, res
     const { id } = req.params;
     const { status } = req.body;
     try {
-        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
+        await db.execute('UPDATE withdrawal_request SET status = ? WHERE id = ?', [status, id]);
         res.json({ success: true });
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
