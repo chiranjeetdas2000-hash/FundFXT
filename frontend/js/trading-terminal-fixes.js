@@ -1,109 +1,129 @@
-/* ===== FUNDfxT TERMINAL UI FIXES ===== */
+/* ===== FUNDFXT TERMINAL FIXES — SINGLE ACCOUNT LEDGER ===== */
 (function(){
   'use strict';
   const API='https://fundfxt.onrender.com';
   const token=()=>localStorage.getItem('fundfxt_token')||'';
-  const money=c=>'$'+(Number(c||0)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const num=v=>Number.isFinite(Number(v))?Number(v):0;
+  const money=c=>'$'+(num(c)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const pct=v=>v==null||!Number.isFinite(Number(v))?'—':num(v).toFixed(1)+'%';
   const esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-  const pct=v=>v==null?'—':Number(v).toFixed(1)+'%';
 
-  function setActiveTradeTab(tab){
-    document.querySelectorAll('.right-tab').forEach(btn=>{
-      const active=btn.dataset.tab===tab;
-      btn.classList.toggle('active',active);
-      btn.setAttribute('aria-selected',active?'true':'false');
-    });
+  async function rawJson(path,opt={}){
+    const r=await fetch(API+path,{...opt,headers:{Authorization:'Bearer '+token(),'Content-Type':'application/json',...(opt.headers||{})}});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw Error(d.error||'Request failed');
+    return d;
+  }
+
+  function selectedAccount(list){
+    const q=new URLSearchParams(location.search);
+    const wanted=q.get('account_code')||q.get('account')||localStorage.getItem('fundfxt_selected_account');
+    return list.find(a=>String(a.account_code)===String(wanted))||list[0]||null;
+  }
+
+  async function tradesFor(account){
+    if(!account)return [];
+    try{const d=await rawJson('/api/trade/get?account_code='+encodeURIComponent(account.account_code));return Array.isArray(d.trades)?d.trades:[];}catch{return []}
+  }
+
+  function ledger(account,trades){
+    const initial=Math.round(num(account.initial_balance_cents||account.balance_cents));
+    const closed=trades.filter(t=>String(t.status).toUpperCase()==='CLOSED');
+    const open=trades.filter(t=>String(t.status).toUpperCase()==='OPEN');
+    const realized=Math.round(closed.reduce((s,t)=>s+num(t.realized_profit_cents),0));
+    const floating=Math.round(open.reduce((s,t)=>s+num(t.floating_profit_cents),0));
+    return {initial,balance:initial+realized,equity:initial+realized+floating,realized,floating,openCount:open.length};
+  }
+
+  const originalFetch=window.fetch.bind(window);
+  window.fetch=async function(input,init){
+    const url=typeof input==='string'?input:(input&&input.url)||'';
+    const response=await originalFetch(input,init);
+    if(!url.includes('/api/accounts'))return response;
+    try{
+      const payload=await response.clone().json();
+      const list=Array.isArray(payload.accounts)?payload.accounts:[];
+      const account=selectedAccount(list);
+      if(!account)return response;
+      const trades=await tradesFor(account);
+      const x=ledger(account,trades);
+      const normalized=list.map(a=>String(a.account_code)===String(account.account_code)?{...a,balance_cents:x.balance,equity_cents:x.equity}:a);
+      return new Response(JSON.stringify({...payload,accounts:normalized}),{status:response.status,statusText:response.statusText,headers:response.headers});
+    }catch{return response}
+  };
+
+  function accountRules(a,trades){
+    const p=a.account_profile||{},r=p.rules||{},x=ledger(a,trades);
+    const warrior=!!p.isWarrior;
+    const type=p.accountType||'Trading Account';
+    const funding=p.fundingModel||'—';
+    const phase=p.phase||'—';
+    const model=p.model||a.challenge_model||'—';
+    const dailyLimit=r.dailyDrawdownCents!=null?num(r.dailyDrawdownCents):null;
+    const dailyUsed=Math.max(0,Math.round(num(a.day_start_balance_cents||x.initial)-x.balance));
+    const maxLimit=r.maxDrawdownCents!=null?num(r.maxDrawdownCents):null;
+    const maxUsed=Math.max(0,x.initial-x.equity);
+    const dailyUsedPct=dailyLimit>0?Math.min(100,dailyUsed/dailyLimit*100):0;
+    const maxUsedPct=maxLimit>0?Math.min(100,maxUsed/maxLimit*100):0;
+    const maxTrades=warrior?3:(r.maxTradesPerDay!=null?num(r.maxTradesPerDay):null);
+    const tradesToday=r.tradesToday!=null?num(r.tradesToday):trades.filter(t=>String(t.entry_time||t.exit_time||t.created_at||'').slice(0,10)===new Date().toISOString().slice(0,10)).length;
+    const consistencyLimit=r.consistencyLimitPercent!=null?num(r.consistencyLimitPercent):null;
+    const consistency=r.consistencyAchievedPercent!=null?num(r.consistencyAchievedPercent):0;
+    const verifiedTarget=r.profitTargetCents!=null?num(r.profitTargetCents):null;
+    const targetProgress=verifiedTarget&&verifiedTarget>0?Math.max(0,Math.min(100,(x.balance-x.initial)/verifiedTarget*100)):null;
+    const rule=(label,value)=>`<div class="rule"><span>${label}</span><b>${value}</b></div>`;
+    const bar=(label,value,danger=false)=>{const v=Math.max(0,Math.min(100,num(value)));return `<div class="rule-label"><span>${label}</span><b>${pct(value)}</b></div><div class="rule-progress${danger?' rule-danger':''}"><i style="width:${v}%"></i></div>`};
+    return `<div class="account-rules account-rules-detailed">
+      <div class="account-rule-model"><b>${esc(type)}</b><span>${esc(funding)} · ${esc(phase)}</span></div>
+      <div class="rule-grid">
+        ${rule('Account type',esc(type))}${rule('Funding model',esc(funding))}${rule('Phase / stage',esc(phase))}${rule('Challenge model',esc(model))}${rule('Direct funded',p.isDirectFunded?'Yes':'No')}
+        ${rule('Initial balance',money(x.initial))}${rule('Current balance',`<span id="accountRuleBalance">${money(x.balance)}</span>`)}${rule('Current equity',`<span id="accountRuleEquity">${money(x.equity)}</span>`)}
+        ${rule('Realized P/L',`${x.realized>=0?'+':''}${money(x.realized)}`)}${rule('Floating P/L',`${x.floating>=0?'+':''}${money(x.floating)}`)}
+        ${rule('Profit target',verifiedTarget==null?'Not configured':money(verifiedTarget))}
+        ${dailyLimit!=null?rule('Daily drawdown limit',`${r.dailyDrawdownPercent!=null?num(r.dailyDrawdownPercent)+'% · ':''}${money(dailyLimit)}`):''}
+        ${maxLimit!=null?rule('Maximum drawdown limit',`${r.maximumDrawdownPercent!=null?num(r.maximumDrawdownPercent)+'% · ':''}${money(maxLimit)}`):''}
+        ${maxTrades!=null?rule('Trades today',`${tradesToday} / ${maxTrades}`):''}
+        ${rule('Open positions',`${x.openCount} / ${r.maxOpenPositions!=null?num(r.maxOpenPositions):1}`)}
+        ${consistencyLimit!=null?rule('Consistency limit',`≤ ${pct(consistencyLimit)}`)+rule('Consistency achieved',pct(consistency)):''}
+      </div>
+      ${verifiedTarget!=null?bar('Profit target progress',targetProgress):'<div class="rule-note">No verified profit target is supplied by the backend for this account. Nothing is estimated.</div>'}
+      ${dailyLimit!=null?bar('Daily drawdown used',dailyUsedPct,true):''}
+      ${maxLimit!=null?bar('Maximum drawdown used',maxUsedPct,true):''}
+      ${maxTrades!=null?bar('Daily trades used',maxTrades?tradesToday/maxTrades*100:0,true):''}
+      ${consistencyLimit!=null?bar('Consistency usage',consistencyLimit?consistency/consistencyLimit*100:0,true):''}
+      ${warrior?'<div class="rule-note"><b>Warrior rules:</b> maximum 3 trades per day · consistency limit is shown from backend configuration · maximum open positions is shown above.</div>':''}
+    </div>`;
   }
 
   async function getAccount(){
-    const r=await fetch(API+'/api/accounts',{headers:{Authorization:'Bearer '+token()}});
-    const d=await r.json();
-    if(!r.ok)throw Error(d.error||'Unable to load account');
-    const list=d.accounts||d;
-    if(!Array.isArray(list)||!list.length)throw Error('No trading account available');
-    const wanted=new URLSearchParams(location.search).get('account_code')||new URLSearchParams(location.search).get('account')||localStorage.getItem('fundfxt_selected_account');
-    return list.find(a=>String(a.account_code)===String(wanted))||list[0];
-  }
-
-  function ruleBar(value, danger){
-    if(value==null)return '<div class="rule-progress"><i style="width:0%"></i></div>';
-    const w=Math.max(0,Math.min(100,Number(value)||0));
-    return '<div class="rule-progress'+(danger?' rule-danger':'')+'"><i style="width:'+w+'%"></i></div>';
-  }
-
-  function accountRules(a){
-    const p=a.account_profile||{};
-    const r=p.rules||{};
-    const balance=Number(a.balance_cents||0)/100;
-    const equity=Number(a.equity_cents||0)/100;
-    const initial=Number(p.initialBalance||a.initial_balance_cents||a.balance_cents||0)/100;
-    const target=r.profitTargetCents==null?null:Number(r.profitTargetCents)/100;
-    const targetProgress=r.targetProgressPercent;
-    const dailyLimit=r.dailyDrawdownCents==null?null:Number(r.dailyDrawdownCents)/100;
-    const dailyUsed=r.dailyDrawdownUsedCents==null?null:Number(r.dailyDrawdownUsedCents)/100;
-    const dailyUsedPct=r.dailyDrawdownPercent==null||dailyLimit==null||dailyLimit<=0?null:Number(r.dailyDrawdownUsedCents||0)/Number(r.dailyDrawdownCents)*100;
-    const maxLimit=r.maxDrawdownCents==null?null:Number(r.maxDrawdownCents)/100;
-    const maxUsed=r.maxDrawdownUsedCents==null?null:Number(r.maxDrawdownUsedCents)/100;
-    const maxUsedPct=maxLimit==null||maxLimit<=0?null:Number(r.maxDrawdownUsedCents||0)/Number(r.maxDrawdownCents)*100;
-    const consistencyLimit=r.consistencyLimitPercent;
-    const consistencyAchieved=r.consistencyAchievedPercent;
-    const consistencyUsed=consistencyLimit==null||consistencyLimit<=0?null:Number(consistencyAchieved||0)/Number(consistencyLimit)*100;
-    const isWarrior=!!p.isWarrior;
-    const targetText=target==null?'Not configured':money(target*100);
-    return `<div class="account-rules"><h4>Account Rules &amp; Progress</h4>
-      <div class="rule"><span>Account type</span><b>${esc(p.accountType||'Challenge Account')}</b></div>
-      <div class="rule"><span>Funding model</span><b>${esc(p.fundingModel||'—')}</b></div>
-      <div class="rule"><span>Phase</span><b>${esc(p.phase||'—')}</b></div>
-      <div class="rule"><span>Initial balance</span><b>${money(initial*100)}</b></div>
-      <div class="rule"><span>Current balance</span><b>${money(a.balance_cents)}</b></div>
-      <div class="rule"><span>Current equity</span><b>${money(a.equity_cents)}</b></div>
-
-      <div class="rule-section-title">Profit target</div>
-      <div class="rule"><span>Target</span><b>${targetText}</b></div>
-      <div class="rule"><span>Progress achieved</span><b>${pct(targetProgress)}</b></div>
-      ${ruleBar(targetProgress,false)}
-
-      <div class="rule-section-title">Risk limits</div>
-      <div class="rule"><span>Daily drawdown</span><b>${dailyLimit==null?'Not configured':money(dailyLimit*100)}</b></div>
-      <div class="rule"><span>Daily drawdown used</span><b>${dailyUsed==null?'—':money(dailyUsed*100)+' ('+pct(dailyUsedPct)+')'}</b></div>
-      ${ruleBar(dailyUsedPct,true)}
-      <div class="rule"><span>Maximum drawdown</span><b>${maxLimit==null?'Not configured':money(maxLimit*100)}</b></div>
-      <div class="rule"><span>Maximum drawdown used</span><b>${maxUsed==null?'—':money(maxUsed*100)+' ('+pct(maxUsedPct)+')'}</b></div>
-      ${ruleBar(maxUsedPct,true)}
-
-      <div class="rule-section-title">Trading rules</div>
-      ${isWarrior?`<div class="rule"><span>Trades per day</span><b>${r.tradesToday??0} / ${r.maxTradesPerDay??3}</b></div>`:''}
-      ${r.minLot!=null?`<div class="rule"><span>Minimum lot</span><b>${esc(r.minLot)}</b></div>`:''}
-      ${r.maxLot!=null?`<div class="rule"><span>Maximum lot</span><b>${esc(r.maxLot)}</b></div>`:''}
-      ${r.payoutPeriodDays!=null?`<div class="rule"><span>Payout period</span><b>${esc(r.payoutPeriodDays)} days</b></div>`:''}
-
-      ${consistencyLimit!=null?`<div class="rule-section-title">Consistency</div>
-      <div class="rule"><span>Consistency limit</span><b>${pct(consistencyLimit)}</b></div>
-      <div class="rule"><span>Consistency achieved</span><b>${pct(consistencyAchieved)}</b></div>
-      ${ruleBar(consistencyUsed,false)}
-      <div class="rule"><span>Status</span><b>${r.consistencyMet===false?'Limit exceeded':'Within limit'}</b></div>`:''}
-    </div>`;
+    const d=await rawJson('/api/accounts');
+    const list=d.accounts||[];const a=selectedAccount(list);
+    if(!a)throw Error('No trading account available');
+    const t=await tradesFor(a);const x=ledger(a,t);
+    return {...a,balance_cents:x.balance,equity_cents:x.equity,__trades:t};
   }
 
   async function renderAccountPopover(){
     document.querySelector('.account-popover')?.remove();
-    const a=await getAccount();
+    const a=await getAccount(),trades=a.__trades||[];
     localStorage.setItem('fundfxt_selected_account',a.account_code);
     const el=document.createElement('div');el.className='account-popover';
-    el.innerHTML=`<div class="account-popover-head"><h3>Account Overview</h3><div class="account-id">${esc(a.account_code||'—')}</div></div>
-      <div class="account-values"><div class="account-value"><span>Balance</span><b id="accountPopupBalance">${money(a.balance_cents)}</b></div><div class="account-value"><span>Equity</span><b id="accountPopupEquity">${money(a.equity_cents)}</b></div></div>
-      ${accountRules(a)}<div class="modal-actions"><button class="danger" id="terminalLogout" type="button">Logout</button></div>`;
+    el.innerHTML=`<div class="account-popover-head"><div><h3>Account Overview</h3><div class="account-id">${esc(a.account_code)}</div></div><button class="account-popover-close" type="button" aria-label="Close">×</button></div><div class="account-values"><div class="account-value"><span>Balance</span><b id="accountPopupBalance">${money(a.balance_cents)}</b></div><div class="account-value"><span>Equity</span><b id="accountPopupEquity">${money(a.equity_cents)}</b></div></div>${accountRules(a,trades)}`;
     document.body.appendChild(el);
-    el.querySelector('#terminalLogout').onclick=()=>{localStorage.removeItem('fundfxt_token');localStorage.removeItem('fundfxt_selected_account');location.href='/dashboard.html'};
+    el.querySelector('.account-popover-close').onclick=()=>el.remove();
   }
 
+  async function refreshAccountPopover(){const p=document.querySelector('.account-popover');if(!p)return;try{const a=await getAccount(),trades=a.__trades||[];const b=p.querySelector('#accountPopupBalance'),e=p.querySelector('#accountPopupEquity');if(b)b.textContent=money(a.balance_cents);if(e)e.textContent=money(a.equity_cents);const mount=p.querySelector('.account-rules');if(mount)mount.outerHTML=accountRules(a,trades);}catch{}}
+
+  function setActiveTradeTab(tab){document.querySelectorAll('.right-tab').forEach(btn=>{const on=btn.dataset.tab===tab;btn.classList.toggle('active',on);btn.setAttribute('aria-selected',on?'true':'false')});}
+
   function install(){
-    const accountBtn=document.getElementById('accountMenuBtn');
-    if(accountBtn)accountBtn.onclick=async ev=>{ev.stopPropagation();if(document.querySelector('.account-popover')){document.querySelector('.account-popover').remove();return}try{await renderAccountPopover()}catch(e){if(typeof feedback==='function')feedback(e.message)}};
+    const btn=document.getElementById('accountMenuBtn');
+    if(btn)btn.onclick=async e=>{e.stopPropagation();if(document.querySelector('.account-popover'))document.querySelector('.account-popover').remove();else try{await renderAccountPopover()}catch(err){if(typeof feedback==='function')feedback(err.message)}};
     document.querySelectorAll('.right-tab').forEach(btn=>btn.addEventListener('click',()=>setActiveTradeTab(btn.dataset.tab),true));
     setActiveTradeTab('OPEN');
-    document.addEventListener('click',e=>{const p=document.querySelector('.account-popover');if(p&&!p.contains(e.target)&&e.target!==accountBtn)p.remove()});
-    setInterval(async()=>{const p=document.querySelector('.account-popover');if(!p)return;try{const a=await getAccount();p.querySelector('#accountPopupBalance').textContent=money(a.balance_cents);p.querySelector('#accountPopupEquity').textContent=money(a.equity_cents)}catch{}},1000);
+    document.addEventListener('click',e=>{const p=document.querySelector('.account-popover');if(p&&!p.contains(e.target)&&e.target!==btn)p.remove()});
+    setInterval(refreshAccountPopover,1500);
   }
   const wait=setInterval(()=>{if(document.readyState!=='loading'&&document.getElementById('accountMenuBtn')){clearInterval(wait);install()}},50);
 })();
