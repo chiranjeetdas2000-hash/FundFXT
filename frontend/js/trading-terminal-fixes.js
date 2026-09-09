@@ -1,4 +1,4 @@
-/* FundFXT terminal account/rules hardening. No motion effects, no fabricated rule values. */
+/* FundFXT terminal account/rules hardening. Database-first; never fabricate challenge targets. */
 (function(){'use strict';
 const API='https://fundfxt.onrender.com';
 const token=()=>localStorage.getItem('fundfxt_token')||'';
@@ -17,7 +17,7 @@ function rules(a){
   const max=n(r.maxDrawdownCents),maxUsedC=n(r.maxDrawdownUsedCents),maxRemainingC=n(r.maxDrawdownRemainingCents),maxUsed=max&&maxUsedC!==null?maxUsedC/max*100:null;
   const maxTrades=n(r.maxTradesPerDay),today=n(r.tradesToday),maxOpen=n(r.maxOpenPositions),consLimit=n(r.consistencyLimitPercent),cons=n(r.consistencyAchievedPercent),consUsage=consLimit!==null&&cons!==null?cons/consLimit*100:null;
   const profit=balance!==null&&initial!==null?balance-initial:null;
-  const targetText=target===null?'Not configured':`${targetPct!==null?pct(targetPct)+' · ':''}${money(target)}`;
+  const targetText=target===null?'Not configured in database':`${targetPct!==null?pct(targetPct)+' · ':''}${money(target)}`;
   const targetRemaining=remaining===null?'—':money(remaining);
   const dailyRemaining=dailyRemainingC===null?'—':money(dailyRemainingC);
   const maxRemaining=maxRemainingC===null?'—':money(maxRemainingC);
@@ -27,11 +27,10 @@ function rules(a){
       ${rule('Account type',esc(p.accountType))}${rule('Funding model',esc(p.fundingModel))}${rule('Phase / stage',esc(phase))}${rule('Challenge model',esc(p.model||a.challenge_model))}
       ${rule('Direct funded',p.isDirectFunded==null?'—':(p.isDirectFunded?'Yes':'No'))}${rule('Warrior account',p.isWarrior==null?'—':(p.isWarrior?'Yes':'No'))}
       ${rule('Account size',money(size))}${rule('Initial balance',money(initial))}${rule('Current balance',money(balance))}${rule('Current equity',money(equity))}
-      ${rule('Realized P/L',profit===null?'—':`${profit>=0?'+':''}${money(profit)}`)}${rule('Current phase target',targetText)}${rule('Profit achieved',achieved===null?'—':money(achieved))}${rule('Profit remaining',targetRemaining)}
-      ${rule('Daily drawdown limit',money(daily))}${rule('Daily drawdown remaining',dailyRemaining)}${rule('Maximum drawdown limit',money(max))}${rule('Maximum drawdown remaining',maxRemaining)}
+      ${rule('Net P/L',profit===null?'—':`${profit>=0?'+':''}${money(profit)}`)}${rule('Current phase target',targetText)}${rule('Profit achieved',achieved===null?'—':money(achieved))}${rule('Profit remaining',targetRemaining)}
+      ${rule('Daily drawdown limit',daily===null?'—':money(daily))}${rule('Daily drawdown remaining',dailyRemaining)}${rule('Maximum drawdown limit',max===null?'—':money(max))}${rule('Maximum drawdown remaining',maxRemaining)}
       ${rule('Trades today',maxTrades===null||today===null?'—':`${today} / ${maxTrades}`)}${rule('Open positions',maxOpen===null||open===null?'—':`${open} / ${maxOpen}`)}
       ${rule('Consistency limit',consLimit===null?'—':'≤ '+pct(consLimit))}${rule('Consistency achieved',cons===null?'—':pct(cons))}
-      ${p.isWarrior?rule('Warrior daily trades','Maximum 3 per day'):''}${p.isWarrior?rule('Warrior consistency','Maximum 30%'):''}
     </div>
     ${bar('Current phase profit target progress',progress)}${bar('Daily drawdown used',dailyUsed,true)}${bar('Maximum drawdown used',maxUsed,true)}${bar('Daily trades used',maxTrades&&today!==null?today/maxTrades*100:null,true)}${bar('Consistency usage',consUsage,true)}
     <button class="account-dashboard-btn" id="terminalAccountDashboard" type="button">View Full Account Dashboard <span>↗</span></button>
@@ -45,7 +44,7 @@ async function render(){
 async function refresh(){const p=document.querySelector('.account-popover');if(!p||p.classList.contains('account-loading'))return;try{const a=await getAccount(),b=p.querySelector('#accountPopupBalance'),e=p.querySelector('#accountPopupEquity');if(b)b.textContent=money(a.balance_cents);if(e)e.textContent=money(a.equity_cents);const m=p.querySelector('.account-rules');if(m)m.outerHTML=rules(a)}catch{}}
 function tabs(t){document.querySelectorAll('.right-tab').forEach(b=>{const on=b.dataset.tab===t;b.classList.toggle('active',on);b.setAttribute('aria-selected',on?'true':'false')})}
 function install(){
-  const s=document.createElement('style');s.id='terminalFastFixStyle';s.textContent='.account-loading{display:flex;align-items:center;justify-content:center;min-height:120px;color:#a8b0bc}.account-loading-text{font-size:10px}.account-error{padding:18px;color:#ff7b86}.account-dashboard-btn{width:100%;margin-top:13px;border:1px solid #00b56a;background:#00b56a12;color:#00d084;border-radius:9px;padding:11px;font-weight:700;cursor:pointer}.fx-busy{opacity:.65!important;pointer-events:none!important}';document.head.appendChild(s);
+  const old=document.getElementById('terminalFastFixStyle');if(old)old.remove();const s=document.createElement('style');s.id='terminalFastFixStyle';s.textContent='.account-loading{display:flex;align-items:center;justify-content:center;min-height:120px;color:#a8b0bc}.account-loading-text{font-size:10px}.account-error{padding:18px;color:#ff7b86}.account-dashboard-btn{width:100%;margin-top:13px;border:1px solid #00b56a;background:#00b56a12;color:#00d084;border-radius:9px;padding:11px;font-weight:700;cursor:pointer}.fx-busy{opacity:.65!important;pointer-events:none!important}';document.head.appendChild(s);
   const btn=document.getElementById('accountMenuBtn');if(btn)btn.onclick=async e=>{e.stopPropagation();const p=document.querySelector('.account-popover');if(p)p.remove();else await render()};
   document.querySelectorAll('.right-tab').forEach(b=>b.addEventListener('click',()=>tabs(b.dataset.tab),true));tabs('OPEN');
   document.addEventListener('click',e=>{const p=document.querySelector('.account-popover');if(p&&!p.contains(e.target)&&e.target!==btn)p.remove()});
