@@ -31,6 +31,8 @@ const DEFAULTS = {
 
 function finite(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
 function first(...xs) { return xs.find(v => v !== null && v !== undefined && v !== ''); }
+// Compatibility for the production entrypoint's account normalizer.
+global.first = first;
 
 // The production entrypoint rewrites /api/accounts. Make that rewrite skip the
 // route so the database-aware normalization below owns the response.
