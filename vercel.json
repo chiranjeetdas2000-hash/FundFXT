@@ -1,10 +1,10 @@
 {
   "rewrites": [
     { "source": "/", "destination": "/frontend/index-v2.html" },
-    { "source": "/auth.html", "destination": "/frontend/auth.html" },
-    { "source": "/Auth.html", "destination": "/frontend/auth.html" },
-    { "source": "/dashboard.html", "destination": "/frontend/dashboard-v2.html" },
-    { "source": "/account-dashboard.html", "destination": "/frontend/account-dashboard-v2.html" },
+    { "source": "/auth.html", "destination": "/frontend/auth-v2.html" },
+    { "source": "/Auth.html", "destination": "/frontend/auth-v2.html" },
+    { "source": "/dashboard.html", "destination": "/frontend/dashboard-v3.html" },
+    { "source": "/account-dashboard.html", "destination": "/frontend/account-dashboard-v3.html" },
     { "source": "/affiliate.html", "destination": "/frontend/affiliate-v2.html" },
     { "source": "/trading-terminal.html", "destination": "/frontend/trading-terminal.html" },
     { "source": "/admin/:path*", "destination": "/frontend/admin/:path*" },
