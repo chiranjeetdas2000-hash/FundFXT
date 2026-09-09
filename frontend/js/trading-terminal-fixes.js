@@ -49,21 +49,24 @@
     const p=a.account_profile||{},r=p.rules||{},x=ledger(a,trades);
     const warrior=!!p.isWarrior,direct=!!p.isDirectFunded;
     const type=p.accountType||'Trading Account',funding=p.fundingModel||'—',phase=p.phase||'—',model=p.model||a.challenge_model||'—';
+    const phase2=/2/.test(String(phase));
     const dailyLimit=r.dailyDrawdownCents!=null?num(r.dailyDrawdownCents):null;
     const dailyUsed=Math.max(0,Math.round(num(a.day_start_balance_cents||x.initial)-x.balance));
-    const maxLimit=r.maxDrawdownCents!=null?num(r.maxDrawdownCents):null;
+    // Warrior maximum drawdown is 8% of the original initial balance, not HWM/equity.
+    const maxLimit=warrior?Math.round(x.initial*0.08):(r.maxDrawdownCents!=null?num(r.maxDrawdownCents):null);
     const maxUsed=Math.max(0,x.initial-x.equity);
     const dailyUsedPct=dailyLimit>0?Math.min(100,dailyUsed/dailyLimit*100):0;
     const maxUsedPct=maxLimit>0?Math.min(100,maxUsed/maxLimit*100):0;
     const maxTrades=warrior?3:(r.maxTradesPerDay!=null?num(r.maxTradesPerDay):null);
     const tradesToday=r.tradesToday!=null?num(r.tradesToday):trades.filter(t=>String(t.trading_day||t.entry_time||t.exit_time||'').slice(0,10)===new Date().toISOString().slice(0,10)).length;
-    const consistencyLimit=direct?30:(r.consistencyLimitPercent!=null?num(r.consistencyLimitPercent):null);
+    const consistencyLimit=warrior?30:(direct?30:(r.consistencyLimitPercent!=null?num(r.consistencyLimitPercent):null));
     const consistency=r.consistencyAchievedPercent!=null?num(r.consistencyAchievedPercent):0;
-    const targetCents=r.profitTargetCents!=null?num(r.profitTargetCents):null;
-    const targetPercent=r.profitTargetPercent!=null?num(r.profitTargetPercent):null;
-    const targetProgress=targetCents&&targetCents>0?Math.max(0,Math.min(100,(x.balance-x.initial)/targetCents*100)):null;
     const phase1Cents=warrior?(r.phase1TargetCents!=null?num(r.phase1TargetCents):Math.round(x.initial*.08)):null;
     const phase2Cents=warrior?(r.phase2TargetCents!=null?num(r.phase2TargetCents):Math.round(x.initial*.05)):null;
+    // If the backend has not yet supplied a target field, derive only the documented Warrior phase target.
+    const targetCents=r.profitTargetCents!=null?num(r.profitTargetCents):(warrior?(phase2?phase2Cents:phase1Cents):null);
+    const targetPercent=r.profitTargetPercent!=null?num(r.profitTargetPercent):(warrior?(phase2?5:8):null);
+    const targetProgress=targetCents&&targetCents>0?Math.max(0,Math.min(100,(x.balance-x.initial)/targetCents*100)):null;
     const rule=(label,value)=>`<div class="rule"><span>${label}</span><b>${value}</b></div>`;
     const bar=(label,value,danger=false)=>{const v=Math.max(0,Math.min(100,num(value)));return `<div class="rule-label"><span>${label}</span><b>${pct(value)}</b></div><div class="rule-progress${danger?' rule-danger':''}"><i style="width:${v}%"></i></div>`};
     return `<div class="account-rules account-rules-detailed">
@@ -76,7 +79,7 @@
         ${warrior?rule('Phase 2 profit target','5% · '+money(phase2Cents)):''}
         ${rule('Current phase target',targetCents!=null?`${targetPercent!=null?targetPercent+'% · ':''}${money(targetCents)}`:(direct?'No profit target':'Not configured'))}
         ${dailyLimit!=null?rule('Daily drawdown limit',`${r.dailyDrawdownPercent!=null?num(r.dailyDrawdownPercent)+'% · ':''}${money(dailyLimit)}`):''}
-        ${maxLimit!=null?rule('Maximum drawdown limit',`${r.maximumDrawdownPercent!=null?num(r.maximumDrawdownPercent)+'% · ':''}${money(maxLimit)}`):''}
+        ${maxLimit!=null?rule('Maximum drawdown limit',`${warrior?'8% · ':''}${money(maxLimit)}`):''}
         ${maxTrades!=null?rule('Trades today',`${tradesToday} / ${maxTrades}`):''}
         ${rule('Open positions',`${x.openCount} / ${r.maxOpenPositions!=null?num(r.maxOpenPositions):1}`)}
         ${consistencyLimit!=null?rule('Consistency limit',`≤ ${pct(consistencyLimit)}`)+rule('Consistency achieved',pct(consistency)):''}
@@ -88,7 +91,7 @@
       ${maxTrades!=null?bar('Daily trades used',maxTrades?tradesToday/maxTrades*100:0,true):''}
       ${consistencyLimit!=null?bar('Consistency usage',consistencyLimit?consistency/consistencyLimit*100:0,true):''}
       ${direct?'<div class="rule-note"><b>Direct funded rules:</b> no profit target · 30% consistency limit · maximum payout 100% one-time.</div>':''}
-      ${warrior?'<div class="rule-note"><b>Warrior rules:</b> Phase 1 target 8% · Phase 2 target 5% · maximum 3 trades per day.</div>':''}
+      ${warrior?'<div class="rule-note"><b>Warrior rules:</b> Phase 1 target 8% · Phase 2 target 5% · maximum 3 trades per day · maximum drawdown 8% of initial balance.</div>':''}
     </div>`;
   }
   async function getAccount(){
