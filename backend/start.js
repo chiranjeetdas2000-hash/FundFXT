@@ -1,149 +1,33 @@
 const fs=require('fs'),path=require('path'),os=require('os');
 const srcPath=path.join(__dirname,'server.js');
 let src=fs.readFileSync(srcPath,'utf8');
-if(!src.includes('FUNDFXT_RUNTIME_PATCH_V4')){
-  src=src.replace(/async function getPaymentMode\(\)\s*\{[\s\S]*?\n\}/g,`async function getPaymentMode(){
-    try{
-        const [rows]=await db.query('SELECT * FROM settings WHERE setting_key = ?', ['payment_mode']);
-        if(!rows.length) return 'MANUAL';
-        const raw=rows[0].setting_value ?? rows[0].value ?? rows[0].config ?? rows[0].data;
-        if(raw==null) return 'MANUAL';
-        let obj=raw; if(typeof raw==='string'){try{obj=JSON.parse(raw)}catch(_){}}
-        const mode=(obj&&typeof obj==='object'?(obj.mode||obj.value):obj);
-        return String(mode||'MANUAL').toUpperCase()==='AUTO'?'AUTO':'MANUAL';
-    }catch(e){console.warn('Payment mode lookup failed; using MANUAL:',e.message);return 'MANUAL';}
-}`);
-  src=src.replace("SELECT po.*, u.legal_name, u.email as user_email FROM payment_orders po JOIN users u ON po.user_id = u.id","SELECT po.*, u.legal_name, u.email as user_email, au.legal_name AS affiliate_name FROM payment_orders po JOIN users u ON po.user_id = u.id LEFT JOIN users au ON au.id = po.affiliate_id");
-  src=src.replace("SELECT id, trader_id, legal_name, email, phone, kyc_status, is_verified, affiliate_code, created_at FROM users ORDER BY created_at DESC","SELECT id, trader_id, legal_name, email, phone, address, kyc_status, is_verified, affiliate_code, created_at FROM users ORDER BY created_at DESC");
-  src=src.replace("WHERE po.status IN ('REQUESTED', 'LINK_SENT', 'PAYMENT_PENDING')","WHERE po.status IN ('REQUESTED', 'LINK_SENT', 'PAYMENT_LINK_SENT', 'PAYMENT_PENDING')");
-  src=src.replace("if ((status === 'PAYMENT_DONE' || status === 'PAYMENT_APPROVED') && order.affiliate_code)","if ((status === 'PAYMENT_DONE' || status === 'PAYMENT_APPROVED' || status === 'ACCOUNT_CREATED') && order.affiliate_code)");
-  src=src.replace("UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?","UPDATE affiliates SET total_sales = total_sales + 1, total_earnings_cents = total_earnings_cents + ?, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?");
-  src=src.replace("[commissionCents, affiliate.affiliate_id]","[commissionCents, commissionCents, affiliate.affiliate_id]");
-  const marker='// FUNDFXT_RUNTIME_PATCH_V4';
-  const patch=`
-${marker}
-// Dedicated storage for manually issued Razorpay links. It snapshots the exact request so admin can safely search and forward it.
-const paymentLinkTableReady=db.query(\`CREATE TABLE IF NOT EXISTS payment_request_links (
- id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
- payment_order_id BIGINT UNSIGNED NOT NULL,
- request_ref VARCHAR(100) NOT NULL,
- user_id BIGINT UNSIGNED NULL,
- user_name VARCHAR(255) NULL,
- user_email VARCHAR(255) NULL,
- user_phone VARCHAR(100) NULL,
- user_address TEXT NULL,
- challenge_model VARCHAR(100) NULL,
- affiliate_code VARCHAR(100) NULL,
- affiliate_name VARCHAR(255) NULL,
- original_amount_cents BIGINT NULL,
- discount_amount_cents BIGINT NULL,
- final_amount_cents BIGINT NULL,
- currency VARCHAR(10) NULL,
- payment_link TEXT NULL,
- status VARCHAR(50) NOT NULL DEFAULT 'LINK_SENT',
- sent_to_admin_email VARCHAR(255) NULL,
- sent_at DATETIME NULL,
- created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
- updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
- UNIQUE KEY uq_payment_order_id (payment_order_id),
- KEY idx_request_ref (request_ref),
- KEY idx_status (status)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci\`).catch(e=>console.error('Payment link table init:',e.message));
-function removeRoute(pathname){const r=app.router||app._router;if(r&&r.stack)r.stack=r.stack.filter(layer=>!(layer.route&&layer.route.path===pathname));}
 
-// Payment list: exact Request ID search + status overlay from the dedicated link table.
-removeRoute('/api/admin/payment-orders');
-app.get('/api/admin/payment-orders',authenticateAdmin,async(req,res)=>{
-  try{
-    const status=String(req.query.status||'').trim();
-    const requestRef=String(req.query.request_ref||'').trim();
-    let q=\`SELECT po.*,u.legal_name,u.email AS user_email,au.legal_name AS affiliate_name,
-      COALESCE(prl.status,po.status) AS status,
-      COALESCE(prl.payment_link,po.payment_link) AS payment_link
-      FROM payment_orders po JOIN users u ON u.id=po.user_id
-      LEFT JOIN users au ON au.id=po.affiliate_id
-      LEFT JOIN payment_request_links prl ON prl.payment_order_id=po.id\`;
-    const params=[];const where=[];
-    if(requestRef){where.push('po.order_ref = ?');params.push(requestRef)}
-    if(status){where.push('COALESCE(prl.status,po.status) = ?');params.push(status)}
-    if(where.length)q+=' WHERE '+where.join(' AND ');
-    q+=' ORDER BY po.created_at DESC';
-    const [orders]=await db.execute(q,params);res.json({success:true,orders});
-  }catch(e){console.error('Admin payment-order listing:',e);res.status(500).json({error:e.message});}
-});
+// FUNDFXT_V7: payment_orders is the single source of truth for manual Razorpay links.
+const patch=`
+async function fxtEnsurePaymentOrders(){
+  const [cols]=await db.query("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME='payment_orders'");
+  const names=new Set(cols.map(x=>x.COLUMN_NAME));
+  const has=n=>names.has(n); const add=async(sql,n)=>{if(!has(n)){await db.query(sql);names.add(n)}};
+  if(!has('request_id')){if(has('order_ref')){await db.query('ALTER TABLE payment_orders RENAME COLUMN order_ref TO request_id');names.delete('order_ref');names.add('request_id')}else await add("ALTER TABLE payment_orders ADD COLUMN request_id VARCHAR(100) NULL",'request_id')}
+  if(!has('razorpay_link')){if(has('provider'))await db.query('ALTER TABLE payment_orders ADD COLUMN razorpay_link TEXT NULL AFTER provider');else await db.query('ALTER TABLE payment_orders ADD COLUMN razorpay_link TEXT NULL');names.add('razorpay_link')}
+  if(has('payment_link'))await db.query("UPDATE payment_orders SET razorpay_link=payment_link WHERE (razorpay_link IS NULL OR razorpay_link='') AND payment_link IS NOT NULL");
+  if(has('model_key')&&has('model'))await db.query("UPDATE payment_orders SET model=model_key WHERE (model IS NULL OR model='') AND model_key IS NOT NULL");
+  if(has('amount_cents')&&has('original_amount_cents'))await db.query("UPDATE payment_orders SET original_amount_cents=amount_cents WHERE (original_amount_cents IS NULL OR original_amount_cents=0) AND amount_cents IS NOT NULL");
+  await add("ALTER TABLE payment_orders ADD COLUMN affiliate_id BIGINT NULL",'affiliate_id'); await add("ALTER TABLE payment_orders ADD COLUMN original_amount_cents BIGINT NULL",'original_amount_cents'); await add("ALTER TABLE payment_orders ADD COLUMN discount_amount_cents BIGINT NOT NULL DEFAULT 0",'discount_amount_cents'); await add("ALTER TABLE payment_orders ADD COLUMN final_amount_cents BIGINT NULL",'final_amount_cents'); await add("ALTER TABLE payment_orders ADD COLUMN paid_amount_cents BIGINT NOT NULL DEFAULT 0",'paid_amount_cents'); await add("ALTER TABLE payment_orders ADD COLUMN currency VARCHAR(10) NULL",'currency'); await add("ALTER TABLE payment_orders ADD COLUMN status VARCHAR(50) NOT NULL DEFAULT 'REQUESTED'",'status'); await add("ALTER TABLE payment_orders ADD COLUMN account_id BIGINT NULL",'account_id'); await add("ALTER TABLE payment_orders ADD COLUMN account_code VARCHAR(100) NULL",'account_code'); await add("ALTER TABLE payment_orders ADD COLUMN verify_by VARCHAR(255) NULL",'verify_by'); await add("ALTER TABLE payment_orders ADD COLUMN verify_at DATETIME NULL",'verify_at'); await add("ALTER TABLE payment_orders ADD COLUMN admin_note TEXT NULL",'admin_note'); await add("ALTER TABLE payment_orders ADD COLUMN paid_at DATETIME NULL",'paid_at'); await add("ALTER TABLE payment_orders ADD COLUMN updated_at DATETIME NULL",'updated_at');
+  for(const n of ['provider_order_id','provider_payment_id','payment_link','payment_link_id'])if(has(n)){await db.query('ALTER TABLE payment_orders DROP COLUMN `'+n+'`');names.delete(n)}
+  await db.query("UPDATE payment_orders SET request_id=COALESCE(NULLIF(request_id,''),CONCAT('REQ-',DATE_FORMAT(COALESCE(created_at,NOW()),'%Y%m%d'),'-',LPAD(id,6,'0'))),currency=COALESCE(NULLIF(currency,''),'USD'),final_amount_cents=COALESCE(final_amount_cents,original_amount_cents,0),updated_at=COALESCE(updated_at,created_at)");
+}
+const fxtReady=fxtEnsurePaymentOrders().catch(e=>{console.error('payment_orders migration failed:',e.message);throw e});
+function fxtRemove(pathname){const r=app.router||app._router;if(r&&r.stack)r.stack=r.stack.filter(x=>!(x.route&&x.route.path===pathname))}
+const fxtMoney=(c,cur)=>{const n=(Number(c||0)/100).toFixed(2);return(cur||'USD')==='USD'?'$'+n:(cur||'USD')+' '+n}; const fxtEsc=v=>String(v??'—').replace(/[&<>\"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[c]||c));
 
-// Admin manually verifies Razorpay, then selects the business status.
-removeRoute('/api/admin/payment-orders/:id/status');
-app.post('/api/admin/payment-orders/:id/status',authenticateAdmin,async(req,res)=>{
-  const id=Number(req.params.id),status=String(req.body?.status||'').trim().toUpperCase();
-  const allowed=['PAYMENT_DONE','PAYMENT_APPROVED','REJECTED','CANCELLED','PAYMENT_PENDING'];
-  if(!id||!allowed.includes(status))return res.status(400).json({error:'Invalid payment status'});
-  const connection=await db.getConnection();
-  try{
-    await connection.beginTransaction();
-    const [orders]=await connection.execute('SELECT * FROM payment_orders WHERE id = ? FOR UPDATE',[id]);
-    if(!orders.length){await connection.rollback();return res.status(404).json({error:'Payment request not found'});}
-    const order=orders[0];
-    if(order.status==='ACCOUNT_CREATED')return res.status(400).json({error:'Account is already created for this request'});
-    await connection.execute('UPDATE payment_orders SET status = ? WHERE id = ?',[status,id]);
-    if((status==='PAYMENT_DONE'||status==='PAYMENT_APPROVED')&&order.affiliate_code){
-      const [a]=await connection.execute('SELECT af.id AS affiliate_id FROM affiliates af JOIN users u ON u.id=af.user_id WHERE u.affiliate_code=? LIMIT 1',[order.affiliate_code]);
-      if(a.length){
-        const commissionCents=Math.floor((Number(order.final_amount_cents||0)*0.20)+100);
-        const [existing]=await connection.execute('SELECT id FROM affiliate_commissions WHERE order_id=? LIMIT 1',[id]);
-        if(!existing.length){
-          await connection.execute(\`INSERT INTO affiliate_commissions (affiliate_id,order_id,referred_user_id,model,commission_amount_cents,status) VALUES (?,?,?,?,?,'PENDING')\`,[a[0].affiliate_id,id,order.user_id,order.model,commissionCents]);
-          await connection.execute(\`UPDATE affiliates SET total_sales=total_sales+1,total_earnings_cents=total_earnings_cents+?,pending_earnings_cents=pending_earnings_cents+? WHERE id=?\`,[commissionCents,commissionCents,a[0].affiliate_id]);
-        }
-      }
-    }
-    await connection.commit();
-    res.json({success:true,status});
-  }catch(e){await connection.rollback();console.error('Payment status update:',e);res.status(500).json({error:e.message});}finally{connection.release();}
-});
+fxtRemove('/api/admin/payment-orders');
+app.get('/api/admin/payment-orders',authenticateAdmin,async(req,res)=>{try{await fxtReady;const q=String(req.query.request_id||req.query.request_ref||req.query.search||'').trim(),status=String(req.query.status||'').trim();let sql=`SELECT po.*,u.legal_name,u.email AS user_email,u.phone AS user_phone,au.legal_name AS affiliate_name FROM payment_orders po JOIN users u ON u.id=po.user_id LEFT JOIN users au ON au.id=po.affiliate_id`;const w=[],p=[];if(q){w.push('(po.request_id=? OR po.razorpay_link LIKE ?)');p.push(q,'%'+q+'%')}if(status){w.push('po.status=?');p.push(status)}if(w.length)sql+=' WHERE '+w.join(' AND ');sql+=' ORDER BY po.created_at DESC';const [orders]=await db.execute(sql,p);res.json({success:true,orders})}catch(e){console.error('Admin payment list:',e);res.status(500).json({error:e.message})}});
 
-// Account creation is available only after PAYMENT_APPROVED and is idempotent.
-removeRoute('/api/admin/payment-orders/:id/create-account');
-app.post('/api/admin/payment-orders/:id/create-account',authenticateAdmin,async(req,res)=>{
-  const id=Number(req.params.id);const connection=await db.getConnection();
-  try{
-    await connection.beginTransaction();
-    const [orders]=await connection.execute('SELECT * FROM payment_orders WHERE id=? FOR UPDATE',[id]);
-    if(!orders.length){await connection.rollback();return res.status(404).json({error:'Payment request not found'});}
-    const order=orders[0];
-    if(order.status==='ACCOUNT_CREATED'&&order.account_code){await connection.commit();return res.json({success:true,account_code:order.account_code,already_created:true});}
-    if(order.status!=='PAYMENT_APPROVED'){await connection.rollback();return res.status(400).json({error:'Approve the payment first before creating the account'});}
-    const [existing]=await connection.execute("SELECT account_code FROM accounts WHERE user_id=? AND challenge_model=? AND status IN ('ACTIVE','PASSED') ORDER BY id DESC LIMIT 1",[order.user_id,order.model]);
-    if(existing.length){await connection.execute("UPDATE payment_orders SET status='ACCOUNT_CREATED',account_code=? WHERE id=?",[existing[0].account_code,id]);await connection.commit();return res.json({success:true,account_code:existing[0].account_code,already_created:true});}
-    const [configs]=await connection.execute('SELECT * FROM challenge_configs WHERE model_key=? LIMIT 1',[order.model]);
-    if(!configs.length){await connection.rollback();return res.status(404).json({error:'Challenge config not found for '+order.model});}
-    const config=configs[0];
-    const accountCode='ACC-'+Date.now().toString(36).toUpperCase()+'-'+crypto.randomBytes(3).toString('hex').toUpperCase();
-    await connection.execute(\`INSERT INTO accounts (account_code,user_id,challenge_model,phase,initial_balance_cents,balance_cents,equity_cents,status) VALUES (?,?,?,'PHASE_1',?,?,?,'ACTIVE')\`,[accountCode,order.user_id,order.model,config.starting_balance_cents,config.starting_balance_cents,config.starting_balance_cents]);
-    await connection.execute("UPDATE payment_orders SET status='ACCOUNT_CREATED',account_code=? WHERE id=?",[accountCode,id]);
-    await connection.commit();
-    res.json({success:true,account_code:accountCode});
-  }catch(e){await connection.rollback();console.error('Create approved account:',e);res.status(500).json({error:e.message});}finally{connection.release();}
-});
-
-// Save the manually created Razorpay link in a dedicated table and email the complete request to support.
-removeRoute('/api/admin/payment-requests/:id/mark-link-sent');
-app.post('/api/admin/payment-requests/:id/mark-link-sent',authenticateAdmin,async(req,res)=>{
-  try{
-    await paymentLinkTableReady;
-    const orderId=Number(req.params.id);const paymentLink=String(req.body?.payment_link||'').trim();
-    if(!orderId)return res.status(400).json({error:'Invalid payment request ID'});
-    if(!paymentLink.toLowerCase().startsWith('https://'))return res.status(400).json({error:'Please enter a valid HTTPS payment link'});
-    const [rows]=await db.query(\`SELECT po.*,u.legal_name,u.email AS user_email,u.phone AS user_phone,u.address AS user_address,au.legal_name AS affiliate_name FROM payment_orders po JOIN users u ON u.id=po.user_id LEFT JOIN users au ON au.id=po.affiliate_id WHERE po.id=? LIMIT 1\`,[orderId]);
-    if(!rows.length)return res.status(404).json({error:'Payment request not found'});const o=rows[0];const adminEmail='support.fundfxt@gmail.com';
-    await db.query(\`INSERT INTO payment_request_links (payment_order_id,request_ref,user_id,user_name,user_email,user_phone,user_address,challenge_model,affiliate_code,affiliate_name,original_amount_cents,discount_amount_cents,final_amount_cents,currency,payment_link,status,sent_to_admin_email,sent_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW()) ON DUPLICATE KEY UPDATE payment_link=VALUES(payment_link),status='LINK_SENT',sent_to_admin_email=VALUES(sent_to_admin_email),sent_at=NOW(),updated_at=NOW()\`,[o.id,o.order_ref,o.user_id,o.legal_name,o.user_email,o.user_phone,o.user_address,o.model,o.affiliate_code||null,o.affiliate_name||null,o.original_amount_cents,o.discount_amount_cents,o.final_amount_cents,o.currency||'USD',paymentLink,'LINK_SENT',adminEmail]);
-    const money=(c,cur)=>{const n=(Number(c||0)/100).toFixed(2);return (cur||'USD')==='USD'?'$'+n:(cur||'USD')+' '+n};
-    const html=\`<div style="font-family:Arial,sans-serif;background:#f5f7f9;padding:28px;color:#17202a"><div style="max-width:680px;margin:auto;background:#fff;border:1px solid #e5e7eb;border-radius:12px;overflow:hidden"><div style="background:#0f0f0f;padding:22px 26px;color:#fff;font-size:24px;font-weight:800">Fund<span style="color:#00b56a">FXT</span></div><div style="padding:26px"><h2 style="margin:0 0 8px">Payment Link Request</h2><p style="color:#667085">A customer has requested a FundFXT challenge payment link. Please review the details and forward the link to the customer.</p><table style="width:100%;border-collapse:collapse;margin:20px 0">\${[['Request ID',o.order_ref],['Customer Name',o.legal_name],['Customer Email',o.user_email],['Customer Phone',o.user_phone||'—'],['Customer Address',o.user_address||'—'],['Challenge',o.model],['Original Amount',money(o.original_amount_cents,o.currency)],['Discount',money(o.discount_amount_cents,o.currency)],['Final Payable',money(o.final_amount_cents,o.currency)],['Affiliate Code',o.affiliate_code||'None'],['Affiliate Name',o.affiliate_name||'—']].map(([k,v])=>\`<tr><td style="padding:9px;border-bottom:1px solid #eee;width:42%;color:#667085">\${k}</td><td style="padding:9px;border-bottom:1px solid #eee">\${String(v??'—')}</td></tr>\`).join('')}\</table><div style="background:#f0fff8;border:1px solid #b7efd8;border-radius:10px;padding:16px"><b>Razorpay Payment Link</b><div style="margin-top:8px;word-break:break-all"><a href="\${paymentLink}" style="color:#087f5b">\${paymentLink}</a></div></div><p style="margin-top:22px;font-size:12px;color:#667085">Security notice: Trust payment-related emails only from <b>support.fundfxt@gmail.com</b>.</p></div></div></div>\`;
-    await sendEmail(adminEmail,\`FundFXT Payment Request — \${o.order_ref}\`,html);
-    res.json({success:true,request_ref:o.order_ref,payment_link:paymentLink,status:'LINK_SENT',emailed_to:adminEmail});
-  }catch(e){console.error('Payment link submission error:',e);res.status(500).json({error:e.message||'Unable to save payment link'});}
-});
+fxtRemove('/api/admin/payment-requests/:id/mark-link-sent');
+app.post('/api/admin/payment-requests/:id/mark-link-sent',authenticateAdmin,async(req,res)=>{try{await fxtReady;const id=Number(req.params.id),link=String(req.body?.razorpay_link||req.body?.payment_link||'').trim();if(!id)return res.status(400).json({error:'Invalid payment request ID'});if(!/^https:\/\//i.test(link))return res.status(400).json({error:'Please enter a valid HTTPS Razorpay payment link'});const [rows]=await db.execute('SELECT po.*,u.legal_name,u.email AS user_email,u.phone AS user_phone,u.address AS user_address,au.legal_name AS affiliate_name FROM payment_orders po JOIN users u ON u.id=po.user_id LEFT JOIN users au ON au.id=po.affiliate_id WHERE po.id=? LIMIT 1',[id]);if(!rows.length)return res.status(404).json({error:'Payment request not found'});const o=rows[0];await db.execute("UPDATE payment_orders SET razorpay_link=?,updated_at=NOW() WHERE id=?",[link,id]);
+const html=`<div style="margin:0;background:#f3f6f8;padding:32px;font-family:Arial,Helvetica,sans-serif;color:#17202a"><div style="max-width:720px;margin:auto;background:#fff;border:1px solid #e4e8ec;border-radius:16px;overflow:hidden"><div style="background:#0f0f0f;padding:24px 30px;color:#fff"><div style="font-size:26px;font-weight:800">Fund<span style="color:#00b56a">FXT</span></div><div style="margin-top:5px;color:#aab4bd;font-size:12px">Payment Operations • Admin Notification</div></div><div style="padding:30px"><div style="display:inline-block;background:#e8fff5;color:#087f5b;border-radius:999px;padding:7px 12px;font-size:11px;font-weight:700">PAYMENT REQUESTED</div><h1 style="font-size:23px;margin:16px 0 8px">Razorpay payment link added</h1><p style="color:#667085;line-height:1.6">A Razorpay Payment Link has been saved to the FundFXT payment request. Please review the details and forward the payment link to the customer.</p><table style="width:100%;border-collapse:collapse;margin:22px 0;font-size:13px"><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085;width:42%">Request ID</td><td style="padding:10px;border-bottom:1px solid #edf0f2;font-weight:700">${fxtEsc(o.request_id)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Customer Name</td><td style="padding:10px;border-bottom:1px solid #edf0f2">${fxtEsc(o.legal_name)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Customer Email</td><td style="padding:10px;border-bottom:1px solid #edf0f2">${fxtEsc(o.user_email)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Customer Phone</td><td style="padding:10px;border-bottom:1px solid #edf0f2">${fxtEsc(o.user_phone)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Challenge</td><td style="padding:10px;border-bottom:1px solid #edf0f2">${fxtEsc(o.model)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Original Amount</td><td style="padding:10px;border-bottom:1px solid #edf0f2">${fxtMoney(o.original_amount_cents,o.currency)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Discount</td><td style="padding:10px;border-bottom:1px solid #edf0f2">${fxtMoney(o.discount_amount_cents,o.currency)}</td></tr><tr><td style="padding:10px;border-bottom:1px solid #edf0f2;color:#667085">Final Payable</td><td style="padding:10px;border-bottom:1px solid #edf0f2;font-weight:800">${fxtMoney(o.final_amount_cents,o.currency)}</td></tr><tr><td style="padding:10px;color:#667085">Affiliate</td><td style="padding:10px">${fxtEsc(o.affiliate_code||'None')} / ${fxtEsc(o.affiliate_name||'—')}</td></tr></table><div style="background:#f0fff8;border:1px solid #b7efd8;border-radius:12px;padding:18px"><div style="font-size:12px;color:#667085;font-weight:700;text-transform:uppercase">Razorpay Payment Link</div><a href="${fxtEsc(link)}" style="display:block;margin-top:9px;color:#087f5b;font-weight:700;word-break:break-all">${fxtEsc(link)}</a></div><p style="margin:24px 0 0;color:#667085;font-size:12px">Support: <b>support.fundfxt@gmail.com</b><br>FundFXT Payment Operations</p></div></div></div>`;
+try{await sendEmail('support.fundfxt@gmail.com',`FundFXT — Payment Request ${o.request_id} | Razorpay Link Added`,html);await db.execute("UPDATE payment_orders SET status='LINK_SENT',updated_at=NOW() WHERE id=?",[id]);return res.json({success:true,request_id:o.request_id,razorpay_link:link,status:'LINK_SENT',emailed_to:'support.fundfxt@gmail.com'})}catch(emailError){console.error('Payment-link email failed:',emailError);return res.status(502).json({error:'Razorpay link was saved, but support email could not be sent. Check Resend configuration.',saved:true,request_id:o.request_id})}}catch(e){console.error('Payment link save:',e);res.status(500).json({error:e.message||'Unable to save Razorpay payment link'})}});
 `;
-  src=src.replace("const PORT = process.env.PORT || 3000;",patch+"\nconst PORT = process.env.PORT || 3000;");
-  const tmp=path.join(os.tmpdir(),'fundfxt-server-patched-v4.js');fs.writeFileSync(tmp,src);require(tmp);
-}else require(srcPath);
+src=src.replace(/app\.listen\([\s\S]*?\);\s*$/m,patch+'\n\napp.listen(PORT,()=>console.log(`FundFXT server running on ${PORT}`));\n');
+const tmp=path.join(os.tmpdir(),'fundfxt-server-v7.js');fs.writeFileSync(tmp,src);require(tmp);
