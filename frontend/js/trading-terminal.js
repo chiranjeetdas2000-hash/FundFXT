@@ -80,11 +80,10 @@ function openPanel(name){
 
 /* ===== TRADES ===== */
 function tabStatus(tab){return tab==='HISTORY'?'CLOSED':tab}
-function fallbackFloatingPL(t){
-  const p=T.prices[t.symbol]||{},cur=t.side==='BUY'?Number(p.bid):Number(p.ask);
-  if(!isNum(cur))return Number(t.floating_profit_cents||0)/100;
-  const contract=/XAU|GOLD/i.test(t.symbol)?100:/XAG|SILVER/i.test(t.symbol)?5000:100000;
-  return (t.side==='BUY'?cur-Number(t.entry_price):Number(t.entry_price)-cur)*Number(t.volume)*contract;
+// Backend is the sole source of truth for floating P/L. Do not fabricate a local pair-by-pair fallback.
+function backendFloatingPL(t){
+  if(isNum(t?.floating_profit_cents))return Number(t.floating_profit_cents)/100;
+  return null;
 }
 function renderTradeCard(t){
   if(t.status==='CLOSED'){
@@ -97,9 +96,9 @@ function renderTradeCard(t){
   }
   if(t.status!=='OPEN')return '';
   const p=T.prices[t.symbol]||{},cur=t.side==='BUY'?Number(p.bid):Number(p.ask);
-  const pl=isNum(t.floating_profit_cents)?Number(t.floating_profit_cents)/100:fallbackFloatingPL(t);
+  const pl=backendFloatingPL(t);
   return `<article class="trade-card"><div class="trade-main"><div><b class="trade-symbol">${t.symbol}</b><small class="trade-id">${t.trade_id}</small></div><b class="trade-side ${String(t.side).toLowerCase()}">${t.side} · ${Number(t.volume).toFixed(2)}L</b></div>
-    <div class="trade-meta"><div><span>Entry</span><b>${fmt(Number(t.entry_price),t.symbol)}</b></div><div><span>Current</span><b>${fmt(cur,t.symbol)}</b></div><div><span>P/L</span><b class="pl ${pl>=0?'green':'red'}">${pl>=0?'+':''}$${pl.toFixed(2)}</b></div></div>
+    <div class="trade-meta"><div><span>Entry</span><b>${fmt(Number(t.entry_price),t.symbol)}</b></div><div><span>Current</span><b>${fmt(cur,t.symbol)}</b></div><div><span>P/L</span><b class="pl ${pl===null?'':pl>=0?'green':'red'}">${pl===null?'—':(pl>=0?'+':'')+'$'+pl.toFixed(2)}</b></div></div>
     <div class="trade-actions"><button class="mini" data-details="${t.trade_id}" type="button">Details</button><button class="mini close" data-close="${t.trade_id}" type="button">Close</button><button class="mini" data-partial="${t.trade_id}" type="button">Partial close</button></div></article>`;
 }
 function renderTrades(){
@@ -149,7 +148,7 @@ async function execute(side){
   const code=T.account?.account_code,volume=Number($('volume')?.value),sl=$('sl')?.value===''?null:Number($('sl')?.value),tp=$('tp')?.value===''?null:Number($('tp')?.value);
   const orderType=$('orderType')?.value||'MARKET';
   if(!code)return feedback('No trading account selected.');
-  if(orderType!=='MARKET')return feedback('Pending orders are not enabled by the current trading backend. Use Market order for live execution.');
+  if(orderType!=='MARKET')return feedback('Pending orders are handled by the pending-order controller.');
   if(!isNum(volume)||volume<.01||volume>2)return feedback('Lot size must be 0.01 to 2.00.');
   try{
     const d=await api('/api/trade/execute',{method:'POST',body:JSON.stringify({account_code:code,symbol:T.selected,side,volume,sl,tp})});
