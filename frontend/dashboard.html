@@ -1,241 +1,62 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FundFXT | Dashboard</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="dashboard.css">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>FundFXT | Dashboard</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="dashboard.css?v=20260909">
 </head>
 <body>
-
-    <!-- TOP HEADER -->
-    <header class="top-header">
-        <div class="brand">Fund<span>FXT</span></div>
-        <button class="menu-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
-        
-        <div class="header-right">
-            <i class="fa-regular fa-bell bell-icon" onclick="toggleNotifications()">
-                <span class="badge">0</span>
-            </i>
-            <div class="profile-drop" onclick="toggleUserDropdown()">
-                <i class="fa-solid fa-user-circle" style="font-size: 32px; color: var(--green);"></i>
-                <div class="user-info">
-                    <h4 id="header-user-name">Trader</h4>
-                    <p>Trader</p>
-                </div>
-                <div class="dropdown" id="userDropdown">
-                    <a href="#">Profile</a>
-                    <a href="#">Settings</a>
-                    <a href="#" onclick="handleLogout()" class="logout">Logout</a>
-                </div>
-            </div>
-        </div>
-        <div class="notification-container">
-    <i class="fa-regular fa-bell bell-icon" onclick="toggleNotifications()" style="cursor: pointer; position: relative; font-size: 20px;">
-        <span class="badge" id="notificationBadge">0</span>
-    </i>
-    <!-- Notification Panel -->
-    <div class="notification-panel" id="notificationPanel" style="display: none; position: absolute; right: 0; top: 40px; width: 300px; max-height: 400px; overflow-y: auto; background: #11161D; border: 1px solid #2a2a2a; border-radius: 10px; z-index: 100;">
-        <div style="padding: 15px; border-bottom: 1px solid #2a2a2a; display: flex; justify-content: space-between;">
-            <h4>Notifications</h4>
-            <button onclick="markAllNotificationsRead()" style="background: transparent; border: none; color: #00B56A; cursor: pointer;">Mark all read</button>
-        </div>
-        <div id="notificationList" style="padding: 10px;">
-            <!-- Notifications will appear here -->
-        </div>
+<header class="top-header">
+  <div class="brand">Fund<span>FXT</span></div>
+  <button class="menu-toggle" onclick="toggleSidebar()" aria-label="Open menu"><i class="fa-solid fa-bars"></i></button>
+  <div class="header-right">
+    <div class="notification-container" style="position:relative">
+      <button class="bell-icon" onclick="toggleNotifications()" aria-label="Notifications" style="background:none;border:0;color:inherit;padding:4px">
+        <i class="fa-regular fa-bell"></i><span class="badge" id="notificationBadge" style="display:none">0</span>
+      </button>
+      <div class="notification-panel" id="notificationPanel" style="display:none;position:absolute;right:0;top:42px;width:300px;max-height:400px;overflow:auto;background:#11161D;border:1px solid #2a2a2a;border-radius:10px;z-index:500">
+        <div style="padding:14px;border-bottom:1px solid #2a2a2a;display:flex;justify-content:space-between;gap:10px"><b>Notifications</b><button onclick="markAllNotificationsRead()" style="background:none;border:0;color:#00B56A;cursor:pointer">Mark all read</button></div>
+        <div id="notificationList" style="padding:8px"></div>
+      </div>
     </div>
-</div>
-    </header>
-
-    <!-- SIDEBAR -->
-    <aside class="sidebar" id="sidebar">
-        <div class="logo">Fund<span>FXT</span></div>
-
-        <div class="menu-label">MAIN</div>
-        <nav>
-            <a href="javascript:void(0)" onclick="showSection('home')" class="active"><i class="fa-solid fa-house"></i> Home</a>
-            <a href="javascript:void(0)" onclick="showSection('withdraw')"><i class="fa-solid fa-money-bill-transfer"></i> Withdraw</a>
-            <a href="buy-challenge.html"><i class="fa-solid fa-cart-shopping"></i> Buy Challenge</a>
-            <a href="javascript:void(0)" onclick="showSection('orders')"><i class="fa-solid fa-file-invoice"></i> Order History</a>
-            <a href="javascript:void(0)" onclick="showSection('certificates')"><i class="fa-solid fa-trophy"></i> Certificates</a>
-            <a href="javascript:void(0)" onclick="showSection('rules')"><i class="fa-solid fa-book"></i> Rules & FAQs</a>
-            <a href="javascript:void(0)" onclick="showSection('affiliate')"><i class="fa-solid fa-share-nodes"></i> Affiliate</a>
-        </nav>
-
-        <div class="menu-label">ACCOUNT</div>
-        <nav>
-            <a href="#" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
-        </nav>
-    </aside>
-
-    <!-- MAIN CONTENT -->
-    <main class="main-content">
-
-        <!-- HOME SECTION -->
-        <div id="view-home" class="view-section active">
-            <div class="profile-card">
-                <div>
-                    <h1>Welcome back, <span id="profile-name">Trader</span> 👋</h1>
-                    <p>Here's an overview of your trading accounts.</p>
-                    <br>
-                    <div class="profile-detail-grid">
-                        <div><strong>Email</strong> <span id="profile-email">trader@fundfxt.com</span></div>
-                        <div><strong>Phone</strong> <span id="profile-phone">+91 0000000000</span></div>
-                        <div><strong>Member Since</strong> <span id="profile-date">2026</span></div>
-                    </div>
-                </div>
-                <div class="profile-avatar"><i class="fa-solid fa-user-circle"></i></div>
-            </div>
-
-            <h2 style="margin-bottom: 15px;">Account Summary</h2>
-            <div class="summary-grid">
-                <div class="summary-card"><h4>Total Accounts</h4><div class="value" id="total-accounts">0</div></div>
-                <div class="summary-card"><h4>Active Accounts</h4><div class="value green" id="active-accounts">0</div></div>
-                <div class="summary-card"><h4>Passed Accounts</h4><div class="value green" id="passed-accounts">0</div></div>
-                <div class="summary-card"><h4>Failed Accounts</h4><div class="value red" id="failed-accounts">0</div></div>
-                <div class="summary-card"><h4>Total Profit</h4><div class="value green" id="total-profit">$0.00</div></div>
-            </div>
-
-            <h2 style="margin-bottom: 15px;">My Trading Accounts</h2>
-            <div id="accounts-container" class="accounts-grid"></div>
-            <div id="empty-state" style="display:none;">
-                <div class="empty-state">
-                    You don't have any trading accounts yet. <br> Start your FundFXT journey today.
-                    <br><a href="buy-challenge.html" class="btn">Buy Challenge</a>
-                </div>
-            </div>
-        </div>
-
-        <!-- WITHDRAW SECTION -->
-        <div id="view-withdraw" class="view-section">
-            <h1>Request Withdrawal</h1>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Select an account, review rules, and submit your payout request.</p>
-
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-                <h3 style="margin-bottom: 15px;">1. Select Trading Account</h3>
-                <select id="withdraw-account-select" onchange="onWithdrawAccountChange()" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff;">
-                    <option value="">-- Select Account --</option>
-                </select>
-            </div>
-
-            <div id="withdraw-rules" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px; display: none;">
-                <h3 style="margin-bottom: 15px;">2. Account Rules</h3>
-                <div id="withdraw-rules-content"></div>
-            </div>
-
-            <div id="withdraw-form" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; display: none;">
-                <h3 style="margin-bottom: 15px;">3. Payment Details</h3>
-                <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Amount (USD)</label>
-                <input type="number" id="withdraw-amount" placeholder="Enter amount" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 15px;">
-                <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Withdrawal Method</label>
-                <select id="withdraw-method" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 15px;">
-                    <option value="UPI">UPI (India)</option>
-                    <option value="BANK">Bank Transfer</option>
-                    <option value="CRYPTO">Crypto (USDT/BTC)</option>
-                </select>
-                <label style="display: block; margin-bottom: 5px; color: var(--text-muted); font-size: 13px;">Payment Address / Details</label>
-                <input type="text" id="withdraw-address" placeholder="Enter UPI ID / Bank Account / Crypto Wallet" style="width: 100%; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: #fff; margin-bottom: 20px;">
-                <button class="btn" onclick="submitWithdrawRequest()" style="width: 100%; background: var(--green); color: white; padding: 15px; font-weight: 600;">Submit Withdrawal Request</button>
-                <div id="withdraw-message" style="margin-top: 10px; display: none;"></div>
-            </div>
-        </div>
-
-        <!-- ORDER HISTORY SECTION -->
-        <div id="view-orders" class="view-section">
-            <h1>Order History</h1>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Track your payment requests and their statuses.</p>
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; overflow-x: auto;">
-                <table style="width: 100%; border-collapse: collapse;">
-                    <thead>
-                        <tr style="border-bottom: 1px solid var(--border); text-align: left;">
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Request ID</th>
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Challenge</th>
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Original</th>
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Discount</th>
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Total Amount</th>
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Status</th>
-                            <th style="padding: 12px; color: var(--text-muted); font-size: 12px;">Date</th>
-                        </tr>
-                    </thead>
-                    <tbody id="ordersTableBody"></tbody>
-                </table>
-                <div id="ordersEmptyState" style="display: none; text-align: center; padding: 40px; color: var(--text-muted);">No orders found.</div>
-            </div>
-        </div>
-
-        <!-- CERTIFICATES SECTION -->
-<div id="view-certificates" class="view-section">
-    <h1>My Certificates</h1>
-    <p style="color: var(--text-muted); margin-bottom: 20px;">View your earned certificates.</p>
-    <div id="certificates-container" style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
-        <!-- Certificates will be injected here -->
+    <div class="profile-drop" onclick="toggleUserDropdown()">
+      <i class="fa-solid fa-user-circle" style="font-size:32px;color:var(--green)"></i>
+      <div class="user-info"><h4 id="header-user-name">Trader</h4><p>FundFXT Trader</p></div>
+      <div class="dropdown" id="userDropdown"><a href="account-dashboard.html">Account Dashboard</a><a href="trading-terminal.html">Trading Terminal</a><a href="#" onclick="handleLogout()" class="logout">Logout</a></div>
     </div>
-</div>
-        <!-- RULES & FAQ SECTION -->
-        <div id="view-rules" class="view-section">
-            <h1>Rules & FAQs</h1>
-            <p style="color: var(--text-muted); margin-bottom: 20px;">Understand our challenge rules.</p>
-            <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
-                <h3>Challenge Rules</h3>
-                <p>Select a challenge model to view rules.</p>
-            </div>
-        </div>
-
-        <!-- AFFILIATE SECTION -->
-        <div id="view-affiliate" class="view-section">
-            <h1>Affiliate Program</h1>
-            <p>Share your code and earn commission!</p>
-            <p style="margin-top: 20px; color: var(--green); font-size: 24px; font-weight: 800;" id="aff-code">AFF-PENDING</p>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 15px; margin-top: 30px;">
-                <div class="summary-card"><h4>Total Referrals</h4><div class="value" id="aff-total-referrals">0</div></div>
-                <div class="summary-card"><h4>Total Sales</h4><div class="value" id="aff-total-sales">0</div></div>
-                <div class="summary-card"><h4>Total Earnings</h4><div class="value green" id="aff-total-earnings">$0.00</div></div>
-                <div class="summary-card"><h4>Pending Earnings</h4><div class="value" id="aff-pending-earnings">$0.00</div></div>
-            </div>
-            <!-- Affiliate Payout Section -->
-<div style="margin-top: 30px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
-    <h3 style="margin-bottom: 15px;">Request Commission Payout</h3>
-    <p style="color: var(--text-muted); margin-bottom: 15px;">Minimum withdrawal is $100.00</p>
-    
-    <div style="display: flex; gap: 10px;">
-        <input type="number" id="aff-payout-amount" placeholder="Enter amount (USD)" min="100" step="0.01" 
-               style="flex: 1; padding: 12px; background: #0a0e14; border: 1px solid var(--border); border-radius: 8px; color: white;">
-        <button class="btn" onclick="requestAffiliatePayout()" style="background: var(--green); color: white; padding: 12px 20px; border-radius: 8px;">Request Payout</button>
-    </div>
-    <div id="aff-payout-message" style="margin-top: 10px; color: var(--text-muted); display: none;"></div>
-</div>
-        </div>
-        <!-- CUSTOMER SUPPORT SECTION -->
-<div id="view-support" class="view-section">
-    <h1>Customer Support</h1>
-    <p style="color: var(--text-muted); margin-bottom: 20px;">Submit your issues and track tickets.</p>
-
-    <!-- Ticket Form -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
-        <h3>Create Ticket</h3>
-        <div style="margin-bottom: 10px;">
-            <input type="text" id="ticket-subject" placeholder="Subject" style="width: 100%; padding: 10px; background: #0a0e14; border: 1px solid var(--border); border-radius: 6px; color: white;">
-        </div>
-        <div style="margin-bottom: 10px;">
-            <textarea id="ticket-message" rows="4" placeholder="Describe your issue" style="width: 100%; padding: 10px; background: #0a0e14; border: 1px solid var(--border); border-radius: 6px; color: white;"></textarea>
-        </div>
-        <button class="btn" onclick="createSupportTicket()" style="background: var(--green); color: white;">Submit Ticket</button>
-        <div id="ticket-message" style="margin-top: 10px; color: var(--text-muted); display: none;"></div>
-    </div>
-
-    <!-- Ticket History -->
-    <div style="background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 20px;">
-        <h3>Your Tickets</h3>
-        <div id="tickets-list">
-            <p style="color: var(--text-muted);">No tickets yet.</p>
-        </div>
-    </div>
-</div>
-
-    </main>
-
-    <script src="dashboard.js"></script>
-</body>
-    </html>
+  </div>
+</header>
+<aside class="sidebar" id="sidebar">
+  <div class="logo">Fund<span>FXT</span></div>
+  <div class="menu-label">MAIN</div>
+  <nav>
+    <a href="javascript:void(0)" onclick="showSection('home')" class="active"><i class="fa-solid fa-house"></i> Home</a>
+    <a href="javascript:void(0)" onclick="showSection('withdraw')"><i class="fa-solid fa-money-bill-transfer"></i> Withdraw</a>
+    <a href="buy-challenge.html"><i class="fa-solid fa-cart-shopping"></i> Buy Challenge</a>
+    <a href="javascript:void(0)" onclick="showSection('orders')"><i class="fa-solid fa-file-invoice"></i> Order History</a>
+    <a href="javascript:void(0)" onclick="showSection('certificates')"><i class="fa-solid fa-trophy"></i> Certificates</a>
+    <a href="javascript:void(0)" onclick="showSection('rules')"><i class="fa-solid fa-book"></i> Rules & FAQs</a>
+    <a href="javascript:void(0)" onclick="showSection('affiliate')"><i class="fa-solid fa-share-nodes"></i> Affiliate</a>
+    <a href="javascript:void(0)" onclick="showSection('support')"><i class="fa-solid fa-headset"></i> Support</a>
+  </nav>
+  <div class="menu-label">ACCOUNT</div><nav><a href="#" onclick="handleLogout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a></nav>
+</aside>
+<main class="main-content">
+<section id="view-home" class="view-section active">
+  <div class="profile-card"><div><h1>Welcome back, <span id="profile-name">Trader</span> 👋</h1><p>Your FundFXT trading accounts and performance at a glance.</p><div class="profile-detail-grid" style="margin-top:18px"><div><strong>Email</strong><span id="profile-email">—</span></div><div><strong>Phone</strong><span id="profile-phone">—</span></div><div><strong>Member Since</strong><span id="profile-date">—</span></div></div></div><div class="profile-avatar"><i class="fa-solid fa-user-circle"></i></div></div>
+  <div class="dashboard-recovery-actions"><a class="primary" href="trading-terminal.html"><i class="fa-solid fa-chart-line"></i> Open Trading Terminal</a><a href="account-dashboard.html"><i class="fa-solid fa-gauge-high"></i> Open Account Dashboard</a><a href="buy-challenge.html"><i class="fa-solid fa-plus"></i> Get New Account</a></div>
+  <h2 style="margin-bottom:15px">Account Summary</h2><div class="summary-grid"><div class="summary-card"><h4>Total Accounts</h4><div class="value" id="total-accounts">0</div></div><div class="summary-card"><h4>Active Accounts</h4><div class="value green" id="active-accounts">0</div></div><div class="summary-card"><h4>Passed Accounts</h4><div class="value green" id="passed-accounts">0</div></div><div class="summary-card"><h4>Failed / Breached</h4><div class="value red" id="failed-accounts">0</div></div><div class="summary-card"><h4>Total Profit</h4><div class="value green" id="total-profit">$0.00</div></div></div>
+  <h2 style="margin:8px 0 15px">My Trading Accounts</h2><div id="accounts-container" class="accounts-grid"></div><div id="empty-state" style="display:none"><div class="empty-state">You don't have any trading accounts yet.<br>Start your FundFXT journey today.<br><a href="buy-challenge.html" class="btn">Buy Challenge</a></div></div>
+</section>
+<section id="view-withdraw" class="view-section"><h1>Request Withdrawal</h1><p style="color:var(--text-muted);margin-bottom:20px">Select an account, review its rules, and submit your payout request.</p><div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px"><h3>1. Select Trading Account</h3><select id="withdraw-account-select" onchange="onWithdrawAccountChange()" style="width:100%;padding:12px;margin-top:15px;background:#0a0e14;border:1px solid var(--border);border-radius:8px;color:#fff"><option value="">-- Select Account --</option></select></div><div id="withdraw-rules" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px;display:none"><h3>2. Account Rules</h3><div id="withdraw-rules-content"></div></div><div id="withdraw-form" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;display:none"><h3>3. Payment Details</h3><input type="number" id="withdraw-amount" placeholder="Amount (USD)" style="width:100%;padding:12px;margin:15px 0;background:#0a0e14;border:1px solid var(--border);border-radius:8px;color:#fff"><select id="withdraw-method" style="width:100%;padding:12px;margin-bottom:15px;background:#0a0e14;border:1px solid var(--border);border-radius:8px;color:#fff"><option value="UPI">UPI (India)</option><option value="BANK">Bank Transfer</option><option value="CRYPTO">Crypto (USDT/BTC)</option></select><input type="text" id="withdraw-address" placeholder="UPI ID / Bank Account / Crypto Wallet" style="width:100%;padding:12px;margin-bottom:15px;background:#0a0e14;border:1px solid var(--border);border-radius:8px;color:#fff"><button class="btn" onclick="submitWithdrawRequest()" style="width:100%;background:var(--green);color:#fff;padding:14px">Submit Withdrawal Request</button><div id="withdraw-message" style="margin-top:10px;display:none"></div></div></section>
+<section id="view-orders" class="view-section"><h1>Order History</h1><p style="color:var(--text-muted);margin-bottom:20px">Track your challenge orders and payment status.</p><div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;overflow:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th>Request ID</th><th>Challenge</th><th>Original</th><th>Discount</th><th>Total</th><th>Status</th><th>Date</th></tr></thead><tbody id="ordersTableBody"></tbody></table><div id="ordersEmptyState" style="display:none;text-align:center;padding:40px;color:var(--text-muted)">No orders found.</div></div></section>
+<section id="view-certificates" class="view-section"><h1>My Certificates</h1><p style="color:var(--text-muted);margin-bottom:20px">View certificates earned from your accounts.</p><div id="certificates-container" style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px"></div></section>
+<section id="view-rules" class="view-section"><h1>Rules & FAQs</h1><p style="color:var(--text-muted);margin-bottom:20px">Review the rules that apply to your trading model.</p><div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px"><h3>Challenge Rules</h3><p style="color:var(--text-muted);margin-top:8px">Open an account dashboard to see the exact rules and live progress for that account.</p></div></section>
+<section id="view-affiliate" class="view-section"><h1>Affiliate Program</h1><p style="color:var(--text-muted)">Share your code and earn commission.</p><p style="margin-top:20px;color:var(--green);font-size:24px;font-weight:800" id="aff-code">AFF-PENDING</p><div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:15px;margin-top:30px"><div class="summary-card"><h4>Total Referrals</h4><div class="value" id="aff-total-referrals">0</div></div><div class="summary-card"><h4>Total Sales</h4><div class="value" id="aff-total-sales">0</div></div><div class="summary-card"><h4>Total Earnings</h4><div class="value green" id="aff-total-earnings">$0.00</div></div><div class="summary-card"><h4>Pending Earnings</h4><div class="value" id="aff-pending-earnings">$0.00</div></div></div><div style="margin-top:30px;background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px"><h3>Request Commission Payout</h3><p style="color:var(--text-muted);margin:8px 0 15px">Minimum withdrawal is $100.00</p><div style="display:flex;gap:10px"><input type="number" id="aff-payout-amount" placeholder="Amount (USD)" min="100" step="0.01" style="flex:1;padding:12px;background:#0a0e14;border:1px solid var(--border);border-radius:8px;color:#fff"><button class="btn" onclick="requestAffiliatePayout()" style="background:var(--green);color:#fff;padding:12px 20px">Request Payout</button></div><div id="aff-payout-message" style="margin-top:10px;display:none"></div></div></section>
+<section id="view-support" class="view-section"><h1>Customer Support</h1><p style="color:var(--text-muted);margin-bottom:20px">Submit an issue and track your support tickets.</p><div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:20px"><h3>Create Ticket</h3><input type="text" id="ticket-subject" placeholder="Subject" style="width:100%;padding:10px;margin:15px 0 10px;background:#0a0e14;border:1px solid var(--border);border-radius:6px;color:#fff"><textarea id="ticket-message" rows="4" placeholder="Describe your issue" style="width:100%;padding:10px;background:#0a0e14;border:1px solid var(--border);border-radius:6px;color:#fff"></textarea><button class="btn" onclick="createSupportTicket()" style="background:var(--green);color:#fff;margin-top:10px">Submit Ticket</button><div id="ticket-submit-message" style="margin-top:10px;display:none"></div></div><div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:20px"><h3>Your Tickets</h3><div id="tickets-list"><p style="color:var(--text-muted)">No tickets yet.</p></div></div></section>
+</main>
+<script src="dashboard.js?v=20260909"></script><script src="js/dashboard-fixes.js?v=20260909"></script>
+</body></html>
