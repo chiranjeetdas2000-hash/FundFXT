@@ -19,7 +19,7 @@ function rules(a){
   const netProfit=balance!==null&&initial!==null?balance-initial:null;
   const targetText=target===null?'Not configured in database':`${targetPct!==null?pct(targetPct)+' · ':''}${money(target)}`;
   const targetRemaining=remaining===null?'—':money(remaining);
-  const dailyRemaining= dailyRemainingC===null?'—':money(dailyRemainingC);
+  const dailyRemaining=dailyRemainingC===null?'—':money(dailyRemainingC);
   const maxRemaining=maxRemainingC===null?'—':money(maxRemainingC);
   const tradesUsed=maxTrades!==null&&today!==null?Math.max(0,Math.min(100,today/maxTrades*100)):null;
   return `<div class="account-rules account-rules-detailed" id="accountRulesBody">
@@ -45,8 +45,7 @@ async function render(){
     shell.classList.remove('account-loading');
     shell.innerHTML=`<div class="account-popover-head"><div><h3>Account Overview</h3><div class="account-id">${esc(a.account_code)}</div></div><button class="account-popover-close" type="button" aria-label="Close account overview">×</button></div><div class="account-values"><div class="account-value"><span>Balance</span><b id="accountPopupBalance">${money(a.balance_cents)}</b></div><div class="account-value"><span>Equity</span><b id="accountPopupEquity">${money(a.equity_cents)}</b></div></div>${rules(a)}<div class="rule-note"><b>Live rule data:</b> values above are refreshed from the FundFXT account data endpoint. Missing database fields stay unconfigured instead of showing invented targets.</div>`;
     shell.querySelector('.account-popover-close').onclick=()=>shell.remove();
-  shell.querySelector('#terminalAccountDashboard')?.remove();
-  const view=document.createElement('button');view.className='account-dashboard-btn';view.id='terminalAccountDashboard';view.type='button';view.textContent='View Full Account Dashboard ↗';shell.appendChild(view);view.onclick=()=>location.href='/account-dashboard.html?account_code='+encodeURIComponent(a.account_code);
+    const view=document.createElement('button');view.className='account-dashboard-btn';view.id='terminalAccountDashboard';view.type='button';view.textContent='View Full Account Dashboard ↗';shell.appendChild(view);view.onclick=()=>location.href='/account-dashboard.html?account_code='+encodeURIComponent(a.account_code);
   }catch(e){shell.classList.remove('account-loading');shell.innerHTML='<div class="account-error">'+esc(e.message)+'</div>'}
 }
 async function refresh(){const p=document.querySelector('.account-popover');if(!p||p.classList.contains('account-loading'))return;try{const a=await getAccount(),b=p.querySelector('#accountPopupBalance'),e=p.querySelector('#accountPopupEquity');if(b)b.textContent=money(a.balance_cents);if(e)e.textContent=money(a.equity_cents);const m=p.querySelector('#accountRulesBody');if(m){const html=rules(a),tmp=document.createElement('div');tmp.innerHTML=html;m.replaceWith(tmp.firstElementChild);}}catch{}}
@@ -57,6 +56,7 @@ function install(){
   const btn=document.getElementById('accountMenuBtn');if(btn)btn.onclick=async e=>{e.stopPropagation();const p=document.querySelector('.account-popover');if(p)p.remove();else await render()};
   document.querySelectorAll('.right-tab').forEach(b=>b.addEventListener('click',()=>tabs(b.dataset.tab),true));tabs('OPEN');
   document.addEventListener('click',e=>{const p=document.querySelector('.account-popover');if(p&&!p.contains(e.target)&&e.target!==btn)p.remove()});
+  setInterval(refresh,1500);
 }
 const wait=setInterval(()=>{if(document.readyState!=='loading'&&document.getElementById('accountMenuBtn')){clearInterval(wait);install()}},50);
 })();
