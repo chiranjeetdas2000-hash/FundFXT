@@ -32,6 +32,8 @@ const db = mysql.createPool({
   }
 })();
 
+ensureAffiliateSalesLedger().catch((error) => console.error('Affiliate ledger startup error:', error.message));
+
 // ========== SECURITY CHECKS ==========
 if (!process.env.JWT_SECRET) {
   console.error("❌ FATAL: JWT_SECRET is required");
@@ -51,6 +53,90 @@ async function sendEmail(to, subject, html) {
     body: JSON.stringify({ from: FROM_EMAIL, to: [to], subject, html }),
   });
   if (!response.ok) throw new Error("Email API Error: " + response.status);
+}
+
+
+// ========== AFFILIATE SALES LEDGER ==========
+// Public affiliate history contains only sale/request/payment data. Customer PII is never exposed.
+async function ensureAffiliateSalesLedger() {
+  try {
+    await db.execute(`CREATE TABLE IF NOT EXISTS affiliate_sales (
+      id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
+      affiliate_id BIGINT NOT NULL,
+      order_id BIGINT NOT NULL,
+      request_id VARCHAR(100) NOT NULL,
+      affiliate_code VARCHAR(100) NULL,
+      model VARCHAR(100) NULL,
+      original_amount_cents BIGINT NOT NULL DEFAULT 0,
+      discount_amount_cents BIGINT NOT NULL DEFAULT 0,
+      final_amount_cents BIGINT NOT NULL DEFAULT 0,
+      commission_rate_bps INT NOT NULL DEFAULT 2000,
+      fixed_bonus_cents BIGINT NOT NULL DEFAULT 100,
+      commission_amount_cents BIGINT NOT NULL DEFAULT 0,
+      status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_affiliate_sales_order (affiliate_id, order_id),
+      KEY idx_affiliate_sales_affiliate (affiliate_id, created_at)
+    )`);
+
+    // Backfill every historically valid affiliate sale from payment_orders.
+    await db.execute(`
+      INSERT IGNORE INTO affiliate_sales
+        (affiliate_id, order_id, request_id, affiliate_code, model,
+         original_amount_cents, discount_amount_cents, final_amount_cents,
+         commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at)
+      SELECT
+        a.id, po.id, po.request_id, po.affiliate_code, po.model,
+        COALESCE(po.original_amount_cents,0), COALESCE(po.discount_amount_cents,0), COALESCE(po.final_amount_cents,0),
+        2000, 100,
+        FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
+        'PENDING', COALESCE(po.created_at, NOW())
+      FROM payment_orders po
+      JOIN users u ON u.id = po.user_id
+      JOIN affiliates a ON a.user_id = u.id
+      WHERE po.affiliate_code IS NOT NULL
+        AND TRIM(po.affiliate_code) <> ''
+        AND po.status IN ('PAYMENT_DONE','PAYMENT_APPROVED')
+        AND u.affiliate_code = po.affiliate_code
+    `);
+
+    // Backfill the commission ledger for the same valid sales, without duplicates.
+    await db.execute(`
+      INSERT INTO affiliate_commissions
+        (affiliate_id, order_id, referred_user_id, model, commission_amount_cents,
+         original_amount_cents, discount_amount_cents, final_amount_cents,
+         commission_rate_bps, fixed_bonus_cents, paid_amount_cents, status)
+      SELECT
+        s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents,
+        s.original_amount_cents, s.discount_amount_cents, s.final_amount_cents,
+        s.commission_rate_bps, s.fixed_bonus_cents, 0, 'PENDING'
+      FROM affiliate_sales s
+      JOIN payment_orders po ON po.id = s.order_id
+      LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id
+      WHERE ac.id IS NULL
+    `);
+
+    // Reconcile affiliate totals from the ledger instead of incrementing them repeatedly.
+    await db.execute(`
+      UPDATE affiliates a
+      LEFT JOIN (
+        SELECT affiliate_id,
+               COUNT(*) AS sales_count,
+               COALESCE(SUM(commission_amount_cents),0) AS total_earnings,
+               COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents,0),0)),0) AS pending_earnings,
+               COALESCE(SUM(COALESCE(paid_amount_cents,0)),0) AS paid_earnings
+        FROM affiliate_commissions
+        GROUP BY affiliate_id
+      ) x ON x.affiliate_id = a.id
+      SET a.total_sales = COALESCE(x.sales_count,0),
+          a.total_earnings_cents = COALESCE(x.total_earnings,0),
+          a.pending_earnings_cents = COALESCE(x.pending_earnings,0),
+          a.paid_earnings_cents = COALESCE(x.paid_earnings,0)
+    `);
+    console.log('Affiliate sales ledger ready and historical sales reconciled.');
+  } catch (error) {
+    console.error('Affiliate sales ledger migration failed:', error.message);
+  }
 }
 
 // ========== AFFILIATE CODE GENERATOR ==========
@@ -1644,69 +1730,7 @@ app.post(
         [accountCode, id],
       );
 
-      // Affiliate commission
-      if (order.affiliate_code) {
-        const [affiliateRows] = await connection.execute(
-          `SELECT
-             a.id AS affiliate_id,
-             a.user_id
-           FROM affiliates a
-           JOIN users u ON u.id = a.user_id
-           WHERE u.affiliate_code = ?
-           LIMIT 1`,
-          [order.affiliate_code],
-        );
-
-        if (affiliateRows.length > 0) {
-          const affiliate = affiliateRows[0];
-
-          const commissionCents = Math.floor(
-            order.final_amount_cents * 0.2 + 100,
-          );
-
-          const [existingCommission] = await connection.execute(
-            `SELECT id
-             FROM affiliate_commissions
-             WHERE order_id = ?
-             LIMIT 1`,
-            [id],
-          );
-
-          if (existingCommission.length === 0) {
-            await connection.execute(
-              `INSERT INTO affiliate_commissions (
-                affiliate_id,
-                order_id,
-                referred_user_id,
-                model,
-                commission_amount_cents,
-                status
-              )
-              VALUES (?, ?, ?, ?, ?, 'PENDING')`,
-              [
-                affiliate.affiliate_id,
-                id,
-                order.user_id,
-                order.model,
-                commissionCents,
-              ],
-            );
-
-            await connection.execute(
-              `UPDATE affiliates
-               SET total_sales = total_sales + 1,
-                   pending_earnings_cents =
-                     pending_earnings_cents + ?
-               WHERE id = ?`,
-              [commissionCents, affiliate.affiliate_id],
-            );
-
-            console.log(
-              `Affiliate commission added: order=${id}, affiliate=${affiliate.affiliate_id}, amount=${commissionCents} cents`,
-            );
-          }
-        }
-      }
+      // Affiliate commission is created only by PAYMENT_DONE/PAYMENT_APPROVED.
 
       await connection.commit();
 
@@ -2511,30 +2535,21 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
     );
 
     const [commissions] = await db.execute(
-      `SELECT 
-        ac.id,
-        po.request_id AS order_ref,
-        ac.model,
-        po.original_amount_cents,
-        po.discount_amount_cents,
-        po.final_amount_cents,
-        po.paid_amount_cents,
-        ac.commission_amount_cents AS commission_cents,
-        COALESCE(ac.paid_amount_cents, 0) AS paid_commission_cents,
-        ac.commission_rate_bps,
-        ac.fixed_bonus_cents,
-        ac.status,
-        ac.paid_at,
-        ac.created_at,
-        u.legal_name AS customer_name,
-        u.email AS customer_email,
-        po.affiliate_code
-       FROM affiliate_commissions ac
-       LEFT JOIN payment_orders po ON po.id = ac.order_id
-       LEFT JOIN users u ON u.id = ac.referred_user_id
-       WHERE ac.affiliate_id = ?
-       ORDER BY ac.created_at DESC
-       LIMIT 50`,
+      `SELECT
+        id,
+        request_id AS order_ref,
+        model,
+        original_amount_cents,
+        discount_amount_cents,
+        final_amount_cents,
+        commission_amount_cents AS commission_cents,
+        commission_rate_bps,
+        fixed_bonus_cents,
+        status,
+        created_at
+       FROM affiliate_sales
+       WHERE affiliate_id = ?
+       ORDER BY created_at DESC`,
       [affiliate.id]
     );
 
