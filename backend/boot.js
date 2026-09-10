@@ -16,7 +16,11 @@ fs.readFileSync = function(file, options) {
     if (encoding === 'utf8' || encoding === 'utf-8') {
         return value
             .replace(/\bpayment_link\b/g, 'razorpay_link')
-            .replace(/\bpayout_requests\b/g, 'withdrawal_request');
+            .replace(/\bpayout_requests\b/g, 'withdrawal_request')
+            // MySQL can run with ANSI_QUOTES enabled, where "LINK_SENT"
+            // is parsed as a column identifier instead of a string literal.
+            // Normalize this legacy route before the runtime server is built.
+            .replace(/([=,]\s*)"LINK_SENT"/g, "$1'LINK_SENT'");
     }
     return value;
 };
