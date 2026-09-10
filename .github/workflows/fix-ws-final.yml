@@ -6,7 +6,7 @@ on:
 
 jobs:
   repair:
-    if: ${{ !contains(github.event.head_commit.message, 'Final WebSocket startup repair') && !contains(github.event.head_commit.message, 'Apply final WebSocket repair') }}
+    if: ${{ !contains(github.event.head_commit.message, 'SKIP_WS_WORKFLOW') }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
