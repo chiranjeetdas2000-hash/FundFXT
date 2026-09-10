@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#080b10">
+  <title>FundFXT | Trading Terminal</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/trading-terminal.css?v=20260910">
+  <link rel="stylesheet" href="/css/trading-terminal-mobile.css?v=20260910">
+</head>
+<body>
+  <div class="terminal-shell" id="terminalShell">
+    <header class="terminal-topbar">
+      <div class="brand-block">
+        <a class="brand" href="/dashboard.html" aria-label="FundFXT Dashboard">Fund<span>FXT</span></a>
+        <span class="terminal-label">TRADING TERMINAL</span>
+      </div>
+      <div class="account-strip" id="accountStrip">
+        <button class="account-button" id="accountMenuBtn" type="button" aria-expanded="false">
+          <span class="account-icon">◉</span>
+          <span class="account-meta"><b id="rightAccount">Loading account…</b><small id="accountPhase">—</small></span>
+        </button>
+        <div class="market-status" id="market">● OFFLINE</div>
+        <button class="icon-button" id="terminalLogoutBtn" type="button" aria-label="Exit terminal" title="Exit terminal">⏻</button>
+      </div>
+    </header>
+
+    <main class="terminal-workspace" id="terminalWorkspace">
+      <section class="chart-panel" id="center" aria-label="Price chart">
+        <div class="chart-toolbar">
+          <div class="chart-symbol"><strong id="selectedSymbol">EURUSD</strong><span id="chartQuoteStatus">LIVE</span></div>
+          <div class="chart-actions">
+            <button type="button" class="chart-action" id="chartFocusBtn" title="Focus chart">⛶</button>
+          </div>
+        </div>
+        <div class="chart-stage" id="chartStage">
+          <div class="chart-loading" id="chartLoading"><span></span><b>Loading market chart…</b></div>
+          <iframe id="tvChart" title="FundFXT market chart" loading="eager" allowfullscreen></iframe>
+        </div>
+      </section>
+
+      <aside class="right-rail" id="right" aria-label="Trading controls">
+        <div class="right-tabs" role="tablist" aria-label="Trading terminal sections">
+          <button class="right-section-tab active" data-section="pairs" type="button" role="tab">Pairs</button>
+          <button class="right-section-tab" data-section="orders" type="button" role="tab">Orders</button>
+          <button class="right-section-tab" data-section="trades" type="button" role="tab">Trades</button>
+          <button class="rail-collapse" id="rightCollapseBtn" type="button" aria-label="Collapse panel">›</button>
+        </div>
+
+        <section class="terminal-section active" id="terminalPairs" data-terminal-section="pairs">
+          <div class="section-heading"><div><b>Market Watch</b><small>Live spreads & quotes</small></div><button id="addPairBtn" type="button">＋</button></div>
+          <div class="pair-search"><input id="search" type="search" placeholder="Search pair…" autocomplete="off"></div>
+          <div class="quote-head"><span>PAIR</span><span>SPREAD</span><span>ASK</span><span>BID</span><span>CHG</span></div>
+          <div class="watchlist" id="watchlist"></div>
+        </section>
+
+        <section class="terminal-section" id="terminalOrders" data-terminal-section="orders" hidden>
+          <div class="section-heading"><div><b>Order Execution</b><small id="executionSymbol">EURUSD</small></div></div>
+          <div class="execution-card">
+            <label>Order Type<select id="orderType"><option value="MARKET">Market</option><option value="BUY_LIMIT">Buy Limit</option><option value="SELL_LIMIT">Sell Limit</option><option value="BUY_STOP">Buy Stop</option><option value="SELL_STOP">Sell Stop</option></select></label>
+            <label>Volume<input id="volume" type="number" min="0.01" step="0.01" value="0.10"></label>
+            <div id="pendingFields" class="pending-fields" hidden><label>Entry Price<input id="entry" type="number" step="any"></label></div>
+            <div class="sl-tp-grid"><label>Stop Loss<input id="sl" type="number" step="any" placeholder="Optional"></label><label>Take Profit<input id="tp" type="number" step="any" placeholder="Optional"></label></div>
+            <div class="execution-actions"><button id="sell" class="sell-btn" type="button">SELL <span>Bid</span></button><button id="buy" class="buy-btn" type="button">BUY <span>Ask</span></button></div>
+            <div id="tradeFeedback" class="trade-feedback" aria-live="polite"></div>
+          </div>
+          <div class="subheading"><b>Open Orders</b><span id="pendingCount">0</span></div>
+          <div id="pendingOrderScroll" class="scroll-list"></div>
+        </section>
+
+        <section class="terminal-section" id="terminalTrades" data-terminal-section="trades" hidden>
+          <div class="section-heading"><div><b>Trades</b><small>Positions & history</small></div></div>
+          <div class="trade-tabs" role="tablist"><button class="trade-tab active" data-trade-tab="open" type="button">Open</button><button class="trade-tab" data-trade-tab="pending" type="button">Pending</button><button class="trade-tab" data-trade-tab="history" type="button">History</button></div>
+          <div id="tradeScroll" class="trade-scroll"></div>
+        </section>
+      </aside>
+    </main>
+
+    <nav class="mobile-terminal-nav" aria-label="Terminal navigation">
+      <button class="mobile-nav-item active" data-mobile-section="pairs" type="button"><span>⌘</span><b>Pairs</b></button>
+      <button class="mobile-nav-item" data-mobile-section="chart" type="button"><span>⌁</span><b>Chart</b></button>
+      <button class="mobile-nav-item" data-mobile-section="trades" type="button"><span>◫</span><b>Trades</b></button>
+    </nav>
+  </div>
+
+  <script src="/js/trading-terminal.js?v=20260910"></script>
+  <script src="/js/trading-terminal-pairs.js?v=20260910"></script>
+  <script src="/js/trading-terminal-pending.js?v=20260910"></script>
+  <script src="/js/trading-terminal-fixes.js?v=20260910"></script>
+  <script src="/js/trading-terminal-modify.js?v=20260910"></script>
+</body>
+</html>
