@@ -606,8 +606,7 @@ app.post("/api/admin/login", async (req, res) => {
   }
 });
 
-function authenticateAdmin, 
-  async (req, res, next) {
+function authenticateAdmin(req, res, next) {
   const token = req.headers["authorization"]?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No admin token" });
   jwt.verify(token, process.env.JWT_SECRET || "secret", (err, decoded) => {
@@ -724,8 +723,10 @@ app.post(
         );
         if (affiliateRows.length > 0) {
           const affiliate = affiliateRows[0];
+          const commissionRateBps = 2000; // 20%
+          const fixedBonusCents = 100; // $1.00
           const commissionCents = Math.floor(
-            order.final_amount_cents * 0.2 + 100,
+            order.final_amount_cents * commissionRateBps / 10000 + fixedBonusCents,
           );
           const [existingComm] = await connection.execute(
             "SELECT id FROM affiliate_commissions WHERE order_id = ? LIMIT 1",
@@ -733,19 +734,32 @@ app.post(
           );
           if (existingComm.length === 0) {
             await connection.execute(
-              `INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status) 
-                         VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+              `INSERT INTO affiliate_commissions (
+                affiliate_id, order_id, referred_user_id, model,
+                commission_amount_cents, original_amount_cents,
+                discount_amount_cents, final_amount_cents, commission_rate_bps,
+                fixed_bonus_cents, paid_amount_cents, status
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 'PENDING')`,
               [
                 affiliate.affiliate_id,
                 id,
                 order.user_id,
                 order.model,
                 commissionCents,
+                order.original_amount_cents || 0,
+                order.discount_amount_cents || 0,
+                order.final_amount_cents || 0,
+                commissionRateBps,
+                fixedBonusCents,
               ],
             );
             await connection.execute(
-              `UPDATE affiliates SET total_sales = total_sales + 1, pending_earnings_cents = pending_earnings_cents + ? WHERE id = ?`,
-              [commissionCents, affiliate.affiliate_id],
+              `UPDATE affiliates
+               SET total_sales = total_sales + 1,
+                   total_earnings_cents = COALESCE(total_earnings_cents, 0) + ?,
+                   pending_earnings_cents = COALESCE(pending_earnings_cents, 0) + ?
+               WHERE id = ?`,
+              [commissionCents, commissionCents, affiliate.affiliate_id],
             );
           }
         }
@@ -1494,9 +1508,17 @@ app.post("/api/trade/execute", authenticateToken, async (req, res) => {
 });
 // ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
-const server = app.listen(PORT, () =>
-  console.log(`🚀 Server running on port ${PORT}`),
-);
+let server;
+(async () => {
+  try {
+    await ensureAffiliateSchema();
+  } catch (migrationError) {
+    console.error('Affiliate schema repair failed:', migrationError.message);
+  }
+  server = app.listen(PORT, () =>
+    console.log(`🚀 Server running on port ${PORT}`),
+  );
+})();
 const wss = new WebSocket.Server({ server, path: "/ws" });
 
 setInterval(() => {
@@ -1706,53 +1728,6 @@ app.post(
     }
   },
 );
-      if (!orders.length)
-        return res.status(404).json({ error: "Order not found" });
-      const order = orders[0];
-
-      const [configs] = await db.execute(
-        "SELECT * FROM challenge_configs WHERE model_key = ?",
-        [order.model],
-      );
-      if (!configs.length)
-        return res.status(404).json({ error: "Challenge config not found" });
-      const config = configs[0];
-
-      // Generate unique Account Code
-      const accountCode =
-        "ACC-" +
-        Date.now().toString(36).toUpperCase() +
-        "-" +
-        crypto.randomBytes(3).toString("hex").toUpperCase();
-
-      // Create the Trading Account
-      await db.execute(
-        `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, status)
-             VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
-        [
-          accountCode,
-          order.user_id,
-          order.model,
-          config.starting_balance_cents,
-          config.starting_balance_cents,
-          config.starting_balance_cents,
-        ],
-      );
-
-      // Update Payment Order Status
-      await db.execute(
-        "UPDATE payment_orders SET status = 'ACCOUNT_CREATED', account_code = ? WHERE id = ?",
-        [accountCode, id],
-      );
-
-      res.json({ success: true, account_code: accountCode });
-    } catch (error) {
-      console.error("Create account error:", error);
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
-
 // ---------- GET USER ORDERS (Example) ----------
 // GET User's Orders
 app.get("/api/orders", authenticateToken, async (req, res) => {
@@ -2382,6 +2357,66 @@ async function getPaymentMode() {
   }
   return "MANUAL"; // default
 }
+
+// ========== AFFILIATE SCHEMA SELF-HEAL ==========
+async function ensureAffiliateSchema() {
+  const addColumnIfMissing = async (table, column, definition) => {
+    const [rows] = await db.execute(
+      `SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.COLUMNS
+       WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?`,
+      [table, column],
+    );
+    if (!Number(rows[0]?.n)) {
+      await db.execute(`ALTER TABLE \`${table}\` ADD COLUMN \`${column}\` ${definition}`);
+    }
+  };
+
+  await addColumnIfMissing('affiliates', 'total_earnings_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliates', 'pending_earnings_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliates', 'paid_earnings_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliate_commissions', 'original_amount_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliate_commissions', 'discount_amount_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliate_commissions', 'final_amount_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliate_commissions', 'commission_rate_bps', 'INT NOT NULL DEFAULT 2000');
+  await addColumnIfMissing('affiliate_commissions', 'fixed_bonus_cents', 'BIGINT NOT NULL DEFAULT 100');
+  await addColumnIfMissing('affiliate_commissions', 'paid_amount_cents', 'BIGINT NOT NULL DEFAULT 0');
+  await addColumnIfMissing('affiliate_commissions', 'paid_at', 'DATETIME NULL');
+
+  await db.execute(
+    `UPDATE affiliate_commissions
+     SET paid_amount_cents = commission_amount_cents, paid_at = COALESCE(paid_at, created_at)
+     WHERE status = 'PAID' AND COALESCE(paid_amount_cents, 0) = 0`
+  );
+
+  await db.execute(
+    `UPDATE affiliate_commissions ac
+     JOIN payment_orders po ON po.id = ac.order_id
+     SET ac.original_amount_cents = COALESCE(po.original_amount_cents, 0),
+         ac.discount_amount_cents = COALESCE(po.discount_amount_cents, 0),
+         ac.final_amount_cents = COALESCE(po.final_amount_cents, 0)
+     WHERE COALESCE(ac.final_amount_cents, 0) = 0`
+  );
+
+  await db.execute(
+    `UPDATE affiliates a
+     LEFT JOIN (
+       SELECT affiliate_id,
+              COUNT(*) AS sales,
+              COALESCE(SUM(commission_amount_cents), 0) AS total_earnings,
+              COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents, 0), 0)), 0) AS pending_earnings,
+              COALESCE(SUM(COALESCE(paid_amount_cents, 0)), 0) AS paid_earnings
+       FROM affiliate_commissions
+       GROUP BY affiliate_id
+     ) c ON c.affiliate_id = a.id
+     SET a.total_sales = COALESCE(c.sales, 0),
+         a.total_earnings_cents = COALESCE(c.total_earnings, 0),
+         a.pending_earnings_cents = COALESCE(c.pending_earnings, 0),
+         a.paid_earnings_cents = COALESCE(c.paid_earnings, 0)`
+  );
+
+  console.log('Affiliate schema/ledger repair completed');
+}
+
 // ========== AFFILIATE STATS (Frontend Dashboard) ==========
 app.get("/api/affiliate/stats", authenticateToken, async (req, res) => {
   try {
@@ -2480,11 +2515,20 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
         ac.id,
         po.request_id AS order_ref,
         ac.model,
+        po.original_amount_cents,
+        po.discount_amount_cents,
+        po.final_amount_cents,
         po.paid_amount_cents,
         ac.commission_amount_cents AS commission_cents,
+        COALESCE(ac.paid_amount_cents, 0) AS paid_commission_cents,
+        ac.commission_rate_bps,
+        ac.fixed_bonus_cents,
         ac.status,
+        ac.paid_at,
         ac.created_at,
-        u.legal_name AS customer_name
+        u.legal_name AS customer_name,
+        u.email AS customer_email,
+        po.affiliate_code
        FROM affiliate_commissions ac
        LEFT JOIN payment_orders po ON po.id = ac.order_id
        LEFT JOIN users u ON u.id = ac.referred_user_id
@@ -2494,12 +2538,18 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
       [affiliate.id]
     );
 
-    const totalEarnings = commissions.reduce(
-      (sum, c) => sum + Number(c.commission_cents || 0), 0
+    const [commissionTotals] = await db.execute(
+      `SELECT
+        COALESCE(SUM(commission_amount_cents), 0) AS total_earnings_cents,
+        COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents, 0), 0)), 0) AS pending_earnings_cents,
+        COALESCE(SUM(COALESCE(paid_amount_cents, 0)), 0) AS paid_earnings_cents
+       FROM affiliate_commissions
+       WHERE affiliate_id = ?`,
+      [affiliate.id]
     );
-    const pendingEarnings = commissions
-      .filter(c => String(c.status).toUpperCase() === 'PENDING')
-      .reduce((sum, c) => sum + Number(c.commission_cents || 0), 0);
+    const totalEarnings = Number(commissionTotals[0]?.total_earnings_cents || 0);
+    const pendingEarnings = Number(commissionTotals[0]?.pending_earnings_cents || 0);
+    const paidEarnings = Number(commissionTotals[0]?.paid_earnings_cents || 0);
 
     res.json({
       success: true,
@@ -2508,6 +2558,8 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
       verified_sales: commissions.length,
       total_earnings_cents: totalEarnings,
       available_earnings_cents: pendingEarnings,
+      pending_earnings_cents: pendingEarnings,
+      paid_earnings_cents: paidEarnings,
       commissions: commissions
     });
   } catch (error) {
@@ -2647,18 +2699,44 @@ app.post(
         [status, id],
       );
 
-      // If PAID, mark associated commissions as PAID
+      // If PAID, allocate this payout against the oldest unpaid commission balances.
       if (status === "PAID") {
-        await db.execute(
-          `UPDATE affiliate_commissions SET status = 'PAID' 
-                 WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?) 
-                 AND status = 'PENDING'`,
+        let remaining = Number(payout.amount_cents || 0);
+        const [pendingCommissions] = await db.execute(
+          `SELECT id, commission_amount_cents, COALESCE(paid_amount_cents, 0) AS paid_amount_cents
+           FROM affiliate_commissions
+           WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?)
+             AND status IN ('PENDING', 'PARTIALLY_PAID')
+           ORDER BY created_at ASC, id ASC`,
           [payout.user_id],
         );
-        // Update affiliate paid earnings
+
+        for (const commission of pendingCommissions) {
+          if (remaining <= 0) break;
+          const outstanding = Math.max(
+            0,
+            Number(commission.commission_amount_cents || 0) -
+              Number(commission.paid_amount_cents || 0),
+          );
+          if (!outstanding) continue;
+          const allocation = Math.min(remaining, outstanding);
+          const newPaid = Number(commission.paid_amount_cents || 0) + allocation;
+          const newStatus = newPaid >= Number(commission.commission_amount_cents || 0)
+            ? 'PAID'
+            : 'PARTIALLY_PAID';
+
+          await db.execute(
+            `UPDATE affiliate_commissions
+             SET paid_amount_cents = ?, status = ?, paid_at = CASE WHEN ? = 'PAID' THEN NOW() ELSE paid_at END
+             WHERE id = ?`,
+            [newPaid, newStatus, newStatus, commission.id],
+          );
+          remaining -= allocation;
+        }
+
         await db.execute(
-          `UPDATE affiliates SET paid_earnings_cents = paid_earnings_cents + ? WHERE user_id = ?`,
-          [payout.amount_cents, payout.user_id],
+          `UPDATE affiliates SET paid_earnings_cents = COALESCE(paid_earnings_cents, 0) + ? WHERE user_id = ?`,
+          [Number(payout.amount_cents || 0) - remaining, payout.user_id],
         );
       }
       // If REJECTED, refund pending earnings
