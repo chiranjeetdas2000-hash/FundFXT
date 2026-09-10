@@ -1,7 +1,31 @@
 from pathlib import Path
+import re
 
 FILE = Path('backend/server.js')
 src = FILE.read_text(encoding='utf-8')
+
+# The previous automated repair accidentally left a second, orphaned account-creation
+# fragment after the /api/admin/payment-orders/:id/create-account route. Remove only
+# that exact fragment so Node can parse the backend again.
+orphan_pattern = re.compile(
+    r'\n\s*if \(!orders\.length\)\n'
+    r'\s*return res\.status\(404\)\.json\(\{ error: "Order not found" \}\);\n'
+    r'\s*const order = orders\[0\];\n'
+    r'\s*const \[configs\] = await db\.execute\(\n'
+    r'\s*"SELECT \* FROM challenge_configs WHERE model_key = \?",\n'
+    r'\s*\[order\.model\],\n'
+    r'\s*\);\n'
+    r'\s*if \(!configs\.length\)\n'
+    r'\s*return res\.status\(404\)\.json\(\{ error: "Challenge config not found" \}\);\n'
+    r'\s*const config = configs\[0\];\n'
+    r'.*?'
+    r'\n// ---------- GET USER ORDERS \(Example\) ----------',
+    re.DOTALL,
+)
+cleaned, removed = orphan_pattern.subn('\n// ---------- GET USER ORDERS (Example) ----------', src, count=1)
+if removed:
+    src = cleaned
+    print('Removed orphaned account-creation block.')
 
 
 def replace_once(label, old, new):
