@@ -1,6 +1,6 @@
 {
   "rewrites": [
-    { "source": "/", "destination": "/frontend/index-v2.html" },
+    { "source": "/", "destination": "/frontend/index.html" },
     { "source": "/auth.html", "destination": "/frontend/auth-v2.html" },
     { "source": "/Auth.html", "destination": "/frontend/auth-v2.html" },
     { "source": "/dashboard.html", "destination": "/frontend/dashboard-v3.html" },
