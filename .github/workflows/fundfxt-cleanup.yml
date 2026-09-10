@@ -1,0 +1,112 @@
+name: FundFXT Architecture Cleanup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Refactor files
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+
+          const admin = path.join('frontend', 'admin');
+          const htmlPath = path.join(admin, 'index.html');
+          let html = fs.readFileSync(htmlPath, 'utf8');
+
+          const styleMatch = html.match(/<style>([\s\S]*?)<\/style>/i);
+          const scriptMatch = html.match(/<script>([\s\S]*?)<\/script>/i);
+
+          if (!styleMatch || !scriptMatch) {
+              throw new Error('Admin index.html does not contain the expected inline style/script blocks.');
+          }
+
+          fs.writeFileSync(path.join(admin, 'index.css'), styleMatch[1].trim() + '\n');
+          fs.writeFileSync(path.join(admin, 'index.js'), scriptMatch[1].trim() + '\n');
+
+          html = html.replace(styleMatch[0], '<link rel="stylesheet" href="index.css">');
+          html = html.replace(scriptMatch[0], '<script src="index.js" defer></script>');
+          fs.writeFileSync(htmlPath, html);
+
+          const serverPath = path.join('backend', 'server.js');
+          let server = fs.readFileSync(serverPath, 'utf8');
+
+          // Remove the old automatic Razorpay verification block and the duplicate
+          // payment-request implementation. The platform uses the manual-link flow.
+          server = server.replace(
+              /\/\/ ========== RAZORPAY PAYMENT VERIFY ==========[\s\S]*?\/\/ ========== ADMIN AUTH \(UNCHANGED\) ==========\n/,
+              `// ========== PAYMENT REQUEST ==========\n\napp.post('/api/payments/request', authenticateToken, async (req, res) => {\n    const { model, affiliate_code } = req.body || {};\n\n    try {\n        const pricing = await calculateServerPrice(model, affiliate_code);\n        const [users] = await db.execute(\n            'SELECT id, legal_name, email, phone FROM users WHERE id = ? LIMIT 1',\n            [req.userId]\n        );\n\n        if (!users.length) {\n            return res.status(404).json({ error: 'User not found' });\n        }\n\n        const user = users[0];\n        const requestId = generateRequestRef();\n        const affiliateId = pricing.affiliate_user_id || null;\n\n        await db.execute(\n            \`INSERT INTO payment_orders (\n                request_id,\n                user_id,\n                provider,\n                razorpay_link,\n                model,\n                affiliate_code,\n                affiliate_id,\n                original_amount_cents,\n                discount_amount_cents,\n                final_amount_cents,\n                paid_amount_cents,\n                currency,\n                status,\n                created_at,\n                updated_at\n            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())\`,\n            [\n                requestId,\n                user.id,\n                'RAZORPAY',\n                null,\n                pricing.model,\n                pricing.affiliateApplied ? affiliate_code : null,\n                affiliateId,\n                pricing.originalAmountCents,\n                pricing.discountAmountCents,\n                pricing.finalAmountCents,\n                0,\n                pricing.currency,\n                'REQUESTED'\n            ]\n        );\n\n        const html = \`\n            <h2 style="color:#00b56a">New FundFXT Payment Request</h2>\n            <p><strong>Request ID:</strong> \${requestId}</p>\n            <p><strong>Name:</strong> \${user.legal_name}</p>\n            <p><strong>Email:</strong> \${user.email}</p>\n            <p><strong>Challenge:</strong> \${pricing.model}</p>\n            <p><strong>Original:</strong> \${(pricing.originalAmountCents / 100).toFixed(2)} \${pricing.currency}</p>\n            <p><strong>Discount:</strong> \${(pricing.discountAmountCents / 100).toFixed(2)} \${pricing.currency}</p>\n            <p><strong>Payable:</strong> \${(pricing.finalAmountCents / 100).toFixed(2)} \${pricing.currency}</p>\n            <p><strong>Affiliate:</strong> \${affiliate_code || 'None'}</p>\n            <p>Please create and send a Razorpay Payment Link to the customer.</p>\n        \`;\n\n        await sendEmail(\n            'support.fundfxt@gmail.com',\n            \`FundFXT Payment Request \${requestId}\`,\n            html\n        ).catch(error => console.error('Payment request email failed:', error.message));\n\n        return res.json({\n            success: true,\n            request_id: requestId,\n            request_ref: requestId,\n            status: 'REQUESTED',\n            manual_payment: true,\n            pricing\n        });\n    } catch (error) {\n        console.error('Payment request error:', error);\n        return res.status(500).json({ error: error.message });\n    }\n});\n\n// ========== ADMIN AUTH ==========\n`);
+
+          // Canonical names throughout the active backend.
+          server = server.replace(/\border_ref\b/g, 'request_id');
+          server = server.replace(/\bpayment_link\b/g, 'razorpay_link');
+          server = server.replace(/\bpayout_requests\b/g, 'withdrawal_request');
+          server = server.replace(/"LINK_SENT"/g, "'LINK_SENT'");
+
+          // Remove the duplicate dashboard payment-request endpoint.
+          server = server.replace(
+              /\/\/ Get payment requests \(for dashboard\)[\s\S]*?\n\/\/ Reject payment request\n[\s\S]*?\n\/\/ Mark link sent\n[\s\S]*?\n\}\);\n\n\/\/ Get withdrawals/, 
+              '// Get withdrawals'
+          );
+
+          // Remove the old automatic Razorpay order fields/verification route if any
+          // remnants survived the block replacement.
+          server = server.replace(/\bprovider_order_id\b/g, 'razorpay_provider_reference');
+          server = server.replace(/\bprovider_payment_id\b/g, 'razorpay_payment_reference');
+
+          // The canonical admin list should expose only the canonical payment link.
+          server = server.replace(
+              /po\.razorpay_link AS razorpay_link/g,
+              'po.razorpay_link'
+          );
+
+          // Fix MySQL ANSI_QUOTES-sensitive literals in all active SQL.
+          server = server.replace(/"(REQUESTED|PAYMENT_PENDING|PAYMENT_DONE|PAYMENT_APPROVED|REJECTED|CANCELLED|ACCOUNT_CREATED|LINK_SENT)"/g, "'$1'");
+
+          fs.writeFileSync(serverPath, server);
+
+          // The backend must have one entrypoint only.
+          const packagePath = 'package.json';
+          const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
+          pkg.scripts = pkg.scripts || {};
+          pkg.scripts.start = 'node backend/server.js';
+          pkg.scripts.test = 'node --check backend/server.js && node --check frontend/admin/index.js';
+          fs.writeFileSync(packagePath, JSON.stringify(pkg, null, 2) + '\n');
+
+          console.log('Admin HTML/CSS/JS split complete.');
+          console.log('Backend entrypoint normalized to backend/server.js.');
+          NODE
+
+      - name: Validate JavaScript
+        run: |
+          node --check backend/server.js
+          node --check frontend/admin/index.js
+
+      - name: Commit cleanup
+        run: |
+          git config user.name "FundFXT Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add frontend/admin/index.html frontend/admin/index.css frontend/admin/index.js backend/server.js package.json
+          git rm -f backend/boot.js backend/start.js || true
+          git add -A
+          git commit -m "refactor: one admin JS CSS and one backend server" || exit 0
+          git push
+
+      - name: Remove temporary workflow
+        if: always()
+        run: |
+          git config user.name "FundFXT Bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm -f .github/workflows/fundfxt-cleanup.yml || true
+          git commit -m "chore: remove temporary cleanup workflow" || true
+          git push || true
