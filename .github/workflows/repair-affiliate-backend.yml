@@ -9,7 +9,7 @@ permissions:
 
 jobs:
   repair:
-    if: "${{ !contains(github.event.head_commit.message, 'Apply affiliate backend repair') }}"
+    if: "${{ !contains(github.event.head_commit.message, 'Apply affiliate backend repair') && !contains(github.event.head_commit.message, 'Fix WebSocket startup') }}"
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,6 +22,9 @@ jobs:
 
       - name: Apply affiliate backend repair
         run: python3 scripts/repair-affiliate.py
+
+      - name: Fix WebSocket startup ordering
+        run: python3 scripts/fix-websocket-startup.py
 
       - name: Validate backend syntax
         run: node --check backend/server.js
