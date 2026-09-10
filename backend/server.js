@@ -1537,11 +1537,174 @@ app.post(
   authenticateAdmin,
   async (req, res) => {
     const { id } = req.params;
+    const connection = await db.getConnection();
+
     try {
-      const [orders] = await db.execute(
-        "SELECT * FROM payment_orders WHERE id = ?",
+      await connection.beginTransaction();
+
+      // Lock the payment order so two admin requests
+      // cannot create two accounts simultaneously.
+      const [orders] = await connection.execute(
+        "SELECT * FROM payment_orders WHERE id = ? FOR UPDATE",
         [id],
       );
+
+      if (!orders.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Order not found" });
+      }
+
+      const order = orders[0];
+
+      // Duplicate account protection.
+      if (order.status === "ACCOUNT_CREATED") {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Account already created",
+          account_code: order.account_code || null,
+        });
+      }
+
+      // Account should only be created after payment is done.
+      if (order.status !== "PAYMENT_DONE") {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Account can only be created after PAYMENT_DONE",
+        });
+      }
+
+      const [configs] = await connection.execute(
+        "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
+        [order.model],
+      );
+
+      if (!configs.length) {
+        throw new Error("Challenge config not found");
+      }
+
+      const config = configs[0];
+
+      const accountCode =
+        "ACC-" +
+        Date.now().toString(36).toUpperCase() +
+        "-" +
+        crypto.randomBytes(3).toString("hex").toUpperCase();
+
+      await connection.execute(
+        `INSERT INTO accounts (
+          account_code,
+          user_id,
+          challenge_model,
+          phase,
+          initial_balance_cents,
+          balance_cents,
+          equity_cents,
+          status
+        )
+        VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
+        [
+          accountCode,
+          order.user_id,
+          order.model,
+          config.starting_balance_cents,
+          config.starting_balance_cents,
+          config.starting_balance_cents,
+        ],
+      );
+
+      await connection.execute(
+        `UPDATE payment_orders
+         SET status = 'ACCOUNT_CREATED',
+             account_code = ?,
+             updated_at = NOW()
+         WHERE id = ?`,
+        [accountCode, id],
+      );
+
+      // Affiliate commission
+      if (order.affiliate_code) {
+        const [affiliateRows] = await connection.execute(
+          `SELECT
+             a.id AS affiliate_id,
+             a.user_id
+           FROM affiliates a
+           JOIN users u ON u.id = a.user_id
+           WHERE u.affiliate_code = ?
+           LIMIT 1`,
+          [order.affiliate_code],
+        );
+
+        if (affiliateRows.length > 0) {
+          const affiliate = affiliateRows[0];
+
+          const commissionCents = Math.floor(
+            order.final_amount_cents * 0.2 + 100,
+          );
+
+          const [existingCommission] = await connection.execute(
+            `SELECT id
+             FROM affiliate_commissions
+             WHERE order_id = ?
+             LIMIT 1`,
+            [id],
+          );
+
+          if (existingCommission.length === 0) {
+            await connection.execute(
+              `INSERT INTO affiliate_commissions (
+                affiliate_id,
+                order_id,
+                referred_user_id,
+                model,
+                commission_amount_cents,
+                status
+              )
+              VALUES (?, ?, ?, ?, ?, 'PENDING')`,
+              [
+                affiliate.affiliate_id,
+                id,
+                order.user_id,
+                order.model,
+                commissionCents,
+              ],
+            );
+
+            await connection.execute(
+              `UPDATE affiliates
+               SET total_sales = total_sales + 1,
+                   pending_earnings_cents =
+                     pending_earnings_cents + ?
+               WHERE id = ?`,
+              [commissionCents, affiliate.affiliate_id],
+            );
+
+            console.log(
+              `Affiliate commission added: order=${id}, affiliate=${affiliate.affiliate_id}, amount=${commissionCents} cents`,
+            );
+          }
+        }
+      }
+
+      await connection.commit();
+
+      return res.json({
+        success: true,
+        account_code: accountCode,
+        status: "ACCOUNT_CREATED",
+      });
+    } catch (error) {
+      await connection.rollback();
+
+      console.error("Create account transaction failed:", error);
+
+      return res.status(500).json({
+        error: error.message,
+      });
+    } finally {
+      connection.release();
+    }
+  },
+);
       if (!orders.length)
         return res.status(404).json({ error: "Order not found" });
       const order = orders[0];
