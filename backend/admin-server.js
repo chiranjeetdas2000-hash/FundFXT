@@ -5,7 +5,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const app = express();
-const PORT = Number(process.env.ADMIN_SERVER_PORT || 10001);
+const PORT = Number(process.env.PORT || process.env.ADMIN_SERVER_PORT || 10001);
 app.use(express.json({ limit: '2mb' }));
 app.use(cors());
 
@@ -25,8 +25,6 @@ function authenticateAdmin(req, res, next) {
   if (!token) return res.status(401).json({ error: 'Admin token required' });
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Keep this isolated from normal user authentication. Existing FundFXT
-    // admin JWTs may expose admin/admin_id/role depending on the current panel.
     if (!(decoded.isAdmin || decoded.admin || decoded.role === 'ADMIN' || decoded.role === 'SUPER_ADMIN' || decoded.adminId || decoded.admin_id)) {
       return res.status(403).json({ error: 'Admin access required' });
     }
@@ -141,7 +139,6 @@ app.delete('/api/admin/db/tables/:table/rows', async (req, res) => {
   } catch (e) { res.status(400).json({ error: e.message }); }
 });
 
-// Read-only SQL by default. Write SQL requires an explicit destructive/write confirmation.
 app.post('/api/admin/db/query', async (req, res) => {
   try {
     const sql = String(req.body?.sql || '').trim();
