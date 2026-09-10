@@ -1,1 +1,520 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FundFXT | Affiliate Center</title><link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet"><style>:root{--bg:#070a0d;--card:#0f151a;--line:#26333c;--green:#00b56a;--muted:#8996a2;--red:#ff4d5a}*{box-sizing:border-box}body{margin:0;background:radial-gradient(circle at 20% 0,rgba(0,181,106,.1),transparent 30%),var(--bg);color:#fff;font-family:Poppins,sans-serif}.top{height:68px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid var(--line);background:#070a0de8;position:sticky;top:0}.logo{font-size:21px;font-weight:800}.logo b{color:var(--green)}.btn{border:1px solid var(--line);background:var(--card);color:#fff;border-radius:9px;padding:9px 13px;font-size:10px;font-weight:700;cursor:pointer;text-decoration:none}.primary{background:var(--green);border-color:var(--green);color:#06100b}.wrap{width:min(1180px,calc(100% - 28px));margin:auto;padding:35px 0}.hero{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.card{background:linear-gradient(145deg,var(--card),#0b1014);border:1px solid var(--line);border-radius:18px;padding:24px}.hero-card{min-height:225px;position:relative;overflow:hidden}.hero-card img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.14}.hero-card>*:not(img){position:relative}.eyebrow{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--green)}h1{font-size:34px;margin:8px 0}h2{font-size:15px}.code-label{font-size:9px;color:var(--muted);margin-top:20px}.code-row{display:flex;align-items:center;gap:9px;margin-top:5px}.code{font-size:24px;font-weight:800;color:var(--green);word-break:break-all}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:13px}.stat{padding:15px;background:#0b1115;border:1px solid var(--line);border-radius:12px}.stat span{font-size:9px;color:var(--muted)}.stat b{display:block;font-size:19px;margin-top:4px}.lower{display:grid;grid-template-columns:1.2fr .8fr;gap:13px;margin-top:13px}.table-wrap{overflow:auto}.table{width:100%;min-width:600px;border-collapse:collapse;font-size:9px}.table th,.table td{padding:10px 7px;border-bottom:1px solid var(--line);white-space:nowrap;text-align:left}.table th{color:var(--muted)}input{width:100%;padding:11px;background:#090d10;border:1px solid var(--line);border-radius:8px;color:#fff}.form{display:grid;gap:9px;margin-top:14px}.msg{font-size:9px;color:var(--muted)}@media(max-width:800px){.hero,.lower{grid-template-columns:1fr}.grid{grid-template-columns:1fr 1fr}}@media(max-width:450px){.wrap{padding:22px 0}.card{padding:18px}h1{font-size:28px}.code{font-size:19px}}</style></head><body><header class="top"><a class="btn" href="/dashboard.html">← Dashboard</a><div class="logo">Fund<b>FXT</b></div><a class="btn primary" href="/buy-challenge.html">Get Funded</a></header><main class="wrap"><div class="hero"><section class="card hero-card"><img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&q=80" alt="Finance"><span class="eyebrow">Affiliate center</span><h1>Grow your network.<br>Track your rewards.</h1><div class="code-label">Your Code</div><div class="code-row"><div id="code" class="code">Loading…</div><button id="copy" class="btn primary">Copy</button></div><div id="copyMsg" class="msg"></div></section><section class="card"><span class="eyebrow">Payout</span><h2>Commission withdrawal</h2><p style="color:var(--muted);font-size:10px">Minimum payout: $100. Available balance is backend-controlled.</p><div class="form"><input id="amount" type="number" min="100" step="0.01" placeholder="Amount (USD)"><button id="request" class="btn primary">Request payout</button><div id="msg" class="msg"></div></div></section></div><div class="grid"><div class="stat"><span>Referrals</span><b id="ref">0</b></div><div class="stat"><span>Verified sales</span><b id="sales">0</b></div><div class="stat"><span>Total earnings</span><b id="earn">$0.00</b></div><div class="stat"><span>Pending earnings</span><b id="pending">$0.00</b></div></div><section class="card lower"><div><span class="eyebrow">Activity</span><h2>Recent commissions</h2><div class="table-wrap"><table class="table"><thead><tr><th>Customer</th><th>Model</th><th>Paid</th><th>Commission</th><th>Status</th><th>Date</th></tr></thead><tbody id="rows"><tr><td colspan="6">Loading…</td></tr></tbody></table></div></div><div><span class="eyebrow">Referral tools</span><h2>Share FundFXT</h2><p style="color:var(--muted);font-size:10px;line-height:1.7">Use the code above when referring a trader. Pricing and discounts are resolved by the backend.</p></div></section></main><script>const API='https://fundfxt.onrender.com',token=localStorage.getItem('fundfxt_token');if(!token)location.href='/auth.html';const $=id=>document.getElementById(id),money=c=>'$'+(Number(c||0)/100).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}),esc=v=>String(v??'—').replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));async function api(p,o={}){const r=await fetch(API+p,{...o,headers:{Authorization:'Bearer '+token,'Content-Type':'application/json'}}),d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||'Request failed');return d}async function load(){try{const d=await api('/api/affiliate/dashboard').catch(()=>api('/api/affiliate/stats'));const code=d.affiliate_code||'Unavailable';$('code').textContent=code;$('copy').onclick=async()=>{try{await navigator.clipboard.writeText(code);$('copy').textContent='Copied';$('copyMsg').textContent='Affiliate code copied.';setTimeout(()=>{$('copy').textContent='Copy'},1500)}catch{$('copyMsg').textContent='Copy is unavailable on this browser.'}};$('ref').textContent=d.total_referrals||0;$('sales').textContent=d.verified_sales??d.total_sales??0;$('earn').textContent=money(d.total_earnings_cents);$('pending').textContent=money(d.available_earnings_cents??d.pending_earnings_cents);$('rows').innerHTML=d.commissions?.map(x=>`<tr><td>${esc(x.customer_name)}</td><td>${esc(x.model)}</td><td>${money(x.paid_amount_cents)}</td><td>${money(x.commission_cents)}</td><td>${esc(x.status)}</td><td>${x.created_at?new Date(x.created_at).toLocaleDateString():'—'}</td></tr>`).join('')||'<tr><td colspan="6">No commission records yet.</td></tr>'}catch(e){$('msg').textContent=e.message}}$('request').onclick=async()=>{const amount=Number($('amount').value);if(amount<100)return $('msg').textContent='Minimum payout is $100.';try{const d=await api('/api/affiliate/payout/request',{method:'POST',body:JSON.stringify({amount_cents:Math.round(amount*100)})});$('msg').textContent=d.success?'Payout requested: '+d.request_ref:(d.error||'Failed')}catch(e){$('msg').textContent=e.message}};load();</script></body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FundFXT | Affiliate Center</title>
+
+    <!-- Google Fonts: Poppins -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        /* ============================================================
+           THEME VARIABLES
+           ============================================================ */
+        :root {
+            --bg: #070a0d;
+            --card: #0f151a;
+            --line: #26333c;
+            --green: #00b56a;
+            --muted: #8996a2;
+            --red: #ff4d5a;
+        }
+
+        /* ============================================================
+           GLOBAL RESET & BASE
+           ============================================================ */
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: radial-gradient(circle at 20% 0, rgba(0, 181, 106, 0.1), transparent 30%), var(--bg);
+            color: #fff;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        /* ============================================================
+           TOP HEADER
+           ============================================================ */
+        .top {
+            height: 68px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 20px;
+            border-bottom: 1px solid var(--line);
+            background: #070a0de8;
+            position: sticky;
+            top: 0;
+        }
+
+        .logo {
+            font-size: 21px;
+            font-weight: 800;
+        }
+
+        .logo b {
+            color: var(--green);
+        }
+
+        /* ============================================================
+           BUTTONS
+           ============================================================ */
+        .btn {
+            border: 1px solid var(--line);
+            background: var(--card);
+            color: #fff;
+            border-radius: 9px;
+            padding: 9px 13px;
+            font-size: 10px;
+            font-weight: 700;
+            cursor: pointer;
+            text-decoration: none;
+        }
+
+        .primary {
+            background: var(--green);
+            border-color: var(--green);
+            color: #06100b;
+        }
+
+        /* ============================================================
+           MAIN WRAPPER
+           ============================================================ */
+        .wrap {
+            width: min(1180px, calc(100% - 28px));
+            margin: auto;
+            padding: 35px 0;
+        }
+
+        /* ============================================================
+           HERO SECTION (Two-column grid)
+           ============================================================ */
+        .hero {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 14px;
+        }
+
+        .card {
+            background: linear-gradient(145deg, var(--card), #0b1014);
+            border: 1px solid var(--line);
+            border-radius: 18px;
+            padding: 24px;
+        }
+
+        .hero-card {
+            min-height: 225px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-card img {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            opacity: 0.14;
+        }
+
+        .hero-card > *:not(img) {
+            position: relative;
+        }
+
+        .eyebrow {
+            font-size: 9px;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            color: var(--green);
+        }
+
+        h1 {
+            font-size: 34px;
+            margin: 8px 0;
+        }
+
+        h2 {
+            font-size: 15px;
+        }
+
+        /* ============================================================
+           AFFILIATE CODE DISPLAY
+           ============================================================ */
+        .code-label {
+            font-size: 9px;
+            color: var(--muted);
+            margin-top: 20px;
+        }
+
+        .code-row {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            margin-top: 5px;
+        }
+
+        .code {
+            font-size: 24px;
+            font-weight: 800;
+            color: var(--green);
+            word-break: break-all;
+        }
+
+        /* ============================================================
+           STATS GRID
+           ============================================================ */
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 10px;
+            margin-top: 13px;
+        }
+
+        .stat {
+            padding: 15px;
+            background: #0b1115;
+            border: 1px solid var(--line);
+            border-radius: 12px;
+        }
+
+        .stat span {
+            font-size: 9px;
+            color: var(--muted);
+        }
+
+        .stat b {
+            display: block;
+            font-size: 19px;
+            margin-top: 4px;
+        }
+
+        /* ============================================================
+           LOWER SECTION (Commissions + Referral tools)
+           ============================================================ */
+        .lower {
+            display: grid;
+            grid-template-columns: 1.2fr 0.8fr;
+            gap: 13px;
+            margin-top: 13px;
+        }
+
+        /* ============================================================
+           TABLES
+           ============================================================ */
+        .table-wrap {
+            overflow: auto;
+        }
+
+        .table {
+            width: 100%;
+            min-width: 600px;
+            border-collapse: collapse;
+            font-size: 9px;
+        }
+
+        .table th,
+        .table td {
+            padding: 10px 7px;
+            border-bottom: 1px solid var(--line);
+            white-space: nowrap;
+            text-align: left;
+        }
+
+        .table th {
+            color: var(--muted);
+        }
+
+        /* ============================================================
+           FORMS
+           ============================================================ */
+        input {
+            width: 100%;
+            padding: 11px;
+            background: #090d10;
+            border: 1px solid var(--line);
+            border-radius: 8px;
+            color: #fff;
+        }
+
+        .form {
+            display: grid;
+            gap: 9px;
+            margin-top: 14px;
+        }
+
+        .msg {
+            font-size: 9px;
+            color: var(--muted);
+        }
+
+        /* ============================================================
+           RESPONSIVE — TABLET (Max 800px)
+           ============================================================ */
+        @media (max-width: 800px) {
+            .hero,
+            .lower {
+                grid-template-columns: 1fr;
+            }
+            .grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        /* ============================================================
+           RESPONSIVE — MOBILE (Max 450px)
+           ============================================================ */
+        @media (max-width: 450px) {
+            .wrap {
+                padding: 22px 0;
+            }
+            .card {
+                padding: 18px;
+            }
+            h1 {
+                font-size: 28px;
+            }
+            .code {
+                font-size: 19px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<!-- ============================================================
+     TOP HEADER
+     ============================================================ -->
+<header class="top">
+    <a class="btn" href="/dashboard.html">← Dashboard</a>
+    <div class="logo">Fund<b>FXT</b></div>
+    <a class="btn primary" href="/buy-challenge.html">Get Funded</a>
+</header>
+
+
+<!-- ============================================================
+     MAIN CONTENT
+     ============================================================ -->
+<main class="wrap">
+
+    <!-- ============================================
+         HERO SECTION
+         ============================================ -->
+    <div class="hero">
+
+        <!-- Affiliate Code Card -->
+        <section class="card hero-card">
+            <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&q=80" alt="Finance">
+            <span class="eyebrow">Affiliate center</span>
+            <h1>Grow your network.<br>Track your rewards.</h1>
+
+            <div class="code-label">Your Code</div>
+            <div class="code-row">
+                <div id="code" class="code">Loading…</div>
+                <button id="copy" class="btn primary">Copy</button>
+            </div>
+            <div id="copyMsg" class="msg"></div>
+        </section>
+
+        <!-- Payout Request Card -->
+        <section class="card">
+            <span class="eyebrow">Payout</span>
+            <h2>Commission withdrawal</h2>
+            <p style="color: var(--muted); font-size: 10px;">
+                Minimum payout: $100. Available balance is backend-controlled.
+            </p>
+
+            <div class="form">
+                <input id="amount" type="number" min="100" step="0.01" placeholder="Amount (USD)">
+                <button id="request" class="btn primary">Request payout</button>
+                <div id="msg" class="msg"></div>
+            </div>
+        </section>
+    </div>
+
+
+    <!-- ============================================
+         STATS GRID
+         ============================================ -->
+    <div class="grid">
+        <div class="stat">
+            <span>Referrals</span>
+            <b id="ref">0</b>
+        </div>
+        <div class="stat">
+            <span>Verified sales</span>
+            <b id="sales">0</b>
+        </div>
+        <div class="stat">
+            <span>Total earnings</span>
+            <b id="earn">$0.00</b>
+        </div>
+        <div class="stat">
+            <span>Pending earnings</span>
+            <b id="pending">$0.00</b>
+        </div>
+    </div>
+
+
+    <!-- ============================================
+         LOWER SECTION — Commissions + Referral Tools
+         ============================================ -->
+    <section class="card lower">
+
+        <!-- Recent Commissions Table -->
+        <div>
+            <span class="eyebrow">Activity</span>
+            <h2>Recent commissions</h2>
+            <div class="table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Customer</th>
+                            <th>Model</th>
+                            <th>Paid</th>
+                            <th>Commission</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="rows">
+                        <tr><td colspan="6">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Referral Tools -->
+        <div>
+            <span class="eyebrow">Referral tools</span>
+            <h2>Share FundFXT</h2>
+            <p style="color: var(--muted); font-size: 10px; line-height: 1.7;">
+                Use the code above when referring a trader. Pricing and discounts are resolved by the backend.
+            </p>
+        </div>
+
+    </section>
+
+</main>
+
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+/* ------------------------------------------------------------
+   1. GLOBAL CONFIG & UTILITIES
+   ------------------------------------------------------------ */
+const API = 'https://fundfxt.onrender.com';
+const token = localStorage.getItem('fundfxt_token');
+if (!token) location.href = '/auth.html';
+
+const $ = (id) => document.getElementById(id);
+
+const money = (c) =>
+    '$' + (Number(c || 0) / 100).toLocaleString('en-US', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+
+const esc = (v) =>
+    String(v ?? '—').replace(/[&<>"']/g, (m) => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[m]));
+
+async function api(path, opt = {}) {
+    const r = await fetch(API + path, {
+        ...opt,
+        headers: {
+            Authorization: 'Bearer ' + token,
+            'Content-Type': 'application/json'
+        }
+    });
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw Error(d.error || 'Request failed');
+    return d;
+}
+
+
+/* ------------------------------------------------------------
+   2. LOAD AFFILIATE DASHBOARD
+   ------------------------------------------------------------ */
+async function load() {
+    try {
+        // Prefer rich dashboard data; fall back to basic stats
+        const d = await api('/api/affiliate/dashboard').catch(() => api('/api/affiliate/stats'));
+
+        const code = d.affiliate_code || 'Unavailable';
+        $('code').textContent = code;
+
+        // Copy button
+        $('copy').onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(code);
+                $('copy').textContent = 'Copied';
+                $('copyMsg').textContent = 'Affiliate code copied.';
+                setTimeout(() => {
+                    $('copy').textContent = 'Copy';
+                }, 1500);
+            } catch {
+                $('copyMsg').textContent = 'Copy is unavailable on this browser.';
+            }
+        };
+
+        // Stats
+        $('ref').textContent = d.total_referrals || 0;
+        $('sales').textContent = d.verified_sales ?? d.total_sales ?? 0;
+        $('earn').textContent = money(d.total_earnings_cents);
+        $('pending').textContent = money(d.available_earnings_cents ?? d.pending_earnings_cents);
+
+        // Commissions table
+        $('rows').innerHTML = d.commissions?.map((x) => `
+            <tr>
+                <td>${esc(x.customer_name)}</td>
+                <td>${esc(x.model)}</td>
+                <td>${money(x.paid_amount_cents)}</td>
+                <td>${money(x.commission_cents)}</td>
+                <td>${esc(x.status)}</td>
+                <td>${x.created_at ? new Date(x.created_at).toLocaleDateString() : '—'}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="6">No commission records yet.</td></tr>';
+    } catch (e) {
+        $('msg').textContent = e.message;
+    }
+}
+
+
+/* ------------------------------------------------------------
+   3. PAYOUT REQUEST HANDLER
+   ------------------------------------------------------------ */
+$('request').onclick = async () => {
+    const amount = Number($('amount').value);
+    if (amount < 100) return $('msg').textContent = 'Minimum payout is $100.';
+
+    try {
+        const d = await api('/api/affiliate/payout/request', {
+            method: 'POST',
+            body: JSON.stringify({ amount_cents: Math.round(amount * 100) })
+        });
+        $('msg').textContent = d.success ? 'Payout requested: ' + d.request_ref : (d.error || 'Failed');
+    } catch (e) {
+        $('msg').textContent = e.message;
+    }
+};
+
+
+/* ------------------------------------------------------------
+   4. INITIALIZE
+   ------------------------------------------------------------ */
+load();
+</script>
+
+</body>
+</html>
