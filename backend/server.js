@@ -57,7 +57,7 @@ async function sendEmail(to, subject, html) {
 
 
 // ========== AFFILIATE SALES LEDGER ==========
-// Public affiliate history contains only sale/request/payment data. Customer PII is never exposed.
+// Sale history is stored separately and contains no customer PII.
 async function ensureAffiliateSalesLedger() {
   try {
     await db.execute(`CREATE TABLE IF NOT EXISTS affiliate_sales (
@@ -79,7 +79,8 @@ async function ensureAffiliateSalesLedger() {
       KEY idx_affiliate_sales_affiliate (affiliate_id, created_at)
     )`);
 
-    // Backfill every historically valid affiliate sale from payment_orders.
+    // Rebuild missing historical affiliate sales from successful payments.
+    // IMPORTANT: affiliate_code identifies the referrer, not the buyer.
     await db.execute(`
       INSERT IGNORE INTO affiliate_sales
         (affiliate_id, order_id, request_id, affiliate_code, model,
@@ -87,52 +88,47 @@ async function ensureAffiliateSalesLedger() {
          commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at)
       SELECT
         a.id, po.id, po.request_id, po.affiliate_code, po.model,
-        COALESCE(po.original_amount_cents,0), COALESCE(po.discount_amount_cents,0), COALESCE(po.final_amount_cents,0),
+        COALESCE(po.original_amount_cents,0),
+        COALESCE(po.discount_amount_cents,0),
+        COALESCE(po.final_amount_cents,0),
         2000, 100,
         FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
         'PENDING', COALESCE(po.created_at, NOW())
       FROM payment_orders po
-      JOIN users u ON u.id = po.user_id
-      JOIN affiliates a ON a.user_id = u.id
+      JOIN affiliates a ON a.affiliate_code = po.affiliate_code
       WHERE po.affiliate_code IS NOT NULL
         AND TRIM(po.affiliate_code) <> ''
         AND po.status IN ('PAYMENT_DONE','PAYMENT_APPROVED')
-        AND u.affiliate_code = po.affiliate_code
     `);
 
-    // Backfill the commission ledger for the same valid sales, without duplicates.
+    // Keep the existing commission table compatible with the live schema.
+    // Do not assume optional reporting columns exist there.
     await db.execute(`
       INSERT INTO affiliate_commissions
-        (affiliate_id, order_id, referred_user_id, model, commission_amount_cents,
-         original_amount_cents, discount_amount_cents, final_amount_cents,
-         commission_rate_bps, fixed_bonus_cents, paid_amount_cents, status)
+        (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status)
       SELECT
-        s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents,
-        s.original_amount_cents, s.discount_amount_cents, s.final_amount_cents,
-        s.commission_rate_bps, s.fixed_bonus_cents, 0, 'PENDING'
+        s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING'
       FROM affiliate_sales s
       JOIN payment_orders po ON po.id = s.order_id
       LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id
       WHERE ac.id IS NULL
     `);
 
-    // Reconcile affiliate totals from the ledger instead of incrementing them repeatedly.
+    // Reconcile totals using only stable commission columns.
     await db.execute(`
       UPDATE affiliates a
       LEFT JOIN (
         SELECT affiliate_id,
                COUNT(*) AS sales_count,
-               COALESCE(SUM(commission_amount_cents),0) AS total_earnings,
-               COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents,0),0)),0) AS pending_earnings,
-               COALESCE(SUM(COALESCE(paid_amount_cents,0)),0) AS paid_earnings
+               COALESCE(SUM(commission_amount_cents),0) AS total_earnings
         FROM affiliate_commissions
         GROUP BY affiliate_id
       ) x ON x.affiliate_id = a.id
       SET a.total_sales = COALESCE(x.sales_count,0),
           a.total_earnings_cents = COALESCE(x.total_earnings,0),
-          a.pending_earnings_cents = COALESCE(x.pending_earnings,0),
-          a.paid_earnings_cents = COALESCE(x.paid_earnings,0)
+          a.pending_earnings_cents = COALESCE(x.total_earnings,0)
     `);
+
     console.log('Affiliate sales ledger ready and historical sales reconciled.');
   } catch (error) {
     console.error('Affiliate sales ledger migration failed:', error.message);
@@ -1608,9 +1604,7 @@ let wss;
     console.log(`🚀 Server running on port ${PORT}`),
   );
 
-  // IMPORTANT: create WebSocketServer only after the HTTP server exists.
   wss = new WebSocket.Server({ server, path: "/ws" });
-
   wss.on("connection", (client) => {
     console.log("Frontend WebSocket connected");
     client.send(JSON.stringify({ type: "price", data: global.prices || {} }));
@@ -1626,7 +1620,7 @@ setInterval(() => {
   }
 }, 1000);
 
-// ========== SEED DEFAULT ADMIN ==========
+// ========== SEED DEFAULT ADMIN ===========
 (async () => {
   try {
     const [admins] = await db.execute("SELECT id FROM admin_users LIMIT 1");
