@@ -1,0 +1,35 @@
+name: Final WebSocket Startup Repair
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  repair:
+    if: ${{ !contains(github.event.head_commit.message, 'Final WebSocket startup repair') && !contains(github.event.head_commit.message, 'Apply final WebSocket repair') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply WebSocket fix
+        run: python scripts/fix-ws-final.py
+
+      - name: Validate syntax
+        run: node --check backend/server.js
+
+      - name: Commit repair
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add backend/server.js
+          if git diff --cached --quiet; then
+            echo 'No repair needed'
+            exit 0
+          fi
+          git commit -m 'Apply final WebSocket repair'
+          git push
