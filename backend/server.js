@@ -1595,31 +1595,36 @@ app.post("/api/trade/execute", authenticateToken, async (req, res) => {
 // ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
 let server;
+let wss;
+
 (async () => {
   try {
     await ensureAffiliateSchema();
   } catch (migrationError) {
     console.error('Affiliate schema repair failed:', migrationError.message);
   }
+
   server = app.listen(PORT, () =>
     console.log(`🚀 Server running on port ${PORT}`),
   );
+
+  // IMPORTANT: create WebSocketServer only after the HTTP server exists.
+  wss = new WebSocket.Server({ server, path: "/ws" });
+
+  wss.on("connection", (client) => {
+    console.log("Frontend WebSocket connected");
+    client.send(JSON.stringify({ type: "price", data: global.prices || {} }));
+  });
 })();
-const wss = new WebSocket.Server({ server, path: "/ws" });
 
 setInterval(() => {
-  if (global.prices && Object.keys(global.prices).length > 0) {
+  if (wss && global.prices && Object.keys(global.prices).length > 0) {
     const msg = JSON.stringify({ type: "price", data: global.prices });
     wss.clients.forEach((client) => {
       if (client.readyState === WebSocket.OPEN) client.send(msg);
     });
   }
 }, 1000);
-
-wss.on("connection", (client) => {
-  console.log("Frontend WebSocket connected");
-  client.send(JSON.stringify({ type: "price", data: global.prices || {} }));
-});
 
 // ========== SEED DEFAULT ADMIN ==========
 (async () => {
