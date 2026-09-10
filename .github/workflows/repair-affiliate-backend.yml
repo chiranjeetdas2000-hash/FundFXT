@@ -17,6 +17,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Fix existing admin middleware syntax
+        run: python3 scripts/fix-admin-syntax.py
+
       - name: Apply affiliate backend repair
         run: python3 scripts/repair-affiliate.py
 
