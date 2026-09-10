@@ -1,0 +1,36 @@
+name: Repair Affiliate Backend
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  repair:
+    if: !contains(github.event.head_commit.message, 'affiliate backend repair')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply affiliate backend repair
+        run: node scripts/repair-affiliate.js
+
+      - name: Validate backend syntax
+        run: node --check backend/server.js
+
+      - name: Commit repaired backend
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git diff --quiet; then
+            echo "No backend changes required."
+            exit 0
+          fi
+          git add backend/server.js
+          git commit -m "Apply affiliate backend repair"
+          git push
