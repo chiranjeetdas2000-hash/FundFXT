@@ -173,7 +173,7 @@ app.post("/api/login", async (req, res) => {
   }
 });
 
-// ========== FORGOT PASSWORD (OTP hashed) ==========
+
 // ========== FORGOT PASSWORD (SECURE) ==========
 app.post("/api/forgot-password", async (req, res) => {
   const { email } = req.body;
@@ -712,6 +712,7 @@ app.post(
       );
 
       // If payment done/approved, add affiliate commission
+      
       if (
         (status === "PAYMENT_DONE" || status === "PAYMENT_APPROVED") &&
         order.affiliate_code
@@ -2217,6 +2218,141 @@ async function getPaymentMode() {
   }
   return "MANUAL"; // default
 }
+// ========== AFFILIATE STATS (Frontend Dashboard) ==========
+app.get("/api/affiliate/stats", authenticateToken, async (req, res) => {
+  try {
+    const [users] = await db.execute(
+      "SELECT affiliate_code FROM users WHERE id = ? LIMIT 1",
+      [req.userId]
+    );
+    if (!users.length) return res.status(404).json({ error: "User not found" });
+    const affiliateCode = users[0].affiliate_code;
+
+    const [affiliates] = await db.execute(
+      "SELECT * FROM affiliates WHERE user_id = ? LIMIT 1",
+      [req.userId]
+    );
+
+    if (!affiliates.length) {
+      return res.json({
+        success: true,
+        affiliate_code: affiliateCode,
+        total_referrals: 0,
+        total_sales: 0,
+        total_earnings_cents: 0,
+        pending_earnings_cents: 0,
+        paid_earnings_cents: 0
+      });
+    }
+
+    const affiliate = affiliates[0];
+
+    const [refRows] = await db.execute(
+      "SELECT COUNT(*) AS n FROM users WHERE referred_by_code = ?",
+      [affiliateCode]
+    );
+
+    const [earnedRows] = await db.execute(
+      `SELECT 
+        COALESCE(SUM(commission_amount_cents), 0) AS total,
+        COALESCE(SUM(CASE WHEN status = 'PENDING' THEN commission_amount_cents ELSE 0 END), 0) AS pending,
+        COALESCE(SUM(CASE WHEN status = 'PAID' THEN commission_amount_cents ELSE 0 END), 0) AS paid
+       FROM affiliate_commissions 
+       WHERE affiliate_id = ?`,
+      [affiliate.id]
+    );
+
+    res.json({
+      success: true,
+      affiliate_code: affiliateCode,
+      total_referrals: Number(refRows[0]?.n || 0),
+      total_sales: affiliate.total_sales || 0,
+      total_earnings_cents: Number(earnedRows[0]?.total || 0),
+      pending_earnings_cents: Number(earnedRows[0]?.pending || 0),
+      paid_earnings_cents: Number(earnedRows[0]?.paid || 0)
+    });
+  } catch (error) {
+    console.error("Affiliate stats error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== AFFILIATE DASHBOARD (Rich Data) ==========
+app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
+  try {
+    const [users] = await db.execute(
+      "SELECT id, affiliate_code FROM users WHERE id = ? LIMIT 1",
+      [req.userId]
+    );
+    if (!users.length) return res.status(404).json({ error: "User not found" });
+    const affiliateCode = users[0].affiliate_code;
+
+    const [affiliates] = await db.execute(
+      "SELECT * FROM affiliates WHERE user_id = ? LIMIT 1",
+      [req.userId]
+    );
+
+    if (!affiliates.length) {
+      return res.json({
+        success: true,
+        affiliate_code: affiliateCode,
+        total_referrals: 0,
+        verified_sales: 0,
+        total_earnings_cents: 0,
+        available_earnings_cents: 0,
+        commissions: []
+      });
+    }
+
+    const affiliate = affiliates[0];
+
+    const [refRows] = await db.execute(
+      "SELECT COUNT(*) AS n FROM users WHERE referred_by_code = ?",
+      [affiliateCode]
+    );
+
+    const [commissions] = await db.execute(
+      `SELECT 
+        ac.id,
+        po.request_id AS order_ref,
+        ac.model,
+        po.paid_amount_cents,
+        ac.commission_amount_cents AS commission_cents,
+        ac.status,
+        ac.created_at,
+        u.legal_name AS customer_name
+       FROM affiliate_commissions ac
+       LEFT JOIN payment_orders po ON po.id = ac.order_id
+       LEFT JOIN users u ON u.id = ac.referred_user_id
+       WHERE ac.affiliate_id = ?
+       ORDER BY ac.created_at DESC
+       LIMIT 50`,
+      [affiliate.id]
+    );
+
+    const totalEarnings = commissions.reduce(
+      (sum, c) => sum + Number(c.commission_cents || 0), 0
+    );
+    const pendingEarnings = commissions
+      .filter(c => String(c.status).toUpperCase() === 'PENDING')
+      .reduce((sum, c) => sum + Number(c.commission_cents || 0), 0);
+
+    res.json({
+      success: true,
+      affiliate_code: affiliateCode,
+      total_referrals: Number(refRows[0]?.n || 0),
+      verified_sales: commissions.length,
+      total_earnings_cents: totalEarnings,
+      available_earnings_cents: pendingEarnings,
+      commissions: commissions
+    });
+  } catch (error) {
+    console.error("Affiliate dashboard error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
 // ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
 
 // 1. User: Request Affiliate Payout (Min $100)
@@ -2539,6 +2675,4 @@ app.get("/api/certificates/verify/:certRef", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-// 5. Notification Hook – Example: When Payment is Approved (add to existing route)
-// In your admin payment-orders/:id/status route, after updating status:
-// await createNotification(order.user_id, 'PAYMENT_APPROVED', 'Payment Approved', 'Your payment has been approved. Account will be created soon.');
+
