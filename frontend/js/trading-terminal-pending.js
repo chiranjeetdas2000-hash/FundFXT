@@ -4,33 +4,12 @@
 
   const API = "https://fundfxt.onrender.com";
   const token = () => localStorage.getItem("fundfxt_token") || "";
-  const esc = (v) =>
-    String(v ?? "—").replace(/[&<>"']/g, (m) =>
-      ({
-        "&": "&amp;",
-        "<": "&lt;",
-        ">": "&gt;",
-        '"': "&quot;",
-        "'": "&#39;",
-      })[m],
-    );
+  const esc = (v) => String(v ?? "—").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[m]);
   const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-  const fmt = (v, s) =>
-    Number.isFinite(Number(v))
-      ? Number(v).toFixed(
-          /JPY$/i.test(s) ? 3 : /XAU|XAG|BTC|ETH/i.test(s) ? 2 : 5,
-        )
-      : "—";
+  const fmt = (v, s) => Number.isFinite(Number(v)) ? Number(v).toFixed(/JPY$/i.test(s) ? 3 : /XAU|XAG|BTC|ETH/i.test(s) ? 2 : 5) : "—";
 
   async function api(path, opt = {}) {
-    const r = await fetch(API + path, {
-      ...opt,
-      headers: {
-        Authorization: "Bearer " + token(),
-        "Content-Type": "application/json",
-        ...(opt.headers || {}),
-      },
-    });
+    const r = await fetch(API + path, { ...opt, headers: { Authorization: "Bearer " + token(), "Content-Type": "application/json", ...(opt.headers || {}) } });
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw Error(d.error || d.message || `Request failed (${r.status})`);
     return d;
@@ -39,29 +18,15 @@
   const feedback = (msg, ok = false) => {
     if (typeof window.feedback === "function") return window.feedback(msg, ok);
     const x = document.getElementById("tradeFeedback");
-    if (x) {
-      x.textContent = msg;
-      x.className = "trade-feedback show " + (ok ? "ok" : "error");
-    }
+    if (x) { x.textContent = msg; x.className = "trade-feedback show " + (ok ? "ok" : "error"); }
   };
 
-  /* T is a top-level lexical binding in trading-terminal.js.
-     window.T is NOT guaranteed to exist, which caused the old pending-order
-     handler to see an empty symbol and show "No symbol selected." */
   function terminalState() {
-    try {
-      return typeof T !== "undefined" ? T : null;
-    } catch {
-      return null;
-    }
+    try { return typeof T !== "undefined" ? T : null; } catch { return null; }
   }
 
   function accountCode() {
-    return (
-      terminalState()?.account?.account_code ||
-      localStorage.getItem("fundfxt_selected_account") ||
-      ""
-    );
+    return terminalState()?.account?.account_code || localStorage.getItem("fundfxt_selected_account") || "";
   }
 
   function selectedQuote() {
@@ -70,72 +35,32 @@
   }
 
   async function placePending(side) {
-    const type = String(
-      document.getElementById("orderType")?.value || "MARKET",
-    ).toUpperCase();
+    const type = String(document.getElementById("orderType")?.value || "MARKET").toUpperCase();
     if (type === "MARKET") return false;
-
     const state = terminalState();
     const symbol = state?.selected;
     const volume = n(document.getElementById("volume")?.value);
     const entry = n(document.getElementById("entry")?.value);
-    const sl =
-      document.getElementById("sl")?.value.trim() === ""
-        ? null
-        : n(document.getElementById("sl")?.value);
-    const tp =
-      document.getElementById("tp")?.value.trim() === ""
-        ? null
-        : n(document.getElementById("tp")?.value);
+    const sl = document.getElementById("sl")?.value.trim() === "" ? null : n(document.getElementById("sl")?.value);
+    const tp = document.getElementById("tp")?.value.trim() === "" ? null : n(document.getElementById("tp")?.value);
 
     if (!accountCode()) return feedback("No trading account selected."), true;
     if (!symbol) return feedback("No symbol selected."), true;
-    if (
-      volume < 0.01 ||
-      volume > 2 ||
-      Math.round(volume * 100) !== volume * 100
-    )
-      return feedback("Lot size must be 0.01 to 2.00."), true;
-    if (entry <= 0)
-      return feedback("Enter a valid pending order entry price."), true;
+    if (volume < 0.01 || volume > 2 || Math.round(volume * 100) !== volume * 100) return feedback("Lot size must be 0.01 to 2.00."), true;
+    if (entry <= 0) return feedback("Enter a valid pending order entry price."), true;
 
-    const q = selectedQuote();
-    const bid = n(q.bid);
-    const ask = n(q.ask);
-
-    if (type === "LIMIT" && side === "BUY" && ask > 0 && entry >= ask)
-      return feedback("BUY LIMIT entry must be below current ask."), true;
-    if (type === "LIMIT" && side === "SELL" && bid > 0 && entry <= bid)
-      return feedback("SELL LIMIT entry must be above current bid."), true;
-    if (type === "STOP" && side === "BUY" && ask > 0 && entry <= ask)
-      return feedback("BUY STOP entry must be above current ask."), true;
-    if (type === "STOP" && side === "SELL" && bid > 0 && entry >= bid)
-      return feedback("SELL STOP entry must be below current bid."), true;
+    const q = selectedQuote(), bid = n(q.bid), ask = n(q.ask);
+    if (type === "LIMIT" && side === "BUY" && ask > 0 && entry >= ask) return feedback("BUY LIMIT entry must be below current ask."), true;
+    if (type === "LIMIT" && side === "SELL" && bid > 0 && entry <= bid) return feedback("SELL LIMIT entry must be above current bid."), true;
+    if (type === "STOP" && side === "BUY" && ask > 0 && entry <= ask) return feedback("BUY STOP entry must be above current ask."), true;
+    if (type === "STOP" && side === "SELL" && bid > 0 && entry >= bid) return feedback("SELL STOP entry must be below current bid."), true;
 
     try {
-      const d = await api("/api/pending-orders", {
-        method: "POST",
-        body: JSON.stringify({
-          account_code: accountCode(),
-          symbol,
-          side,
-          order_type: type,
-          volume,
-          entry_price: entry,
-          sl,
-          tp,
-        }),
-      });
-
-      feedback(
-        `${side} ${type} order placed · ${symbol} · ${volume.toFixed(2)} lot${d.order_id ? " · " + d.order_id : ""}`,
-        true,
-      );
+      const d = await api("/api/pending-orders", { method: "POST", body: JSON.stringify({ account_code: accountCode(), symbol, side, order_type: type, volume, entry_price: entry, sl, tp }) });
+      feedback(`${side} ${type} order placed · ${symbol} · ${volume.toFixed(2)} lot${d.order_id ? " · " + d.order_id : ""}`, true);
       if (typeof window.loadTrades === "function") window.loadTrades();
       setTimeout(showPending, 150);
-    } catch (e) {
-      feedback(e.message);
-    }
+    } catch (e) { feedback(e.message); }
     return true;
   }
 
@@ -144,123 +69,49 @@
   }
 
   async function showPending() {
-    const box = document.getElementById("tradeScroll");
+    const box = document.getElementById("pendingOrderScroll") || document.getElementById("tradeScroll");
     if (!box) return;
-
     try {
       const d = await api("/api/pending-orders");
       const rows = Array.isArray(d.orders) ? d.orders : [];
-      box.innerHTML =
-        rows.map(pendingCard).join("") ||
-        '<div class="empty"><strong>No pending trades</strong><span>Your Limit and Stop orders will appear here.</span></div>';
-
-      box.querySelectorAll("[data-pcancel]").forEach((b) =>
-        (b.onclick = async () => {
-          try {
-            await api(
-              "/api/pending-orders/" + encodeURIComponent(b.dataset.pcancel) + "/cancel",
-              { method: "POST" },
-            );
-            feedback("Pending order cancelled.", true);
-            showPending();
-          } catch (e) {
-            feedback(e.message);
-          }
-        }),
-      );
-
-      box.querySelectorAll("[data-pmodify]").forEach(
-        (b) =>
-          (b.onclick = () =>
-            modifyPending(
-              b.dataset.pmodify,
-              rows.find((x) => String(x.order_id) === String(b.dataset.pmodify)),
-            )),
-      );
-    } catch (e) {
-      box.innerHTML = `<div class="empty"><strong>Pending orders unavailable</strong><span>${esc(e.message)}</span></div>`;
-    }
+      box.innerHTML = rows.map(pendingCard).join("") || '<div class="empty"><strong>No open orders</strong><span>Your Limit and Stop orders will appear here.</span></div>';
+      box.querySelectorAll("[data-pcancel]").forEach((b) => b.onclick = async () => {
+        try { await api("/api/pending-orders/" + encodeURIComponent(b.dataset.pcancel) + "/cancel", { method: "POST" }); feedback("Pending order cancelled.", true); showPending(); }
+        catch (e) { feedback(e.message); }
+      });
+      box.querySelectorAll("[data-pmodify]").forEach((b) => b.onclick = () => modifyPending(b.dataset.pmodify, rows.find((x) => String(x.order_id) === String(b.dataset.pmodify))));
+    } catch (e) { box.innerHTML = `<div class="empty"><strong>Open orders unavailable</strong><span>${esc(e.message)}</span></div>`; }
   }
 
   function modifyPending(id, o) {
     if (!o || typeof window.modal !== "function") return;
-
     const body = `<div class="modify-grid"><label class="modify-field"><span>Entry Price</span><input id="pendingEntry" type="number" step="any" value="${o.entry_price ?? ""}"></label><label class="modify-field"><span>Take Profit</span><input id="pendingTP" type="number" step="any" value="${o.take_profit ?? ""}"></label><label class="modify-field"><span>Stop Loss</span><input id="pendingSL" type="number" step="any" value="${o.stop_loss ?? ""}"></label></div>`;
-    window.modal(
-      "Modify Pending Order",
-      body,
-      '<button class="modify-save" id="savePending" type="button">Save Changes</button>',
-    );
-
+    window.modal("Modify Pending Order", body, '<button class="modify-save" id="savePending" type="button">Save Changes</button>');
     document.getElementById("savePending").onclick = async () => {
       const entry = n(document.getElementById("pendingEntry")?.value);
-      const tp =
-        document.getElementById("pendingTP")?.value.trim() === ""
-          ? null
-          : n(document.getElementById("pendingTP")?.value);
-      const sl =
-        document.getElementById("pendingSL")?.value.trim() === ""
-          ? null
-          : n(document.getElementById("pendingSL")?.value);
+      const tp = document.getElementById("pendingTP")?.value.trim() === "" ? null : n(document.getElementById("pendingTP")?.value);
+      const sl = document.getElementById("pendingSL")?.value.trim() === "" ? null : n(document.getElementById("pendingSL")?.value);
       if (entry <= 0) return feedback("Invalid entry price.");
-
       try {
-        await api("/api/pending-orders/" + encodeURIComponent(id) + "/modify", {
-          method: "POST",
-          body: JSON.stringify({ entry_price: entry, tp, sl }),
-        });
-        document.querySelector(".trade-modal")?.remove();
-        feedback("Pending order modified successfully.", true);
-        showPending();
-      } catch (e) {
-        feedback(e.message);
-      }
+        await api("/api/pending-orders/" + encodeURIComponent(id) + "/modify", { method: "POST", body: JSON.stringify({ entry_price: entry, tp, sl }) });
+        document.querySelector(".trade-modal")?.remove(); feedback("Pending order modified successfully.", true); showPending();
+      } catch (e) { feedback(e.message); }
     };
   }
 
+  window.showPendingOrders = showPending;
+
   function install() {
-    const buy = document.getElementById("buy");
-    const sell = document.getElementById("sell");
-
-    [buy, sell].forEach((btn, idx) =>
-      btn?.addEventListener(
-        "click",
-        async (e) => {
-          if (
-            String(document.getElementById("orderType")?.value || "MARKET").toUpperCase() ===
-            "MARKET"
-          )
-            return;
-          e.preventDefault();
-          e.stopImmediatePropagation();
-          await placePending(idx === 0 ? "BUY" : "SELL");
-        },
-        true,
-      ),
-    );
-
-    document.querySelectorAll(".right-tab").forEach((btn) =>
-      btn.addEventListener(
-        "click",
-        () => {
-          if (btn.dataset.tab === "PENDING") setTimeout(showPending, 0);
-        },
-        true,
-      ),
-    );
-
-    const state = terminalState();
-    if (state?.tab === "PENDING") showPending();
+    const buy = document.getElementById("buy"), sell = document.getElementById("sell");
+    [buy, sell].forEach((btn, idx) => btn?.addEventListener("click", async (e) => {
+      if (String(document.getElementById("orderType")?.value || "MARKET").toUpperCase() === "MARKET") return;
+      e.preventDefault(); e.stopImmediatePropagation(); await placePending(idx === 0 ? "BUY" : "SELL");
+    }, true));
+    document.querySelectorAll(".right-tab").forEach((btn) => btn.addEventListener("click", () => { if (btn.dataset.tab === "PENDING") setTimeout(showPending, 0); }, true));
+    const state = terminalState(); if (state?.tab === "PENDING") showPending();
   }
 
   const wait = setInterval(() => {
-    if (
-      document.readyState !== "loading" &&
-      document.getElementById("buy") &&
-      document.getElementById("tradeScroll")
-    ) {
-      clearInterval(wait);
-      install();
-    }
+    if (document.readyState !== "loading" && document.getElementById("buy") && document.getElementById("tradeScroll")) { clearInterval(wait); install(); }
   }, 50);
 })();
