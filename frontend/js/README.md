@@ -1,1 +1,0 @@
-/* FundFXT frontend scripts live here. Keep one JS file per page or isolated feature. */

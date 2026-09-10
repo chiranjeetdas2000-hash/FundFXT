@@ -1,13 +1,52 @@
 {
-  "rewrites": [
-    { "source": "/", "destination": "/frontend/home.html" },
-    { "source": "/auth.html", "destination": "/frontend/auth-v2.html" },
-    { "source": "/Auth.html", "destination": "/frontend/auth-v2.html" },
-    { "source": "/dashboard.html", "destination": "/frontend/dashboard-v3.html" },
-    { "source": "/account-dashboard.html", "destination": "/frontend/account-dashboard-v3.html" },
-    { "source": "/affiliate.html", "destination": "/frontend/affiliate-v3.html" },
-    { "source": "/trading-terminal.html", "destination": "/frontend/trading-terminal.html" },
-    { "source": "/admin/:path*", "destination": "/frontend/admin/:path*" },
-    { "source": "/:path*", "destination": "/frontend/:path*" }
-  ]
+    "rewrites": [
+        {
+            "source": "/",
+            "destination": "/frontend/home.html"
+        },
+        {
+            "source": "/index.html",
+            "destination": "/frontend/home.html"
+        },
+        {
+            "source": "/auth.html",
+            "destination": "/frontend/Auth.html"
+        },
+        {
+            "source": "/Auth.html",
+            "destination": "/frontend/Auth.html"
+        },
+        {
+            "source": "/dashboard.html",
+            "destination": "/frontend/dashboard-v3.html"
+        },
+        {
+            "source": "/account-dashboard.html",
+            "destination": "/frontend/account-dashboard-v3.html"
+        },
+        {
+            "source": "/affiliate.html",
+            "destination": "/frontend/affiliate-v3.html"
+        },
+        {
+            "source": "/trading-terminal.html",
+            "destination": "/frontend/trading.html"
+        },
+        {
+            "source": "/trading.html",
+            "destination": "/frontend/trading.html"
+        },
+        {
+            "source": "/order.html",
+            "destination": "/frontend/trading.html"
+        },
+        {
+            "source": "/admin/:path*",
+            "destination": "/frontend/admin/:path*"
+        },
+        {
+            "source": "/:path*",
+            "destination": "/frontend/:path*"
+        }
+    ]
 }

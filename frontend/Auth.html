@@ -1,73 +1,221 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-  <title>FundFXT | Login & Register</title>
-  <link rel="stylesheet" href="/fundfxt-design-system.css?v=20260909">
-  <link rel="stylesheet" href="/css/Auth.css?v=20260910">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#06090d">
+    <title>FundFXT | Login & Register</title>
+
+    <link rel="stylesheet" href="/fundfxt-design-system.css?v=20260909">
+    <link rel="stylesheet" href="/css/Auth.css?v=20260910">
 </head>
 <body>
-  <div class="auth-bg" aria-hidden="true"><span class="orb one"></span><span class="orb two"></span></div>
+    <div class="auth-bg" aria-hidden="true">
+        <span class="orb one"></span>
+        <span class="orb two"></span>
+    </div>
 
-  <main class="auth-shell">
-    <section class="auth-showcase">
-      <div class="brand">Fund<i>FXT</i></div>
-      <div class="showcase-copy">
-        <span class="eyebrow">TRADING STARTS HERE</span>
-        <h1>Build your edge.<br><span>Trade with purpose.</span></h1>
-        <p>A focused trading workspace for challenge accounts, live execution, performance tracking and a clear path to getting funded.</p>
-        <div class="feature-grid">
-          <div class="feature"><b>Live Trading</b><span>Real-time market workspace</span></div>
-          <div class="feature"><b>Account Rules</b><span>Clear challenge progress</span></div>
-          <div class="feature"><b>Performance</b><span>Track every trade</span></div>
-          <div class="feature"><b>Secure Access</b><span>Protected trader account</span></div>
-        </div>
-      </div>
-      <div class="secure"><span class="secure-dot"></span> Secure FundFXT access</div>
-    </section>
+    <main class="auth-shell">
+        <section class="auth-showcase">
+            <div class="brand">Fund<i>FXT</i></div>
 
-    <section class="auth-form">
-      <div class="form-top"><span class="eyebrow">FUNDFXT ACCOUNT</span><span class="secure"><span class="secure-dot"></span> Protected</span></div>
+            <div class="showcase-copy">
+                <span class="eyebrow">TRADING STARTS HERE</span>
+                <h1>Build your edge.<br><span>Trade with purpose.</span></h1>
+                <p>
+                    A focused trading workspace for challenge accounts, live execution,
+                    performance tracking and a clear path to getting funded.
+                </p>
 
-      <div class="tabs" role="tablist">
-        <button class="tab active" id="loginTab" type="button">Login</button>
-        <button class="tab" id="registerTab" type="button">Create Account</button>
-      </div>
+                <div class="feature-grid">
+                    <div class="feature">
+                        <b>Live Trading</b>
+                        <span>Real-time market workspace</span>
+                    </div>
+                    <div class="feature">
+                        <b>Account Rules</b>
+                        <span>Clear challenge progress</span>
+                    </div>
+                    <div class="feature">
+                        <b>Performance</b>
+                        <span>Track every trade</span>
+                    </div>
+                    <div class="feature">
+                        <b>Secure Access</b>
+                        <span>Protected trader account</span>
+                    </div>
+                </div>
+            </div>
 
-      <div id="loginBox" class="auth-pane">
-        <h2 class="auth-title">Welcome back</h2>
-        <p class="auth-sub">Sign in with your Trader ID or registered email.</p>
-        <form id="loginForm" novalidate>
-          <div class="field"><label for="loginId">Trader ID or Email <span class="required">*</span></label><div class="input-wrap"><input id="loginId" required autocomplete="username" placeholder="Enter Trader ID or email"></div></div>
-          <div class="field"><label for="loginPass">Password <span class="required">*</span></label><div class="input-wrap"><input id="loginPass" type="password" required autocomplete="current-password" placeholder="Enter your password"><button class="toggle-pass" type="button" data-target="loginPass">SHOW</button></div></div>
-          <div class="helper-row"><span class="check"><input type="checkbox" id="rememberLogin"> Remember me</span><button class="forgot" type="button" onclick="alert('Use the password reset flow from the support page.')">Forgot password?</button></div>
-          <button id="loginSubmit" class="submit" type="submit">Login to FundFXT</button>
-        </form>
-      </div>
+            <div class="secure">
+                <span class="secure-dot"></span>
+                Secure FundFXT access
+            </div>
+        </section>
 
-      <div id="registerBox" class="auth-pane" style="display:none">
-        <h2 class="auth-title">Create your account</h2>
-        <p class="auth-sub">Enter the details used to create your FundFXT trader profile.</p>
-        <form id="registerForm" novalidate>
-          <div class="register-grid">
-            <div class="field"><label for="rTrader">Trader ID <span class="required">*</span></label><div class="input-wrap"><input id="rTrader" required autocomplete="username" placeholder="Choose Trader ID"></div></div>
-            <div class="field"><label for="rName">Legal Name <span class="required">*</span></label><div class="input-wrap"><input id="rName" required autocomplete="name" placeholder="Full legal name"></div></div>
-            <div class="field"><label for="rEmail">Email <span class="required">*</span></label><div class="input-wrap"><input id="rEmail" type="email" required autocomplete="email" placeholder="you@example.com"></div></div>
-            <div class="field"><label for="rPhone">Phone <span class="required">*</span></label><div class="input-wrap"><input id="rPhone" required autocomplete="tel" placeholder="Mobile number"></div></div>
-            <div class="field full"><label for="rAddress">Address <span>(optional)</span></label><div class="input-wrap"><input id="rAddress" autocomplete="street-address" placeholder="Residential address"></div></div>
-            <div class="field full"><label for="rReferral">Referral Code <span>(optional)</span></label><div class="input-wrap"><input id="rReferral" autocomplete="off" placeholder="Have a referral code? Enter it here"></div></div>
-            <div class="field full"><label for="rPass">Password <span class="required">*</span></label><div class="input-wrap"><input id="rPass" type="password" required autocomplete="new-password" placeholder="Create a secure password"><button class="toggle-pass" type="button" data-target="rPass">SHOW</button></div><div class="password-meter"><i id="passwordBar"></i></div><div class="password-hint"><span>Minimum 8 characters</span><b id="passwordText">Use 8+ characters</b></div></div>
-          </div>
-          <button id="registerSubmit" class="submit" type="submit">Create FundFXT Account</button>
-        </form>
-      </div>
+        <section class="auth-form">
+            <div class="form-top">
+                <span class="eyebrow">FUNDFXT ACCOUNT</span>
+                <span class="secure">
+                    <span class="secure-dot"></span>
+                    Protected
+                </span>
+            </div>
 
-      <div id="msg" class="msg" role="status" aria-live="polite"></div>
-      <div class="form-footer">By continuing, you agree to use your FundFXT account responsibly.<br><span>Your account profile is created from the registration details submitted above.</span></div>
-    </section>
-  </main>
+            <div class="tabs" id="authTabs" role="tablist">
+                <button class="tab active" id="loginTab" type="button">Login</button>
+                <button class="tab" id="registerTab" type="button">Create Account</button>
+            </div>
 
-  <script src="/js/Auth.js?v=20260910" defer></script>
+            <div id="loginBox" class="auth-pane">
+                <h2 class="auth-title">Welcome back</h2>
+                <p class="auth-sub">Sign in with your Trader ID or registered email.</p>
+
+                <form id="loginForm" novalidate>
+                    <div class="field">
+                        <label for="loginId">Trader ID or Email <span class="required">*</span></label>
+                        <div class="input-wrap">
+                            <input id="loginId" required autocomplete="username" placeholder="Enter Trader ID or email">
+                        </div>
+                    </div>
+
+                    <div class="field">
+                        <label for="loginPass">Password <span class="required">*</span></label>
+                        <div class="input-wrap">
+                            <input id="loginPass" type="password" required autocomplete="current-password" placeholder="Enter your password">
+                            <button class="toggle-pass" type="button" data-target="loginPass">SHOW</button>
+                        </div>
+                    </div>
+
+                    <div class="helper-row">
+                        <span class="check">
+                            <input type="checkbox" id="rememberLogin">
+                            Remember me
+                        </span>
+                        <button class="forgot" id="forgotButton" type="button">Forgot password?</button>
+                    </div>
+
+                    <button id="loginSubmit" class="submit" type="submit">Login to FundFXT</button>
+                </form>
+            </div>
+
+            <div id="registerBox" class="auth-pane" style="display:none">
+                <h2 class="auth-title">Create your account</h2>
+                <p class="auth-sub">Enter the details used to create your FundFXT trader profile.</p>
+
+                <form id="registerForm" novalidate>
+                    <div class="register-grid">
+                        <div class="field">
+                            <label for="rTrader">Trader ID <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <input id="rTrader" required autocomplete="username" placeholder="Choose Trader ID">
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="rName">Legal Name <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <input id="rName" required autocomplete="name" placeholder="Full legal name">
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="rEmail">Email <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <input id="rEmail" type="email" required autocomplete="email" placeholder="you@example.com">
+                            </div>
+                        </div>
+
+                        <div class="field">
+                            <label for="rPhone">Phone <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <input id="rPhone" required autocomplete="tel" placeholder="Mobile number">
+                            </div>
+                        </div>
+
+                        <div class="field full">
+                            <label for="rAddress">Address <span>(optional)</span></label>
+                            <div class="input-wrap">
+                                <input id="rAddress" autocomplete="street-address" placeholder="Residential address">
+                            </div>
+                        </div>
+
+                        <div class="field full">
+                            <label for="rReferral">Referral Code <span>(optional)</span></label>
+                            <div class="input-wrap">
+                                <input id="rReferral" autocomplete="off" placeholder="Have a referral code? Enter it here">
+                            </div>
+                        </div>
+
+                        <div class="field full">
+                            <label for="rPass">Password <span class="required">*</span></label>
+                            <div class="input-wrap">
+                                <input id="rPass" type="password" required autocomplete="new-password" placeholder="Create a secure password">
+                                <button class="toggle-pass" type="button" data-target="rPass">SHOW</button>
+                            </div>
+                            <div class="password-meter"><i id="passwordBar"></i></div>
+                            <div class="password-hint">
+                                <span>Minimum 8 characters</span>
+                                <b id="passwordText">Use 8+ characters</b>
+                            </div>
+                        </div>
+                    </div>
+
+                    <button id="registerSubmit" class="submit" type="submit">Create FundFXT Account</button>
+                </form>
+            </div>
+
+            <div id="resetBox" class="auth-pane" style="display:none">
+                <button class="forgot" id="resetBack" type="button">← Back to login</button>
+                <h2 class="auth-title">Reset your password</h2>
+                <p class="auth-sub">Verify your registered email and reset your password securely.</p>
+
+                <div id="resetStep1">
+                    <div class="field">
+                        <label for="resetEmail">Registered Email <span class="required">*</span></label>
+                        <div class="input-wrap">
+                            <input id="resetEmail" type="email" autocomplete="email" placeholder="you@example.com">
+                        </div>
+                    </div>
+                    <button id="sendOtp" class="submit" type="button">Send Reset Code</button>
+                </div>
+
+                <div id="resetStep2" style="display:none">
+                    <div class="field">
+                        <label for="resetOtp">6-Digit OTP <span class="required">*</span></label>
+                        <div class="input-wrap">
+                            <input id="resetOtp" inputmode="numeric" maxlength="6" placeholder="Enter OTP">
+                        </div>
+                    </div>
+                    <button id="verifyOtp" class="submit" type="button">Verify OTP</button>
+                </div>
+
+                <div id="resetStep3" style="display:none">
+                    <div class="field">
+                        <label for="newPass">New Password <span class="required">*</span></label>
+                        <div class="input-wrap">
+                            <input id="newPass" type="password" autocomplete="new-password" placeholder="Create a new password">
+                        </div>
+                    </div>
+                    <div class="field">
+                        <label for="newPass2">Confirm Password <span class="required">*</span></label>
+                        <div class="input-wrap">
+                            <input id="newPass2" type="password" autocomplete="new-password" placeholder="Repeat your password">
+                        </div>
+                    </div>
+                    <button id="resetPass" class="submit" type="button">Update Password</button>
+                </div>
+            </div>
+
+            <div id="msg" class="msg" role="status" aria-live="polite"></div>
+
+            <div class="form-footer">
+                By continuing, you agree to use your FundFXT account responsibly.<br>
+                <span>Your account profile is created from the registration details submitted above.</span>
+            </div>
+        </section>
+    </main>
+
+    <script src="/js/Auth.js?v=20260910" defer></script>
 </body>
 </html>
