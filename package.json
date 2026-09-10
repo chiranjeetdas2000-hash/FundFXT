@@ -4,8 +4,8 @@
   "description": "FundFXT Prop Firm Platform",
   "main": "backend/server.js",
   "scripts": {
-    "start": "node backend/boot.js",
-    "test": "node --check backend/server.js && node --check backend/start.js && node --check backend/boot.js"
+    "start": "node backend/server.js",
+    "test": "node --check backend/server.js && node --check frontend/admin/index.js"
   },
   "engines": {
     "node": ">=18"

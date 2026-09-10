@@ -369,163 +369,61 @@ function generateRequestRef() {
     return 'REQ-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
 }
 
-// ========== RAZORPAY PAYMENT VERIFY ==========
-app.post('/api/payments/verify', authenticateToken, async (req, res) => {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature } = req.body;
-    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature) {
-        return res.status(400).json({ error: 'Incomplete payment verification data' });
-    }
+// ========== PAYMENT REQUEST ==========
 
-    const connection = await db.getConnection();
-    try {
-        const [orderRows] = await connection.execute(
-            'SELECT * FROM payment_orders WHERE provider_order_id = ? AND user_id = ? LIMIT 1',
-            [razorpay_order_id, req.userId]
-        );
-        if (!orderRows.length) return res.status(404).json({ error: 'Payment order not found' });
-        const paymentOrder = orderRows[0];
-
-        // Verify Signature
-        const expected = crypto.createHmac('sha256', process.env.RAZORPAY_KEY_SECRET)
-            .update(`${razorpay_order_id}|${razorpay_payment_id}`).digest('hex');
-        if (expected !== razorpay_signature) {
-            return res.status(400).json({ error: 'Payment signature verification failed' });
-        }
-
-        // Mark as PAID
-        await connection.execute(
-            `UPDATE payment_orders SET status = 'PAYMENT_DONE', provider_payment_id = ?, paid_at = NOW() WHERE id = ?`,
-            [razorpay_payment_id, paymentOrder.id]
-        );
-
-        // Create Account Automatically
-        const config = await getChallengeConfig(paymentOrder.model);
-        const accountCode = 'ACC-' + Date.now().toString(36).toUpperCase() + '-' + crypto.randomBytes(3).toString('hex').toUpperCase();
-        await connection.execute(
-            `INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, status)
-             VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
-            [accountCode, req.userId, paymentOrder.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents]
-        );
-
-        await connection.execute(
-            `UPDATE payment_orders SET status = 'ACCOUNT_CREATED', account_code = ? WHERE id = ?`,
-            [accountCode, paymentOrder.id]
-        );
-
-        await connection.commit();
-        res.json({ success: true, account_code: accountCode, message: 'Payment verified & account created' });
-    } catch (error) {
-        await connection.rollback();
-        res.status(500).json({ error: error.message });
-    } finally {
-        connection.release();
-    }
-});
-// ========== PAYMENT MODE HELPER ==========
-async function getPaymentMode() {
-    const [rows] = await db.query('SELECT setting_value FROM settings WHERE setting_key = "payment_mode"');
-    if (rows.length > 0) {
-        return JSON.parse(rows[0].setting_value).mode || 'MANUAL';
-    }
-    return 'MANUAL'; // Default
-}
-
-// ========== MODIFIED PAYMENT REQUEST ROUTE ==========
 app.post('/api/payments/request', authenticateToken, async (req, res) => {
-    const { model, affiliate_code, email } = req.body;
+    const { model, affiliate_code } = req.body || {};
+
     try {
-        const [users] = await db.execute('SELECT id, legal_name, email, phone FROM users WHERE id = ?', [req.userId]);
-        if (!users.length) return res.status(404).json({ error: 'User not found' });
-        const user = users[0];
-
         const pricing = await calculateServerPrice(model, affiliate_code);
-        const requestRef = generateRequestRef();
-
-        let affiliateName = null;
-        let affiliateCodeUsed = affiliate_code;
-        if (pricing.affiliateApplied && pricing.affiliate_user_id) {
-            const [affiliateUsers] = await db.execute('SELECT legal_name FROM users WHERE id = ?', [pricing.affiliate_user_id]);
-            if (affiliateUsers.length) affiliateName = affiliateUsers[0].legal_name;
-        }
-
-        // Insert order with REQUESTED status
-        await db.execute(
-            `INSERT INTO payment_orders 
-             (order_ref, user_id, provider, model, affiliate_code, affiliate_id, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at) 
-             VALUES (?, ?, 'manual', ?, ?, ?, ?, ?, ?, ?, 'REQUESTED', NOW())`,
-            [requestRef, req.userId, pricing.model, affiliate_code || null, pricing.affiliate_user_id || null, 
-             pricing.originalAmountCents, pricing.discountAmountCents, pricing.finalAmountCents, pricing.currency]
+        const [users] = await db.execute(
+            'SELECT id, legal_name, email, phone FROM users WHERE id = ? LIMIT 1',
+            [req.userId]
         );
 
-        // Fetch the Payment Mode from Settings
-        const paymentMode = await getPaymentMode();
-
-        // ================= AUTO MODE =================
-        if (paymentMode === 'AUTO') {
-            if (!razorpay) return res.status(503).json({ error: 'Payment gateway not configured' });
-
-            // Create Razorpay Order
-            const razorpayOrder = await razorpay.orders.create({
-                amount: pricing.finalAmountCents,
-                currency: pricing.currency,
-                receipt: requestRef,
-                notes: { user_id: String(req.userId), model: pricing.model }
-            });
-
-            // Update order status & provider order id
-            await db.execute(
-                'UPDATE payment_orders SET provider_order_id = ?, status = "PAYMENT_PENDING" WHERE order_ref = ?',
-                [razorpayOrder.id, requestRef]
-            );
-
-            return res.json({
-                success: true,
-                auto_payment: true,
-                razorpay_order_id: razorpayOrder.id,
-                key_id: process.env.RAZORPAY_KEY_ID,
-                amount: pricing.finalAmountCents,
-                currency: pricing.currency,
-                pricing
-            });
+        if (!users.length) {
+            return res.status(404).json({ error: 'User not found' });
         }
 
-        // ================= MANUAL MODE (DEFAULT) =================
-        // Admin ko email bhejo (Full Details)
-        const adminEmail = 'support.fundfxt@gmail.com';
-        const subject = `New Payment Request: ${requestRef}`;
-        const html = `
-            <h2 style="color:#00b56a;">📥 New Payment Request</h2>
-            <p><strong>Request ID:</strong> ${requestRef}</p>
-            <hr>
-            <h3>User Details</h3>
-            <p><strong>Name:</strong> ${user.legal_name}</p>
-            <p><strong>Email:</strong> ${user.email}</p>
-            <p><strong>Phone:</strong> ${user.phone}</p>
-            <hr>
-            <h3>Order Details</h3>
-            <p><strong>Challenge:</strong> ${pricing.model}</p>
-            <p><strong>Original Amount:</strong> $${(pricing.originalAmountCents / 100).toFixed(2)}</p>
-            <p><strong>Discount:</strong> $${(pricing.discountAmountCents / 100).toFixed(2)}</p>
-            <p style="font-size:20px; font-weight:bold; color:#00b56a;"><strong>Final Amount (Payment Link):</strong> $${(pricing.finalAmountCents / 100).toFixed(2)}</p>
-            <hr>
-            <h3>Affiliate Information</h3>
-            <p><strong>Code Used:</strong> ${affiliateCodeUsed || 'None'}</p>
-            <p><strong>Affiliate Name:</strong> ${affiliateName || 'N/A'}</p>
-            <hr>
-            <p>Please create a Razorpay Payment Link for <strong>$${(pricing.finalAmountCents / 100).toFixed(2)}</strong> and send it to ${user.email}.</p>
-        `;
-        
-        await sendEmail(adminEmail, subject, html).catch(err => console.log('Email failed:', err.message));
+        const user = users[0];
+        const requestId = generateRequestRef();
+        const affiliateId = pricing.affiliate_user_id || null;
 
-        res.json({ success: true, request_ref: requestRef, manual_payment: true, message: 'Payment request created. You will receive a payment link via email shortly.', pricing });
+        await db.execute(
+            `INSERT INTO payment_orders (
+                request_id, user_id, provider, razorpay_link, model, affiliate_code,
+                affiliate_id, original_amount_cents, discount_amount_cents,
+                final_amount_cents, paid_amount_cents, currency, status, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())`,
+            [
+                requestId, user.id, 'RAZORPAY', null, pricing.model,
+                pricing.affiliateApplied ? affiliate_code : null, affiliateId,
+                pricing.originalAmountCents, pricing.discountAmountCents,
+                pricing.finalAmountCents, 0, pricing.currency, 'REQUESTED'
+            ]
+        );
 
+        await sendEmail(
+            'support.fundfxt@gmail.com',
+            `FundFXT Payment Request ${requestId}`,
+            `<h2>New FundFXT Payment Request</h2><p><strong>Request ID:</strong> ${requestId}</p><p><strong>Name:</strong> ${user.legal_name}</p><p><strong>Email:</strong> ${user.email}</p><p><strong>Challenge:</strong> ${pricing.model}</p><p><strong>Payable:</strong> ${(pricing.finalAmountCents / 100).toFixed(2)} ${pricing.currency}</p><p><strong>Affiliate:</strong> ${affiliate_code || 'None'}</p><p>Please create and send a Razorpay Payment Link.</p>`
+        ).catch(error => console.error('Payment request email failed:', error.message));
+
+        return res.json({
+            success: true,
+            request_id: requestId,
+            request_ref: requestId,
+            status: 'REQUESTED',
+            manual_payment: true,
+            pricing
+        });
     } catch (error) {
         console.error('Payment request error:', error);
-        res.status(500).json({ error: error.message });
+        return res.status(500).json({ error: error.message });
     }
 });
 
-// ========== ADMIN AUTH (UNCHANGED) ==========
+// ========== ADMIN AUTH ==========
 app.post('/api/admin/login', async (req, res) => {
     const { email, password } = req.body;
     try {
@@ -642,39 +540,6 @@ app.post('/api/admin/payment-orders/:id/status', authenticateAdmin, async (req, 
     } finally {
         connection.release();
     }
-});
-
-// Get payment requests (for dashboard)
-app.get('/api/admin/payment-requests', authenticateAdmin, async (req, res) => {
-    try {
-        const [requests] = await db.query(`
-            SELECT po.*, u.legal_name, u.email as user_email 
-            FROM payment_orders po 
-            JOIN users u ON po.user_id = u.id 
-            WHERE po.status IN ('REQUESTED', 'LINK_SENT', 'PAYMENT_PENDING')
-            ORDER BY po.created_at DESC
-        `);
-        res.json({ success: true, requests });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// Reject payment request
-app.post('/api/admin/payment-requests/:id/reject', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    try {
-        await db.execute("UPDATE payment_orders SET status = 'REJECTED' WHERE id = ?", [id]);
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-});
-
-// Mark link sent
-app.post('/api/admin/payment-requests/:id/mark-link-sent', authenticateAdmin, async (req, res) => {
-    const { id } = req.params;
-    const { razorpay_link } = req.body;
-    try {
-        await db.execute('UPDATE payment_orders SET status = "LINK_SENT", razorpay_link = ? WHERE id = ?', [razorpay_link|| null, id]);
-        res.json({ success: true });
-    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // Get withdrawals
@@ -932,7 +797,7 @@ app.post('/api/trades/:tradeId/close', authenticateToken, async (req, res) => {
 app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
     const { stop_loss, take_profit } = req.body;
     try {
-        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = "OPEN", [req.params.tradeId, req.userId]);
+        const [trades] = await db.execute("SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'", [req.params.tradeId, req.userId]);
         if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
         await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [stop_loss || null, take_profit || null, req.params.tradeId]);
         res.json({ success: true });
@@ -1165,7 +1030,7 @@ app.post('/api/admin/payment-orders/:id/create-account', authenticateAdmin, asyn
 app.get('/api/orders', authenticateToken, async (req, res) => {
     try {
         const [orders] = await db.execute(
-            `SELECT order_ref, model, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at
+            `SELECT request_id, model, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at
              FROM payment_orders
              WHERE user_id = ?
              ORDER BY created_at DESC`,
@@ -1186,7 +1051,7 @@ app.get('/api/dashboard/stats', authenticateToken, async (req, res) => {
 
         // 2. User ke saare orders fetch karo
         const [orders] = await db.execute(
-            `SELECT order_ref, model, final_amount_cents, status, created_at FROM payment_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+            `SELECT request_id, model, final_amount_cents, status, created_at FROM payment_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
             [req.userId]
         );
 
@@ -1268,7 +1133,7 @@ app.post('/api/withdrawals/request', authenticateToken, async (req, res) => {
 
         // Create Payout Request
         await db.execute(
-            `INSERT INTO payout_requests 
+            `INSERT INTO withdrawal_request 
              (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, status, eligibility_snapshot, created_at) 
              VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', ?, ?, 'PENDING', ?, NOW())`,
             [requestRef, req.userId, account_id, amount_cents, method, 
@@ -1357,7 +1222,7 @@ app.post('/api/trades/:tradeId/close', authenticateToken, async (req, res) => {
 app.patch('/api/trades/:tradeId', authenticateToken, async (req, res) => {
     const { stop_loss, take_profit } = req.body;
     try {
-        const [trades] = await db.execute('SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = "OPEN", [req.params.tradeId, req.userId]);
+        const [trades] = await db.execute("SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'", [req.params.tradeId, req.userId]);
         if (!trades.length) return res.status(404).json({ error: 'Open trade not found' });
         
         await db.execute('UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?', [stop_loss || null, take_profit || null, req.params.tradeId]);
@@ -1625,7 +1490,7 @@ app.post('/api/affiliate/payout/request', authenticateToken, async (req, res) =>
 
         // Create payout request (kind = AFFILIATE)
         await db.execute(
-            `INSERT INTO payout_requests (request_ref, user_id, kind, amount_cents, currency, method, payout_details, status, created_at)
+            `INSERT INTO withdrawal_request (request_ref, user_id, kind, amount_cents, currency, method, payout_details, status, created_at)
              VALUES (?, ?, 'AFFILIATE', ?, 'USD', 'BANK', ?, 'PENDING', NOW())`,
             [requestRef, req.userId, amount_cents, JSON.stringify({ type: 'AFFILIATE_COMMISSION' })]
         );
@@ -1652,7 +1517,7 @@ app.post('/api/affiliate/payout/request', authenticateToken, async (req, res) =>
 app.get('/api/affiliate/payouts', authenticateToken, async (req, res) => {
     try {
         const [payouts] = await db.execute(
-            "SELECT * FROM payout_requests WHERE user_id = ? AND kind = 'AFFILIATE' ORDER BY created_at DESC",
+            "SELECT * FROM withdrawal_request WHERE user_id = ? AND kind = 'AFFILIATE' ORDER BY created_at DESC",
             [req.userId]
         );
         res.json({ success: true, payouts });
@@ -1666,7 +1531,7 @@ app.get('/api/admin/affiliate-payouts', authenticateAdmin, async (req, res) => {
     try {
         const [payouts] = await db.query(`
             SELECT pr.*, u.legal_name, u.email, a.affiliate_code
-            FROM payout_requests pr
+            FROM withdrawal_request pr
             JOIN users u ON pr.user_id = u.id
             LEFT JOIN affiliates a ON a.user_id = pr.user_id
             WHERE pr.kind = 'AFFILIATE'
@@ -1684,11 +1549,11 @@ app.post('/api/admin/affiliate-payouts/:id/status', authenticateAdmin, async (re
     const { status } = req.body;
 
     try {
-        const [payouts] = await db.execute('SELECT * FROM payout_requests WHERE id = ?', [id]);
+        const [payouts] = await db.execute('SELECT * FROM withdrawal_request WHERE id = ?', [id]);
         if (!payouts.length) return res.status(404).json({ error: 'Payout not found' });
         const payout = payouts[0];
 
-        await db.execute('UPDATE payout_requests SET status = ? WHERE id = ?', [status, id]);
+        await db.execute('UPDATE withdrawal_request SET status = ? WHERE id = ?', [status, id]);
 
         // If PAID, mark associated commissions as PAID
         if (status === 'PAID') {
