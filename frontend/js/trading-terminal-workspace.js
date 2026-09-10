@@ -28,31 +28,18 @@
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
-  function addRail(panel, side) {
-    const rail = document.createElement("button");
-    rail.type = "button";
-    rail.className = `workspace-rail ${side}-rail`;
-    rail.dataset.workspaceRail = side;
-    rail.setAttribute("aria-label", side === "left" ? "Open pairs panel" : "Open trades panel");
-    rail.innerHTML = side === "left"
-      ? '<span>★</span><b>PAIRS</b>'
-      : '<span>▣</span><b>TRADES</b>';
-    workspace.appendChild(rail);
-    rail.addEventListener("click", () => setPanel(side, "compact"));
-    return rail;
+  function getRail(side) {
+    return workspace.querySelector(`[data-workspace-rail="${side}"]`);
   }
-
-  const leftRail = addRail(watch, "left");
-  const rightRail = addRail(right, "right");
 
   function setPanel(side, mode) {
     state[side] = mode;
     workspace.classList.toggle(`${side}-compact`, mode === "compact");
     workspace.classList.toggle(`${side}-hidden`, mode === "hidden");
+
     const panel = side === "left" ? watch : right;
     const button = panel.querySelector(`[data-workspace-toggle="${side}"]`);
     if (button) {
-      const next = mode === "expanded" ? "compact" : mode === "compact" ? "hidden" : "expanded";
       button.textContent = mode === "expanded" ? "−" : mode === "compact" ? "‹" : "›";
       button.title = mode === "expanded"
         ? `Minimize ${side} panel`
@@ -60,11 +47,11 @@
           ? `Hide ${side} panel`
           : `Show ${side} panel`;
       button.setAttribute("aria-label", button.title);
-      button.dataset.nextMode = next;
     }
+
     panel.classList.toggle("workspace-panel-hidden", mode === "hidden");
-    leftRail.classList.toggle("visible", side === "left" && mode === "hidden");
-    rightRail.classList.toggle("visible", side === "right" && mode === "hidden");
+    getRail("left")?.classList.toggle("visible", state.left === "hidden");
+    getRail("right")?.classList.toggle("visible", state.right === "hidden");
     save();
   }
 
@@ -78,7 +65,7 @@
     [right, "right"],
   ].forEach(([panel, side]) => {
     const title = panel.querySelector(".panel-title");
-    if (!title) return;
+    if (!title || title.querySelector(`[data-workspace-toggle="${side}"]`)) return;
 
     const button = document.createElement("button");
     button.type = "button";
@@ -96,8 +83,6 @@
 
   function focusChart() {
     workspace.classList.add("chart-focus-mode");
-    state.left = "hidden";
-    state.right = "hidden";
     setPanel("left", "hidden");
     setPanel("right", "hidden");
   }
@@ -109,20 +94,15 @@
   }
 
   const chartHead = document.querySelector(".chart-head");
-  if (chartHead && !document.getElementById("chartFocusBtn")) {
-    const focus = document.createElement("button");
-    focus.id = "chartFocusBtn";
-    focus.type = "button";
-    focus.className = "chart-focus-btn";
-    focus.innerHTML = '<span>Focus</span><b>⛶</b>';
-    focus.title = "Focus chart — hide side panels";
-    focus.addEventListener("click", () => {
+  if (chartHead) {
+    const focus = document.getElementById("chartFocusBtn");
+    focus?.addEventListener("click", () => {
       if (workspace.classList.contains("chart-focus-mode")) restorePanels();
       else focusChart();
-    });
-    chartHead.insertBefore(focus, document.getElementById("chartMaxBtn"));
+    }, { once: false });
   }
 
+  // Keyboard shortcuts: [ = pairs, ] = trades, F = chart focus.
   document.addEventListener("keydown", (event) => {
     if (event.target && /input|textarea|select/i.test(event.target.tagName)) return;
     if (event.key === "[") cycle("left");
@@ -133,11 +113,7 @@
     }
   });
 
-  // Keep the existing mobile navigation authoritative. Side-panel sliders are desktop UX.
-  function applyInitial() {
-    setPanel("left", state.left);
-    setPanel("right", state.right);
-  }
-
-  applyInitial();
+  // Keep the existing mobile navigation authoritative. These controls are desktop UX.
+  setPanel("left", state.left);
+  setPanel("right", state.right);
 })();
