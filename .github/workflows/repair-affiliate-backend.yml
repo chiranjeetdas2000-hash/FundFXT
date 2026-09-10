@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: Apply affiliate backend repair
-        run: node scripts/repair-affiliate.js
+        run: python3 scripts/repair-affiliate.py
 
       - name: Validate backend syntax
         run: node --check backend/server.js
