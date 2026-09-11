@@ -167,17 +167,7 @@ function installPaymentFlow(app) {
            final_amount_cents=VALUES(final_amount_cents),
            commission_amount_cents=VALUES(commission_amount_cents),
            status='PAYMENT_DONE'`,
-        [
-          affiliateId,
-          order.id,
-          order.request_id,
-          order.affiliate_code,
-          order.model,
-          order.original_amount_cents || 0,
-          order.discount_amount_cents || 0,
-          order.final_amount_cents || 0,
-          commissionCents,
-        ]
+        [affiliateId, order.id, order.request_id, order.affiliate_code, order.model, order.original_amount_cents || 0, order.discount_amount_cents || 0, order.final_amount_cents || 0, commissionCents]
       );
     }
 
@@ -188,7 +178,6 @@ function installPaymentFlow(app) {
     return code;
   }
 
-  // User creates the payment request. This route intentionally uses payment_requests as the source of truth.
   app.post("/api/payments/request", authenticateUser, async (req, res) => {
     const connection = await db.getConnection();
     try {
@@ -198,12 +187,10 @@ function installPaymentFlow(app) {
         [req.userId]
       );
       if (!users.length) throw new Error("User not found");
-
       const user = users[0];
       const p = await pricing(connection, req.body?.model, req.body?.affiliate_code);
       const id = requestRef();
       const affiliateCode = p.affiliateApplied ? String(req.body.affiliate_code).trim() : null;
-
       await connection.execute(
         `INSERT INTO payment_requests
          (request_id,user_id,provider,razorpay_link,model,affiliate_code,affiliate_id,original_amount_cents,discount_amount_cents,final_amount_cents,paid_amount_cents,currency,status,created_at,updated_at)
@@ -211,25 +198,15 @@ function installPaymentFlow(app) {
         [id, user.id, p.model, affiliateCode, p.affiliate_user_id, p.originalAmountCents, p.discountAmountCents, p.finalAmountCents, p.currency]
       );
       await connection.commit();
-
       try {
-        await email(
-          "support.fundfxt@gmail.com",
-          `FundFXT Payment Request ${id}`,
-          `<h2>New FundFXT Payment Request</h2><p><b>Request ID:</b> ${id}</p><p><b>Name:</b> ${user.legal_name}</p><p><b>Email:</b> ${user.email}</p><p><b>Challenge:</b> ${p.model}</p><p><b>Payable:</b> ${(p.finalAmountCents / 100).toFixed(2)} ${p.currency}</p><p><b>Affiliate:</b> ${affiliateCode || "None"}</p>`
-        );
-      } catch (error) {
-        console.error("Payment request email failed:", error.message);
-      }
-
+        await email("support.fundfxt@gmail.com", `FundFXT Payment Request ${id}`, `<h2>New FundFXT Payment Request</h2><p><b>Request ID:</b> ${id}</p><p><b>Name:</b> ${user.legal_name}</p><p><b>Email:</b> ${user.email}</p><p><b>Challenge:</b> ${p.model}</p><p><b>Payable:</b> ${(p.finalAmountCents / 100).toFixed(2)} ${p.currency}</p><p><b>Affiliate:</b> ${affiliateCode || "None"}</p>`);
+      } catch (error) { console.error("Payment request email failed:", error.message); }
       res.json({ success: true, request_id: id, request_ref: id, status: "REQUESTED", manual_payment: true, pricing: p });
     } catch (error) {
       try { await connection.rollback(); } catch {}
       console.error("Payment request error:", error);
       res.status(500).json({ error: error.message });
-    } finally {
-      connection.release();
-    }
+    } finally { connection.release(); }
   });
 
   app.post("/api/admin/payment-requests/:id/mark-link-sent", authenticateAdmin, async (req, res) => {
@@ -240,25 +217,18 @@ function installPaymentFlow(app) {
       await connection.beginTransaction();
       const [rows] = await connection.execute(
         `SELECT pr.*, u.email AS user_email, u.legal_name
-         FROM payment_requests pr JOIN users u ON u.id = pr.user_id
+         FROM payment_requests pr LEFT JOIN users u ON u.id = pr.user_id
          WHERE pr.id = ? FOR UPDATE`,
         [req.params.id]
       );
       if (!rows.length) throw new Error("Payment request not found");
       const request = rows[0];
-      if (!["REQUESTED", "LINK_SENT", "PAYMENT_PENDING"].includes(String(request.status))) {
-        throw new Error(`Payment link cannot be changed from ${request.status}.`);
-      }
-      await connection.execute(
-        "UPDATE payment_requests SET razorpay_link = ?, status = 'LINK_SENT', updated_at = NOW() WHERE id = ?",
-        [link, request.id]
-      );
+      if (!["REQUESTED", "LINK_SENT", "PAYMENT_PENDING"].includes(String(request.status))) throw new Error(`Payment link cannot be changed from ${request.status}.`);
+      await connection.execute("UPDATE payment_requests SET razorpay_link = ?, status = 'LINK_SENT', updated_at = NOW() WHERE id = ?", [link, request.id]);
       await connection.commit();
-
       let emailSent = false;
       try { emailSent = await email(request.user_email, `FundFXT payment link — ${request.request_id}`, `<h2>FundFXT Payment</h2><p>Your request <b>${request.request_id}</b> is ready.</p><p>Challenge: <b>${request.model}</b></p><p>Payable: <b>${(Number(request.final_amount_cents || 0) / 100).toFixed(2)} ${request.currency}</b></p><p><a href="${link}">Pay Now</a></p>`); }
       catch (error) { console.error("Payment link email failed:", error.message); }
-
       res.json({ success: true, status: "LINK_SENT", emailed_to: emailSent ? request.user_email : null, email_sent: emailSent });
     } catch (error) {
       try { await connection.rollback(); } catch {}
@@ -267,29 +237,40 @@ function installPaymentFlow(app) {
     } finally { connection.release(); }
   });
 
-  app.get("/api/admin/payment-requests", authenticateAdmin, async (req, res) => {
+  async function listPaymentRequests(req, res) {
     try {
       const status = String(req.query.status || "").trim();
       const search = String(req.query.request_id || req.query.request_ref || req.query.razorpay_link || "").trim();
       const where = [], params = [];
       if (status) { where.push("pr.status = ?"); params.push(status); }
-      if (search) { where.push("(pr.request_id LIKE ? OR pr.razorpay_link LIKE ?)"); params.push(`%${search}%`, `%${search}%`); }
+      if (search) {
+        where.push("(pr.request_id LIKE ? OR pr.razorpay_link LIKE ? OR u.email LIKE ? OR u.legal_name LIKE ? OR pr.model LIKE ? OR pr.affiliate_code LIKE ?)");
+        for (let i = 0; i < 6; i++) params.push(`%${search}%`);
+      }
       const sql = `SELECT pr.*, u.legal_name, u.email AS user_email, a.legal_name AS affiliate_name
                    FROM payment_requests pr
-                   JOIN users u ON pr.user_id = u.id
+                   LEFT JOIN users u ON pr.user_id = u.id
                    LEFT JOIN users a ON pr.affiliate_id = a.id
                    ${where.length ? "WHERE " + where.join(" AND ") : ""}
                    ORDER BY pr.created_at DESC`;
       const [requests] = await db.execute(sql, params);
+      res.setHeader("Cache-Control", "no-store");
       res.json({ success: true, requests, orders: requests });
-    } catch (error) { res.status(500).json({ error: error.message }); }
-  });
+    } catch (error) {
+      console.error("Admin payment request fetch failed:", error);
+      res.status(500).json({ error: error.message });
+    }
+  }
+
+  // Canonical endpoint.
+  app.get("/api/admin/payment-requests", authenticateAdmin, listPaymentRequests);
+  // Compatibility endpoint for any cached/older admin JS. It still reads payment_requests.
+  app.get("/api/admin/payment-orders", authenticateAdmin, listPaymentRequests);
 
   app.post("/api/admin/payment-requests/:id/status", authenticateAdmin, async (req, res) => {
     const requested = String(req.body?.status || "").trim().toUpperCase();
     const nextStatus = requested === "PAYMENT_APPROVED" || requested === "PAYMENT_DONE" ? "PAYMENT_DONE" : requested === "CANCELLED" || requested === "REJECTED" || requested === "PAYMENT_CANCELLED" ? "PAYMENT_CANCELLED" : requested;
     if (!["PAYMENT_DONE", "PAYMENT_CANCELLED"].includes(nextStatus)) return res.status(400).json({ error: "Allowed payment outcomes are PAYMENT_DONE or PAYMENT_CANCELLED." });
-
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
@@ -298,13 +279,9 @@ function installPaymentFlow(app) {
       const request = rows[0];
       if (!["LINK_SENT", "PAYMENT_PENDING", "PAYMENT_DONE", "PAYMENT_CANCELLED"].includes(String(request.status))) throw new Error(`Payment outcome cannot be set from ${request.status}`);
       if (request.status === "PAYMENT_CANCELLED" && nextStatus === "PAYMENT_DONE") throw new Error("A cancelled payment cannot be marked done.");
-
       let code = request.account_code || null;
       if (nextStatus === "PAYMENT_DONE") code = await createAccountAndCommission(connection, request);
-      await connection.execute(
-        "UPDATE payment_requests SET status = ?, paid_amount_cents = ?, updated_at = NOW() WHERE id = ?",
-        [nextStatus, nextStatus === "PAYMENT_DONE" ? Number(request.final_amount_cents || 0) : 0, request.id]
-      );
+      await connection.execute("UPDATE payment_requests SET status = ?, paid_amount_cents = ?, updated_at = NOW() WHERE id = ?", [nextStatus, nextStatus === "PAYMENT_DONE" ? Number(request.final_amount_cents || 0) : 0, request.id]);
       await connection.commit();
       res.json({ success: true, status: nextStatus, account_code: code });
     } catch (error) {
