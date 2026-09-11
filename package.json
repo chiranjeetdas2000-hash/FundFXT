@@ -4,8 +4,8 @@
   "description": "FundFXT Prop Firm Platform",
   "main": "backend/server.js",
   "scripts": {
-    "start": "node -r ./backend/database-control-preload.js backend/server.js",
-    "test": "node --check backend/server.js && node --check backend/database-control-preload.js && node --check frontend/admin/index.js"
+    "start": "node -r ./backend/database-control-preload.js -r ./backend/payment-flow-preload.js backend/server.js",
+    "test": "node --check backend/server.js && node --check backend/database-control-preload.js && node --check backend/payment-flow-preload.js && node --check frontend/admin/index.js"
   },
   "engines": {
     "node": ">=18"
@@ -18,8 +18,6 @@
     "bcrypt": "^6.0.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.24.2",
     "nodemailer": "^6.9.1",
