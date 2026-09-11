@@ -45,6 +45,20 @@ function installPaymentFlow(app) {
     return { sent: true };
   }
 
+  async function upsertAffiliateSale(connection, order, status) {
+    if (!order.affiliate_code || !String(order.affiliate_code).trim()) return;
+    const [affiliateRows] = await connection.execute("SELECT id FROM affiliates WHERE affiliate_code = ? LIMIT 1", [String(order.affiliate_code).trim()]);
+    if (!affiliateRows.length) return;
+    const affiliateId = affiliateRows[0].id;
+    const original = Number(order.original_amount_cents || 0);
+    const discount = Number(order.discount_amount_cents || 0);
+    const finalAmount = Number(order.final_amount_cents || 0);
+    const commissionRate = 2000;
+    const fixedBonus = 100;
+    const commissionTotal = Math.floor(finalAmount * commissionRate / 10000 + fixedBonus);
+    await connection.execute(`INSERT INTO affiliate_sales (affiliate_id, order_id, request_id, affiliate_code, model, original_amount_cents, discount_amount_cents, final_amount_cents, commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE request_id=VALUES(request_id), affiliate_code=VALUES(affiliate_code), model=VALUES(model), original_amount_cents=VALUES(original_amount_cents), discount_amount_cents=VALUES(discount_amount_cents), final_amount_cents=VALUES(final_amount_cents), commission_rate_bps=VALUES(commission_rate_bps), fixed_bonus_cents=VALUES(fixed_bonus_cents), commission_amount_cents=VALUES(commission_amount_cents), status=VALUES(status)`, [affiliateId, order.id, order.request_id, order.affiliate_code, order.model, original, discount, finalAmount, commissionRate, fixedBonus, commissionTotal, status]);
+  }
+
   async function createAccountAndCommission(connection, order) {
     if (order.account_code) return order.account_code;
     const [configs] = await connection.execute("SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1", [order.model]);
@@ -65,6 +79,7 @@ function installPaymentFlow(app) {
         }
       }
     }
+    await upsertAffiliateSale(connection, order, "PAYMENT_DONE");
     await connection.execute("UPDATE payment_orders SET account_code = ?, updated_at = NOW() WHERE id = ?", [accountCode, order.id]);
     return accountCode;
   }
@@ -80,6 +95,7 @@ function installPaymentFlow(app) {
       const order = orders[0];
       if (!["REQUESTED", "LINK_SENT", "PAYMENT_PENDING"].includes(String(order.status))) { await connection.rollback(); return res.status(400).json({ error: `Payment link cannot be changed from ${order.status}.` }); }
       await connection.execute("UPDATE payment_orders SET razorpay_link = ?, status = 'LINK_SENT', updated_at = NOW() WHERE id = ?", [link, order.id]);
+      await upsertAffiliateSale(connection, order, "LINK_SENT");
       await connection.commit();
       let emailResult = { sent: false, reason: "not_attempted" };
       try { emailResult = await sendPaymentLinkEmail(order.user_email, order, link); } catch (emailError) { console.error("Payment link customer email failed:", emailError.message); emailResult = { sent: false, reason: emailError.message }; }
@@ -116,6 +132,7 @@ function installPaymentFlow(app) {
       if (order.status === "PAYMENT_CANCELLED" && nextStatus === "PAYMENT_DONE") throw new Error("A cancelled payment cannot be marked done.");
       let accountCode = order.account_code || null;
       if (nextStatus === "PAYMENT_DONE") accountCode = await createAccountAndCommission(connection, order);
+      if (nextStatus === "PAYMENT_CANCELLED") await upsertAffiliateSale(connection, order, "PAYMENT_CANCELLED");
       await connection.execute("UPDATE payment_orders SET status = ?, paid_amount_cents = ?, updated_at = NOW() WHERE id = ?", [nextStatus, nextStatus === "PAYMENT_DONE" ? (order.final_amount_cents || 0) : 0, order.id]);
       await connection.commit();
       res.json({ success: true, status: nextStatus, account_code: accountCode });
