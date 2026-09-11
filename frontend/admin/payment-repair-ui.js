@@ -1,9 +1,16 @@
 (() => {
-  const API = "https://fundFXT.onrender.com";
-  const token = localStorage.getItem("fundfxt_admin_token");
+  const API = "https://fundfxt.onrender.com";
+  const token = localStorage.getItem("fundFXT_admin_token");
   if (!token) return;
 
-  const esc = (v) => String(v ?? "").replace(/[&<>\"']/g, (c) => ({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#39;"}[c]));
+  async function getRequests() {
+    const response = await fetch(`${API}/api/admin/payment-requests`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) throw new Error("Unable to load payment requests.");
+    const data = await response.json();
+    return data.requests || data.orders || [];
+  }
 
   async function repairCustomer(id, requestId) {
     const email = prompt(`Repair customer for ${requestId}\n\nEnter the customer's registered FundFXT email:`);
@@ -20,13 +27,20 @@
     if (typeof window.fetchOrders === "function") window.fetchOrders();
   }
 
-  function inject() {
+  async function inject() {
     const table = document.getElementById("ordersBody");
     if (!table) return;
     const rows = table.querySelectorAll("tr");
-    rows.forEach((row, index) => {
+    if (!rows.length) return;
+
+    let orders;
+    try { orders = await getRequests(); } catch { return; }
+    const byRequestId = new Map(orders.map((o) => [String(o.request_id || o.request_ref || o.id), o]));
+
+    rows.forEach((row) => {
       if (row.dataset.identityRepairAdded === "1") return;
-      const order = Array.isArray(window.orders) ? window.orders[index] : null;
+      const requestId = row.querySelector("td:first-child")?.textContent?.trim();
+      const order = byRequestId.get(requestId);
       if (!order?.id) return;
       const actionCell = row.lastElementChild;
       if (!actionCell) return;
@@ -41,8 +55,8 @@
     });
   }
 
-  const observer = new MutationObserver(inject);
+  const observer = new MutationObserver(() => inject());
   observer.observe(document.body, { childList: true, subtree: true });
-  setInterval(inject, 1200);
+  setInterval(inject, 2500);
   inject();
 })();
