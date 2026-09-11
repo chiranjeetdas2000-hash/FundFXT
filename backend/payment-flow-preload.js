@@ -117,7 +117,6 @@ function installPaymentFlow(app) {
     return accountCode;
   }
 
-  // Admin pastes the real Razorpay link. This endpoint was missing from the active server.
   app.post("/api/admin/payment-requests/:id/mark-link-sent", authenticateAdmin, async (req, res) => {
     const link = String(req.body?.razorpay_link || "").trim();
     if (!validPaymentLink(link)) return res.status(400).json({ error: "Enter a valid HTTPS Razorpay payment link (rzp.io)." });
@@ -125,7 +124,12 @@ function installPaymentFlow(app) {
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
-      const [orders] = await connection.execute("SELECT * FROM payment_orders WHERE id = ? FOR UPDATE", [req.params.id]);
+      const [orders] = await connection.execute(
+        `SELECT po.*, u.email AS user_email, u.legal_name
+         FROM payment_orders po JOIN users u ON u.id = po.user_id
+         WHERE po.id = ? FOR UPDATE`,
+        [req.params.id],
+      );
       if (!orders.length) {
         await connection.rollback();
         return res.status(404).json({ error: "Payment request not found" });
@@ -143,10 +147,10 @@ function installPaymentFlow(app) {
       await connection.commit();
 
       let emailResult = { sent: false, reason: "not_attempted" };
-      try { emailResult = await sendPaymentLinkEmail(order.user_email || order.email, order, link); }
+      try { emailResult = await sendPaymentLinkEmail(order.user_email, order, link); }
       catch (emailError) { console.error("Payment link customer email failed:", emailError.message); emailResult = { sent: false, reason: emailError.message }; }
 
-      res.json({ success: true, status: "LINK_SENT", emailed_to: emailResult.sent ? (order.user_email || order.email) : null, email_sent: emailResult.sent, email_error: emailResult.sent ? null : emailResult.reason });
+      res.json({ success: true, status: "LINK_SENT", emailed_to: emailResult.sent ? order.user_email : null, email_sent: emailResult.sent, email_error: emailResult.sent ? null : emailResult.reason });
     } catch (error) {
       try { await connection.rollback(); } catch {}
       console.error("Mark payment link sent failed:", error);
@@ -154,7 +158,6 @@ function installPaymentFlow(app) {
     } finally { connection.release(); }
   });
 
-  // Search by request ID OR Razorpay link, then return the complete payment state.
   app.get("/api/admin/payment-orders", authenticateAdmin, async (req, res) => {
     try {
       const status = String(req.query.status || "").trim();
@@ -178,8 +181,6 @@ function installPaymentFlow(app) {
     } catch (error) { res.status(500).json({ error: error.message }); }
   });
 
-  // Only two post-link outcomes are allowed: PAYMENT_CANCELLED or PAYMENT_DONE.
-  // PAYMENT_DONE creates the account and affiliate commission atomically and only once.
   app.post("/api/admin/payment-orders/:id/status", authenticateAdmin, async (req, res) => {
     const nextStatus = String(req.body?.status || "").trim().toUpperCase();
     if (!["PAYMENT_CANCELLED", "PAYMENT_DONE"].includes(nextStatus)) {
