@@ -2,493 +2,90 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width,initial-scale=1,viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>FundFXT Admin Console</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="index.css" />
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="index.css?v=20260911" />
+    <style>
+      .refresh-action .refresh-icon{display:inline-block;transform-origin:50% 50%;margin-right:4px}
+      .refresh-action.refreshing .refresh-icon{animation:fxt-refresh-spin .75s linear infinite}
+      @keyframes fxt-refresh-spin{to{transform:rotate(360deg)}}
+    </style>
   </head>
   <body>
     <div class="app">
       <aside class="sidebar" id="sidebar">
-        <div class="brand">
-          <div class="brand-mark">F</div>
-          <div>
-            <div class="brand-name">Fund<span>FXT</span></div>
-            <small>ADMIN CONSOLE</small>
-          </div>
-        </div>
+        <div class="brand"><div class="brand-mark">F</div><div><div class="brand-name">Fund<span>FXT</span></div><small>ADMIN CONSOLE</small></div></div>
         <nav class="nav">
           <div class="nav-label">Workspace</div>
-          <button data-section="dashboard" onclick="showSection('dashboard')">
-            <span class="nav-icon">◈</span>Overview
-          </button>
-          <button data-section="users" onclick="showSection('users')">
-            <span class="nav-icon">♙</span>Users
-          </button>
-          <button data-section="orders" onclick="showSection('orders')">
-            <span class="nav-icon">▤</span>Payments
-          </button>
-          <button
-            data-section="withdrawals"
-            onclick="showSection('withdrawals')"
-          >
-            <span class="nav-icon">↙</span>Withdrawals
-          </button>
-          <button data-section="affiliates" onclick="showSection('affiliates')">
-            <span class="nav-icon">↗</span>Affiliates
-          </button>
+          <button data-section="dashboard" onclick="showSection('dashboard')"><span class="nav-icon">◈</span>Overview</button>
+          <button data-section="users" onclick="showSection('users')"><span class="nav-icon">♙</span>Users</button>
+          <button data-section="orders" onclick="showSection('orders')"><span class="nav-icon">▤</span>Payments</button>
+          <button data-section="withdrawals" onclick="showSection('withdrawals')"><span class="nav-icon">↙</span>Withdrawals</button>
+          <button data-section="affiliates" onclick="showSection('affiliates')"><span class="nav-icon">↗</span>Affiliates</button>
           <div class="nav-label">Operations</div>
-          <button
-            data-section="certificates"
-            onclick="showSection('certificates')"
-          >
-            <span class="nav-icon">★</span>Certificates
-          </button>
-          <button data-section="support" onclick="showSection('support')">
-            <span class="nav-icon">?</span>Support
-          </button>
-          <button data-section="settings" onclick="showSection('settings')">
-            <span class="nav-icon">⚙</span>Settings
-          </button>
+          <button data-section="certificates" onclick="showSection('certificates')"><span class="nav-icon">★</span>Certificates</button>
+          <button data-section="support" onclick="showSection('support')"><span class="nav-icon">?</span>Support</button>
+          <button data-section="settings" onclick="showSection('settings')"><span class="nav-icon">⚙</span>Settings</button>
         </nav>
         <div class="sidebar-footer">FundFXT Admin · Live backend connected</div>
       </aside>
-      <div class="mobile-bar">
-        <button class="icon-btn" onclick="toggleSidebar()">☰</button>
-        <div class="mobile-brand">Fund<span>FXT</span> Admin</div>
-        <button class="icon-btn" onclick="logout()">↪</button>
-      </div>
+      <div class="mobile-bar"><button class="icon-btn" onclick="toggleSidebar()">☰</button><div class="mobile-brand">Fund<span>FXT</span> Admin</div><button class="icon-btn" onclick="logout()">↪</button></div>
       <main class="main">
         <section id="section-dashboard" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Control Center</div>
-              <h1>Overview</h1>
-              <p>Live operational snapshot from the FundFXT backend.</p>
-            </div>
-            <div class="top-actions">
-              <button class="btn secondary" onclick="refreshCurrent()">
-                ↻ Refresh</button
-              ><button class="btn red" onclick="logout()">Logout</button>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Control Center</div><h1>Overview</h1><p>Live operational snapshot from the FundFXT backend.</p></div><div class="top-actions"><button class="btn secondary refresh-action" onclick="refreshCurrent()"><span class="refresh-icon">↻</span>Refresh</button><button class="btn red" onclick="logout()">Logout</button></div></div>
           <div class="stats">
-            <div class="stat">
-              <small>Payment Requests Today</small
-              ><strong id="statPayments">0</strong>
-              <div class="trend">Live backend</div>
-            </div>
-            <div class="stat">
-              <small>Withdrawal Requests Today</small
-              ><strong id="statWithdrawals">0</strong>
-              <div class="trend">Live backend</div>
-            </div>
-            <div class="stat">
-              <small>Passed Accounts Today</small
-              ><strong id="statPassed">0</strong>
-              <div class="trend">Live backend</div>
-            </div>
-            <div class="stat">
-              <small>Failed Accounts Today</small
-              ><strong id="statFailed">0</strong>
-              <div class="trend">Live backend</div>
-            </div>
-            <div class="stat">
-              <small>Successful Revenue</small
-              ><strong id="statRevenue">$0.00</strong>
-              <div class="trend">Approved revenue</div>
-            </div>
+            <div class="stat"><small>Payment Requests Today</small><strong id="statPayments">0</strong><div class="trend">Live backend</div></div>
+            <div class="stat"><small>Withdrawal Requests Today</small><strong id="statWithdrawals">0</strong><div class="trend">Live backend</div></div>
+            <div class="stat"><small>Passed Accounts Today</small><strong id="statPassed">0</strong><div class="trend">Live backend</div></div>
+            <div class="stat"><small>Failed Accounts Today</small><strong id="statFailed">0</strong><div class="trend">Live backend</div></div>
+            <div class="stat"><small>Successful Revenue</small><strong id="statRevenue">$0.00</strong><div class="trend">Approved revenue</div></div>
           </div>
-          <div class="panel">
-            <div class="eyebrow">Admin workflow</div>
-            <h3 style="margin: 5px 0 4px; font-size: 15px">Payment control</h3>
-            <p
-              style="
-                margin: 0;
-                color: var(--muted);
-                font-size: 10px;
-                line-height: 1.7;
-              "
-            >
-              Payment requests stay under Payments. Admin can add a Razorpay
-              payment link, update payment status manually, and create an
-              account only after PAYMENT_APPROVED.
-            </p>
-          </div>
+          <div class="panel"><div class="eyebrow">Admin workflow</div><h3 style="margin:5px 0 4px;font-size:15px">Payment control</h3><p style="margin:0;color:var(--muted);font-size:10px;line-height:1.7">Payment requests stay under Payments. Admin can add a Razorpay payment link, update payment status manually, and create an account only after PAYMENT_APPROVED.</p></div>
         </section>
 
         <section id="section-users" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Directory</div>
-              <h1>Users</h1>
-              <p>Search and inspect registered traders.</p>
-            </div>
-          </div>
-          <div class="panel">
-            <div class="toolbar">
-              <input
-                class="input search"
-                id="userSearch"
-                placeholder="Search name, email, trader ID, phone, address..."
-                oninput="renderUsers()"
-              /><select id="userFilter" onchange="renderUsers()">
-                <option value="">All KYC</option>
-                <option>APPROVED</option>
-                <option>NOT_SUBMITTED</option></select
-              ><button class="btn secondary" onclick="fetchUsers()">
-                ↻ Refresh
-              </button>
-            </div>
-            <div id="usersError"></div>
-            <div class="table-wrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>ID</th>
-                    <th>Trader ID</th>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Phone</th>
-                    <th>Address</th>
-                    <th>KYC</th>
-                    <th>Affiliate</th>
-                    <th>Registered</th>
-                  </tr>
-                </thead>
-                <tbody id="usersBody"></tbody>
-              </table>
-              <div id="usersLoading" class="loading">Loading users…</div>
-              <div id="usersEmpty" class="empty">No users found.</div>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Directory</div><h1>Users</h1><p>Search and inspect registered traders.</p></div></div>
+          <div class="panel"><div class="toolbar"><input class="input search" id="userSearch" placeholder="Search name, email, trader ID, phone, address..." oninput="renderUsers()"><select id="userFilter" onchange="renderUsers()"><option value="">All KYC</option><option>APPROVED</option><option>NOT_SUBMITTED</option></select><button class="btn secondary refresh-action" onclick="fetchUsers()"><span class="refresh-icon">↻</span>Refresh</button></div><div id="usersError"></div><div class="table-wrap"><table class="table"><thead><tr><th>ID</th><th>Trader ID</th><th>Name</th><th>Email</th><th>Phone</th><th>Address</th><th>KYC</th><th>Affiliate</th><th>Registered</th></tr></thead><tbody id="usersBody"></tbody></table><div id="usersLoading" class="loading">Loading users…</div><div id="usersEmpty" class="empty">No users found.</div></div></div>
         </section>
 
         <section id="section-orders" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Revenue Operations</div>
-              <h1>Payment Requests</h1>
-              <p>One request record per customer payment flow.</p>
-            </div>
-            <button class="btn secondary" onclick="fetchOrders()">
-              ↻ Refresh
-            </button>
-          </div>
-          <div class="panel">
-            <div class="toolbar">
-              <input
-                class="input search"
-                id="paymentSearch"
-                placeholder="Search Request ID or paste Razorpay Payment Link…"
-                onkeydown="if (event.key === 'Enter') fetchOrders();"
-              /><select id="orderStatusFilter" onchange="fetchOrders()">
-                <option value="">All Status</option>
-                <option>REQUESTED</option>
-                <option>LINK_SENT</option>
-                <option>PAYMENT_PENDING</option>
-                <option>PAYMENT_DONE</option>
-                <option>PAYMENT_APPROVED</option>
-                <option>REJECTED</option>
-                <option>CANCELLED</option>
-                <option>ACCOUNT_CREATED</option></select
-              ><button class="btn" onclick="fetchOrders()">Search</button
-              ><button class="btn secondary" onclick="clearPaymentSearch()">
-                Clear
-              </button>
-            </div>
-            <div id="ordersError"></div>
-            <div class="table-wrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Request ID</th>
-                    <th>User</th>
-                    <th>Challenge</th>
-                    <th>Affiliate</th>
-                    <th>Original</th>
-                    <th>Discount</th>
-                    <th>Payable</th>
-                    <th>Razorpay Link</th>
-                    <th>Status</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody id="ordersBody"></tbody>
-              </table>
-              <div id="ordersLoading" class="loading">
-                Loading payment requests…
-              </div>
-              <div id="ordersEmpty" class="empty">
-                No payment requests found.
-              </div>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Revenue Operations</div><h1>Payment Requests</h1><p>One request record per customer payment flow.</p></div><button class="btn secondary refresh-action" onclick="fetchOrders()"><span class="refresh-icon">↻</span>Refresh</button></div>
+          <div class="panel"><div class="toolbar"><input class="input search" id="paymentSearch" placeholder="Search Request ID or paste Razorpay Payment Link…" onkeydown="if (event.key === 'Enter') fetchOrders();"><select id="orderStatusFilter" onchange="fetchOrders()"><option value="">All Status</option><option>REQUESTED</option><option>LINK_SENT</option><option>PAYMENT_PENDING</option><option>PAYMENT_DONE</option><option>PAYMENT_APPROVED</option><option>REJECTED</option><option>CANCELLED</option><option>ACCOUNT_CREATED</option></select><button class="btn" onclick="fetchOrders()">Search</button><button class="btn secondary" onclick="clearPaymentSearch()">Clear</button></div><div id="ordersError"></div><div class="table-wrap"><table class="table"><thead><tr><th>Request ID</th><th>User</th><th>Challenge</th><th>Affiliate</th><th>Original</th><th>Discount</th><th>Payable</th><th>Razorpay Link</th><th>Status</th><th>Action</th></tr></thead><tbody id="ordersBody"></tbody></table><div id="ordersLoading" class="loading">Loading payment requests…</div><div id="ordersEmpty" class="empty">No payment requests found.</div></div></div>
         </section>
 
         <section id="section-withdrawals" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Payout Operations</div>
-              <h1>Withdrawals</h1>
-              <p>Withdrawal requests fetched from the backend.</p>
-            </div>
-            <button class="btn secondary" onclick="fetchWithdrawals()">
-              ↻ Refresh
-            </button>
-          </div>
-          <div class="panel">
-            <div id="withdrawalsError"></div>
-            <div class="table-wrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Request ID</th>
-                    <th>User</th>
-                    <th>Account</th>
-                    <th>Amount</th>
-                    <th>Method</th>
-                    <th>Status</th>
-                  </tr>
-                </thead>
-                <tbody id="withdrawalsBody"></tbody>
-              </table>
-              <div id="withdrawalsLoading" class="loading">
-                Loading withdrawals…
-              </div>
-              <div id="withdrawalsEmpty" class="empty">
-                No withdrawal requests found.
-              </div>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Payout Operations</div><h1>Withdrawals</h1><p>Withdrawal requests fetched from the backend.</p></div><button class="btn secondary refresh-action" onclick="fetchWithdrawals()"><span class="refresh-icon">↻</span>Refresh</button></div>
+          <div class="panel"><div id="withdrawalsError"></div><div class="table-wrap"><table class="table"><thead><tr><th>Request ID</th><th>User</th><th>Account</th><th>Amount</th><th>Method</th><th>Status</th></tr></thead><tbody id="withdrawalsBody"></tbody></table><div id="withdrawalsLoading" class="loading">Loading withdrawals…</div><div id="withdrawalsEmpty" class="empty">No withdrawal requests found.</div></div></div>
         </section>
 
         <section id="section-affiliates" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Partner Network</div>
-              <h1>Affiliates</h1>
-              <p>Affiliate codes, sales and earnings from backend data.</p>
-            </div>
-            <button class="btn secondary" onclick="fetchAffiliates()">
-              ↻ Refresh
-            </button>
-          </div>
-          <div class="panel">
-            <div id="affiliatesError"></div>
-            <div class="table-wrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Email</th>
-                    <th>Code</th>
-                    <th>Sales</th>
-                    <th>Total Earned</th>
-                    <th>Pending</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody id="affiliatesBody"></tbody>
-              </table>
-              <div id="affiliatesLoading" class="loading">
-                Loading affiliates…
-              </div>
-              <div id="affiliatesEmpty" class="empty">No affiliates found.</div>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Partner Network</div><h1>Affiliates</h1><p>Affiliate codes, sales and earnings from backend data.</p></div><button class="btn secondary refresh-action" onclick="fetchAffiliates()"><span class="refresh-icon">↻</span>Refresh</button></div>
+          <div class="panel"><div id="affiliatesError"></div><div class="table-wrap"><table class="table"><thead><tr><th>Name</th><th>Email</th><th>Code</th><th>Sales</th><th>Total Earned</th><th>Pending</th><th>Action</th></tr></thead><tbody id="affiliatesBody"></tbody></table><div id="affiliatesLoading" class="loading">Loading affiliates…</div><div id="affiliatesEmpty" class="empty">No affiliates found.</div></div></div>
         </section>
 
         <section id="section-certificates" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Achievements</div>
-              <h1>Certificates</h1>
-              <p>Issued trader certificates from the backend.</p>
-            </div>
-            <button class="btn secondary" onclick="fetchCertificates()">
-              ↻ Refresh
-            </button>
-          </div>
-          <div class="panel">
-            <div id="certificatesError"></div>
-            <div class="table-wrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>User</th>
-                    <th>Account</th>
-                    <th>Achievement</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody id="certificatesBody"></tbody>
-              </table>
-              <div id="certificatesLoading" class="loading">
-                Loading certificates…
-              </div>
-              <div id="certificatesEmpty" class="empty">
-                No certificates found.
-              </div>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Achievements</div><h1>Certificates</h1><p>Issued trader certificates from the backend.</p></div><button class="btn secondary refresh-action" onclick="fetchCertificates()"><span class="refresh-icon">↻</span>Refresh</button></div>
+          <div class="panel"><div id="certificatesError"></div><div class="table-wrap"><table class="table"><thead><tr><th>User</th><th>Account</th><th>Achievement</th><th>Date</th></tr></thead><tbody id="certificatesBody"></tbody></table><div id="certificatesLoading" class="loading">Loading certificates…</div><div id="certificatesEmpty" class="empty">No certificates found.</div></div></div>
         </section>
 
         <section id="section-support" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Customer Care</div>
-              <h1>Support</h1>
-              <p>Support tickets loaded directly from the admin API.</p>
-            </div>
-            <button class="btn secondary" onclick="fetchSupportTickets()">
-              ↻ Refresh
-            </button>
-          </div>
-          <div class="panel">
-            <div id="supportError"></div>
-            <div class="table-wrap">
-              <table class="table">
-                <thead>
-                  <tr>
-                    <th>Ticket</th>
-                    <th>User</th>
-                    <th>Subject</th>
-                    <th>Message</th>
-                    <th>Date</th>
-                  </tr>
-                </thead>
-                <tbody id="supportBody"></tbody>
-              </table>
-              <div id="supportLoading" class="loading">
-                Loading support tickets…
-              </div>
-              <div id="supportEmpty" class="empty">
-                No support tickets found.
-              </div>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Customer Care</div><h1>Support</h1><p>Support tickets loaded directly from the admin API.</p></div><button class="btn secondary refresh-action" onclick="fetchSupportTickets()"><span class="refresh-icon">↻</span>Refresh</button></div>
+          <div class="panel"><div id="supportError"></div><div class="table-wrap"><table class="table"><thead><tr><th>Ticket</th><th>User</th><th>Subject</th><th>Message</th><th>Date</th></tr></thead><tbody id="supportBody"></tbody></table><div id="supportLoading" class="loading">Loading support tickets…</div><div id="supportEmpty" class="empty">No support tickets found.</div></div></div>
         </section>
 
         <section id="section-settings" class="view">
-          <div class="top">
-            <div>
-              <div class="eyebrow">Platform Control</div>
-              <h1>Settings</h1>
-              <p>Existing backend settings, not local-only UI state.</p>
-            </div>
-          </div>
-          <div class="panel">
-            <div id="settingsError"></div>
-            <div class="settings-grid">
-              <div class="setting-card">
-                <h3>Payment Mode</h3>
-                <p>Choose how payment requests are handled by the platform.</p>
-                <div class="radio-row">
-                  <label class="radio"
-                    ><input type="radio" name="paymentMode" value="MANUAL" />
-                    Manual — Razorpay link</label
-                  ><label class="radio"
-                    ><input type="radio" name="paymentMode" value="AUTO" />
-                    Automatic — Checkout</label
-                  >
-                </div>
-              </div>
-              <div class="setting-card">
-                <h3>Maintenance Mode</h3>
-                <p>
-                  Controls the existing maintenance setting returned by the
-                  backend.
-                </p>
-                <label class="radio"
-                  ><input type="checkbox" id="maintenanceMode" /> Enable
-                  maintenance mode</label
-                >
-              </div>
-            </div>
-            <div style="margin-top: 16px">
-              <button class="btn" onclick="saveSettings()">
-                Save Settings
-              </button>
-              <span
-                id="settingsMsg"
-                style="color: var(--green2); font-size: 10px"
-              ></span>
-            </div>
-          </div>
+          <div class="top"><div><div class="eyebrow">Platform Control</div><h1>Settings</h1><p>Existing backend settings, not local-only UI state.</p></div></div>
+          <div class="panel"><div id="settingsError"></div><div class="settings-grid"><div class="setting-card"><h3>Payment Mode</h3><p>Choose how payment requests are handled by the platform.</p><div class="radio-row"><label class="radio"><input type="radio" name="paymentMode" value="MANUAL"> Manual — Razorpay link</label><label class="radio"><input type="radio" name="paymentMode" value="AUTO"> Automatic — Checkout</label></div></div><div class="setting-card"><h3>Maintenance Mode</h3><p>Controls the existing maintenance setting returned by the backend.</p><label class="radio"><input type="checkbox" id="maintenanceMode"> Enable maintenance mode</label></div></div><div style="margin-top:16px"><button class="btn" onclick="saveSettings()">Save Settings</button><span id="settingsMsg" style="color:var(--green2);font-size:10px"></span></div></div>
         </section>
       </main>
     </div>
 
-    <div id="linkModal" class="modal">
-      <div class="modal-box">
-        <div class="modal-head">
-          <div>
-            <h2>Add Razorpay Payment Link</h2>
-            <p>The link is saved against the payment request.</p>
-          </div>
-          <button class="icon-btn" onclick="closeLinkModal()">×</button>
-        </div>
-        <div id="linkOrderInfo" class="info"></div>
-        <div class="field">
-          <label>Razorpay Payment Link</label
-          ><input
-            class="input"
-            id="paymentLinkInput"
-            placeholder="https://rzp.io/..."
-            style="width: 100%"
-          />
-        </div>
-        <div class="actions">
-          <button class="btn" onclick="submitPaymentLink()">
-            Save Link & Email Support</button
-          ><button class="btn secondary" onclick="closeLinkModal()">
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-    <div id="statusModal" class="modal">
-      <div class="modal-box">
-        <div class="modal-head">
-          <div>
-            <h2>Payment Verification</h2>
-            <p>Manual status control — no automatic account approval.</p>
-          </div>
-          <button class="icon-btn" onclick="closeStatusModal()">×</button>
-        </div>
-        <div id="statusOrderInfo" class="info"></div>
-        <div class="status-actions">
-          <button
-            class="btn secondary"
-            onclick="setOrderStatus('PAYMENT_PENDING')"
-          >
-            Payment Pending</button
-          ><button
-            class="btn secondary"
-            onclick="setOrderStatus('PAYMENT_DONE')"
-          >
-            Payment Done</button
-          ><button class="btn" onclick="setOrderStatus('PAYMENT_APPROVED')">
-            Payment Approved</button
-          ><button class="btn red" onclick="setOrderStatus('REJECTED')">
-            Rejected</button
-          ><button class="btn red" onclick="setOrderStatus('CANCELLED')">
-            Cancelled
-          </button>
-        </div>
-      </div>
-    </div>
+    <div id="linkModal" class="modal"><div class="modal-box"><div class="modal-head"><div><h2>Add Razorpay Payment Link</h2><p>The link is saved against the payment request.</p></div><button class="icon-btn" onclick="closeLinkModal()">×</button></div><div id="linkOrderInfo" class="info"></div><div class="field"><label>Razorpay Payment Link</label><input class="input" id="paymentLinkInput" placeholder="https://rzp.io/..." style="width:100%"></div><div class="actions"><button class="btn" onclick="submitPaymentLink()">Save Link & Email Support</button><button class="btn secondary" onclick="closeLinkModal()">Cancel</button></div></div></div>
+    <div id="statusModal" class="modal"><div class="modal-box"><div class="modal-head"><div><h2>Payment Verification</h2><p>Manual status control — no automatic account approval.</p></div><button class="icon-btn" onclick="closeStatusModal()">×</button></div><div id="statusOrderInfo" class="info"></div><div class="status-actions"><button class="btn secondary" onclick="setOrderStatus('PAYMENT_PENDING')">Payment Pending</button><button class="btn secondary" onclick="setOrderStatus('PAYMENT_DONE')">Payment Done</button><button class="btn" onclick="setOrderStatus('PAYMENT_APPROVED')">Payment Approved</button><button class="btn red" onclick="setOrderStatus('REJECTED')">Rejected</button><button class="btn red" onclick="setOrderStatus('CANCELLED')">Cancelled</button></div></div></div>
     <div id="toast" class="toast"></div>
-
-    <script src="index.js" defer></script>
+    <script src="index.js?v=20260911-2" defer></script>
   </body>
 </html>
