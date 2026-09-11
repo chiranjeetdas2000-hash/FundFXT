@@ -50,7 +50,7 @@ async function ensureAffiliateSalesLedger() {
         2000, 100,
         FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
         'PENDING', COALESCE(po.created_at, NOW())
-      FROM payment_orders po
+      FROM payment_requests po
       JOIN affiliates a ON a.affiliate_code = po.affiliate_code
       WHERE po.affiliate_code IS NOT NULL
         AND TRIM(po.affiliate_code) <> ''
@@ -65,7 +65,7 @@ async function ensureAffiliateSalesLedger() {
       SELECT
         s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING'
       FROM affiliate_sales s
-      JOIN payment_orders po ON po.id = s.order_id
+      JOIN payment_requests po ON po.id = s.order_id
       LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id
       WHERE ac.id IS NULL
     `);
