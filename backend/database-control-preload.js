@@ -95,8 +95,6 @@ function installDatabaseControl(app) {
 
   app.delete("/api/admin/database/tables/:table/rows/:id",authenticateDatabaseAdmin,async(req,res)=>{try{const table=req.params.table,meta=await getTableMeta(table),primary=meta.columns.filter(c=>c.COLUMN_KEY==='PRI');if(primary.length!==1)return res.status(400).json({error:"Delete requires exactly one primary key column"});const pk=primary[0].COLUMN_NAME;const [result]=await db.execute(`DELETE FROM ${quoteIdentifier(table)} WHERE ${quoteIdentifier(pk)}=? LIMIT 1`,[req.params.id]);res.json({success:true,affectedRows:result.affectedRows})}catch(error){res.status(400).json({error:error.message})}});
 
-  // Payment workflow bridge. This route runs through the already-live Database Control preload,
-  // so the admin payment flow does not depend on the fragile payment-flow preload.
   app.post("/api/admin/database/payment-requests/:id/link",authenticateDatabaseAdmin,async(req,res)=>{
     const link=String(req.body?.razorpay_link||"").trim();
     let parsed;
@@ -119,15 +117,15 @@ function installDatabaseControl(app) {
 
   app.post("/api/admin/database/payment-requests/:id/status",authenticateDatabaseAdmin,async(req,res)=>{
     const requested=String(req.body?.status||"").trim().toUpperCase();
-    const nextStatus=requested==="PAYMENT_APPROVED"||requested==="PAYMENT_DONE"?"PAYMENT_DONE":requested==="CANCELLED"||requested==="REJECTED"||requested==="PAYMENT_CANCELLED"?"PAYMENT_CANCELLED":requested;
-    if(!["PAYMENT_DONE","PAYMENT_CANCELLED"].includes(nextStatus))return res.status(400).json({error:"Allowed payment outcomes are PAYMENT_DONE or PAYMENT_CANCELLED."});
+    const nextStatus=requested==="PAYMENT_APPROVED"||requested==="PAYMENT_DONE"?"PAYMENT_DONE":requested==="CANCELLED"||requested==="REJECTED"||requested==="PAYMENT_CANCELLED"?"PAYMENT_CANCELLED":requested==="PAYMENT_PENDING"?"PAYMENT_PENDING":requested;
+    if(!["PAYMENT_DONE","PAYMENT_CANCELLED","PAYMENT_PENDING"].includes(nextStatus))return res.status(400).json({error:"Allowed payment outcomes are PAYMENT_PENDING, PAYMENT_DONE or PAYMENT_CANCELLED."});
     const connection=await db.getConnection();
     try{
       await connection.beginTransaction();
       const [rows]=await connection.execute("SELECT * FROM payment_requests WHERE id=? FOR UPDATE",[req.params.id]);
       if(!rows.length)throw new Error("Payment request not found");
       const request=rows[0];
-      if(request.status==="PAYMENT_CANCELLED"&&nextStatus==="PAYMENT_DONE")throw new Error("A cancelled payment cannot be marked done.");
+      if(request.status==="PAYMENT_CANCELLED"&&nextStatus!=="PAYMENT_CANCELLED")throw new Error("A cancelled payment cannot be reopened.");
       if(!["LINK_SENT","PAYMENT_PENDING","PAYMENT_DONE","PAYMENT_CANCELLED"].includes(String(request.status).toUpperCase()))throw new Error(`Payment outcome cannot be set from ${request.status}`);
       let code=request.account_code||null;
       if(nextStatus==="PAYMENT_DONE")code=await createAccountAndCommission(connection,request);
