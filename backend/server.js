@@ -1620,7 +1620,7 @@ setInterval(() => {
   }
 }, 1000);
 
-// ========== SEED DEFAULT ADMIN =================================
+// ========== SEED DEFAULT ADMIN ==================================
 (async () => {
   try {
     const [admins] = await db.execute("SELECT id FROM admin_users LIMIT 1");
