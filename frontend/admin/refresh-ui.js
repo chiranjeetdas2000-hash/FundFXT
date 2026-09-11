@@ -26,7 +26,6 @@
     let rows = data.rows || [];
     if (status) rows = rows.filter((row) => String(row.status || '').toUpperCase() === String(status).toUpperCase());
 
-    // Enrich affiliate_id with the affiliate user's name when available.
     try {
       const usersResponse = await originalFetch(url.origin + '/api/admin/users', options);
       if (usersResponse.ok) {
@@ -66,6 +65,16 @@
     }
   }
 
+  async function paymentAction(url, options, action, id) {
+    let body = {};
+    try { body = JSON.parse(options.body || '{}'); } catch {}
+    const endpoint = url.origin + '/api/admin/database/payment-requests/' + encodeURIComponent(id) + '/' + action;
+    return originalFetch(endpoint, {
+      ...options,
+      body: JSON.stringify(body)
+    });
+  }
+
   window.fetch = async (...args) => {
     active += 1;
     setBusy(true);
@@ -76,24 +85,18 @@
       const path = url.pathname;
       const method = (options.method || (input instanceof Request ? input.method : 'GET')).toUpperCase();
 
-      // Canonical payment UI bridge: read the real MySQL payment_requests table directly.
       if (path === '/api/admin/payment-requests' && method === 'GET') return paymentRequests(url, options);
-
-      // Overview bridge: avoid the preload-only dashboard endpoint and derive the same
-      // live figures from database-control + the existing withdrawal endpoint.
       if (path === '/api/admin/dashboard-stats' && method === 'GET') return dashboard(url, options);
 
-      // Keep the current status UI compatible with the server.js payment-order route.
+      const linkMatch = path.match(/^\/api\/admin\/payment-requests\/(\d+)\/mark-link-sent$/);
+      if (linkMatch && method === 'POST') return paymentAction(url, options, 'link', linkMatch[1]);
+
       const statusMatch = path.match(/^\/api\/admin\/payment-requests\/(\d+)\/status$/);
-      if (statusMatch && method === 'POST') {
-        let body = {};
-        try { body = JSON.parse(options.body || '{}'); } catch {}
-        const normalized = body.status === 'PAYMENT_APPROVED' ? 'PAYMENT_DONE' : body.status === 'PAYMENT_CANCELLED' ? 'CANCELLED' : body.status;
-        return originalFetch(url.origin + '/api/admin/payment-orders/' + statusMatch[1] + '/status', {
-          ...options,
-          body: JSON.stringify({ status: normalized })
-        });
-      }
+      if (statusMatch && method === 'POST') return paymentAction(url, options, 'status', statusMatch[1]);
+
+      // Compatibility for any cached/older admin JS using the legacy endpoint.
+      const legacyStatusMatch = path.match(/^\/api\/admin\/payment-orders\/(\d+)\/status$/);
+      if (legacyStatusMatch && method === 'POST') return paymentAction(url, options, 'status', legacyStatusMatch[1]);
 
       return originalFetch(...args);
     } finally {
