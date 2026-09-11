@@ -107,11 +107,13 @@ function installDatabaseControl(app) {
       if(!rows.length)throw new Error("Payment request not found");
       const request=rows[0];
       if(!["REQUESTED","LINK_SENT","PAYMENT_PENDING"].includes(String(request.status).toUpperCase()))throw new Error(`Payment link cannot be changed from ${request.status}.`);
-      await connection.execute("UPDATE payment_requests SET razorpay_link=?,status='LINK_SENT',updated_at=NOW() WHERE id=?",[link,request.id]);
+      // Some existing databases use a short/ENUM status column that rejects LINK_SENT.
+      // PAYMENT_PENDING is the canonical compatible state after a Razorpay link is attached.
+      await connection.execute("UPDATE payment_requests SET razorpay_link=?,status='PAYMENT_PENDING',updated_at=NOW() WHERE id=?",[link,request.id]);
       await connection.commit();
       let emailSent=false;
-      try{emailSent=await sendSupportEmail(request.user_email,`FundFXT payment link — ${request.request_id}`,`<h2>FundFXT Payment</h2><p>Your request <b>${request.request_id}</b> is ready.</p><p>Challenge: <b>${request.model}</b></p><p>Payable: <b>${(Number(request.final_amount_cents||0)/100).toFixed(2)} ${request.currency}</b></p><p><a href="${link}">Pay Now</a></p>`);}catch(error){console.error("Payment link email failed:",error.message);}
-      res.json({success:true,status:"LINK_SENT",emailed_to:emailSent?request.user_email:null,email_sent:emailSent});
+      try{emailSent=await sendSupportEmail(request.user_email,`FundFXT payment link — ${request.request_id}`,`<h2>FundFXT Payment</h2><p>Hello ${request.legal_name||"Trader"},</p><p>Your request <b>${request.request_id}</b> is ready for payment.</p><p>Challenge: <b>${request.model}</b></p><p>Payable: <b>${(Number(request.final_amount_cents||0)/100).toFixed(2)} ${request.currency}</b></p><p><a href="${link}">Pay Now</a></p>`);}catch(error){console.error("Payment link email failed:",error.message);}
+      res.json({success:true,status:"PAYMENT_PENDING",emailed_to:emailSent?request.user_email:null,email_sent:emailSent,customer_name:request.legal_name||null,customer_email:request.user_email||null});
     }catch(error){try{await connection.rollback()}catch{}console.error("Payment link save failed:",error);res.status(500).json({error:error.message})}finally{connection.release()}
   });
 
@@ -126,7 +128,7 @@ function installDatabaseControl(app) {
       if(!rows.length)throw new Error("Payment request not found");
       const request=rows[0];
       if(request.status==="PAYMENT_CANCELLED"&&nextStatus!=="PAYMENT_CANCELLED")throw new Error("A cancelled payment cannot be reopened.");
-      if(!["LINK_SENT","PAYMENT_PENDING","PAYMENT_DONE","PAYMENT_CANCELLED"].includes(String(request.status).toUpperCase()))throw new Error(`Payment outcome cannot be set from ${request.status}`);
+      if(!["REQUESTED","PAYMENT_PENDING","LINK_SENT","PAYMENT_DONE","PAYMENT_CANCELLED"].includes(String(request.status).toUpperCase()))throw new Error(`Payment outcome cannot be set from ${request.status}`);
       let code=request.account_code||null;
       if(nextStatus==="PAYMENT_DONE")code=await createAccountAndCommission(connection,request);
       await connection.execute("UPDATE payment_requests SET status=?,paid_amount_cents=?,updated_at=NOW() WHERE id=?",[nextStatus,nextStatus==="PAYMENT_DONE"?Number(request.final_amount_cents||0):0,request.id]);
