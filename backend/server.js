@@ -94,7 +94,7 @@ async function ensureAffiliateSalesLedger() {
         2000, 100,
         FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
         'PENDING', COALESCE(po.created_at, NOW())
-      FROM payment_orders po
+      FROM payment_requests po
       JOIN affiliates a ON a.affiliate_code = po.affiliate_code
       WHERE po.affiliate_code IS NOT NULL
         AND TRIM(po.affiliate_code) <> ''
@@ -109,7 +109,7 @@ async function ensureAffiliateSalesLedger() {
       SELECT
         s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING'
       FROM affiliate_sales s
-      JOIN payment_orders po ON po.id = s.order_id
+      JOIN payment_requests po ON po.id = s.order_id
       LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id
       WHERE ac.id IS NULL
     `);
@@ -620,7 +620,7 @@ app.post("/api/payments/request", authenticateToken, async (req, res) => {
     const affiliateId = pricing.affiliate_user_id || null;
 
     await db.execute(
-      `INSERT INTO payment_orders (
+      `INSERT INTO payment_requests (
                 request_id, user_id, provider, razorpay_link, model, affiliate_code,
                 affiliate_id, original_amount_cents, discount_amount_cents,
                 final_amount_cents, paid_amount_cents, currency, status, created_at, updated_at
@@ -755,7 +755,7 @@ app.post(
 // Get payment orders
 app.get("/api/admin/payment-orders", authenticateAdmin, async (req, res) => {
   const { status } = req.query;
-  let query = `SELECT po.*, u.legal_name, u.email as user_email FROM payment_orders po JOIN users u ON po.user_id = u.id`;
+  let query = `SELECT po.*, u.legal_name, u.email as user_email FROM payment_requests po JOIN users u ON po.user_id = u.id`;
   let params = [];
   if (status) {
     query += ` WHERE po.status = ?`;
@@ -782,14 +782,14 @@ app.post(
     try {
       await connection.beginTransaction();
       const [orders] = await connection.execute(
-        "SELECT * FROM payment_orders WHERE id = ? FOR UPDATE",
+        "SELECT * FROM payment_requests WHERE id = ? FOR UPDATE",
         [id],
       );
       if (!orders.length) throw new Error("Order not found");
       const order = orders[0];
 
       await connection.execute(
-        "UPDATE payment_orders SET status = ? WHERE id = ?",
+        "UPDATE payment_requests SET status = ? WHERE id = ?",
         [status, id],
       );
 
@@ -1653,7 +1653,7 @@ app.post(
       // Lock the payment order so two admin requests
       // cannot create two accounts simultaneously.
       const [orders] = await connection.execute(
-        "SELECT * FROM payment_orders WHERE id = ? FOR UPDATE",
+        "SELECT * FROM payment_requests WHERE id = ? FOR UPDATE",
         [id],
       );
 
@@ -1721,7 +1721,7 @@ app.post(
       );
 
       await connection.execute(
-        `UPDATE payment_orders
+        `UPDATE payment_requests
          SET status = 'ACCOUNT_CREATED',
              account_code = ?,
              updated_at = NOW()
@@ -1757,7 +1757,7 @@ app.get("/api/orders", authenticateToken, async (req, res) => {
   try {
     const [orders] = await db.execute(
       `SELECT request_id, model, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at
-             FROM payment_orders
+             FROM payment_requests
              WHERE user_id = ?
              ORDER BY created_at DESC`,
       [req.userId],
@@ -1780,7 +1780,7 @@ app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
 
     // 2. User ke saare orders fetch karo
     const [orders] = await db.execute(
-      `SELECT request_id, model, final_amount_cents, status, created_at FROM payment_orders WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
+      `SELECT request_id, model, final_amount_cents, status, created_at FROM payment_requests WHERE user_id = ? ORDER BY created_at DESC LIMIT 5`,
       [req.userId],
     );
 
@@ -2413,7 +2413,7 @@ async function ensureAffiliateSchema() {
 
   await db.execute(
     `UPDATE affiliate_commissions ac
-     JOIN payment_orders po ON po.id = ac.order_id
+     JOIN payment_requests po ON po.id = ac.order_id
      SET ac.original_amount_cents = COALESCE(po.original_amount_cents, 0),
          ac.discount_amount_cents = COALESCE(po.discount_amount_cents, 0),
          ac.final_amount_cents = COALESCE(po.final_amount_cents, 0)
