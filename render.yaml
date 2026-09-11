@@ -4,8 +4,52 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node backend/server.js   # ← Ye change karo
+    startCommand: node backend/server.js
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
         value: 20
+
+  # Protected Database Control API.
+  # DB credentials and JWT secret are copied inside Render from the existing FundFXT service.
+  - type: web
+    name: fundfxt-admin-db
+    env: node
+    plan: free
+    region: singapore
+    buildCommand: npm install
+    startCommand: node backend/admin-server.js
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DB_HOST
+        fromService:
+          name: FundFXT
+          type: web
+          envVarKey: DB_HOST
+      - key: DB_USER
+        fromService:
+          name: FundFXT
+          type: web
+          envVarKey: DB_USER
+      - key: DB_PASSWORD
+        fromService:
+          name: FundFXT
+          type: web
+          envVarKey: DB_PASSWORD
+      - key: DB_NAME
+        fromService:
+          name: FundFXT
+          type: web
+          envVarKey: DB_NAME
+      - key: DB_PORT
+        fromService:
+          name: FundFXT
+          type: web
+          envVarKey: DB_PORT
+      - key: JWT_SECRET
+        fromService:
+          name: FundFXT
+          type: web
+          envVarKey: JWT_SECRET
