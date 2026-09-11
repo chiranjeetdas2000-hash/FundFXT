@@ -4,7 +4,7 @@ services:
     env: node
     plan: free
     buildCommand: npm install
-    startCommand: node backend/payment-request-migration.js && node -r ./backend/database-control-preload.js -r ./backend/payment-flow-preload.js -r ./backend/admin-dashboard-preload.js backend/server.js
+    startCommand: node backend/payment-request-migration.js && node -r ./backend/payment-request-identity-preload.js -r ./backend/database-control-preload.js -r ./backend/payment-flow-preload.js -r ./backend/admin-dashboard-preload.js backend/server.js
     autoDeploy: true
     envVars:
       - key: NODE_VERSION
