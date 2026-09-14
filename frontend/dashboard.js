@@ -158,7 +158,13 @@ function render() {
     $('accounts').innerHTML = normalized.length
         ? normalized.map((account) => {
             const progress = account.target
-                ? Math.max(0, Math.min(100, ((account.balance - account.initial) / account.target) * 100))
+                ? Math.max(
+                    0,
+                    Math.min(
+                        100,
+                        ((account.balance - account.initial) / account.target) * 100
+                    )
+                )
                 : 0;
 
             return `
@@ -348,7 +354,9 @@ $('affPayout').addEventListener('click', async () => {
             })
         });
 
-        $('affMsg').textContent = data.success ? 'Payout requested: ' + data.request_ref : data.error || 'Failed';
+        $('affMsg').textContent = data.success
+            ? 'Payout requested: ' + data.request_ref
+            : data.error || 'Failed';
 
         if (data.success) {
             loadAffiliate();
@@ -370,7 +378,9 @@ $('wSubmit').addEventListener('click', async () => {
             })
         });
 
-        $('wMsg').textContent = data.success ? 'Request submitted: ' + data.request_ref : data.error || 'Failed';
+        $('wMsg').textContent = data.success
+            ? 'Request submitted: ' + data.request_ref
+            : data.error || 'Failed';
     } catch (error) {
         $('wMsg').textContent = error.message;
     }
@@ -386,7 +396,9 @@ $('ticketSubmit').addEventListener('click', async () => {
             })
         });
 
-        $('ticketMsg').textContent = data.success ? 'Ticket created: ' + data.ticket_ref : data.error || 'Failed';
+        $('ticketMsg').textContent = data.success
+            ? 'Ticket created: ' + data.ticket_ref
+            : data.error || 'Failed';
 
         if (data.success) {
             loadTickets();
@@ -405,7 +417,10 @@ function bindTiltCards() {
         card.dataset.tiltBound = 'true';
 
         card.addEventListener('pointermove', (event) => {
-            if (window.innerWidth <= 800 || window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+            if (
+                window.innerWidth <= 800
+                || window.matchMedia('(prefers-reduced-motion: reduce)').matches
+            ) {
                 return;
             }
 
@@ -415,9 +430,18 @@ function bindTiltCards() {
             const rotateY = (x - 0.5) * 7;
             const rotateX = (0.5 - y) * 7;
 
-            card.style.setProperty('--rx', rotateX.toFixed(2) + 'deg');
-            card.style.setProperty('--ry', rotateY.toFixed(2) + 'deg');
-            card.style.setProperty('--lift', '-7px');
+            card.style.setProperty(
+                '--rx',
+                rotateX.toFixed(2) + 'deg'
+            );
+            card.style.setProperty(
+                '--ry',
+                rotateY.toFixed(2) + 'deg'
+            );
+            card.style.setProperty(
+                '--lift',
+                '-7px'
+            );
         });
 
         card.addEventListener('pointerleave', () => {
