@@ -15,6 +15,7 @@
         }
 
         const isMarket = orderType.value === "MARKET";
+
         pendingFields.hidden = isMarket;
         pendingFields.classList.toggle("hidden", isMarket);
     }
@@ -38,11 +39,20 @@
                     return;
                 }
 
-                state.tab = String(button.dataset.tradeTab || "open").toUpperCase();
+                state.tab = String(
+                    button.dataset.tradeTab || "open"
+                ).toUpperCase();
 
                 document.querySelectorAll(".trade-tab").forEach((tab) => {
                     tab.classList.toggle("active", tab === button);
                 });
+
+                if (state.tab === "PENDING") {
+                    if (typeof window.showPendingOrders === "function") {
+                        await window.showPendingOrders();
+                    }
+                    return;
+                }
 
                 if (typeof loadTrades === "function") {
                     await loadTrades();
@@ -103,7 +113,17 @@
                     await loadPrices();
                 }
 
-                if (typeof loadTrades === "function" && getState()?.account) {
+                const state = getState();
+
+                if (
+                    state?.tab === "PENDING" &&
+                    typeof window.showPendingOrders === "function"
+                ) {
+                    await window.showPendingOrders();
+                } else if (
+                    typeof loadTrades === "function" &&
+                    state?.account
+                ) {
                     await loadTrades();
                 }
 
@@ -111,7 +131,10 @@
                     await loadAccount();
                 }
             } catch (error) {
-                console.warn("FundFXT terminal refresh:", error.message);
+                console.warn(
+                    "FundFXT terminal refresh:",
+                    error.message
+                );
             }
         }, 1000);
     }
@@ -120,7 +143,10 @@
         const orderType = document.getElementById("orderType");
 
         if (orderType) {
-            orderType.addEventListener("change", syncPendingFields);
+            orderType.addEventListener(
+                "change",
+                syncPendingFields
+            );
         }
 
         syncPendingFields();
