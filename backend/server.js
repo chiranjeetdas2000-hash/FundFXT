@@ -1066,6 +1066,11 @@ async function refreshBiQuotePrices() {
       console.error("BiQuote trade engine:", e.message),
     );
   }
+  if (!isForexWeekend() && typeof processPendingOrders === "function") {
+  processPendingOrders().catch((e) =>
+    console.error("BiQuote pending engine:", e.message),
+  );
+}
   return global.prices;
 }
 
@@ -1079,6 +1084,78 @@ setInterval(
     ),
   1000,
 );
+
+
+// ========== PENDING ORDER AUTO-EXECUTION ENGINE ==========
+async function processPendingOrders() {
+  const priceCache = global.priceCache || {};
+  const [trades] = await db.execute(
+    "SELECT * FROM trades WHERE status = 'PENDING'"
+  );
+
+  for (const trade of trades) {
+    const price = priceCache[trade.symbol];
+    if (!price) continue;
+
+    const orderType = String(trade.order_type || "").toUpperCase();
+    const limitPrice = Number(trade.entry_price);
+    const bid = Number(price.bid);
+    const ask = Number(price.ask);
+
+    if (!Number.isFinite(bid) || !Number.isFinite(ask)) continue;
+    if (!Number.isFinite(limitPrice) || limitPrice <= 0) continue;
+
+    let shouldExecute = false;
+    let executionPrice = 0;
+
+    // BUY LIMIT: Buy when price drops to or below limit
+    if (orderType === "BUY_LIMIT" || (orderType === "LIMIT" && trade.side === "BUY")) {
+      if (ask <= limitPrice) {
+        shouldExecute = true;
+        executionPrice = ask;
+      }
+    }
+    // SELL LIMIT: Sell when price rises to or above limit
+    else if (orderType === "SELL_LIMIT" || (orderType === "LIMIT" && trade.side === "SELL")) {
+      if (bid >= limitPrice) {
+        shouldExecute = true;
+        executionPrice = bid;
+      }
+    }
+    // BUY STOP: Buy when price rises to or above stop level
+    else if (orderType === "BUY_STOP" || (orderType === "STOP" && trade.side === "BUY")) {
+      if (ask >= limitPrice) {
+        shouldExecute = true;
+        executionPrice = ask;
+      }
+    }
+    // SELL STOP: Sell when price drops to or below stop level
+    else if (orderType === "SELL_STOP" || (orderType === "STOP" && trade.side === "SELL")) {
+      if (bid <= limitPrice) {
+        shouldExecute = true;
+        executionPrice = bid;
+      }
+    }
+
+    if (shouldExecute) {
+      const tradingDay = new Date().toISOString().split("T")[0];
+      await db.execute(
+        `UPDATE trades 
+         SET status = 'OPEN', 
+             entry_price = ?, 
+             entry_time = NOW(3), 
+             trading_day = ?,
+             current_price = ?
+         WHERE trade_id = ? AND status = 'PENDING'`,
+        [executionPrice, tradingDay, executionPrice, trade.trade_id]
+      );
+      console.log(
+        `✅ Pending order executed: ${trade.trade_id} | ${trade.symbol} ${trade.side} @ ${executionPrice}`
+      );
+    }
+  }
+}
+
 
 // Terminal market-data endpoint. Authenticated because the terminal is account-bound.
 app.get("/api/prices", authenticateToken, (req, res) => {
@@ -1312,22 +1389,23 @@ app.post("/api/trades/pending", authenticateToken, async (req, res) => {
       return res.status(404).json({ error: "Account not found" });
     const account = accounts[0];
     const tradeId = "PD-" + Date.now().toString(36).toUpperCase();
-    await db.execute(
-      `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), CURDATE(), ?, ?, 'PENDING')`,
-      [
-        tradeId,
-        account.id,
-        account_code,
-        req.userId,
-        symbol,
-        side,
-        volume,
-        limit_price,
-        sl || null,
-        tp || null,
-      ],
-    );
+await db.execute(
+  `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, order_type, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 'PENDING')`,
+  [
+    tradeId,
+    account.id,
+    account_code,
+    req.userId,
+    symbol,
+    side,
+    order_type || (side === "BUY" ? "BUY_LIMIT" : "SELL_LIMIT"),
+    volume,
+    limit_price,
+    sl || null,
+    tp || null,
+  ],
+);
     res.json({
       success: true,
       trade_id: tradeId,
@@ -1342,7 +1420,7 @@ app.get("/api/trades/pending", authenticateToken, async (req, res) => {
   const { account_code } = req.query;
   try {
     const [trades] = await db.execute(
-      "SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING'",
+      "SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING' ORDER BY created_at DESC",
       [account_code, req.userId],
     );
     res.json({ success: true, trades });
@@ -1568,23 +1646,11 @@ app.post("/api/trade/execute", authenticateToken, async (req, res) => {
   const tradeId = "TR-" + Date.now().toString(36).toUpperCase();
   const tradingDay = new Date().toISOString().split("T")[0];
 
-  await db.execute(
-    `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, 'OPEN')`,
-    [
-      tradeId,
-      account.id,
-      account_code,
-      req.userId,
-      symbol,
-      side,
-      volume,
-      entry,
-      tradingDay,
-      sl || null,
-      tp || null,
-    ],
-  );
+await db.execute(
+  `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, order_type, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
+         VALUES (?, ?, ?, ?, ?, ?, 'MARKET', ?, ?, NOW(), ?, ?, ?, 'OPEN')`,
+  [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null],
+);
 
   res.json({ success: true, trade_id: tradeId, entry_price: entry });
 });
