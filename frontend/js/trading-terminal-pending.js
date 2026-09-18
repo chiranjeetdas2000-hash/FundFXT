@@ -4,12 +4,47 @@
 
   const API = "https://fundfxt.onrender.com";
   const token = () => localStorage.getItem("fundfxt_token") || "";
-  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
-  const esc = (v) => String(v ?? "—").replace(/[&<>"']/g, (m) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[m]));
-  const fmt = (v, s) => Number.isFinite(Number(v)) ? Number(v).toFixed(/JPY$/i.test(s) ? 3 : /XAU|XAG|BTC|ETH/i.test(s) ? 2 : 5) : "—";
+  const n = (v) => {
+    return Number.isFinite(Number(v))
+      ? Number(v)
+      : 0;
+  };
+  const esc = (v) => {
+    return String(v ?? "—").replace(
+      /[&<>"']/g,
+      (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[m]),
+    );
+  };
+  const fmt = (v, s) => {
+    return Number.isFinite(Number(v))
+      ? Number(v).toFixed(
+          /JPY$/i.test(s)
+            ? 3
+            : /XAU|XAG|BTC|ETH/i.test(s)
+              ? 2
+              : 5,
+        )
+      : "—";
+  };
 
   async function api(path, opt = {}) {
-    const r = await fetch(API + path, { ...opt, headers: { Authorization: "Bearer " + token(), "Content-Type": "application/json", ...(opt.headers || {}) } });
+    const r = await fetch(
+      API + path,
+      {
+        ...opt,
+        headers: {
+          Authorization: "Bearer " + token(),
+          "Content-Type": "application/json",
+          ...(opt.headers || {}),
+        },
+      },
+    );
     const d = await r.json().catch(() => ({}));
     if (!r.ok) throw Error(d.error || d.message || `Request failed (${r.status})`);
     return d;
@@ -55,10 +90,21 @@
     const q = quote();
     const bid = n(q.bid);
     const ask = n(q.ask);
-    if (type === "LIMIT" && side === "BUY" && ask > 0 && entry >= ask) return feedback("BUY LIMIT entry must be below current ask."), true;
-    if (type === "LIMIT" && side === "SELL" && bid > 0 && entry <= bid) return feedback("SELL LIMIT entry must be above current bid."), true;
-    if (type === "STOP" && side === "BUY" && ask > 0 && entry <= ask) return feedback("BUY STOP entry must be above current ask."), true;
-    if (type === "STOP" && side === "SELL" && bid > 0 && entry >= bid) return feedback("SELL STOP entry must be below current bid."), true;
+    if (type === "BUY_LIMIT" && side === "BUY" && ask > 0 && entry >= ask) {
+      return feedback("BUY LIMIT entry must be below current ask."), true;
+    }
+
+    if (type === "SELL_LIMIT" && side === "SELL" && bid > 0 && entry <= bid) {
+      return feedback("SELL LIMIT entry must be above current bid."), true;
+    }
+
+    if (type === "BUY_STOP" && side === "BUY" && ask > 0 && entry <= ask) {
+      return feedback("BUY STOP entry must be above current ask."), true;
+    }
+
+    if (type === "SELL_STOP" && side === "SELL" && bid > 0 && entry >= bid) {
+      return feedback("SELL STOP entry must be below current bid."), true;
+    }
 
     try {
       /* Backend contract: POST /api/trades/pending uses limit_price as the pending entry field. */
