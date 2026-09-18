@@ -1,6 +1,6 @@
 /* ============================================================
-   FUNDFXT TRADING TERMINAL — REQUESTED UI FIXES
-   Keeps the HTML, CSS and JavaScript responsibilities separate.
+   FUNDFXT TRADING TERMINAL — UI FIXES
+   Visual-only rules for modal layering and compact pair management.
    ============================================================ */
 
 .chart-stage {
@@ -20,14 +20,93 @@
     pointer-events: none;
 }
 
+/* ============================================================
+   ADD PAIRS MODAL
+   The modal is fixed to the viewport so it never changes the
+   chart/rail layout or pushes the chart panel downward.
+   ============================================================ */
+
+.trade-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.trade-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.68);
+    backdrop-filter: blur(5px);
+}
+
+.trade-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(520px, 100%);
+    max-height: min(720px, 86vh);
+    overflow: hidden;
+    border: 1px solid #2a3945;
+    border-radius: 14px;
+    background: #0b1117;
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.62);
+}
+
+.trade-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #202d37;
+}
+
+.trade-modal-head h3 {
+    margin: 0;
+    color: #f4f7f8;
+    font-size: 12px;
+    font-weight: 800;
+}
+
+.trade-modal-close {
+    width: 30px;
+    height: 30px;
+    border: 1px solid #293743;
+    border-radius: 8px;
+    background: #0d151c;
+    color: #aeb9c1;
+    cursor: pointer;
+    font-size: 18px;
+    line-height: 1;
+}
+
+.trade-modal-close:hover {
+    border-color: #3a4c59;
+    background: #111c25;
+    color: #ffffff;
+}
+
+.trade-modal-card .detail-grid {
+    max-height: calc(min(720px, 86vh) - 60px);
+    overflow-y: auto;
+    padding: 14px 16px 16px;
+}
+
+/* ============================================================
+   PAIR MANAGER
+   ============================================================ */
+
 .pair-manager {
     width: min(520px, 100%);
 }
 
 .pair-manager-count {
+    margin: 4px 16px 8px;
     color: #81909d;
     font-size: 8px;
-    margin: 4px 0 8px;
 }
 
 .pair-manager-list {
@@ -36,7 +115,7 @@
     gap: 5px;
     max-height: 55vh;
     overflow-y: auto;
-    padding-right: 2px;
+    padding: 0 16px 16px;
 }
 
 .pair-manager-item {
@@ -99,12 +178,34 @@
     color: #ff6674;
 }
 
+/* ============================================================
+   PENDING TAB
+   ============================================================ */
+
+.pending-card {
+    border-left: 3px solid #d7a83f;
+}
+
 @media (max-width: 520px) {
+    .trade-modal {
+        padding: 12px;
+    }
+
+    .trade-modal-card {
+        max-height: 88vh;
+    }
+
     .pair-manager-list {
-        max-height: 50vh;
+        max-height: 58vh;
     }
 
     .pair-manager-item {
         padding: 8px;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trade-modal-close {
+        transition: none;
     }
 }
