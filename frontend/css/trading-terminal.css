@@ -638,3 +638,144 @@ button,input,select {
         transform: none;
     }
 }
+
+
+/* ============================================================
+   QUOTE DATA ALIGNMENT
+   ============================================================ */
+
+.quote-pair {
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    gap: 5px;
+    min-width: 0;
+    text-align: left;
+}
+
+.quote-favorite {
+    color: #566571;
+    font-size: 10px;
+    line-height: 1;
+}
+
+.quote-favorite.active {
+    color: #f4c95d;
+}
+
+.quote-value {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    text-align: right;
+}
+
+.quote-spread-value {
+    color: #aeb9c1;
+}
+
+.quote-ask-value {
+    color: #f4f7f8;
+}
+
+.quote-bid-value {
+    color: #f4f7f8;
+}
+
+.quote-change.negative {
+    color: var(--red);
+}
+
+/* ============================================================
+   FAVORITE PAIR MODAL
+   ============================================================ */
+
+.pair-add-toolbar {
+    margin-bottom: 10px;
+}
+
+.pair-add-toolbar .search {
+    width: 100%;
+    height: 38px;
+    padding: 0 10px;
+    border: 1px solid #26323d;
+    border-radius: 8px;
+    background: #080d12;
+    color: #e9eef1;
+    outline: 0;
+    font-size: 10px;
+}
+
+.pair-add-toolbar .search:focus {
+    border-color: #32785d;
+    box-shadow: 0 0 0 3px #00b56a12;
+}
+
+.pair-add-list {
+    max-height: 55vh;
+    overflow: auto;
+}
+
+.pair-add-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 9px 0;
+    border-bottom: 1px solid var(--line);
+}
+
+.pair-add-item > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.pair-add-item b {
+    color: #f4f7f8;
+    font-size: 10px;
+}
+
+.pair-add-item small {
+    color: var(--muted);
+    font-size: 8px;
+}
+
+.pair-add-item button {
+    min-width: 66px;
+    height: 30px;
+    padding: 0 10px;
+    border: 1px solid #2a3a46;
+    border-radius: 7px;
+    background: #101820;
+    color: #dce3e7;
+    cursor: pointer;
+    font-size: 8px;
+    font-weight: 700;
+}
+
+.pair-add-item button:hover {
+    border-color: #32785d;
+    color: var(--green);
+}
+
+@media (max-width: 700px) {
+    .quote-head {
+        grid-template-columns: 1.2fr 0.75fr 0.95fr 0.95fr 0.65fr;
+        gap: 3px;
+    }
+
+    .quote {
+        grid-template-columns: 1.2fr 0.75fr 0.95fr 0.95fr 0.65fr;
+        gap: 3px;
+        padding: 10px 6px;
+    }
+
+    .quote-head span {
+        font-size: 6.5px;
+    }
+
+    .quote {
+        font-size: 7px;
+    }
+}
