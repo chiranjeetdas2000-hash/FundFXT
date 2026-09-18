@@ -43,63 +43,6 @@
             element.className = "trade-feedback";
         }        , 4000);
     }
-    function injectStyle() {
-        if ($("modifyTradeStyle")) {
-            return;
-        }
-        const style = document.createElement("style");
-        style.id = "modifyTradeStyle";
-        style.textContent = `
-            .modify-btn {
-                color: #00c77a !important;
-            }
-
-            .modify-grid {
-                display: grid;
-                grid-template-columns: 1fr 1fr;
-                gap: 10px;
-            }
-
-            .modify-field span {
-                display: block;
-                color: #7f8d9a;
-                font-size: 8px;
-                margin-bottom: 4px;
-            }
-
-            .modify-field input {
-                width: 100%;
-                height: 38px;
-                padding: 0 9px;
-                border: 1px solid #263541;
-                border-radius: 8px;
-                background: #080c11;
-                color: #fff;
-                font-size: 11px;
-                outline: 0;
-            }
-
-            .modify-hint {
-                grid-column: 1 / -1;
-                color: #7f8d9a;
-                font-size: 8px;
-                line-height: 1.5;
-            }
-
-            .modify-save {
-                width: 100%;
-                height: 40px;
-                border: 1px solid #00c77a55;
-                border-radius: 8px;
-                background: #111a22;
-                color: #00c77a;
-                font-size: 10px;
-                font-weight: 800;
-                cursor: pointer;
-            }
-        `;
-        document.head.appendChild(style);
-    }
     async function openModify(id) {
         try {
             const account = localStorage.getItem("fundfxt_selected_account");
@@ -263,7 +206,6 @@
         }        );
     }
     function install() {
-        injectStyle();
         decorate();
         setInterval(decorate, 300);
         const target = $("tradeScroll") || document.body;
