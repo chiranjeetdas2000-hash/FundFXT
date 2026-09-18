@@ -547,11 +547,12 @@ async function installTradeRepair(app) {
     if (!engineStarted) {
         engineStarted = true;
 
-        setInterval(() => {
-            executePendingOrders(db).catch((error) => {
-                console.error("Pending trade engine error:", error.message);
-            });
-        }, 1000);
+        /*
+         * Pending orders are executed by the canonical server-side
+         * processPendingOrders() loop in backend/server.js.
+         * This preload keeps the trade-management endpoints only,
+         * avoiding a second pending-order execution loop.
+         */
     }
 
     console.log("Trade execution repair layer registered");
