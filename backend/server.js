@@ -1090,90 +1090,103 @@ setInterval(
 async function processPendingOrders() {
   const priceCache = global.priceCache || {};
   const [trades] = await db.execute(
-    "SELECT * FROM trades WHERE status = 'PENDING'"
+    "SELECT * FROM trades WHERE status = 'PENDING' ORDER BY id ASC"
   );
 
   for (const trade of trades) {
     const price = priceCache[trade.symbol];
-    if (!price) continue;
+
+    if (!price) {
+      continue;
+    }
 
     const orderType = String(trade.order_type || "").toUpperCase();
-    const limitPrice = Number(trade.entry_price);
+    const requestedPrice = Number(trade.entry_price);
     const bid = Number(price.bid);
     const ask = Number(price.ask);
 
-    if (!Number.isFinite(bid) || !Number.isFinite(ask)) continue;
-    if (!Number.isFinite(limitPrice) || limitPrice <= 0) continue;
+    if (!Number.isFinite(bid) || !Number.isFinite(ask)) {
+      continue;
+    }
+
+    if (!Number.isFinite(requestedPrice) || requestedPrice <= 0) {
+      continue;
+    }
 
     let shouldExecute = false;
     let executionPrice = 0;
 
-    // BUY LIMIT: Buy when price drops to or below limit
     if (orderType === "BUY_LIMIT" || (orderType === "LIMIT" && trade.side === "BUY")) {
-      if (ask <= limitPrice) {
+      if (ask <= requestedPrice) {
         shouldExecute = true;
         executionPrice = ask;
       }
-    }
-    // SELL LIMIT: Sell when price rises to or above limit
-    else if (orderType === "SELL_LIMIT" || (orderType === "LIMIT" && trade.side === "SELL")) {
-      if (bid >= limitPrice) {
+    } else if (orderType === "SELL_LIMIT" || (orderType === "LIMIT" && trade.side === "SELL")) {
+      if (bid >= requestedPrice) {
         shouldExecute = true;
         executionPrice = bid;
       }
-    }
-    // BUY STOP: Buy when price rises to or above stop level
-    else if (orderType === "BUY_STOP" || (orderType === "STOP" && trade.side === "BUY")) {
-      if (ask >= limitPrice) {
+    } else if (orderType === "BUY_STOP" || (orderType === "STOP" && trade.side === "BUY")) {
+      if (ask >= requestedPrice) {
         shouldExecute = true;
         executionPrice = ask;
       }
-    }
-    // SELL STOP: Sell when price drops to or below stop level
-    else if (orderType === "SELL_STOP" || (orderType === "STOP" && trade.side === "SELL")) {
-      if (bid <= limitPrice) {
+    } else if (orderType === "SELL_STOP" || (orderType === "STOP" && trade.side === "SELL")) {
+      if (bid <= requestedPrice) {
         shouldExecute = true;
         executionPrice = bid;
       }
     }
 
-    if (shouldExecute) {
-      const [accounts] = await db.execute(
-        "SELECT id, status FROM accounts WHERE id = ? LIMIT 1",
-        [trade.account_id],
-      );
+    if (!shouldExecute || !Number.isFinite(executionPrice) || executionPrice <= 0) {
+      continue;
+    }
 
-      if (!accounts.length || accounts[0].status !== "ACTIVE") {
-        continue;
-      }
+    const [accounts] = await db.execute(
+      "SELECT * FROM accounts WHERE id = ? LIMIT 1",
+      [trade.account_id],
+    );
 
-      const [openTrades] = await db.execute(
-        "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN' LIMIT 1",
-        [trade.account_id],
-      );
+    if (!accounts.length || accounts[0].status !== "ACTIVE") {
+      continue;
+    }
 
-      if (openTrades.length) {
-        continue;
-      }
+    const account = accounts[0];
+    const risk = await checkAccountRisk(account);
 
-      const tradingDay = new Date().toISOString().split("T")[0];
-      await db.execute(
-        `UPDATE trades 
-         SET status = 'OPEN', 
-             entry_price = ?, 
-             entry_time = NOW(3), 
-             trading_day = ?,
-             current_price = ?
-         WHERE trade_id = ? AND status = 'PENDING'`,
-        [executionPrice, tradingDay, executionPrice, trade.trade_id]
-      );
+    if (risk.breached || !risk.allowed) {
+      continue;
+    }
+
+    const [openTrades] = await db.execute(
+      "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN' LIMIT 1",
+      [trade.account_id],
+    );
+
+    if (openTrades.length) {
+      continue;
+    }
+
+    const [result] = await db.execute(
+      "UPDATE trades SET status = 'OPEN', order_type = ?, entry_price = ?, "
+      + "entry_time = NOW(3), trading_day = CURDATE(), current_price = ?, "
+      + "floating_profit_cents = 0, realized_profit_cents = 0 "
+      + "WHERE trade_id = ? AND status = 'PENDING'",
+      [
+        orderType,
+        executionPrice,
+        executionPrice,
+        trade.trade_id,
+      ],
+    );
+
+    if (result.affectedRows === 1) {
       console.log(
-        `✅ Pending order executed: ${trade.trade_id} | ${trade.symbol} ${trade.side} @ ${executionPrice}`
+        `Pending order executed: ${trade.trade_id} | ${trade.symbol} ${trade.side} @ ${executionPrice}`
       );
     }
   }
 }
-
 
 // Terminal market-data endpoint. Authenticated because the terminal is account-bound.
 app.get("/api/prices", authenticateToken, (req, res) => {
