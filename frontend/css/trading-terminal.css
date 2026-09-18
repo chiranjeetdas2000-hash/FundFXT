@@ -779,3 +779,130 @@ button,input,select {
         font-size: 7px;
     }
 }
+
+
+/* ============================================================
+   DESKTOP TERMINAL INTERACTION FIXES
+   ============================================================ */
+
+.terminal-section[hidden] {
+    display: none;
+}
+
+.trade-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 100;
+    display: grid;
+    place-items: center;
+    padding: 20px;
+}
+
+.trade-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.72);
+    backdrop-filter: blur(8px);
+}
+
+.trade-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(460px, 100%);
+    max-height: min(720px, calc(100dvh - 40px));
+    overflow: auto;
+    padding: 18px;
+    border: 1px solid #2a3945;
+    border-radius: 14px;
+    background: #0d141b;
+    box-shadow: 0 28px 90px rgba(0, 0, 0, 0.55);
+}
+
+.trade-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+}
+
+.trade-modal-head h3 {
+    margin: 0;
+    color: #f4f7f8;
+    font-size: 14px;
+}
+
+.trade-modal-close {
+    width: 32px;
+    height: 32px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #101820;
+    color: #aeb9c1;
+    cursor: pointer;
+    font-size: 18px;
+}
+
+.trade-modal-close:hover {
+    color: var(--green);
+    border-color: #315f4d;
+}
+
+.detail-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.detail {
+    padding: 10px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #0a1016;
+}
+
+.detail span {
+    display: block;
+    margin-bottom: 4px;
+    color: var(--muted);
+    font-size: 8px;
+}
+
+.detail b {
+    color: #f4f7f8;
+    font-size: 10px;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.logout-icon-button {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    color: #aeb9c1;
+    box-shadow: none;
+}
+
+.logout-icon-button:hover {
+    border: 0;
+    background: rgba(0, 181, 106, 0.08);
+    color: var(--green);
+}
+
+.account-button:hover .account-icon {
+    border-color: #315f4d;
+    background: rgba(0, 181, 106, 0.08);
+}
+
+@media (max-width: 700px) {
+    .detail-grid {
+        grid-template-columns: 1fr;
+    }
+}
