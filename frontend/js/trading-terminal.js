@@ -62,25 +62,115 @@ function toggleFavorite(symbol) {
     renderPairs()
 }
 function renderPairs() {
-    const box=$('watchlist');
-    if(!box)return;
-    const q=($('search')?.value||'').toUpperCase().trim();
-    const rows=T.favorites.filter(s=>s.includes(q));
-    box.innerHTML=rows.map(s=> {
-        const p=T.prices[s]|| {
-        }        ,mid=Number(p.mid),spr=isNum(p.spread)?Number(p.spread):(Number(p.ask)-Number(p.bid)),ch=Number(p.changePercent);return `<button class="quote ${s===T.selected?'selected':''}" data-symbol="${s}" type="button"><span class="quote-main"><b class="watch-symbol">${s}</b><span class="quote-change">Δ ${isNum(ch)?(ch>=0?'+':'')+ch.toFixed(2)+'%':'—'}</span></span><span class="quote-spread">S ${fmt(spr,s)}</span><span class="quote-mid"><small>MID</small><b>${fmt(mid,s)}</b></span></button>`
-    }    ).join('')||'<div class="favorite-empty">No favorite pairs match your search.</div>';
-    box.querySelectorAll('.quote').forEach(b=>b.onclick=()=> {
-        T.selected=b.dataset.symbol;renderPairs();openPanel('center');loadChart()
-    }    );
-    const live=Object.values(T.prices).some(p=>isNum(p.bid)&&isNum(p.ask));
-    if($('market')) {
-        $('market').textContent=live?'● LIVE':'● OFFLINE';
-        $('market').style.color=live?'var(--green)':'var(--red)'
+    const box = $('watchlist');
+
+    if (!box) {
+        return;
     }
-    if($('selectedSymbol'))$('selectedSymbol').textContent=T.selected;
-    if($('executionSymbol'))$('executionSymbol').textContent=T.selected
+
+    const query = ($('search')?.value || '')
+        .trim()
+        .toUpperCase();
+
+    const rows = query
+        ? SYMBOLS.filter(
+            (symbol) => symbol.includes(query),
+        )
+        : T.favorites;
+
+    box.innerHTML = rows
+        .map((symbol) => {
+            const quote = T.prices[symbol] || {};
+            const ask = Number(quote.ask);
+            const bid = Number(quote.bid);
+            const spread = isNum(quote.spread)
+                ? Number(quote.spread)
+                : ask - bid;
+            const change = Number(quote.changePercent);
+            const favorite = T.favorites.includes(symbol);
+
+            return `
+                <button
+                    class="quote ${symbol === T.selected ? 'selected' : ''}"
+                    data-symbol="${symbol}"
+                    type="button"
+                    aria-label="${symbol} market quote"
+                >
+                    <span class="quote-pair">
+                        <b>${symbol}</b>
+                        <small
+                            class="quote-favorite ${favorite ? 'active' : ''}"
+                            title="${favorite ? 'Favorite pair' : 'Add to favorites'}"
+                        >
+                            ${favorite ? '★' : '☆'}
+                        </small>
+                    </span>
+
+                    <span class="quote-value quote-spread-value">
+                        ${fmt(spread, symbol)}
+                    </span>
+
+                    <span class="quote-value quote-ask-value">
+                        ${fmt(ask, symbol)}
+                    </span>
+
+                    <span class="quote-value quote-bid-value">
+                        ${fmt(bid, symbol)}
+                    </span>
+
+                    <span
+                        class="quote-change ${isNum(change) && change < 0 ? 'negative' : ''}"
+                    >
+                        ${isNum(change)
+                            ? (change >= 0 ? '+' : '') + change.toFixed(2) + '%'
+                            : '—'}
+                    </span>
+                </button>
+            `;
+        })
+        .join('')
+        || `
+            <div class="favorite-empty">
+                ${query
+                    ? 'No matching pairs found.'
+                    : 'No favorite pairs added yet.'}
+            </div>
+        `;
+
+    box.querySelectorAll('.quote').forEach((button) => {
+        button.onclick = () => {
+            T.selected = button.dataset.symbol;
+
+            renderPairs();
+            openPanel('center');
+            loadChart();
+        };
+    });
+
+    const live = Object.values(T.prices).some(
+        (price) => isNum(price.bid) && isNum(price.ask),
+    );
+
+    if ($('market')) {
+        $('market').textContent = live
+            ? '● LIVE'
+            : '● OFFLINE';
+
+        $('market').style.color = live
+            ? 'var(--green)'
+            : 'var(--red)';
+    }
+
+    if ($('selectedSymbol')) {
+        $('selectedSymbol').textContent = T.selected;
+    }
+
+    if ($('executionSymbol')) {
+        $('executionSymbol').textContent = T.selected;
+    }
 }
+
+
 async function loadPrices() {
     const d=await api('/api/prices');
     T.prices=d.prices|| {
@@ -106,21 +196,98 @@ function renderAccount() {
     if($('chartEquity'))$('chartEquity').textContent='Equity '+money(T.account.equity_cents)
 }
 function loadChart() {
-    const host=$('tv');
-    if(!host)return;
+    const host = $('tv');
+
+    if (!host) {
+        return;
+    }
+
     host.querySelector('iframe')?.remove();
     host.querySelector('#chartLoading')?.remove();
-    const loading=document.createElement('div');
-    loading.className='chart-loading';
-    loading.id='chartLoading';
-    loading.innerHTML='<span></span><b>Loading '+T.selected+' chart…</b>';
+
+    const loading = document.createElement('div');
+
+    loading.className = 'chart-loading';
+    loading.id = 'chartLoading';
+
+    loading.innerHTML = `
+        <span></span>
+        <b>Loading ${T.selected} chart…</b>
+    `;
+
     host.appendChild(loading);
-    const f=document.createElement('iframe');
-    f.title='FundFXT '+T.selected;
-    f.allowFullscreen=true;
-    f.src='https://www.tradingview.com/widgetembed/?symbol='+encodeURIComponent('OANDA:'+T.selected)+'&interval=15&theme=dark&style=1&locale=en&enable_publishing=false&hide_top_toolbar=false&hide_side_toolbar=false&save_image=false&allow_symbol_change=true&autosize=true';
-    host.appendChild(f)
+
+    const frame = document.createElement('iframe');
+
+    frame.title = 'FundFXT ${T.selected}';
+    frame.allowFullscreen = true;
+    frame.loading = 'eager';
+
+    frame.src =
+        'https://www.tradingview.com/widgetembed/?symbol='
+        + encodeURIComponent('OANDA:' + T.selected)
+        + '&interval=15'
+        + '&theme=dark'
+        + '&style=1'
+        + '&locale=en'
+        + '&enable_publishing=false'
+        + '&hide_top_toolbar=false'
+        + '&hide_side_toolbar=false'
+        + '&save_image=false'
+        + '&allow_symbol_change=true'
+        + '&autosize=true';
+
+    frame.addEventListener(
+        'load',
+        () => {
+            const current = $('chartLoading');
+
+            if (current) {
+                current.remove();
+            }
+        },
+        {
+            once: true,
+        },
+    );
+
+    frame.addEventListener(
+        'error',
+        () => {
+            const current = $('chartLoading');
+
+            if (current) {
+                current.innerHTML = `
+                    <b>Chart unavailable</b>
+                    <span>Market data is still available in Market Watch.</span>
+                `;
+            }
+        },
+        {
+            once: true,
+        },
+    );
+
+    host.appendChild(frame);
+
+    window.clearTimeout(loadChart.timeout);
+
+    loadChart.timeout = window.setTimeout(
+        () => {
+            const current = $('chartLoading');
+
+            if (current) {
+                current.innerHTML = `
+                    <b>Chart is taking longer than expected</b>
+                    <span>Try selecting the pair again.</span>
+                `;
+            }
+        },
+        12000,
+    );
 }
+
+
 function openPanel(name) {
     if(name==='center') {
         document.querySelectorAll('.panel').forEach(p=>p.classList.remove('mobile-active'));
@@ -257,14 +424,96 @@ async function execute(side) {
     }
 }
 function addPair() {
-    const body=SYMBOLS.map(s=> {
-        const fav=T.favorites.includes(s);return `<div class="pair-add-item"><b>${s}</b><button data-fav="${s}" type="button">${fav?'Remove':'Add'}</button></div>`
-    }    ).join('');
-    modal('Favorite Pairs',body,'');
-    document.querySelectorAll('[data-fav]').forEach(b=>b.onclick=()=> {
-        toggleFavorite(b.dataset.fav);document.querySelector('.trade-modal')?.remove();addPair()
-    }    )
+    const body = `
+        <div class="pair-add-toolbar">
+            <input
+                id="favoritePairSearch"
+                class="search"
+                type="search"
+                placeholder="Search pairs…"
+                autocomplete="off"
+            >
+        </div>
+
+        <div
+            id="favoritePairList"
+            class="pair-add-list"
+        ></div>
+    `;
+
+    modal(
+        'Favorite Pairs',
+        body,
+        '',
+    );
+
+    const list = $('favoritePairList');
+    const search = $('favoritePairSearch');
+
+    const draw = () => {
+        const value = (search?.value || '')
+            .trim()
+            .toUpperCase();
+
+        const symbols = SYMBOLS.filter(
+            (symbol) => symbol.includes(value),
+        );
+
+        list.innerHTML = symbols
+            .map((symbol) => {
+                const favorite = T.favorites.includes(symbol);
+
+                return `
+                    <div class="pair-add-item">
+                        <div>
+                            <b>${symbol}</b>
+                            <small>
+                                ${favorite
+                                    ? 'Favorite'
+                                    : 'Available'}
+                            </small>
+                        </div>
+
+                        <button
+                            data-fav="${symbol}"
+                            type="button"
+                        >
+                            ${favorite
+                                ? 'Remove'
+                                : 'Add'}
+                        </button>
+                    </div>
+                `;
+            })
+            .join('')
+            || `
+                <div class="favorite-empty">
+                    No pairs found.
+                </div>
+            `;
+
+        list
+            .querySelectorAll('[data-fav]')
+            .forEach((button) => {
+                button.onclick = () => {
+                    toggleFavorite(
+                        button.dataset.fav,
+                    );
+
+                    draw();
+                };
+            });
+    };
+
+    draw();
+
+    search?.addEventListener(
+        'input',
+        draw,
+    );
 }
+
+
 function logout() {
     localStorage.removeItem('fundfxt_token');
     localStorage.removeItem('fundfxt_selected_account');
@@ -272,24 +521,138 @@ function logout() {
 }
 function setup() {
     loadFavorites();
-    if($('addPairBtn'))$('addPairBtn').onclick=addPair;
-    if($('search'))$('search').oninput=renderPairs;
-    if($('buy'))$('buy').onclick=()=>execute('BUY');
-    if($('sell'))$('sell').onclick=()=>execute('SELL');
-    if($('orderType'))$('orderType').onchange=()=>$('pendingFields')?.classList.toggle('hidden',$('orderType').value==='MARKET');
-    if($('chartMaxBtn'))$('chartMaxBtn').onclick=()=> {
-        const c=$('center'),m=c.classList.toggle('chart-maximized');
-        document.body.classList.toggle('chart-fullscreen',m);
-        $('chartMaxBtn').textContent=m?'↙':'⛶'
-    }    ;
-    if($('chartBack'))$('chartBack').onclick=()=>openPanel('pairs');
-    if($('rightCollapseBtn'))$('rightCollapseBtn').onclick=()=>document.getElementById('terminalShell')?.classList.toggle('right-hidden');
-    document.querySelectorAll('.right-section-tab').forEach(b=>b.onclick=()=>openPanel(b.dataset.section));
-    loadAccount().then(loadPrices).then(()=> {
-        renderPairs();loadChart();loadTrades();window.showPendingOrders?.()
-    }    ).catch(e=>feedback(e.message));
-    if(window.lucide?.createIcons)window.lucide.createIcons()
+
+    if ($('addPairBtn')) {
+        $('addPairBtn').onclick = addPair;
+    }
+
+    if ($('terminalLogoutBtn')) {
+        $('terminalLogoutBtn').onclick = logout;
+    }
+
+    if ($('accountMenuBtn')) {
+        $('accountMenuBtn').onclick = () => {
+            if (!T.account) {
+                feedback('Account is still loading.');
+                return;
+            }
+
+            location.href =
+                '/account-dashboard.html?account_code='
+                + encodeURIComponent(
+                    T.account.account_code,
+                );
+        };
+    }
+
+    if ($('search')) {
+        $('search').oninput = renderPairs;
+    }
+
+    if ($('buy')) {
+        $('buy').onclick = () => execute('BUY');
+    }
+
+    if ($('sell')) {
+        $('sell').onclick = () => execute('SELL');
+    }
+
+    if ($('orderType')) {
+        $('orderType').onchange = () => {
+            const isMarket =
+                $('orderType').value === 'MARKET';
+
+            $('pendingFields').hidden = isMarket;
+        };
+    }
+
+    if ($('chartFocusBtn')) {
+        $('chartFocusBtn').onclick = () => {
+            const shell = $('terminalShell');
+
+            if (!shell) {
+                return;
+            }
+
+            const hidden =
+                shell.classList.toggle(
+                    'right-hidden',
+                );
+
+            $('chartFocusBtn').setAttribute(
+                'aria-label',
+                hidden
+                    ? 'Show market watch'
+                    : 'Focus chart',
+            );
+
+            $('chartFocusBtn').textContent =
+                hidden
+                    ? '↙'
+                    : '⛶';
+        };
+    }
+
+    if ($('rightCollapseBtn')) {
+        $('rightCollapseBtn').onclick = () => {
+            const shell = $('terminalShell');
+
+            if (!shell) {
+                return;
+            }
+
+            const hidden =
+                shell.classList.toggle(
+                    'right-hidden',
+                );
+
+            $('rightCollapseBtn').setAttribute(
+                'aria-label',
+                hidden
+                    ? 'Show market rail'
+                    : 'Hide market rail',
+            );
+
+            $('rightCollapseBtn').textContent =
+                hidden
+                    ? '‹'
+                    : '›';
+        };
+    }
+
+    document
+        .querySelectorAll('.right-section-tab')
+        .forEach((button) => {
+            button.onclick = () => {
+                openPanel(
+                    button.dataset.section,
+                );
+            };
+        });
+
+    loadAccount()
+        .then(loadPrices)
+        .then(() => {
+            renderPairs();
+            loadChart();
+            loadTrades();
+
+            if (
+                typeof window.showPendingOrders
+                === 'function'
+            ) {
+                window.showPendingOrders();
+            }
+        })
+        .catch((error) => {
+            feedback(error.message);
+        });
+
+    if (window.lucide?.createIcons) {
+        window.lucide.createIcons();
+    }
 }
+
 document.addEventListener('DOMContentLoaded',setup);
 window.loadTrades=loadTrades;
 window.loadAccount=loadAccount;
