@@ -2085,7 +2085,7 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
-async async function processLivePrices() {
+async function processLivePrices() {
   const priceCache = global.priceCache || {};
   const [trades] = await db.execute(
     "SELECT * FROM trades WHERE status = 'OPEN'",
