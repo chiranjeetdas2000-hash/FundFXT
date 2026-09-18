@@ -1514,9 +1514,8 @@ app.post(
       }
 
       await connection.execute(
-        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ? AND user_id = ?",
+        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents WHERE id = ? AND user_id = ?",
         [
-          realizedCents,
           realizedCents,
           trade.account_id,
           req.userId,
