@@ -295,7 +295,7 @@
   }
 
   const wait = setInterval(() => {
-    if (document.readyState !== "loading" && document.getElementById("buy") && document.getElementById("pendingOrderScroll")) {
+    if (document.readyState !== "loading" && document.getElementById("buy") && document.getElementById("tradeScroll")) {
       clearInterval(wait);
       install();
     }
