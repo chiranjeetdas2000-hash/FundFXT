@@ -178,7 +178,10 @@
                 }
 
                 const isMobile =
-                    window.innerWidth <= 768;
+                    window.innerWidth <= 1100
+                    || window.matchMedia(
+                        "(max-aspect-ratio: 1/1)",
+                    ).matches;
 
                 if (isMobile) {
                     const chartTab =
