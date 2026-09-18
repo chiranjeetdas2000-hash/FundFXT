@@ -1138,6 +1138,24 @@ async function processPendingOrders() {
     }
 
     if (shouldExecute) {
+      const [accounts] = await db.execute(
+        "SELECT id, status FROM accounts WHERE id = ? LIMIT 1",
+        [trade.account_id],
+      );
+
+      if (!accounts.length || accounts[0].status !== "ACTIVE") {
+        continue;
+      }
+
+      const [openTrades] = await db.execute(
+        "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN' LIMIT 1",
+        [trade.account_id],
+      );
+
+      if (openTrades.length) {
+        continue;
+      }
+
       const tradingDay = new Date().toISOString().split("T")[0];
       await db.execute(
         `UPDATE trades 
