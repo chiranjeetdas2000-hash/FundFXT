@@ -152,6 +152,12 @@
                     notify("Invalid Take Profit for this direction.");
                     return;
                 }
+                setButtonLoading(
+                    $("saveModify"),
+                    true,
+                    "Saving...",
+                );
+
                 try {
                     await api(
                     "/api/trades/" + encodeURIComponent(id),
@@ -174,6 +180,12 @@
                 }
                 catch (error) {
                     notify(error.message);
+                }
+                finally {
+                    setButtonLoading(
+                        $("saveModify"),
+                        false,
+                    );
                 }
             }            ;
         }
