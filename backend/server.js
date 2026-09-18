@@ -1580,65 +1580,254 @@ app.post("/api/trades/pending", authenticateToken, async (req, res) => {
     limit_price,
     sl,
     tp,
-  } = req.body;
+  } = req.body || {};
+
   try {
+    const accountCode = String(account_code || "").trim();
+    const tradeSymbol = String(symbol || "").trim().toUpperCase();
+    const tradeSide = String(side || "").trim().toUpperCase();
+    const pendingType = String(order_type || "").trim().toUpperCase();
+    const entryPrice = Number(limit_price);
+    const tradeVolume = Number(volume);
+
+    const stopLoss =
+      sl === null || sl === "" || sl === undefined
+        ? null
+        : Number(sl);
+
+    const takeProfit =
+      tp === null || tp === "" || tp === undefined
+        ? null
+        : Number(tp);
+
+    const validPendingTypes = new Set([
+      "BUY_LIMIT",
+      "SELL_LIMIT",
+      "BUY_STOP",
+      "SELL_STOP",
+    ]);
+
+    if (!accountCode) {
+      return res.status(400).json({
+        error: "account_code is required",
+      });
+    }
+
+    if (!Object.prototype.hasOwnProperty.call(instruments, tradeSymbol)) {
+      return res.status(400).json({
+        error: "Invalid symbol",
+      });
+    }
+
+    if (!["BUY", "SELL"].includes(tradeSide)) {
+      return res.status(400).json({
+        error: "Invalid trade direction",
+      });
+    }
+
+    if (!validPendingTypes.has(pendingType)) {
+      return res.status(400).json({
+        error: "Invalid pending order type",
+      });
+    }
+
+    if (
+      (pendingType.startsWith("BUY_") && tradeSide !== "BUY")
+      || (pendingType.startsWith("SELL_") && tradeSide !== "SELL")
+    ) {
+      return res.status(400).json({
+        error: "Order type does not match trade direction",
+      });
+    }
+
+    if (
+      !Number.isFinite(tradeVolume)
+      || tradeVolume < 0.01
+      || tradeVolume > 2
+    ) {
+      return res.status(400).json({
+        error: "Volume must be between 0.01 and 2.00",
+      });
+    }
+
+    if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
+      return res.status(400).json({
+        error: "Invalid pending entry price",
+      });
+    }
+
+    if (
+      (stopLoss !== null && !Number.isFinite(stopLoss))
+      || (takeProfit !== null && !Number.isFinite(takeProfit))
+    ) {
+      return res.status(400).json({
+        error: "Invalid TP/SL price",
+      });
+    }
+
     const [accounts] = await db.execute(
-      "SELECT * FROM accounts WHERE account_code = ? AND user_id = ?",
-      [account_code, req.userId],
+      "SELECT * FROM accounts WHERE account_code = ? AND user_id = ? LIMIT 1",
+      [accountCode, req.userId],
     );
-    if (!accounts.length)
-      return res.status(404).json({ error: "Account not found" });
+
+    if (!accounts.length) {
+      return res.status(404).json({
+        error: "Account not found",
+      });
+    }
+
     const account = accounts[0];
-    const tradeId = "PD-" + Date.now().toString(36).toUpperCase();
-await db.execute(
-  `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, order_type, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL, ?, ?, 'PENDING')`,
-  [
-    tradeId,
-    account.id,
-    account_code,
-    req.userId,
-    symbol,
-    side,
-    order_type || (side === "BUY" ? "BUY_LIMIT" : "SELL_LIMIT"),
-    volume,
-    limit_price,
-    sl || null,
-    tp || null,
-  ],
-);
-    res.json({
+
+    if (account.status !== "ACTIVE") {
+      return res.status(403).json({
+        error: "Account is not active for trading",
+      });
+    }
+
+    const price = global.priceCache?.[tradeSymbol] || {};
+    const bid = Number(price.bid);
+    const ask = Number(price.ask);
+
+    if (
+      pendingType === "BUY_LIMIT"
+      && Number.isFinite(ask)
+      && ask > 0
+      && entryPrice >= ask
+    ) {
+      return res.status(400).json({
+        error: "BUY LIMIT entry must be below current ask",
+      });
+    }
+
+    if (
+      pendingType === "SELL_LIMIT"
+      && Number.isFinite(bid)
+      && bid > 0
+      && entryPrice <= bid
+    ) {
+      return res.status(400).json({
+        error: "SELL LIMIT entry must be above current bid",
+      });
+    }
+
+    if (
+      pendingType === "BUY_STOP"
+      && Number.isFinite(ask)
+      && ask > 0
+      && entryPrice <= ask
+    ) {
+      return res.status(400).json({
+        error: "BUY STOP entry must be above current ask",
+      });
+    }
+
+    if (
+      pendingType === "SELL_STOP"
+      && Number.isFinite(bid)
+      && bid > 0
+      && entryPrice >= bid
+    ) {
+      return res.status(400).json({
+        error: "SELL STOP entry must be below current bid",
+      });
+    }
+
+    if (
+      stopLoss !== null
+      && (tradeSide === "BUY" ? stopLoss >= entryPrice : stopLoss <= entryPrice)
+    ) {
+      return res.status(400).json({
+        error: "Invalid Stop Loss for this direction",
+      });
+    }
+
+    if (
+      takeProfit !== null
+      && (tradeSide === "BUY" ? takeProfit <= entryPrice : takeProfit >= entryPrice)
+    ) {
+      return res.status(400).json({
+        error: "Invalid Take Profit for this direction",
+      });
+    }
+
+    const tradeId =
+      "PD-"
+      + Date.now().toString(36).toUpperCase()
+      + "-"
+      + crypto.randomBytes(2).toString("hex").toUpperCase();
+
+    await db.execute(
+      "INSERT INTO trades ("
+      + "trade_id, account_id, account_code, user_id, symbol, side, order_type, volume, "
+      + "entry_price, entry_time, trading_day, stop_loss, take_profit, current_price, "
+      + "floating_profit_cents, realized_profit_cents, status"
+      + ") VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, CURDATE(), ?, ?, NULL, 0, 0, 'PENDING')",
+      [
+        tradeId,
+        account.id,
+        accountCode,
+        req.userId,
+        tradeSymbol,
+        tradeSide,
+        pendingType,
+        tradeVolume,
+        entryPrice,
+        stopLoss,
+        takeProfit,
+      ],
+    );
+
+    return res.json({
       success: true,
       trade_id: tradeId,
+      status: "PENDING",
+      order_type: pendingType,
       message: "Pending order placed",
     });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Pending order placement error:", error);
+
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
 app.get("/api/trades/pending", authenticateToken, async (req, res) => {
-  const { account_code } = req.query;
+  const accountCode = String(req.query.account_code || "").trim();
+
   try {
     const [trades] = await db.execute(
-      "SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING' ORDER BY created_at DESC",
-      [account_code, req.userId],
+      "SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING' ORDER BY created_at DESC, id DESC",
+      [accountCode, req.userId],
     );
-    res.json({ success: true, trades });
+
+    return res.json({
+      success: true,
+      trades,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
 app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
   try {
-    await db.execute(
-      "UPDATE trades SET status = 'CANCELLED' WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'",
+    const [result] = await db.execute(
+      "UPDATE trades SET status = 'CANCELLED', exit_time = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'",
       [req.params.tradeId, req.userId],
     );
-    res.json({ success: true });
+
+    return res.json({
+      success: true,
+      cancelled: result.affectedRows > 0,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
@@ -2296,83 +2485,6 @@ app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
     await db.execute(
       "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?",
       [stop_loss || null, take_profit || null, req.params.tradeId],
-    );
-    res.json({ success: true });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 3. Pending Orders (Limit/Stop)
-app.post("/api/trades/pending", authenticateToken, async (req, res) => {
-  const {
-    account_code,
-    symbol,
-    side,
-    volume,
-    order_type,
-    limit_price,
-    sl,
-    tp,
-  } = req.body;
-
-  try {
-    const [accounts] = await db.execute(
-      "SELECT * FROM accounts WHERE account_code = ? AND user_id = ?",
-      [account_code, req.userId],
-    );
-    if (!accounts.length)
-      return res.status(404).json({ error: "Account not found" });
-    const account = accounts[0];
-
-    const tradeId = "PD-" + Date.now().toString(36).toUpperCase();
-    await db.execute(
-      `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, NOW(), CURDATE(), ?, ?, 'PENDING')`,
-      [
-        tradeId,
-        account.id,
-        account_code,
-        req.userId,
-        symbol,
-        side,
-        volume,
-        limit_price,
-        sl || null,
-        tp || null,
-      ],
-    );
-
-    res.json({
-      success: true,
-      trade_id: tradeId,
-      message: "Pending order placed",
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 4. Get Pending Orders
-app.get("/api/trades/pending", authenticateToken, async (req, res) => {
-  const { account_code } = req.query;
-  try {
-    const [trades] = await db.execute(
-      "SELECT * FROM trades WHERE account_code = ? AND user_id = ? AND status = 'PENDING'",
-      [account_code, req.userId],
-    );
-    res.json({ success: true, trades });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
-// 5. Cancel Pending Order
-app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
-  try {
-    await db.execute(
-      "UPDATE trades SET status = 'CANCELLED' WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'",
-      [req.params.tradeId, req.userId],
     );
     res.json({ success: true });
   } catch (error) {
