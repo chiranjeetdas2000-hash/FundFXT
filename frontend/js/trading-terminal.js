@@ -483,15 +483,47 @@ function modal(title,body,actions) {
     x.querySelector('.trade-modal-close').onclick=()=>x.remove();
     x.querySelector('.trade-modal-backdrop').onclick=()=>x.remove()
 }
-function closeAmountModal(id,t) {
-    const max=Number(t.volume);
-    const body=`<div class="detail"><span>Pair</span><b>${t.symbol} · ${t.side}</b></div><div class="detail"><span>Current Lot</span><b>${max.toFixed(2)}</b></div><label class="modal-input"><span>Lots to close</span><input id="modalCloseVolume" type="number" min="0.01" max="${max}" step="0.01" value="${max.toFixed(2)}" inputmode="decimal"></label>`;
-    modal('Partial Close',body,'<span></span>');
-    const actionBox = document.querySelector('.trade-modal .modal-actions');
+function closeAmountModal(id, t) {
+    const max = Math.round(Number(t.volume) * 100) / 100;
+    const body = `
+        <div class="detail">
+            <span>Pair</span>
+            <b>${t.symbol} · ${t.side}</b>
+        </div>
+        <div class="detail">
+            <span>Current Lot</span>
+            <b>${max.toFixed(2)}</b>
+        </div>
+        <label class="modal-input">
+            <span>Lots to close</span>
+            <input
+                id="modalCloseVolume"
+                type="number"
+                min="0.01"
+                max="${Math.max(0, max - 0.01).toFixed(2)}"
+                step="0.01"
+                value="0.01"
+                inputmode="decimal"
+            >
+            <small id="partialCloseHint" class="modal-input-hint"></small>
+        </label>
+    `;
 
-    if (!actionBox) {
-        document.querySelector('.trade-modal')?.remove();
-        feedback('Partial close action is unavailable.');
+    modal(
+        "Partial Close",
+        body,
+        "<span></span>",
+    );
+
+    const actionBox = document.querySelector(
+        ".trade-modal .modal-actions",
+    );
+    const input = $("modalCloseVolume");
+    const hint = $("partialCloseHint");
+
+    if (!actionBox || !input || !hint) {
+        document.querySelector(".trade-modal")?.remove();
+        feedback("Partial close action is unavailable.");
         return;
     }
 
@@ -500,27 +532,80 @@ function closeAmountModal(id,t) {
             class="mini close"
             id="confirmPartial"
             type="button"
+            disabled
         >
             Close selected lots
         </button>
     `;
 
-    $('confirmPartial').onclick = async () => {
-        const v = Number($('modalCloseVolume')?.value);
+    const confirmButton = $("confirmPartial");
 
-        if (
-            !isNum(v)
-            || v <= 0
-            || v >= max
-        ) {
-            return feedback(
-                'Partial close must be less than the current lot size.',
-            );
+    const validatePartialVolume = () => {
+        const raw = input.value.trim();
+        const value = Number(raw);
+        const rounded = Math.round(value * 100) / 100;
+        const remaining = Math.round((max - rounded) * 100) / 100;
+        let message = "";
+        let valid = true;
+
+        if (raw === "" || !Number.isFinite(value)) {
+            message = "Enter the number of lots to close.";
+            valid = false;
+        } else if (Math.abs(value - rounded) > 0.000001) {
+            message = "Lot size must use 0.01 steps.";
+            valid = false;
+        } else if (rounded <= 0) {
+            message = "Lots to close must be greater than 0.";
+            valid = false;
+        } else if (rounded >= max) {
+            message =
+                rounded === max
+                    ? "Partial Close cannot close the full position. Use Close instead."
+                    : `Lots to close cannot exceed ${max.toFixed(2)} lot.`;
+            valid = false;
+        } else if (remaining < 0.01) {
+            message = "At least 0.01 lot must remain open.";
+            valid = false;
+        } else {
+            message = `Remaining position: ${remaining.toFixed(2)} lot.`;
         }
 
-        document.querySelector('.trade-modal')?.remove();
-        await submitClose(id, v, true);
-    }
+        hint.textContent = message;
+        hint.classList.toggle("error", !valid);
+        hint.classList.toggle("valid", valid);
+        confirmButton.disabled = !valid;
+
+        return {
+            valid,
+            value: rounded,
+        };
+    };
+
+    input.addEventListener(
+        "input",
+        validatePartialVolume,
+    );
+    input.addEventListener(
+        "blur",
+        validatePartialVolume,
+    );
+    input.addEventListener(
+        "change",
+        validatePartialVolume,
+    );
+
+    confirmButton.onclick = async () => {
+        const result = validatePartialVolume();
+
+        if (!result.valid) {
+            return;
+        }
+
+        document.querySelector(".trade-modal")?.remove();
+        await submitClose(id, result.value, true);
+    };
+
+    validatePartialVolume();
 }
 async function submitClose(id,volume,partial) {
     try {
