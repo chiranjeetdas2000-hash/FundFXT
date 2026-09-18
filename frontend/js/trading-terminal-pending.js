@@ -121,33 +121,149 @@
 
   function pendingCard(o) {
     const id = o.trade_id || o.order_id;
-    return `<article class="trade-card pending-card"><div class="trade-main"><div><b class="trade-symbol">${esc(o.symbol)}</b><small class="trade-id">${esc(id)}</small></div><b class="trade-side $ {
-            String(o.side).toLowerCase()
-        }
-        ">${esc(o.side)} · ${esc(o.order_type)}</b></div><div class="trade-meta"><div><span>Entry</span><b>${fmt(o.entry_price, o.symbol)}</b></div><div><span>Lot</span><b>${n(o.volume).toFixed(2)}</b></div><div><span>SL</span><b>${o.stop_loss == null ? "—" : fmt(o.stop_loss, o.symbol)}</b></div><div><span>TP</span><b>${o.take_profit == null ? "—" : fmt(o.take_profit, o.symbol)}</b></div></div><div class="trade-actions"><button class="mini close" data-pcancel="$ {
-            esc(id)
-        }
-        " type="button">Cancel</button></div></article>`;
+
+    return `
+      <article class="trade-card pending-card">
+        <div class="trade-main">
+          <div>
+            <b class="trade-symbol">${esc(o.symbol)}</b>
+            <small class="trade-id">${esc(id)}</small>
+          </div>
+
+          <b class="trade-side ${String(o.side || "").toLowerCase()}">
+            ${esc(o.side)} · ${esc(o.order_type)}
+          </b>
+        </div>
+
+        <div class="trade-meta">
+          <div>
+            <span>Entry</span>
+            <b>${fmt(o.entry_price, o.symbol)}</b>
+          </div>
+
+          <div>
+            <span>Lot</span>
+            <b>${n(o.volume).toFixed(2)}</b>
+          </div>
+
+          <div>
+            <span>SL</span>
+            <b>${o.stop_loss == null ? "—" : fmt(o.stop_loss, o.symbol)}</b>
+          </div>
+
+          <div>
+            <span>TP</span>
+            <b>${o.take_profit == null ? "—" : fmt(o.take_profit, o.symbol)}</b>
+          </div>
+        </div>
+
+        <div class="trade-actions">
+          <button
+            class="mini close"
+            data-pcancel="${esc(id)}"
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+      </article>
+    `;
   }
 
   async function showPending() {
-    const box = document.getElementById("pendingOrderScroll") || document.getElementById("tradeScroll");
-    if (!box || !accountCode()) return;
+    const s = state();
+
+    if (!s || !accountCode()) {
+      return;
+    }
+
     try {
-      /* Backend contract: GET /api/trades/pending?account_code=... */
-      const d = await api("/api/trades/pending?account_code=" + encodeURIComponent(accountCode()));
-      const rows = Array.isArray(d.trades) ? d.trades : [];
-      box.innerHTML = rows.map(pendingCard).join("") || '<div class="empty"><strong>No open orders</strong><span>Your Limit and Stop orders will appear here.</span></div>';
-      box.querySelectorAll("[data-pcancel]").forEach((b) => b.onclick = async () => {
-        try {
-          /* Backend contract: DELETE /api/trades/:tradeId */
-          await api("/api/trades/" + encodeURIComponent(b.dataset.pcancel), { method: "DELETE" });
-          feedback("Pending order cancelled.", true);
-          showPending();
-        } catch (e) { feedback(e.message); }
-      });
+      const d = await api(
+        "/api/trades/pending?account_code="
+        + encodeURIComponent(accountCode()),
+      );
+
+      const rows = Array.isArray(d.trades)
+        ? d.trades
+        : [];
+
+      const count = document.getElementById(
+        "pendingCount",
+      );
+
+      if (count) {
+        count.textContent = String(rows.length);
+      }
+
+      /*
+       * Pending orders belong only to the Trades > Pending tab.
+       * They must never be rendered in the Execute section.
+       */
+      if (s.tab !== "PENDING") {
+        return;
+      }
+
+      const box = document.getElementById(
+        "tradeScroll",
+      );
+
+      if (!box) {
+        return;
+      }
+
+      box.innerHTML = rows.map(pendingCard).join("")
+        || `
+          <div class="empty">
+            <strong>No pending orders</strong>
+            <span>
+              Your Limit and Stop orders will appear here.
+            </span>
+          </div>
+        `;
+
+      box
+        .querySelectorAll("[data-pcancel]")
+        .forEach((button) => {
+          button.onclick = async () => {
+            try {
+              await api(
+                "/api/trades/"
+                + encodeURIComponent(
+                  button.dataset.pcancel,
+                ),
+                {
+                  method: "DELETE",
+                },
+              );
+
+              feedback(
+                "Pending order cancelled.",
+                true,
+              );
+
+              await showPending();
+            } catch (e) {
+              feedback(e.message);
+            }
+          };
+        });
     } catch (e) {
-      box.innerHTML = `<div class="empty"><strong>Open orders unavailable</strong><span>${esc(e.message)}</span></div>`;
+      if (state()?.tab !== "PENDING") {
+        return;
+      }
+
+      const box = document.getElementById(
+        "tradeScroll",
+      );
+
+      if (box) {
+        box.innerHTML = `
+          <div class="empty">
+            <strong>Pending orders unavailable</strong>
+            <span>${esc(e.message)}</span>
+          </div>
+        `;
+      }
     }
   }
 
