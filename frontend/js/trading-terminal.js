@@ -18,6 +18,27 @@ const money=c=>'$'+(Number(c||0)/100).toLocaleString('en-US', {
 });
 const fmt=(v,s)=>Number.isFinite(Number(v))?Number(v).toFixed(/JPY$/i.test(s)?3:/XAU|XAG|BTC|ETH/i.test(s)?2:5):'—';
 const isNum=v=>Number.isFinite(Number(v));
+
+function setButtonLoading(button, isLoading, loadingText) {
+    if (!button) return;
+
+    if (isLoading) {
+        if (!button.dataset.originalText) {
+            button.dataset.originalText = button.textContent.trim();
+        }
+        button.disabled = true;
+        button.dataset.originalDisabled = button.disabled;
+        button.innerHTML =
+            '<span>' + (loadingText || 'Processing...') + '</span>' +
+            '<span class="btn-spinner"></span>';
+    } else {
+        button.disabled = false;
+        if (button.dataset.originalText) {
+            button.textContent = button.dataset.originalText;
+        }
+    }
+}
+
 async function api(path,opt= {
 }) {
     const r=await fetch(FX_API+path, {
@@ -615,8 +636,15 @@ function closeAmountModal(id, t) {
             return;
         }
 
-        document.querySelector(".trade-modal")?.remove();
-        await submitClose(id, result.value, true);
+        setButtonLoading(confirmButton, true, 'Closing...');
+
+        try {
+            document.querySelector(".trade-modal")?.remove();
+            await submitClose(id, result.value, true);
+        }
+        finally {
+            setButtonLoading(confirmButton, false);
+        }
     };
 
     validatePartialVolume();
@@ -676,10 +704,20 @@ async function submitClose(id, volume, partial) {
     }
 }
 
-function closePosition(id) {
+async function closePosition(id) {
     const t=T.trades.find(x=>String(x.trade_id)===String(id));
     if(!t||t.status!=='OPEN')return;
-    submitClose(id,Number(t.volume),false)
+
+    const button = document.querySelector('[data-close="' + String(id).replace(/"/g, '\\"') + '"]');
+
+    setButtonLoading(button, true, 'Closing...');
+
+    try {
+        await submitClose(id,Number(t.volume),false);
+    }
+    finally {
+        setButtonLoading(button, false);
+    }
 }
 function partialClose(id) {
     const t=T.trades.find(x=>String(x.trade_id)===String(id));
@@ -701,6 +739,17 @@ async function execute(side) {
     }
 
     if(!isNum(volume)||volume<.01||volume>2)return feedback('Lot size must be 0.01 to 2.00.');
+
+    const button = side === 'BUY'
+        ? $('buy')
+        : $('sell');
+
+    setButtonLoading(
+        button,
+        true,
+        side === 'BUY' ? 'Buying...' : 'Selling...',
+    );
+
     try {
         const d=await api('/api/trade/execute', {
             method:'POST',body:JSON.stringify( {
@@ -714,6 +763,9 @@ async function execute(side) {
     }
     catch(e) {
         feedback(e.message)
+    }
+    finally {
+        setButtonLoading(button, false);
     }
 }
 function addPair() {
