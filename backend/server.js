@@ -1368,21 +1368,139 @@ app.post("/api/trades/:tradeId/close", authenticateToken, async (req, res) => {
 
 // 3. MODIFY SL/TP
 app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
-  const { stop_loss, take_profit } = req.body;
+  const {
+    stop_loss,
+    take_profit,
+    side,
+    order_type,
+    entry_price,
+    volume,
+  } = req.body || {};
+
   try {
     const [trades] = await db.execute(
-      "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
+      "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? LIMIT 1",
       [req.params.tradeId, req.userId],
     );
-    if (!trades.length)
-      return res.status(404).json({ error: "Open trade not found" });
+
+    if (!trades.length) {
+      return res.status(404).json({
+        error: "Trade not found",
+      });
+    }
+
+    const trade = trades[0];
+
+    if (trade.status === "OPEN") {
+      const nextStopLoss = stop_loss === undefined ? trade.stop_loss : stop_loss === null || stop_loss === "" ? null : Number(stop_loss);
+      const nextTakeProfit = take_profit === undefined ? trade.take_profit : take_profit === null || take_profit === "" ? null : Number(take_profit);
+
+      if ((nextStopLoss !== null && !Number.isFinite(nextStopLoss)) || (nextTakeProfit !== null && !Number.isFinite(nextTakeProfit))) {
+        return res.status(400).json({ error: "Invalid TP/SL price" });
+      }
+
+      if (nextStopLoss !== null && (String(trade.side).toUpperCase() === "BUY" ? nextStopLoss >= Number(trade.entry_price) : nextStopLoss <= Number(trade.entry_price))) {
+        return res.status(400).json({ error: "Invalid Stop Loss for this direction" });
+      }
+
+      if (nextTakeProfit !== null && (String(trade.side).toUpperCase() === "BUY" ? nextTakeProfit <= Number(trade.entry_price) : nextTakeProfit >= Number(trade.entry_price))) {
+        return res.status(400).json({ error: "Invalid Take Profit for this direction" });
+      }
+
+      await db.execute(
+        "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?",
+        [nextStopLoss, nextTakeProfit, req.params.tradeId],
+      );
+
+      return res.json({
+        success: true,
+        status: "OPEN",
+        editable: "TP_SL_ONLY",
+      });
+    }
+
+    if (trade.status !== "PENDING") {
+      return res.status(400).json({
+        error: "Only pending orders can change entry, direction or order type",
+      });
+    }
+
+    const nextSide = String(side === undefined ? trade.side : side).toUpperCase();
+    const nextOrderType = String(order_type === undefined ? trade.order_type : order_type).toUpperCase();
+    const nextEntry = entry_price === undefined ? Number(trade.entry_price) : Number(entry_price);
+    const nextVolume = volume === undefined ? Number(trade.volume) : Number(volume);
+
+    if (!["BUY", "SELL"].includes(nextSide)) {
+      return res.status(400).json({ error: "Invalid trade direction" });
+    }
+
+    if (!["BUY_LIMIT", "SELL_LIMIT", "BUY_STOP", "SELL_STOP"].includes(nextOrderType)) {
+      return res.status(400).json({ error: "Invalid pending order type" });
+    }
+
+    if ((nextOrderType.startsWith("BUY_") && nextSide !== "BUY") || (nextOrderType.startsWith("SELL_") && nextSide !== "SELL")) {
+      return res.status(400).json({ error: "Order type does not match trade direction" });
+    }
+
+    if (!Number.isFinite(nextEntry) || nextEntry <= 0) {
+      return res.status(400).json({ error: "Invalid pending entry price" });
+    }
+
+    if (!Number.isFinite(nextVolume) || nextVolume < 0.01 || nextVolume > 2) {
+      return res.status(400).json({ error: "Volume must be between 0.01 and 2.00" });
+    }
+
+    const price = global.priceCache?.[trade.symbol] || {};
+    const bid = Number(price.bid);
+    const ask = Number(price.ask);
+
+    if (nextOrderType === "BUY_LIMIT" && Number.isFinite(ask) && nextEntry >= ask) {
+      return res.status(400).json({ error: "BUY LIMIT entry must be below current ask" });
+    }
+
+    if (nextOrderType === "SELL_LIMIT" && Number.isFinite(bid) && nextEntry <= bid) {
+      return res.status(400).json({ error: "SELL LIMIT entry must be above current bid" });
+    }
+
+    if (nextOrderType === "BUY_STOP" && Number.isFinite(ask) && nextEntry <= ask) {
+      return res.status(400).json({ error: "BUY STOP entry must be above current ask" });
+    }
+
+    if (nextOrderType === "SELL_STOP" && Number.isFinite(bid) && nextEntry >= bid) {
+      return res.status(400).json({ error: "SELL STOP entry must be below current bid" });
+    }
+
+    const nextStopLoss = stop_loss === undefined ? trade.stop_loss : stop_loss === null || stop_loss === "" ? null : Number(stop_loss);
+    const nextTakeProfit = take_profit === undefined ? trade.take_profit : take_profit === null || take_profit === "" ? null : Number(take_profit);
+
+    if ((nextStopLoss !== null && !Number.isFinite(nextStopLoss)) || (nextTakeProfit !== null && !Number.isFinite(nextTakeProfit))) {
+      return res.status(400).json({ error: "Invalid TP/SL price" });
+    }
+
+    if (nextStopLoss !== null && (nextSide === "BUY" ? nextStopLoss >= nextEntry : nextStopLoss <= nextEntry)) {
+      return res.status(400).json({ error: "Invalid Stop Loss for this direction" });
+    }
+
+    if (nextTakeProfit !== null && (nextSide === "BUY" ? nextTakeProfit <= nextEntry : nextTakeProfit >= nextEntry)) {
+      return res.status(400).json({ error: "Invalid Take Profit for this direction" });
+    }
+
     await db.execute(
-      "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?",
-      [stop_loss || null, take_profit || null, req.params.tradeId],
+      "UPDATE trades SET side = ?, order_type = ?, volume = ?, entry_price = ?, stop_loss = ?, take_profit = ? WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'",
+      [nextSide, nextOrderType, nextVolume, nextEntry, nextStopLoss, nextTakeProfit, req.params.tradeId, req.userId],
     );
-    res.json({ success: true });
+
+    return res.json({
+      success: true,
+      status: "PENDING",
+      editable: "ENTRY_DIRECTION_VOLUME_TP_SL",
+      trade_id: req.params.tradeId,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Trade modify error:", error);
+    return res.status(500).json({
+      error: error.message,
+    });
   }
 });
 
