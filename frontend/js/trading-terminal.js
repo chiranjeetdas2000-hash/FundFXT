@@ -527,7 +527,16 @@ async function execute(side) {
     const code=T.account?.account_code,volume=Number($('volume')?.value),sl=$('sl')?.value===''?null:Number($('sl')?.value),tp=$('tp')?.value===''?null:Number($('tp')?.value);
     const orderType=$('orderType')?.value||'MARKET';
     if(!code)return feedback('No trading account selected.');
-    if(orderType!=='MARKET')return feedback('Use the pending-order handler for Limit and Stop orders.');
+
+    if (orderType !== 'MARKET') {
+        if (typeof window.executePendingOrder === 'function') {
+            await window.executePendingOrder(side);
+            return;
+        }
+
+        return feedback('Pending order handler is not available. Please refresh the terminal.');
+    }
+
     if(!isNum(volume)||volume<.01||volume>2)return feedback('Lot size must be 0.01 to 2.00.');
     try {
         const d=await api('/api/trade/execute', {
