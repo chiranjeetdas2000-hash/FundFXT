@@ -489,12 +489,40 @@ function modal(title,body,actions) {
 function closeAmountModal(id,t) {
     const max=Number(t.volume);
     const body=`<div class="detail"><span>Pair</span><b>${t.symbol} · ${t.side}</b></div><div class="detail"><span>Current Lot</span><b>${max.toFixed(2)}</b></div><label class="modal-input"><span>Lots to close</span><input id="modalCloseVolume" type="number" min="0.01" max="${max}" step="0.01" value="${max.toFixed(2)}" inputmode="decimal"></label>`;
-    modal('Partial Close',body,'<button class="mini close" id="confirmPartial" type="button">Close selected lots</button>');
-    $('confirmPartial').onclick=async()=> {
-        const v=Number($('modalCloseVolume')?.value);
-        if(!isNum(v)||v<=0||v>=max)return feedback('Partial close must be less than the current lot size.');
+    modal('Partial Close',body,'');
+    const actionBox = document.querySelector('.trade-modal .modal-actions');
+
+    if (!actionBox) {
         document.querySelector('.trade-modal')?.remove();
-        await submitClose(id,v,true)
+        feedback('Partial close action is unavailable.');
+        return;
+    }
+
+    actionBox.innerHTML = `
+        <button
+            class="mini close"
+            id="confirmPartial"
+            type="button"
+        >
+            Close selected lots
+        </button>
+    `;
+
+    $('confirmPartial').onclick = async () => {
+        const v = Number($('modalCloseVolume')?.value);
+
+        if (
+            !isNum(v)
+            || v <= 0
+            || v >= max
+        ) {
+            return feedback(
+                'Partial close must be less than the current lot size.',
+            );
+        }
+
+        document.querySelector('.trade-modal')?.remove();
+        await submitClose(id, v, true);
     }
 }
 async function submitClose(id,volume,partial) {
