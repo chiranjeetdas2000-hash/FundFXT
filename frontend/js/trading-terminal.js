@@ -2,9 +2,14 @@
 /* ===== FUNDFXT TRADING TERMINAL CONTROLLER ===== */
 const FX_API='https://fundfxt.onrender.com';
 const SYMBOLS=['EURUSD','GBPUSD','USDJPY','USDCHF','AUDUSD','USDCAD','NZDUSD','EURGBP','EURJPY','EURAUD','EURCHF','EURNZD','GBPJPY','GBPCHF','GBPAUD','GBPNZD','AUDJPY','AUDNZD','AUDCAD','AUDCHF','CADJPY','CADCHF','CHFJPY','NZDJPY','NZDCHF','NZDCAD','XAUUSD','XAGUSD'];
-const T= {
-    account:null,prices: {
-    }    ,selected:'EURUSD',tab:'OPEN',favorites:[],trades:[]
+const T = {
+    account: null,
+    prices: {},
+    previousPrices: {},
+    selected: 'EURUSD',
+    tab: 'OPEN',
+    favorites: [],
+    trades: [],
 };
 const $=id=>document.getElementById(id);
 const token=()=>localStorage.getItem('fundfxt_token')||'';
@@ -61,6 +66,22 @@ function toggleFavorite(symbol) {
     saveFavorites();
     renderPairs()
 }
+function priceMovementClass(current, previous) {
+    if (!isNum(current) || !isNum(previous)) {
+        return 'quote-price-flat';
+    }
+
+    if (Number(current) > Number(previous)) {
+        return 'quote-price-up';
+    }
+
+    if (Number(current) < Number(previous)) {
+        return 'quote-price-down';
+    }
+
+    return 'quote-price-flat';
+}
+
 function renderPairs() {
     const box = $('watchlist');
 
@@ -81,6 +102,7 @@ function renderPairs() {
     box.innerHTML = rows
         .map((symbol) => {
             const quote = T.prices[symbol] || {};
+            const previous = T.previousPrices[symbol] || {};
             const ask = Number(quote.ask);
             const bid = Number(quote.bid);
             const spread = isNum(quote.spread)
@@ -88,6 +110,16 @@ function renderPairs() {
                 : ask - bid;
             const change = Number(quote.changePercent);
             const favorite = T.favorites.includes(symbol);
+
+            const askClass = priceMovementClass(
+                ask,
+                Number(previous.ask),
+            );
+
+            const bidClass = priceMovementClass(
+                bid,
+                Number(previous.bid),
+            );
 
             return `
                 <button
@@ -110,11 +142,15 @@ function renderPairs() {
                         ${fmt(spread, symbol)}
                     </span>
 
-                    <span class="quote-value quote-ask-value">
+                    <span
+                        class="quote-value quote-ask-value ${askClass}"
+                    >
                         ${fmt(ask, symbol)}
                     </span>
 
-                    <span class="quote-value quote-bid-value">
+                    <span
+                        class="quote-value quote-bid-value ${bidClass}"
+                    >
                         ${fmt(bid, symbol)}
                     </span>
 
@@ -172,10 +208,12 @@ function renderPairs() {
 
 
 async function loadPrices() {
-    const d=await api('/api/prices');
-    T.prices=d.prices|| {
-    }    ;
-    renderPairs()
+    const d = await api('/api/prices');
+
+    T.previousPrices = T.prices || {};
+    T.prices = d.prices || {};
+
+    renderPairs();
 }
 async function loadAccount() {
     const d=await api('/api/accounts');
@@ -185,8 +223,29 @@ async function loadAccount() {
     T.account=list.find(a=>String(a.account_code)===String(wanted))||list[0];
     if(!T.account)throw Error('No trading account available');
     localStorage.setItem('fundfxt_selected_account',T.account.account_code);
-    if($('rightAccount'))$('rightAccount').textContent=T.account.account_code;
-    renderAccount()
+    if ($('rightAccount')) {
+        $('rightAccount').textContent = T.account.account_code;
+    }
+
+    if ($('accountPhase')) {
+        $('accountPhase').textContent =
+            T.account.phase
+            || T.account.account_phase
+            || T.account.status
+            || 'ACTIVE';
+    }
+
+    if ($('rightBalance')) {
+        $('rightBalance').textContent =
+            money(T.account.balance_cents);
+    }
+
+    if ($('rightEquity')) {
+        $('rightEquity').textContent =
+            money(T.account.equity_cents);
+    }
+
+    renderAccount();
 }
 function renderAccount() {
     if(!T.account)return;
@@ -218,7 +277,6 @@ function loadChart() {
     host.appendChild(loading);
 
     const frame = document.createElement('iframe');
-
     frame.title = 'FundFXT ${T.selected}';
     frame.allowFullscreen = true;
     frame.loading = 'eager';
@@ -437,8 +495,7 @@ function addPair() {
 
         <div
             id="favoritePairList"
-            class="pair-add-list"
-        ></div>
+            class="pair-add-list"        ></div>
     `;
 
     modal(
