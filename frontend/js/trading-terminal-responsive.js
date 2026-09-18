@@ -411,3 +411,228 @@
 
     syncFromDesktop();
 })();
+
+/* ============================================================
+   MOBILE REQUEST LOADER
+   Coordinates mobile execution and pair loading feedback.
+   Desktop execution logic remains unchanged.
+   ============================================================ */
+
+(() => {
+    'use strict';
+
+    const isMobile = () => {
+        return window.matchMedia(
+            '(max-width: 768px)',
+        ).matches;
+    };
+
+    const overlay = document.getElementById(
+        'mobile-loader-overlay',
+    );
+
+    if (!overlay) {
+        return;
+    }
+
+    let activeRequests = 0;
+
+    const getMobileButtons = () => {
+        return Array.from(
+            document.querySelectorAll(
+                '.mobile-order-sheet [data-sheet-side]',
+            ),
+        );
+    };
+
+    const setMobileButtonsDisabled = (disabled) => {
+        getMobileButtons().forEach((button) => {
+            button.disabled = disabled;
+
+            button.setAttribute(
+                'aria-disabled',
+                String(disabled),
+            );
+        });
+    };
+
+    const showMobileLoader = () => {
+        if (!isMobile()) {
+            return;
+        }
+
+        activeRequests += 1;
+
+        overlay.classList.add(
+            'active',
+        );
+
+        overlay.setAttribute(
+            'aria-hidden',
+            'false',
+        );
+
+        setMobileButtonsDisabled(true);
+    };
+
+    const hideMobileLoader = () => {
+        if (!isMobile()) {
+            overlay.classList.remove(
+                'active',
+            );
+
+            overlay.setAttribute(
+                'aria-hidden',
+                'true',
+            );
+
+            activeRequests = 0;
+
+            setMobileButtonsDisabled(false);
+
+            return;
+        }
+
+        activeRequests = Math.max(
+            0,
+            activeRequests - 1,
+        );
+
+        if (activeRequests > 0) {
+            return;
+        }
+
+        overlay.classList.remove(
+            'active',
+        );
+
+        overlay.setAttribute(
+            'aria-hidden',
+            'true',
+        );
+
+        setMobileButtonsDisabled(false);
+    };
+
+    window.showMobileLoader = showMobileLoader;
+    window.hideMobileLoader = hideMobileLoader;
+
+    /*
+     * The mobile sheet delegates BUY/SELL to the existing execute()
+     * function. Wrapping that existing function lets us wait for its
+     * complete async flow, including pending-order execution, account
+     * refresh, trade refresh, and final UI navigation.
+     */
+    if (typeof window.execute === 'function') {
+        const originalExecute = window.execute;
+
+        window.execute = async function mobileExecuteWrapper(side) {
+            if (!isMobile()) {
+                return originalExecute(side);
+            }
+
+            showMobileLoader();
+
+            try {
+                return await originalExecute(side);
+            }
+            finally {
+                hideMobileLoader();
+            }
+        };
+    }
+
+    /*
+     * Pair switching calls the existing loadChart() function. The
+     * loader remains visible until the newly created TradingView iframe
+     * reports load/error, with a safety timeout for an unavailable
+     * external chart.
+     */
+    if (typeof window.loadChart === 'function') {
+        const originalLoadChart = window.loadChart;
+
+        window.loadChart = function mobileLoadChartWrapper(...args) {
+            const mobileRequest = isMobile();
+
+            if (!mobileRequest) {
+                return originalLoadChart.apply(
+                    this,
+                    args,
+                );
+            }
+
+            showMobileLoader();
+
+            const result = originalLoadChart.apply(
+                this,
+                args,
+            );
+
+            const host = document.getElementById(
+                'tv',
+            );
+
+            const finish = () => {
+                hideMobileLoader();
+            };
+
+            const attach = () => {
+                const frame = host?.querySelector(
+                    'iframe',
+                );
+
+                if (!frame) {
+                    finish();
+                    return;
+                }
+
+                frame.addEventListener(
+                    'load',
+                    finish,
+                    {
+                        once: true,
+                    },
+                );
+
+                frame.addEventListener(
+                    'error',
+                    finish,
+                    {
+                        once: true,
+                    },
+                );
+            };
+
+            window.requestAnimationFrame(
+                attach,
+            );
+
+            window.setTimeout(
+                finish,
+                12000,
+            );
+
+            return result;
+        };
+    }
+
+    window.addEventListener(
+        'resize',
+        () => {
+            if (!isMobile()) {
+                activeRequests = 0;
+
+                overlay.classList.remove(
+                    'active',
+                );
+
+                overlay.setAttribute(
+                    'aria-hidden',
+                    'true',
+                );
+
+                setMobileButtonsDisabled(false);
+            }
+        },
+    );
+})();
