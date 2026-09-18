@@ -1392,11 +1392,27 @@ app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
     const trade = trades[0];
 
     if (trade.status === "OPEN") {
-      const nextStopLoss = stop_loss === undefined ? trade.stop_loss : stop_loss === null || stop_loss === "" ? null : Number(stop_loss);
-      const nextTakeProfit = take_profit === undefined ? trade.take_profit : take_profit === null || take_profit === "" ? null : Number(take_profit);
+      const nextStopLoss =
+        stop_loss === undefined
+          ? trade.stop_loss
+          : stop_loss === null || stop_loss === ""
+            ? null
+            : Number(stop_loss);
 
-      if ((nextStopLoss !== null && !Number.isFinite(nextStopLoss)) || (nextTakeProfit !== null && !Number.isFinite(nextTakeProfit))) {
-        return res.status(400).json({ error: "Invalid TP/SL price" });
+      const nextTakeProfit =
+        take_profit === undefined
+          ? trade.take_profit
+          : take_profit === null || take_profit === ""
+            ? null
+            : Number(take_profit);
+
+      if (
+        (nextStopLoss !== null && !Number.isFinite(nextStopLoss))
+        || (nextTakeProfit !== null && !Number.isFinite(nextTakeProfit))
+      ) {
+        return res.status(400).json({
+          error: "Invalid TP/SL price",
+        });
       }
 
       if (nextStopLoss !== null && (String(trade.side).toUpperCase() === "BUY" ? nextStopLoss >= Number(trade.entry_price) : nextStopLoss <= Number(trade.entry_price))) {
@@ -1425,21 +1441,54 @@ app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
       });
     }
 
-    const nextSide = String(side === undefined ? trade.side : side).toUpperCase();
-    const nextOrderType = String(order_type === undefined ? trade.order_type : order_type).toUpperCase();
-    const nextEntry = entry_price === undefined ? Number(trade.entry_price) : Number(entry_price);
-    const nextVolume = volume === undefined ? Number(trade.volume) : Number(volume);
+    const nextSide = String(
+      side === undefined
+        ? trade.side
+        : side,
+    ).toUpperCase();
+
+    const nextOrderType = String(
+      order_type === undefined
+        ? trade.order_type
+        : order_type,
+    ).toUpperCase();
+
+    const nextEntry =
+      entry_price === undefined
+        ? Number(trade.entry_price)
+        : Number(entry_price);
+
+    const nextVolume =
+      volume === undefined
+        ? Number(trade.volume)
+        : Number(volume);
 
     if (!["BUY", "SELL"].includes(nextSide)) {
-      return res.status(400).json({ error: "Invalid trade direction" });
+      return res.status(400).json({
+        error: "Invalid trade direction",
+      });
     }
 
-    if (!["BUY_LIMIT", "SELL_LIMIT", "BUY_STOP", "SELL_STOP"].includes(nextOrderType)) {
-      return res.status(400).json({ error: "Invalid pending order type" });
+    if (
+      ![
+        "BUY_LIMIT",
+        "SELL_LIMIT",
+        "BUY_STOP",
+        "SELL_STOP",
+      ].includes(nextOrderType)
+    ) {
+      return res.status(400).json({
+        error: "Invalid pending order type",
+      });
     }
 
-    if ((nextOrderType.startsWith("BUY_") && nextSide !== "BUY") || (nextOrderType.startsWith("SELL_") && nextSide !== "SELL")) {
-      return res.status(400).json({ error: "Order type does not match trade direction" });
+    if (
+      (nextOrderType.startsWith("BUY_") && nextSide !== "BUY")
+      || (nextOrderType.startsWith("SELL_") && nextSide !== "SELL")
+    ) {
+      return res.status(400).json({
+        error: "Order type does not match trade direction",
+      });
     }
 
     if (!Number.isFinite(nextEntry) || nextEntry <= 0) {
@@ -1470,11 +1519,27 @@ app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
       return res.status(400).json({ error: "SELL STOP entry must be below current bid" });
     }
 
-    const nextStopLoss = stop_loss === undefined ? trade.stop_loss : stop_loss === null || stop_loss === "" ? null : Number(stop_loss);
-    const nextTakeProfit = take_profit === undefined ? trade.take_profit : take_profit === null || take_profit === "" ? null : Number(take_profit);
+    const nextStopLoss =
+      stop_loss === undefined
+        ? trade.stop_loss
+        : stop_loss === null || stop_loss === ""
+          ? null
+          : Number(stop_loss);
 
-    if ((nextStopLoss !== null && !Number.isFinite(nextStopLoss)) || (nextTakeProfit !== null && !Number.isFinite(nextTakeProfit))) {
-      return res.status(400).json({ error: "Invalid TP/SL price" });
+    const nextTakeProfit =
+      take_profit === undefined
+        ? trade.take_profit
+        : take_profit === null || take_profit === ""
+          ? null
+          : Number(take_profit);
+
+    if (
+      (nextStopLoss !== null && !Number.isFinite(nextStopLoss))
+      || (nextTakeProfit !== null && !Number.isFinite(nextTakeProfit))
+    ) {
+      return res.status(400).json({
+        error: "Invalid TP/SL price",
+      });
     }
 
     if (nextStopLoss !== null && (nextSide === "BUY" ? nextStopLoss >= nextEntry : nextStopLoss <= nextEntry)) {
