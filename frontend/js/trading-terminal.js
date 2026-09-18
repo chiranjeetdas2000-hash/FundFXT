@@ -394,15 +394,36 @@ function renderTrades() {
     box.querySelectorAll('[data-partial]').forEach(b=>b.onclick=()=>partialClose(b.dataset.partial))
 }
 async function loadTrades() {
-    if(!T.account)return;
-    try {
-        const d=await api('/api/trade/get?account_code='+encodeURIComponent(T.account.account_code));
-        T.trades=Array.isArray(d.trades)?d.trades:[];
-        renderTrades()
+    if (!T.account) {
+        return;
     }
-    catch(e) {
-        feedback(e.message)
+
+    if (T.tradeLoadPromise) {
+        return T.tradeLoadPromise;
     }
+
+    T.tradeLoadPromise = (async () => {
+        try {
+            const d = await api(
+                '/api/trade/get?account_code='
+                + encodeURIComponent(T.account.account_code),
+            );
+
+            T.trades = Array.isArray(d.trades)
+                ? d.trades
+                : [];
+
+            renderTrades();
+        }
+        catch (e) {
+            feedback(e.message);
+        }
+        finally {
+            T.tradeLoadPromise = null;
+        }
+    })();
+
+    return T.tradeLoadPromise;
 }
 function showDetails(id) {
     const t=T.trades.find(x=>String(x.trade_id)===String(id));
