@@ -14,15 +14,6 @@
         pendingFields.hidden = isMarket;
         pendingFields.classList.toggle("hidden", isMarket);
     }
-    function wireRightTabs() {
-        document.querySelectorAll(".right-section-tab").forEach((button) => {
-            button.addEventListener("click", () => {
-                if (typeof openPanel === "function") {
-                    openPanel(button.dataset.section);
-                }
-            }            );
-        }        );
-    }
     function wireTradeTabs() {
         document.querySelectorAll(".trade-tab").forEach((button) => {
             button.addEventListener("click", async () => {
@@ -123,7 +114,6 @@
             );
         }
         syncPendingFields();
-        wireRightTabs();
         wireTradeTabs();
         wireMobileNavigation();
         startLiveRefresh();
