@@ -489,7 +489,7 @@ function modal(title,body,actions) {
 function closeAmountModal(id,t) {
     const max=Number(t.volume);
     const body=`<div class="detail"><span>Pair</span><b>${t.symbol} · ${t.side}</b></div><div class="detail"><span>Current Lot</span><b>${max.toFixed(2)}</b></div><label class="modal-input"><span>Lots to close</span><input id="modalCloseVolume" type="number" min="0.01" max="${max}" step="0.01" value="${max.toFixed(2)}" inputmode="decimal"></label>`;
-    modal('Partial Close',body,'');
+    modal('Partial Close',body,'<span></span>');
     const actionBox = document.querySelector('.trade-modal .modal-actions');
 
     if (!actionBox) {
