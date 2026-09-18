@@ -105,7 +105,97 @@
             }
         }        , 1000);
     }
+    
+
+    function wireDesktopSectionTabs() {
+        document
+            .querySelectorAll(".right-section-tab")
+            .forEach((button) => {
+                button.addEventListener(
+                    "click",
+                    () => {
+                        const sectionName =
+                            button.dataset.section || "pairs";
+
+                        const sections =
+                            document.querySelectorAll(
+                                ".terminal-section",
+                            );
+
+                        sections.forEach((section) => {
+                            section.hidden = true;
+                            section.classList.remove("active");
+                        });
+
+                        const target =
+                            document.getElementById(
+                                "terminal"
+                                + sectionName.charAt(0).toUpperCase()
+                                + sectionName.slice(1),
+                            );
+
+                        if (!target) {
+                            return;
+                        }
+
+                        target.hidden = false;
+                        target.classList.add("active");
+
+                        document
+                            .querySelectorAll(".right-section-tab")
+                            .forEach((tab) => {
+                                tab.classList.toggle(
+                                    "active",
+                                    tab === button,
+                                );
+                            });
+
+                        if (
+                            sectionName === "trades"
+                            && typeof loadTrades === "function"
+                        ) {
+                            loadTrades();
+                        }
+
+                        if (
+                            sectionName === "orders"
+                            && typeof window.showPendingOrders === "function"
+                        ) {
+                            window.showPendingOrders();
+                        }
+                    },
+                    false,
+                );
+            });
+    }
+
+    function repairDesktopSectionState() {
+        const pairs = document.getElementById(
+            "terminalPairs",
+        );
+        const orders = document.getElementById(
+            "terminalOrders",
+        );
+        const trades = document.getElementById(
+            "terminalTrades",
+        );
+
+        if (!pairs || !orders || !trades) {
+            return;
+        }
+
+        pairs.hidden = false;
+        pairs.classList.add("active");
+
+        orders.hidden = true;
+        trades.hidden = true;
+    }
+
+
     function install() {
+        repairDesktopSectionState();
+        wireDesktopSectionTabs();
+
         const orderType = document.getElementById("orderType");
         if (orderType) {
             orderType.addEventListener(
