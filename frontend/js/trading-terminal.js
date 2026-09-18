@@ -478,10 +478,7 @@ function modal(title,body,actions) {
     document.querySelector('.trade-modal')?.remove();
     const x=document.createElement('div');
     x.className='trade-modal';
-    x.innerHTML=`<div class="trade-modal-backdrop"></div><div class="trade-modal-card"><div class="trade-modal-head"><h3>${title}</h3><button class="trade-modal-close" type="button">×</button></div><div class="detail-grid">${body}</div>${actions?`<div class="modal-actions">$ {
-        actions
-    }
-    </div>`:''}</div>`;
+    x.innerHTML=`<div class="trade-modal-backdrop"></div><div class="trade-modal-card"><div class="trade-modal-head"><h3>${title}</h3><button class="trade-modal-close" type="button">×</button></div><div class="detail-grid">${body}</div>${actions ? `<div class="modal-actions">${actions}</div>` : ''}</div>`;
     document.body.appendChild(x);
     x.querySelector('.trade-modal-close').onclick=()=>x.remove();
     x.querySelector('.trade-modal-backdrop').onclick=()=>x.remove()
