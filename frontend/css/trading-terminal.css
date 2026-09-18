@@ -1324,3 +1324,336 @@ transition:none!important
         transform: rotate(360deg);
     }
 }
+
+
+/* ============================================================
+   ADD PAIRS MODAL — PREMIUM REDESIGN
+   Scoped only to the Add Pairs / pair manager modal.
+   Existing terminal styles and trading logic remain unchanged.
+   ============================================================ */
+
+.pair-manager-modal.trade-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+.pair-manager-modal .trade-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.pair-manager-modal .trade-modal-card {
+    position: relative;
+    width: min(460px, 100%);
+    max-height: min(640px, 88vh);
+    background: linear-gradient(
+        155deg,
+        #111820 0%,
+        #0c1219 100%
+    );
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.6),
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    animation: pairManagerModalIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes pairManagerModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.pair-manager-modal .trade-modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.pair-manager-modal .trade-modal-head h3 {
+    margin: 0;
+    color: #f5f7f8;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.pair-manager-modal .trade-modal-close {
+    width: 30px;
+    height: 30px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #94a3b8;
+    font-size: 16px;
+    cursor: pointer;
+    transition:
+        color 0.2s ease,
+        background 0.2s ease,
+        border-color 0.2s ease,
+        transform 0.2s ease;
+}
+
+.pair-manager-modal .trade-modal-close:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.pair-manager-modal .pair-add-toolbar {
+    padding: 14px 20px 8px;
+    margin-bottom: 0;
+}
+
+.pair-manager-modal #pairManagerSearch {
+    width: 100%;
+    height: 40px;
+    padding: 0 14px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    outline: none;
+    background: rgba(255, 255, 255, 0.03);
+    color: #f5f7f8;
+    font-family: Poppins, system-ui, sans-serif;
+    font-size: 12px;
+    transition:
+        border-color 0.2s ease,
+        background 0.2s ease,
+        box-shadow 0.2s ease;
+}
+
+.pair-manager-modal #pairManagerSearch::placeholder {
+    color: #566575;
+}
+
+.pair-manager-modal #pairManagerSearch:focus {
+    border-color: rgba(0, 181, 106, 0.55);
+    background: rgba(0, 181, 106, 0.04);
+    box-shadow: 0 0 0 3px rgba(0, 181, 106, 0.08);
+}
+
+.pair-manager-modal .pair-manager-count {
+    padding: 2px 20px 10px;
+    color: #7f8d9a;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1px;
+}
+
+.pair-manager-modal .pair-manager-list {
+    flex: 1;
+    min-height: 0;
+    max-height: min(460px, 60vh);
+    overflow-y: auto;
+    padding: 4px 12px 16px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+.pair-manager-modal .pair-manager-list::-webkit-scrollbar {
+    width: 6px;
+}
+
+.pair-manager-modal .pair-manager-list::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.pair-manager-modal .pair-manager-list::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.pair-manager-modal .pair-manager-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin: 4px 0;
+    padding: 12px 14px;
+    border: 1px solid transparent;
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.02);
+    transition:
+        background 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.pair-manager-modal .pair-manager-item:hover {
+    border-color: rgba(255, 255, 255, 0.08);
+    background: rgba(255, 255, 255, 0.045);
+    transform: translateY(-1px);
+}
+
+.pair-manager-modal .pair-manager-item > div {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+}
+
+.pair-manager-modal .pair-manager-symbol {
+    color: #f5f7f8;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+}
+
+.pair-manager-modal .pair-manager-state {
+    color: #6a7a8a;
+    font-size: 10px;
+    font-weight: 500;
+}
+
+.pair-manager-modal .pair-manager-button {
+    flex-shrink: 0;
+    min-width: 74px;
+    height: 32px;
+    padding: 0 14px;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    font-family: Poppins, system-ui, sans-serif;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    transition:
+        color 0.18s ease,
+        background 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease,
+        box-shadow 0.18s ease;
+}
+
+.pair-manager-modal .pair-manager-button:hover {
+    transform: translateY(-1px);
+}
+
+.pair-manager-modal .pair-manager-button.add {
+    border-color: rgba(0, 181, 106, 0.28);
+    background: rgba(0, 181, 106, 0.12);
+    color: #4ce2a1;
+}
+
+.pair-manager-modal .pair-manager-button.add:hover {
+    border-color: rgba(0, 181, 106, 0.5);
+    background: rgba(0, 181, 106, 0.2);
+    color: #7eedbc;
+    box-shadow: 0 8px 20px rgba(0, 181, 106, 0.12);
+}
+
+.pair-manager-modal .pair-manager-button.remove {
+    border-color: rgba(255, 77, 90, 0.28);
+    background: rgba(255, 77, 90, 0.1);
+    color: #ff8b94;
+}
+
+.pair-manager-modal .pair-manager-button.remove:hover {
+    border-color: rgba(255, 77, 90, 0.5);
+    background: rgba(255, 77, 90, 0.18);
+    color: #ffb0b6;
+    box-shadow: 0 8px 20px rgba(255, 77, 90, 0.1);
+}
+
+.pair-manager-modal .favorite-empty {
+    padding: 25px 8px;
+    color: #566575;
+    text-align: center;
+    font-size: 9px;
+}
+
+@media (max-width: 600px) {
+    .pair-manager-modal.trade-modal {
+        align-items: flex-end;
+        padding: 12px;
+    }
+
+    .pair-manager-modal .trade-modal-card {
+        width: 100%;
+        max-width: 100%;
+        max-height: 82vh;
+        border-radius: 20px 20px 16px 16px;
+        animation: pairManagerModalInMobile 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .pair-manager-modal .trade-modal-head {
+        padding: 16px 16px 12px;
+    }
+
+    .pair-manager-modal .pair-add-toolbar {
+        padding: 12px 16px 8px;
+    }
+
+    .pair-manager-modal .pair-manager-count {
+        padding: 2px 16px 10px;
+        font-size: 11px;
+    }
+
+    .pair-manager-modal .pair-manager-list {
+        padding: 4px 10px 16px;
+    }
+
+    .pair-manager-modal .pair-manager-item {
+        padding: 11px 12px;
+    }
+
+    .pair-manager-modal .pair-manager-symbol {
+        font-size: 12.5px;
+    }
+
+    .pair-manager-modal .pair-manager-state {
+        font-size: 9.5px;
+    }
+
+    .pair-manager-modal .pair-manager-button {
+        min-width: 68px;
+        height: 30px;
+        padding: 0 12px;
+        font-size: 10.5px;
+    }
+}
+
+@keyframes pairManagerModalInMobile {
+    from {
+        opacity: 0;
+        transform: translateY(40px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .pair-manager-modal .trade-modal-card,
+    .pair-manager-modal .trade-modal-close,
+    .pair-manager-modal .pair-manager-item,
+    .pair-manager-modal .pair-manager-button {
+        animation: none;
+        transition: none;
+    }
+}
