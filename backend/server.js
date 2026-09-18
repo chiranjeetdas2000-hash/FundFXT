@@ -1380,13 +1380,26 @@ app.post("/api/trades/:tradeId/close", authenticateToken, async (req, res) => {
 });
 
 /* 2A. PARTIAL CLOSE TRADE */
-app.post("/api/trades/:tradeId/partial-close", authenticateToken, async (req, res) => {
-  const requestedVolume = Number(req.body?.volume);
+app.post(
+  "/api/trades/:tradeId/partial-close",
+  authenticateToken,
+  async (req, res) => {
+    const requestedVolume = Number(req.body?.volume);
 
-  try {
     if (!Number.isFinite(requestedVolume) || requestedVolume <= 0) {
       return res.status(400).json({
-        error: "Invalid close volume",
+        error: "Enter a valid lot size.",
+      });
+    }
+
+    const closeVolume = Math.round(requestedVolume * 100) / 100;
+
+    if (
+      Math.abs(requestedVolume - closeVolume) > 0.000001
+      || closeVolume < 0.01
+    ) {
+      return res.status(400).json({
+        error: "Lot size must use 0.01 steps.",
       });
     }
 
@@ -1397,36 +1410,54 @@ app.post("/api/trades/:tradeId/partial-close", authenticateToken, async (req, re
 
       const [rows] = await connection.execute(
         "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' FOR UPDATE",
-        [req.params.tradeId, req.userId],
+        [
+          req.params.tradeId,
+          req.userId,
+        ],
       );
 
       if (!rows.length) {
         await connection.rollback();
+
         return res.status(404).json({
-          error: "Open trade not found",
+          error: "Open trade not found.",
         });
       }
 
       const trade = rows[0];
-      const currentVolume = Number(trade.volume);
-      const closeVolume = Number(requestedVolume.toFixed(8));
+      const currentVolume = Math.round(Number(trade.volume) * 100) / 100;
 
-      if (!Number.isFinite(currentVolume) || currentVolume <= 0) {
+      if (!Number.isFinite(currentVolume) || currentVolume < 0.01) {
         await connection.rollback();
+
         return res.status(400).json({
-          error: "Current position volume is invalid",
+          error: "Current position volume is invalid.",
         });
       }
 
-      if (
-        !Number.isFinite(closeVolume)
-        || closeVolume <= 0
-        || closeVolume >= currentVolume
-      ) {
+      if (closeVolume >= currentVolume) {
         await connection.rollback();
+
         return res.status(400).json({
-          error: "Partial close volume must be greater than 0 and strictly smaller than the current position volume",
+          error:
+            closeVolume === currentVolume
+              ? "You cannot close the full position with Partial Close. Use Close."
+              : "Lots to close cannot be greater than the current position size.",
           current_volume: currentVolume,
+          requested_volume: closeVolume,
+        });
+      }
+
+      const remainingVolume =
+        Math.round((currentVolume - closeVolume) * 100) / 100;
+
+      if (remainingVolume < 0.01) {
+        await connection.rollback();
+
+        return res.status(400).json({
+          error: "At least 0.01 lot must remain open.",
+          current_volume: currentVolume,
+          requested_volume: closeVolume,
         });
       }
 
@@ -1435,14 +1466,24 @@ app.post("/api/trades/:tradeId/partial-close", authenticateToken, async (req, re
 
       if (!price) {
         await connection.rollback();
+
         return res.status(400).json({
-          error: "Price not available",
+          error: "Price not available.",
         });
       }
 
-      const exitPrice = trade.side === "BUY"
-        ? Number(price.bid)
-        : Number(price.ask);
+      const exitPrice =
+        trade.side === "BUY"
+          ? Number(price.bid)
+          : Number(price.ask);
+
+      if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
+        await connection.rollback();
+
+        return res.status(400).json({
+          error: "Exit price is unavailable.",
+        });
+      }
 
       const realizedCents = Math.round(
         calculatePL(
@@ -1454,34 +1495,44 @@ app.post("/api/trades/:tradeId/partial-close", authenticateToken, async (req, re
         ) * 100,
       );
 
-      const remainingVolume = Number(
-        (currentVolume - closeVolume).toFixed(8),
-      );
-
-      await connection.execute(
-        "UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = ? WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
+      const [updateResult] = await connection.execute(
+        "UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0 WHERE trade_id = ? AND user_id = ? AND status = 'OPEN'",
         [
           remainingVolume,
           exitPrice,
-          0,
           req.params.tradeId,
           req.userId,
         ],
       );
 
+      if (updateResult.affectedRows !== 1) {
+        await connection.rollback();
+
+        return res.status(409).json({
+          error: "Position changed before the partial close could be completed.",
+        });
+      }
+
       await connection.execute(
-        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = equity_cents + ? WHERE id = ?",
+        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ? AND user_id = ?",
         [
           realizedCents,
           realizedCents,
           trade.account_id,
+          req.userId,
         ],
       );
+
+      const partialTradeId =
+        "PC-"
+        + Date.now().toString(36).toUpperCase()
+        + "-"
+        + crypto.randomBytes(2).toString("hex").toUpperCase();
 
       await connection.execute(
         "INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, exit_price, exit_time, trading_day, stop_loss, take_profit, current_price, floating_profit_cents, realized_profit_cents, status, close_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, 'CLOSED', 'PARTIAL_CLOSE')",
         [
-          "PC-" + Date.now().toString(36).toUpperCase(),
+          partialTradeId,
           trade.account_id,
           trade.account_code,
           trade.user_id,
@@ -1504,25 +1555,28 @@ app.post("/api/trades/:tradeId/partial-close", authenticateToken, async (req, re
 
       return res.json({
         success: true,
+        trade_id: trade.trade_id,
+        closed_trade_id: partialTradeId,
+        closed_volume: closeVolume,
+        remaining_volume: remainingVolume,
         exit_price: exitPrice,
         realized_profit: realizedCents / 100,
-        remaining_volume: remainingVolume,
       });
     } catch (error) {
       try {
         await connection.rollback();
       } catch {}
 
-      throw error;
+      console.error("Partial close error:", error);
+
+      return res.status(500).json({
+        error: error.message,
+      });
     } finally {
       connection.release();
     }
-  } catch (error) {
-    return res.status(500).json({
-      error: error.message,
-    });
-  }
-});
+  },
+);
 
 // 3. MODIFY SL/TP
 app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
