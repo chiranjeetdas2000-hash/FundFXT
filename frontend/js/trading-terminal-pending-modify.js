@@ -94,17 +94,17 @@
                 const label = type.replace("_", " ");
 
                 return (
-                    "<option value=""
-                    + type
-                    + """
-                    + (
+                    "<option value=\\"" +
+                    type +
+                    "\\"" +
+                    (
                         type === selected
                             ? " selected"
                             : ""
-                    )
-                    + ">"
-                    + label
-                    + "</option>"
+                    ) +
+                    ">" +
+                    label +
+                    "</option>"
                 );
             })
             .join("");
@@ -141,80 +141,159 @@
 
                 modal.className = "trade-modal";
 
-                modal.innerHTML =
-                    "<div class="trade-modal-backdrop"></div>"
-                    + "<div class="trade-modal-card">"
-                    + "<div class="trade-modal-head">"
-                    + "<h3>Modify Pending Order</h3>"
-                    + "<button class="trade-modal-close" type="button">×</button>"
-                    + "</div>"
-                    + "<div class="detail">"
-                    + "<span>Order</span>"
-                    + "<b>"
-                    + trade.symbol
-                    + " · "
-                    + side
-                    + " · "
-                    + Number(trade.volume).toFixed(2)
-                    + " lot</b>"
-                    + "</div>"
-                    + "<div class="modify-grid">"
-                    + "<div class="pending-edit-fields">"
-                    + "<div class="pending-edit-direction">"
-                    + "<label class="modify-field">"
-                    + "<span>Direction</span>"
-                    + "<select id="pendingModifySide">"
-                    + "<option value="BUY""
-                    + (side === "BUY" ? " selected" : "")
-                    + ">BUY</option>"
-                    + "<option value="SELL""
-                    + (side === "SELL" ? " selected" : "")
-                    + ">SELL</option>"
-                    + "</select>"
-                    + "</label>"
-                    + "<label class="modify-field">"
-                    + "<span>Order Type</span>"
-                    + "<select id="pendingModifyType">"
-                    + orderTypeOptions(side, trade.order_type)
-                    + "</select>"
-                    + "</label>"
-                    + "</div>"
-                    + "</div>"
-                    + "<label class="modify-field">"
-                    + "<span>Entry Price</span>"
-                    + "<input id="pendingModifyEntry" type="number" step="any" value=""
-                    + (trade.entry_price ?? "")
-                    + "">"
-                    + "</label>"
-                    + "<label class="modify-field">"
-                    + "<span>Volume</span>"
-                    + "<input id="pendingModifyVolume" type="number" min="0.01" max="2" step="0.01" value=""
-                    + (trade.volume ?? "")
-                    + "">"
-                    + "</label>"
-                    + "<label class="modify-field">"
-                    + "<span>Stop Loss</span>"
-                    + "<input id="pendingModifySL" type="number" step="any" value=""
-                    + (trade.stop_loss ?? "")
-                    + "" placeholder="Optional">"
-                    + "</label>"
-                    + "<label class="modify-field">"
-                    + "<span>Take Profit</span>"
-                    + "<input id="pendingModifyTP" type="number" step="any" value=""
-                    + (trade.take_profit ?? "")
-                    + "" placeholder="Optional">"
-                    + "</label>"
-                    + "<div class="modify-hint">"
-                    + "Pending orders can change direction, order type, entry, volume, SL and TP until execution. "
-                    + "After execution, only TP/SL remain editable."
-                    + "</div>"
-                    + "</div>"
-                    + "<div class="modal-actions">"
-                    + "<button class="modify-save" id="savePendingModify" type="button">"
-                    + "Save Changes"
-                    + "</button>"
-                    + "</div>"
-                    + "</div>";
+                modal.innerHTML = `
+                    <div class="trade-modal-backdrop"></div>
+
+                    <div class="trade-modal-card">
+                        <div class="trade-modal-head">
+                            <h3>
+                                Modify Pending Order
+                            </h3>
+
+                            <button
+                                class="trade-modal-close"
+                                type="button"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div class="detail">
+                            <span>
+                                Order
+                            </span>
+
+                            <b>
+                                ${trade.symbol}
+                                ·
+                                ${side}
+                                ·
+                                ${Number(
+                                    trade.volume,
+                                ).toFixed(2)}
+                                lot
+                            </b>
+                        </div>
+
+                        <div class="modify-grid">
+                            <div class="pending-edit-fields">
+                                <div class="pending-edit-direction">
+                                    <label class="modify-field">
+                                        <span>
+                                            Direction
+                                        </span>
+
+                                        <select
+                                            id="pendingModifySide"
+                                        >
+                                            <option
+                                                value="BUY"
+                                                ${side === "BUY" ? "selected" : ""}
+                                            >
+                                                BUY
+                                            </option>
+
+                                            <option
+                                                value="SELL"
+                                                ${side === "SELL" ? "selected" : ""}
+                                            >
+                                                SELL
+                                            </option>
+                                        </select>
+                                    </label>
+
+                                    <label class="modify-field">
+                                        <span>
+                                            Order Type
+                                        </span>
+
+                                        <select
+                                            id="pendingModifyType"
+                                        >
+                                            ${orderTypeOptions(
+                                                side,
+                                                trade.order_type,
+                                            )}
+                                        </select>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <label class="modify-field">
+                                <span>
+                                    Entry Price
+                                </span>
+
+                                <input
+                                    id="pendingModifyEntry"
+                                    type="number"
+                                    step="any"
+                                    value="${trade.entry_price ?? ""}"
+                                >
+                            </label>
+
+                            <label class="modify-field">
+                                <span>
+                                    Volume
+                                </span>
+
+                                <input
+                                    id="pendingModifyVolume"
+                                    type="number"
+                                    min="0.01"
+                                    max="2"
+                                    step="0.01"
+                                    value="${trade.volume ?? ""}"
+                                >
+                            </label>
+
+                            <label class="modify-field">
+                                <span>
+                                    Stop Loss
+                                </span>
+
+                                <input
+                                    id="pendingModifySL"
+                                    type="number"
+                                    step="any"
+                                    value="${trade.stop_loss ?? ""}"
+                                    placeholder="Optional"
+                                >
+                            </label>
+
+                            <label class="modify-field">
+                                <span>
+                                    Take Profit
+                                </span>
+
+                                <input
+                                    id="pendingModifyTP"
+                                    type="number"
+                                    step="any"
+                                    value="${trade.take_profit ?? ""}"
+                                    placeholder="Optional"
+                                >
+                            </label>
+
+                            <div class="modify-hint">
+                                Pending orders can change direction,
+                                order type, entry, volume, SL and TP
+                                until execution. After execution,
+                                only TP/SL remain editable.
+                            </div>
+                        </div>
+
+                        <div class="modal-actions">
+                            <button
+                                class="modify-save"
+                                id="savePendingModify"
+                                type="button"
+                            >
+                                Save Changes
+                            </button>
+                        </div>
+                    </div>
+                `;
 
                 document.body.appendChild(modal);
 
