@@ -1,0 +1,89 @@
+/* ============================================================
+   FUNDFXT TRADING TERMINAL — TRADE MODIFICATION
+   Shared by open-position and pending-order modification UI.
+   ============================================================ */
+
+.modify-btn {
+    color: #00c77a !important;
+}
+
+.modify-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.modify-field span {
+    display: block;
+    color: #7f8d9a;
+    font-size: 8px;
+    margin-bottom: 4px;
+}
+
+.modify-field input,
+.modify-field select {
+    width: 100%;
+    height: 38px;
+    padding: 0 9px;
+    border: 1px solid #263541;
+    border-radius: 8px;
+    background: #080c11;
+    color: #fff;
+    font-size: 11px;
+    outline: 0;
+}
+
+.modify-field input:focus,
+.modify-field select:focus {
+    border-color: rgba(0, 199, 122, 0.55);
+    box-shadow: 0 0 0 3px rgba(0, 199, 122, 0.08);
+}
+
+.modify-hint {
+    grid-column: 1 / -1;
+    color: #7f8d9a;
+    font-size: 8px;
+    line-height: 1.5;
+}
+
+.modify-save {
+    width: 100%;
+    height: 40px;
+    border: 1px solid rgba(0, 199, 122, 0.33);
+    border-radius: 8px;
+    background: #111a22;
+    color: #00c77a;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    transition:
+        background 160ms ease,
+        border-color 160ms ease,
+        transform 160ms ease;
+}
+
+.modify-save:hover {
+    background: #14231e;
+    border-color: rgba(0, 199, 122, 0.55);
+    transform: translateY(-1px);
+}
+
+.pending-edit-fields {
+    grid-column: 1 / -1;
+}
+
+.pending-edit-direction {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+@media (max-width: 520px) {
+    .modify-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .pending-edit-direction {
+        grid-template-columns: 1fr;
+    }
+}
