@@ -579,10 +579,6 @@ function logout() {
 function setup() {
     loadFavorites();
 
-    if ($('addPairBtn')) {
-        $('addPairBtn').onclick = addPair;
-    }
-
     if ($('terminalLogoutBtn')) {
         $('terminalLogoutBtn').onclick = logout;
     }
