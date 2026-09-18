@@ -430,11 +430,27 @@ async function installTradeRepair(app) {
 
                     const trade = rows[0];
                     const currentVolume = Number(trade.volume);
+                    const closeVolume = Number(requestedVolume.toFixed(8));
 
-                    if (requestedVolume >= currentVolume) {
+                    if (
+                        !Number.isFinite(currentVolume)
+                        || currentVolume <= 0
+                    ) {
                         await connection.rollback();
                         return res.status(400).json({
-                            error: "Partial close must be smaller than the current position",
+                            error: "Current position volume is invalid",
+                        });
+                    }
+
+                    if (
+                        !Number.isFinite(closeVolume)
+                        || closeVolume <= 0
+                        || closeVolume >= currentVolume
+                    ) {
+                        await connection.rollback();
+                        return res.status(400).json({
+                            error: "Partial close volume must be greater than 0 and strictly smaller than the current position volume",
+                            current_volume: currentVolume,
                         });
                     }
 
@@ -456,7 +472,7 @@ async function installTradeRepair(app) {
                             trade.side,
                             trade.entry_price,
                             exitPrice,
-                            requestedVolume
+                            closeVolume
                         ) * 100
                     );
 
@@ -507,7 +523,7 @@ async function installTradeRepair(app) {
                             trade.user_id,
                             trade.symbol,
                             trade.side,
-                            requestedVolume,
+                            closeVolume,
                             trade.entry_price,
                             trade.entry_time,
                             exitPrice,
