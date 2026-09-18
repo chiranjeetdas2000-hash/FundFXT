@@ -47,38 +47,66 @@
 
 /* ============================================================
    MOBILE CHART LONG-PRESS TRIGGER
-   Reuses the existing Mobile Order Sheet.
-   No order execution logic is implemented here.
+   Uses the existing Mobile Order Sheet.
    ============================================================ */
 
 (() => {
     'use strict';
 
     const isMobile = () =>
-        window.matchMedia('(max-width: 768px)').matches;
+        window.matchMedia(
+            '(max-width: 768px)',
+        ).matches;
 
-    const chartStage = document.getElementById('tv');
-    const sheet = document.getElementById('mobileOrderSheet');
-    const sheetClose = document.getElementById('mobileOrderSheetClose');
-    const sheetSymbol = document.getElementById('mobileOrderSheetSymbol');
+    const chartStage = document.getElementById(
+        'tv',
+    );
+
+    const sheet = document.getElementById(
+        'mobileOrderSheet',
+    );
+
+    const sheetClose = document.getElementById(
+        'mobileOrderSheetClose',
+    );
+
+    const sheetSymbol = document.getElementById(
+        'mobileOrderSheetSymbol',
+    );
+
+    const selectedSymbol = document.getElementById(
+        'selectedSymbol',
+    );
 
     if (!chartStage || !sheet) {
         return;
     }
+
+    const syncSheetSymbol = () => {
+        if (!sheetSymbol) {
+            return;
+        }
+
+        if (
+            typeof T !== 'undefined'
+            && T.selected
+        ) {
+            sheetSymbol.textContent = T.selected;
+            return;
+        }
+
+        if (selectedSymbol?.textContent) {
+            sheetSymbol.textContent =
+                selectedSymbol.textContent.trim();
+        }
+    };
 
     const openOrderSheet = () => {
         if (!isMobile()) {
             return;
         }
 
-        if (
-            sheetSymbol
-            && typeof T !== 'undefined'
-            && T.selected
-        ) {
-            sheetSymbol.textContent = T.selected;
-        }
-
+        syncSheetSymbol();
         sheet.classList.add('open');
     };
 
@@ -89,23 +117,38 @@
     window.openOrderSheet = openOrderSheet;
     window.closeOrderSheet = closeOrderSheet;
 
-    const trigger = document.createElement('button');
+    const trigger = document.createElement(
+        'button',
+    );
 
-    trigger.className = 'chart-longpress-trigger';
+    trigger.className =
+        'chart-longpress-trigger';
+
     trigger.type = 'button';
+
     trigger.setAttribute(
         'aria-label',
         'Open order sheet',
     );
 
-    chartStage.appendChild(trigger);
+    trigger.setAttribute(
+        'aria-hidden',
+        'true',
+    );
+
+    chartStage.appendChild(
+        trigger,
+    );
 
     let pressTimer = null;
     let longPressTriggered = false;
 
     const clearPress = () => {
         if (pressTimer !== null) {
-            window.clearTimeout(pressTimer);
+            window.clearTimeout(
+                pressTimer,
+            );
+
             pressTimer = null;
         }
     };
@@ -132,7 +175,14 @@
 
     trigger.addEventListener(
         'pointerup',
-        clearPress,
+        (event) => {
+            clearPress();
+
+            if (longPressTriggered) {
+                event.preventDefault();
+                event.stopPropagation();
+            }
+        },
     );
 
     trigger.addEventListener(
@@ -146,12 +196,9 @@
     );
 
     trigger.addEventListener(
-        'click',
+        'contextmenu',
         (event) => {
-            if (longPressTriggered) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
+            event.preventDefault();
         },
     );
 
