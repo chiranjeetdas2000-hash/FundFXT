@@ -1,8 +1,9 @@
 /* ============================================================
-   FUNDFXT GLOBAL MOBILE TRADING ACTION LOADER
+   FUNDFXT MOBILE TRADING ACTION LOADER
    ------------------------------------------------------------
-   Centralizes loading feedback for trading API actions without
-   duplicating loader code inside every trading controller.
+   Only user-initiated trading mutations use the blocking loader.
+   Read-only quote, trade-list, and pending-list requests stay
+   non-blocking so background refreshes cannot trap the screen.
    ============================================================ */
 
 (() => {
@@ -44,20 +45,6 @@
             && pathname.startsWith('/api/trades/')
         ) {
             return 'Cancelling Pending Order...';
-        }
-
-        if (
-            method === 'GET'
-            && pathname === '/api/trade/get'
-        ) {
-            return 'Loading Trade Details...';
-        }
-
-        if (
-            method === 'GET'
-            && pathname === '/api/trades/pending'
-        ) {
-            return 'Loading Pending Orders...';
         }
 
         return null;
