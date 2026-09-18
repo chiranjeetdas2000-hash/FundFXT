@@ -157,8 +157,22 @@
                     T.selected = button.dataset.symbol;
 
                     renderMarketWatch();
-                    openPanel('center');
                     loadChart();
+
+                    if (
+                        window.innerWidth <= 768
+                    ) {
+                        const chartTab =
+                            document.querySelector(
+                                '[data-mobile-section="chart"]',
+                            );
+
+                        if (chartTab) {
+                            chartTab.click();
+                        }
+                    } else {
+                        openPanel('center');
+                    }
                 };
             },
         );
