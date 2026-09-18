@@ -347,21 +347,63 @@ function loadChart() {
 
 
 function openPanel(name) {
-    if(name==='center') {
-        document.querySelectorAll('.panel').forEach(p=>p.classList.remove('mobile-active'));
+    if (name === 'center') {
+        document
+            .querySelectorAll('.panel')
+            .forEach((panel) => {
+                panel.classList.remove('mobile-active');
+            });
+
         $('center')?.classList.add('mobile-active');
-        return
+
+        return;
     }
-    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('mobile-active'));
+
+    document
+        .querySelectorAll('.panel')
+        .forEach((panel) => {
+            panel.classList.remove('mobile-active');
+        });
+
     $('right')?.classList.add('mobile-active');
-    const section=document.getElementById('terminal'+String(name).charAt(0).toUpperCase()+String(name).slice(1));
-    if(section) {
-        document.querySelectorAll('.terminal-section').forEach(s=>s.classList.remove('active'));
-        section.classList.add('active');
-        document.querySelectorAll('.right-section-tab').forEach(b=>b.classList.toggle('active',b.dataset.section===name))
+
+    const sectionId =
+        'terminal'
+        + String(name).charAt(0).toUpperCase()
+        + String(name).slice(1);
+
+    const section = document.getElementById(sectionId);
+
+    if (!section) {
+        return;
     }
-    if(name==='trades')loadTrades();
-    if(name==='orders')window.showPendingOrders?.();
+
+    document
+        .querySelectorAll('.terminal-section')
+        .forEach((item) => {
+            item.classList.remove('active');
+            item.hidden = true;
+        });
+
+    section.hidden = false;
+    section.classList.add('active');
+
+    document
+        .querySelectorAll('.right-section-tab')
+        .forEach((button) => {
+            button.classList.toggle(
+                'active',
+                button.dataset.section === name,
+            );
+        });
+
+    if (name === 'trades') {
+        loadTrades();
+    }
+
+    if (name === 'orders') {
+        window.showPendingOrders?.();
+    }
 }
 function tabStatus(tab) {
     return tab==='HISTORY'?'CLOSED':tab
@@ -703,6 +745,8 @@ function setup() {
                 );
             };
         });
+
+    openPanel('pairs');
 
     loadAccount()
         .then(loadPrices)
