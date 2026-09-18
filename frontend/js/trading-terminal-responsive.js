@@ -436,6 +436,7 @@
     }
 
     let activeRequests = 0;
+    let loaderTimeout;
 
     const getMobileButtons = () => {
         return Array.from(
@@ -494,10 +495,10 @@
      * The wrapper keeps the loader lifecycle in one place and uses
      * finally so the mobile interface cannot remain stuck loading.
      */
-    const executeWithLoader = async (
+    async function executeWithLoader(
         asyncTask,
         loadingText = 'Processing...',
-    ) => {
+    ) {
         if (!isMobile()) {
             return asyncTask();
         }
@@ -510,14 +511,13 @@
             loaderText.textContent = loadingText;
         }
 
-        showMobileLoader();
-
         try {
+            showMobileLoader(loadingText);
             return await asyncTask();
         }
         catch (error) {
             console.error(
-                'FundFXT mobile action failed:',
+                'Action failed:',
                 error,
             );
             throw error;
@@ -525,16 +525,26 @@
         finally {
             hideMobileLoader();
         }
-    };
+    }
 
     window.executeWithLoader = executeWithLoader;
 
-    const showMobileLoader = () => {
+    const showMobileLoader = (
+        loadingText = 'Processing...',
+    ) => {
         if (!isMobile()) {
             return;
         }
 
         activeRequests += 1;
+
+        const loaderText = document.getElementById(
+            'mobile-loader-text',
+        );
+
+        if (loaderText) {
+            loaderText.textContent = loadingText;
+        }
 
         overlay.classList.add(
             'active',
@@ -546,9 +556,21 @@
         );
 
         setMobileButtonsDisabled(true);
+
+        clearTimeout(loaderTimeout);
+
+        loaderTimeout = setTimeout(() => {
+            hideMobileLoader();
+            console.warn(
+                'Loader auto-hidden due to timeout',
+            );
+        }, 15000);
     };
 
     const hideMobileLoader = () => {
+        clearTimeout(loaderTimeout);
+        loaderTimeout = undefined;
+
         if (!isMobile()) {
             overlay.classList.remove(
                 'active',
