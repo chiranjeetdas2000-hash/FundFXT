@@ -1,17 +1,16 @@
 /* ===== FUNDFXT PENDING ORDER UI / EXECUTION ===== */
 (function () {
-  "use strict";
-
-  const API = "https://fundfxt.onrender.com";
-  const token = () => localStorage.getItem("fundfxt_token") || "";
-  const n = (v) => {
-    return Number.isFinite(Number(v))
-      ? Number(v)
-      : 0;
-  };
-  const esc = (v) => {
-    return String(v ?? "—").replace(
-      /[&<>"']/g,
+    "use strict";
+    const API = "https://fundfxt.onrender.com";
+    const token = () => localStorage.getItem("fundfxt_token") || "";
+    const n = (v) => {
+        return Number.isFinite(Number(v))
+        ? Number(v)
+        : 0;
+    }    ;
+    const esc = (v) => {
+        return String(v ?? "—").replace(
+        /[&<>"']/g,
       (m) => ({
         "&": "&amp;",
         "<": "&lt;",
@@ -122,7 +121,13 @@
 
   function pendingCard(o) {
     const id = o.trade_id || o.order_id;
-    return `<article class="trade-card pending-card"><div class="trade-main"><div><b class="trade-symbol">${esc(o.symbol)}</b><small class="trade-id">${esc(id)}</small></div><b class="trade-side ${String(o.side).toLowerCase()}">${esc(o.side)} · ${esc(o.order_type)}</b></div><div class="trade-meta"><div><span>Entry</span><b>${fmt(o.entry_price, o.symbol)}</b></div><div><span>Lot</span><b>${n(o.volume).toFixed(2)}</b></div><div><span>SL</span><b>${o.stop_loss == null ? "—" : fmt(o.stop_loss, o.symbol)}</b></div><div><span>TP</span><b>${o.take_profit == null ? "—" : fmt(o.take_profit, o.symbol)}</b></div></div><div class="trade-actions"><button class="mini close" data-pcancel="${esc(id)}" type="button">Cancel</button></div></article>`;
+    return `<article class="trade-card pending-card"><div class="trade-main"><div><b class="trade-symbol">${esc(o.symbol)}</b><small class="trade-id">${esc(id)}</small></div><b class="trade-side $ {
+            String(o.side).toLowerCase()
+        }
+        ">${esc(o.side)} · ${esc(o.order_type)}</b></div><div class="trade-meta"><div><span>Entry</span><b>${fmt(o.entry_price, o.symbol)}</b></div><div><span>Lot</span><b>${n(o.volume).toFixed(2)}</b></div><div><span>SL</span><b>${o.stop_loss == null ? "—" : fmt(o.stop_loss, o.symbol)}</b></div><div><span>TP</span><b>${o.take_profit == null ? "—" : fmt(o.take_profit, o.symbol)}</b></div></div><div class="trade-actions"><button class="mini close" data-pcancel="$ {
+            esc(id)
+        }
+        " type="button">Cancel</button></div></article>`;
   }
 
   async function showPending() {
