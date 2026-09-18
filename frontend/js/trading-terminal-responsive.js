@@ -489,6 +489,46 @@
         });
     };
 
+    /*
+     * Global async wrapper for mobile trading actions.
+     * The wrapper keeps the loader lifecycle in one place and uses
+     * finally so the mobile interface cannot remain stuck loading.
+     */
+    const executeWithLoader = async (
+        asyncTask,
+        loadingText = 'Processing...',
+    ) => {
+        if (!isMobile()) {
+            return asyncTask();
+        }
+
+        const loaderText = document.getElementById(
+            'mobile-loader-text',
+        );
+
+        if (loaderText) {
+            loaderText.textContent = loadingText;
+        }
+
+        showMobileLoader();
+
+        try {
+            return await asyncTask();
+        }
+        catch (error) {
+            console.error(
+                'FundFXT mobile action failed:',
+                error,
+            );
+            throw error;
+        }
+        finally {
+            hideMobileLoader();
+        }
+    };
+
+    window.executeWithLoader = executeWithLoader;
+
     const showMobileLoader = () => {
         if (!isMobile()) {
             return;
@@ -564,14 +604,12 @@
                 return originalExecute(side);
             }
 
-            showMobileLoader();
-
-            try {
-                return await originalExecute(side);
-            }
-            finally {
-                hideMobileLoader();
-            }
+            return executeWithLoader(
+                () => originalExecute(side),
+                side === 'BUY'
+                    ? 'Buying...'
+                    : 'Selling...',
+            );
         };
     }
 
