@@ -1,62 +1,52 @@
 /* ===== OPEN TRADE MODIFY CONTROLLER ===== */
 (function () {
     "use strict";
-
     const API = "https://fundfxt.onrender.com";
-
     const token = () => localStorage.getItem("fundfxt_token") || "";
-
     const $ = (id) => document.getElementById(id);
-
-    async function api(path, opt = {}) {
+    async function api(path, opt = {
+    }    ) {
         const response = await fetch(API + path, {
             ...opt,
             headers: {
                 Authorization: "Bearer " + token(),
                 "Content-Type": "application/json",
-                ...(opt.headers || {}),
-            },
-        });
-
-        let data = {};
-
+                ...(opt.headers || {
+                }                ),
+            }            ,
+        }        );
+        let data = {
+        }        ;
         try {
             data = await response.json();
-        } catch {}
-
+        }
+        catch {
+        }
         if (!response.ok) {
             throw Error(
-                data.error ||
-                data.message ||
-                `Request failed (${response.status})`
+            data.error ||
+            data.message ||
+            `Request failed (${response.status})`
             );
         }
-
         return data;
     }
-
     function notify(message, ok = false) {
         const element = $("tradeFeedback");
-
         if (!element) {
             return;
         }
-
         element.textContent = message;
         element.className = "trade-feedback show " + (ok ? "ok" : "error");
-
         clearTimeout(notify.timer);
-
         notify.timer = setTimeout(() => {
             element.className = "trade-feedback";
-        }, 4000);
+        }        , 4000);
     }
-
     function injectStyle() {
         if ($("modifyTradeStyle")) {
             return;
         }
-
         const style = document.createElement("style");
         style.id = "modifyTradeStyle";
         style.textContent = `
@@ -108,36 +98,27 @@
                 cursor: pointer;
             }
         `;
-
         document.head.appendChild(style);
     }
-
     async function openModify(id) {
         try {
             const account = localStorage.getItem("fundfxt_selected_account");
-
             if (!account) {
                 notify("No trading account selected.");
                 return;
             }
-
             const data = await api(
-                "/api/trade/get?account_code=" + encodeURIComponent(account)
+            "/api/trade/get?account_code=" + encodeURIComponent(account)
             );
-
             const trade = (Array.isArray(data.trades) ? data.trades : [])
-                .find((item) => String(item.trade_id) === String(id));
-
+            .find((item) => String(item.trade_id) === String(id));
             if (!trade || trade.status !== "OPEN") {
                 notify("Open trade not found.");
                 return;
             }
-
             const side = String(trade.side).toUpperCase();
             const modalElement = document.createElement("div");
-
             modalElement.className = "trade-modal";
-
             modalElement.innerHTML = `
                 <div class="trade-modal-backdrop"></div>
                 <div class="trade-modal-card">
@@ -194,129 +175,109 @@
                     </div>
                 </div>
             `;
-
             document.body.appendChild(modalElement);
-
             modalElement.querySelector(".trade-modal-close").onclick = () => {
                 modalElement.remove();
-            };
-
+            }            ;
             modalElement.querySelector(".trade-modal-backdrop").onclick = () => {
                 modalElement.remove();
-            };
-
+            }            ;
             $("saveModify").onclick = async () => {
                 const tpValue = $("modifyTP").value.trim();
                 const slValue = $("modifySL").value.trim();
-
                 const tp = tpValue === "" ? null : Number(tpValue);
                 const sl = slValue === "" ? null : Number(slValue);
                 const entry = Number(trade.entry_price);
-
                 if (
-                    (tp !== null && !Number.isFinite(tp)) ||
-                    (sl !== null && !Number.isFinite(sl))
+                (tp !== null && !Number.isFinite(tp)) ||
+                (sl !== null && !Number.isFinite(sl))
                 ) {
                     notify("Enter valid TP/SL prices.");
                     return;
                 }
-
                 if (
-                    sl !== null &&
-                    (side === "BUY" ? sl >= entry : sl <= entry)
+                sl !== null &&
+                (side === "BUY" ? sl >= entry : sl <= entry)
                 ) {
                     notify("Invalid Stop Loss for this direction.");
                     return;
                 }
-
                 if (
-                    tp !== null &&
-                    (side === "BUY" ? tp <= entry : tp >= entry)
+                tp !== null &&
+                (side === "BUY" ? tp <= entry : tp >= entry)
                 ) {
                     notify("Invalid Take Profit for this direction.");
                     return;
                 }
-
                 try {
                     await api(
-                        "/api/trades/" + encodeURIComponent(id),
-                        {
-                            method: "PATCH",
-                            body: JSON.stringify({
-                                stop_loss: sl,
-                                take_profit: tp,
-                            }),
-                        }
+                    "/api/trades/" + encodeURIComponent(id),
+                    {
+                        method: "PATCH",
+                        body: JSON.stringify( {
+                            stop_loss: sl,
+                            take_profit: tp,
+                        }                        ),
+                    }
                     );
-
                     modalElement.remove();
                     notify("Trade modified successfully.", true);
-
                     if (typeof window.loadTrades === "function") {
                         await window.loadTrades();
-                    } else {
+                    }
+                    else {
                         location.reload();
                     }
-                } catch (error) {
+                }
+                catch (error) {
                     notify(error.message);
                 }
-            };
-        } catch (error) {
+            }            ;
+        }
+        catch (error) {
             notify(error.message);
         }
     }
-
     function decorate() {
         const box = $("tradeScroll");
-
         if (!box) {
             return;
         }
-
         box.querySelectorAll("[data-close]").forEach((button) => {
             const card = button.closest(".trade-card");
-
             if (!card || card.querySelector("[data-modify]")) {
                 return;
             }
-
             const id = button.dataset.close;
             const modifyButton = document.createElement("button");
-
             modifyButton.className = "mini modify-btn";
             modifyButton.type = "button";
             modifyButton.dataset.modify = id;
             modifyButton.textContent = "Modify";
-
             modifyButton.onclick = (event) => {
                 event.preventDefault();
                 event.stopPropagation();
                 openModify(id);
-            };
-
+            }            ;
             button.parentNode.insertBefore(modifyButton, button);
-        });
+        }        );
     }
-
     function install() {
         injectStyle();
         decorate();
-
         setInterval(decorate, 300);
-
         const target = $("tradeScroll") || document.body;
-
         new MutationObserver(decorate).observe(target, {
             childList: true,
             subtree: true,
-        });
+        }        );
     }
-
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", install, {
             once: true,
-        });
-    } else {
+        }        );
+    }
+    else {
         install();
     }
 })();
