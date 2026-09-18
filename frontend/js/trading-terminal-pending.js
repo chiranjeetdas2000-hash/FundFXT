@@ -306,6 +306,8 @@
 
   window.showPendingOrders = showPending;
 
+  window.executePendingOrder = placePending;
+
   function install() {
     const buy = document.getElementById("buy");
     const sell = document.getElementById("sell");
