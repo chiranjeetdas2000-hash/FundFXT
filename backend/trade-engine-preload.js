@@ -477,7 +477,7 @@ async function installTradeRepair(app) {
                     );
 
                     const remainingVolume = Number(
-                        (currentVolume - requestedVolume).toFixed(8)
+                        (currentVolume - closeVolume).toFixed(8)
                     );
 
                     await connection.execute(
