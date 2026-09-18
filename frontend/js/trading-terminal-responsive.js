@@ -440,18 +440,51 @@
     const getMobileButtons = () => {
         return Array.from(
             document.querySelectorAll(
-                '.mobile-order-sheet [data-sheet-side]',
+                [
+                    '.execution-actions button',
+                    '.trade-actions button',
+                    '.mobile-order-sheet .sheet-btn',
+                    '.modify-save',
+                    '#savePendingModify',
+                    '#saveModify',
+                    '[data-pcancel]',
+                    '[data-pmodify]',
+                ].join(','),
             ),
         );
     };
 
     const setMobileButtonsDisabled = (disabled) => {
         getMobileButtons().forEach((button) => {
-            button.disabled = disabled;
+            if (disabled) {
+                if (!button.dataset.loaderDisabled) {
+                    button.dataset.loaderDisabled =
+                        String(button.disabled);
+                }
+
+                button.disabled = true;
+
+                button.setAttribute(
+                    'aria-disabled',
+                    'true',
+                );
+
+                return;
+            }
+
+            const previousDisabled =
+                button.dataset.loaderDisabled;
+
+            if (previousDisabled !== undefined) {
+                button.disabled =
+                    previousDisabled === 'true';
+
+                delete button.dataset.loaderDisabled;
+            }
 
             button.setAttribute(
                 'aria-disabled',
-                String(disabled),
+                String(button.disabled),
             );
         });
     };
