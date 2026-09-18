@@ -185,88 +185,118 @@
 
     pendingLoadPromise = (async () => {
       try {
-      const d = await api(
-        "/api/trades/pending?account_code="
-        + encodeURIComponent(accountCode()),
-      );
+        const d = await api(
+          "/api/trades/pending?account_code="
+          + encodeURIComponent(
+            accountCode(),
+          ),
+        );
 
-      const rows = Array.isArray(d.trades)
-        ? d.trades
-        : [];
+        const rows =
+          Array.isArray(d.trades)
+            ? d.trades
+            : [];
 
-      const count = document.getElementById(
-        "pendingCount",
-      );
+        const count =
+          document.getElementById(
+            "pendingCount",
+          );
 
-      if (count) {
-        count.textContent = String(rows.length);
-      }
+        if (count) {
+          count.textContent =
+            String(rows.length);
+        }
 
-      /*
-       * Pending orders belong only to the Trades > Pending tab.
-       * They must never be rendered in the Execute section.
-       */
-      if (s.tab !== "PENDING") {
-        return;
-      }
-
-      const box = document.getElementById(
-        "tradeScroll",
-      );
-
-      if (!box) {
-        return;
-      }
-
-      box.innerHTML = rows.map(pendingCard).join("")
-        || `
-          <div class="empty">
-            <strong>No pending orders</strong>
-            <span>
-              Your Limit and Stop orders will appear here.
-            </span>
-          </div>
-        `;
-
-      box
-        .querySelectorAll("[data-pcancel]")
-        .forEach((button) => {
-          button.onclick = async () => {
-            try {
-              await api(
-                "/api/trades/"
-                + encodeURIComponent(
-                  button.dataset.pcancel,
-                ),
-                {
-                  method: "DELETE",
-                },
-              );
-
-              feedback(
-                "Pending order cancelled.",
-                true,
-              );
-
-              await showPending();
-              } catch (e) {
-        if (state()?.tab !== "PENDING") {
+        if (s.tab !== "PENDING") {
           return;
         }
 
-        const box = document.getElementById(
-          "tradeScroll",
-        );
+        const box =
+          document.getElementById(
+            "tradeScroll",
+          );
+
+        if (!box) {
+          return;
+        }
+
+        box.innerHTML =
+          rows
+            .map(pendingCard)
+            .join("")
+          || `
+            <div class="empty">
+              <strong>
+                No pending orders
+              </strong>
+
+              <span>
+                Your Limit and Stop orders
+                will appear here.
+              </span>
+            </div>
+          `;
+
+        box
+          .querySelectorAll(
+            "[data-pcancel]",
+          )
+          .forEach(
+            (button) => {
+              button.onclick =
+                async () => {
+                  try {
+                    await api(
+                      "/api/trades/"
+                      + encodeURIComponent(
+                        button.dataset.pcancel,
+                      ),
+                      {
+                        method: "DELETE",
+                      },
+                    );
+
+                    feedback(
+                      "Pending order cancelled.",
+                      true,
+                    );
+
+                    await showPending();
+                  }
+                  catch (error) {
+                    feedback(
+                      error.message,
+                    );
+                  }
+                };
+            },
+          );
+      }
+      catch (error) {
+        if (s.tab !== "PENDING") {
+          return;
+        }
+
+        const box =
+          document.getElementById(
+            "tradeScroll",
+          );
 
         if (box) {
           box.innerHTML = `
             <div class="empty">
-              <strong>Pending orders unavailable</strong>
-              <span>${esc(e.message)}</span>
+              <strong>
+                Pending orders unavailable
+              </strong>
+
+              <span>
+                ${esc(error.message)}
+              </span>
             </div>
           `;
         }
-      } finally {
+      }
+      finally {
         pendingLoadPromise = null;
       }
     })();
