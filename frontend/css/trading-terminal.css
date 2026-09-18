@@ -1997,3 +1997,65 @@ transition:none!important
         transform: translateX(-50%);
     }
 }
+
+
+/* ============================================================
+   MOBILE PENDING ORDER SHEET — FINAL
+   All rules in this section are mobile-only.
+   ============================================================ */
+
+@media (max-width: 768px) {
+    #mobile-order-wrapper {
+        max-height: 70vh;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+    }
+
+    #mobile-order-wrapper #orderType,
+    #mobile-order-wrapper #entry {
+        width: 100%;
+        min-height: 42px;
+        padding: 10px 12px;
+        background: #1e222d;
+        color: #ffffff;
+        border: 1px solid #343a49;
+        border-radius: 9px;
+        outline: none;
+        box-sizing: border-box;
+        color-scheme: dark;
+    }
+
+    #mobile-order-wrapper #orderType:focus,
+    #mobile-order-wrapper #entry:focus {
+        border-color: #00b56a;
+        box-shadow: 0 0 0 3px rgba(0, 181, 106, 0.10);
+    }
+
+    #mobile-order-wrapper #pendingFields {
+        width: 100%;
+    }
+
+    #mobile-order-wrapper #pendingFields[hidden] {
+        display: none;
+    }
+
+    #mobile-order-wrapper #pendingFields:not([hidden]) {
+        display: block;
+    }
+
+    #mobile-order-wrapper .mobile-order-sheet-body {
+        min-height: 0;
+    }
+
+    #mobile-order-wrapper .mobile-order-sheet-actions {
+        position: sticky;
+        bottom: 0;
+        padding-top: 8px;
+        background: linear-gradient(
+            to bottom,
+            rgba(19, 23, 34, 0),
+            #131722 28%
+        );
+    }
+}
