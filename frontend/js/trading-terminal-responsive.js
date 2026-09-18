@@ -43,11 +43,10 @@
         sync,
     );
 })();
-
-
 /* ============================================================
-   MOBILE CHART LONG-PRESS TRIGGER
-   Uses the existing Mobile Order Sheet.
+   MOBILE EXECUTION BUTTON
+   Opens the existing mobile order sheet without duplicating
+   order execution logic.
    ============================================================ */
 
 (() => {
@@ -58,8 +57,8 @@
             '(max-width: 768px)',
         ).matches;
 
-    const chartStage = document.getElementById(
-        'tv',
+    const button = document.getElementById(
+        'mobile-exec-toggle',
     );
 
     const sheet = document.getElementById(
@@ -70,6 +69,10 @@
         'mobileOrderSheetClose',
     );
 
+    const backdrop = sheet?.querySelector(
+        '.mobile-order-sheet-backdrop',
+    );
+
     const sheetSymbol = document.getElementById(
         'mobileOrderSheetSymbol',
     );
@@ -78,7 +81,7 @@
         'selectedSymbol',
     );
 
-    if (!chartStage || !sheet) {
+    if (!button || !sheet) {
         return;
     }
 
@@ -117,89 +120,9 @@
     window.openOrderSheet = openOrderSheet;
     window.closeOrderSheet = closeOrderSheet;
 
-    const trigger = document.createElement(
-        'button',
-    );
-
-    trigger.className =
-        'chart-longpress-trigger';
-
-    trigger.type = 'button';
-
-    trigger.setAttribute(
-        'aria-label',
-        'Open order sheet',
-    );
-
-    trigger.setAttribute(
-        'aria-hidden',
-        'true',
-    );
-
-    chartStage.appendChild(
-        trigger,
-    );
-
-    let pressTimer = null;
-    let longPressTriggered = false;
-
-    const clearPress = () => {
-        if (pressTimer !== null) {
-            window.clearTimeout(
-                pressTimer,
-            );
-
-            pressTimer = null;
-        }
-    };
-
-    trigger.addEventListener(
-        'pointerdown',
-        () => {
-            if (!isMobile()) {
-                return;
-            }
-
-            longPressTriggered = false;
-            clearPress();
-
-            pressTimer = window.setTimeout(
-                () => {
-                    longPressTriggered = true;
-                    openOrderSheet();
-                },
-                500,
-            );
-        },
-    );
-
-    trigger.addEventListener(
-        'pointerup',
-        (event) => {
-            clearPress();
-
-            if (longPressTriggered) {
-                event.preventDefault();
-                event.stopPropagation();
-            }
-        },
-    );
-
-    trigger.addEventListener(
-        'pointercancel',
-        clearPress,
-    );
-
-    trigger.addEventListener(
-        'pointerleave',
-        clearPress,
-    );
-
-    trigger.addEventListener(
-        'contextmenu',
-        (event) => {
-            event.preventDefault();
-        },
+    button.addEventListener(
+        'click',
+        openOrderSheet,
     );
 
     if (sheetClose) {
@@ -208,10 +131,6 @@
             closeOrderSheet,
         );
     }
-
-    const backdrop = sheet.querySelector(
-        '.mobile-order-sheet-backdrop',
-    );
 
     if (backdrop) {
         backdrop.addEventListener(
