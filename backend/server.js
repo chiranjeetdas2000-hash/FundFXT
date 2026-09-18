@@ -1600,11 +1600,22 @@ app.post(
         ) * 100,
       );
 
+      const remainingFloatingCents = Math.round(
+        calculatePL(
+          trade.symbol,
+          trade.side,
+          trade.entry_price,
+          exitPrice,
+          remainingVolume,
+        ) * 100,
+      );
+
       const [updateResult] = await connection.execute(
-        "UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = 0, updated_at = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' AND volume = ?",
+        "UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = ?, updated_at = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' AND volume = ?",
         [
           remainingVolume,
           exitPrice,
+          remainingFloatingCents,
           req.params.tradeId,
           req.userId,
           currentVolume,
