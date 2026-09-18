@@ -209,3 +209,59 @@
         transition: none;
     }
 }
+
+
+/* ============================================================
+   PARTIAL CLOSE VALIDATION
+   ============================================================ */
+
+.modal-input {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    padding: 12px;
+    border: 1px solid #202d37;
+    border-radius: 9px;
+    background: #0a1117;
+}
+
+.modal-input > span {
+    color: #aeb9c1;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.modal-input input {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #293743;
+    border-radius: 8px;
+    background: #070d12;
+    color: #ffffff;
+    outline: none;
+    font-size: 11px;
+}
+
+.modal-input input:focus {
+    border-color: #00b56a;
+}
+
+.modal-input-hint {
+    min-height: 14px;
+    color: #81909d;
+    font-size: 8px;
+}
+
+.modal-input-hint.valid {
+    color: #00d889;
+}
+
+.modal-input-hint.error {
+    color: #ff6674;
+}
+
+#confirmPartial:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+}
