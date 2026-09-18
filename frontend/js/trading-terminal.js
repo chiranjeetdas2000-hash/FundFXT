@@ -435,13 +435,26 @@ function renderTrades() {
     box.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>closePosition(b.dataset.close));
     box.querySelectorAll('[data-partial]').forEach(b=>b.onclick=()=>partialClose(b.dataset.partial))
 }
-async function loadTrades() {
+async function loadTrades(force = false) {
     if (!T.account) {
         return;
     }
 
+    /*
+     * A forced refresh is used immediately after close/partial-close.
+     * If an older request is still running, wait for it first and then
+     * fetch the database state again so the UI cannot repaint stale lots.
+     */
     if (T.tradeLoadPromise) {
-        return T.tradeLoadPromise;
+        if (!force) {
+            return T.tradeLoadPromise;
+        }
+
+        try {
+            await T.tradeLoadPromise;
+        }
+        catch {
+        }
     }
 
     T.tradeLoadPromise = (async () => {
@@ -467,6 +480,7 @@ async function loadTrades() {
 
     return T.tradeLoadPromise;
 }
+
 function showDetails(id) {
     const t=T.trades.find(x=>String(x.trade_id)===String(id));
     if(!t)return;
@@ -607,22 +621,61 @@ function closeAmountModal(id, t) {
 
     validatePartialVolume();
 }
-async function submitClose(id,volume,partial) {
+async function submitClose(id, volume, partial) {
     try {
-        const path=partial?'/api/trades/'+encodeURIComponent(id)+'/partial-close':'/api/trades/'+encodeURIComponent(id)+'/close';
-        const d=await api(path, {
-            method:'POST',body:JSON.stringify( {
-                volume
-            }            )
-        }        );
-        feedback(partial?`Partial close successful. Remaining ${Number(d.remaining_volume??0).toFixed(2)} lot.`:'Position closed successfully.',true);
+        const path = partial
+            ? '/api/trades/'
+                + encodeURIComponent(id)
+                + '/partial-close'
+            : '/api/trades/'
+                + encodeURIComponent(id)
+                + '/close';
+
+        const response = await api(
+            path,
+            {
+                method: 'POST',
+                body: JSON.stringify({
+                    volume,
+                }),
+            },
+        );
+
+        if (partial) {
+            const serverRemaining =
+                Number(response.remaining_volume);
+
+            if (
+                !Number.isFinite(serverRemaining)
+                || serverRemaining < 0.01
+            ) {
+                throw Error(
+                    'Partial close returned an invalid remaining volume.',
+                );
+            }
+
+            feedback(
+                'Partial close successful. Remaining '
+                + serverRemaining.toFixed(2)
+                + ' lot.',
+                true,
+            );
+        }
+        else {
+            feedback(
+                'Position closed successfully.',
+                true,
+            );
+        }
+
         await loadAccount();
-        await loadTrades()
+        await loadTrades(true);
     }
-    catch(e) {
-        feedback(e.message)
+    catch (error) {
+        feedback(error.message);
     }
 }
+
 function closePosition(id) {
     const t=T.trades.find(x=>String(x.trade_id)===String(id));
     if(!t||t.status!=='OPEN')return;
