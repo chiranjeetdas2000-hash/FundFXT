@@ -170,8 +170,6 @@
     `;
   }
 
-  let pendingLoadPromise = null;
-
   async function showPending() {
     const s = state();
 
@@ -179,12 +177,7 @@
       return;
     }
 
-    if (pendingLoadPromise) {
-      return pendingLoadPromise;
-    }
-
-    pendingLoadPromise = (async () => {
-      try {
+    try {
       const d = await api(
         "/api/trades/pending?account_code="
         + encodeURIComponent(accountCode()),
@@ -249,29 +242,29 @@
               );
 
               await showPending();
-              } catch (e) {
-        if (state()?.tab !== "PENDING") {
-          return;
-        }
-
-        const box = document.getElementById(
-          "tradeScroll",
-        );
-
-        if (box) {
-          box.innerHTML = `
-            <div class="empty">
-              <strong>Pending orders unavailable</strong>
-              <span>${esc(e.message)}</span>
-            </div>
-          `;
-        }
-      } finally {
-        pendingLoadPromise = null;
+            } catch (e) {
+              feedback(e.message);
+            }
+          };
+        });
+    } catch (e) {
+      if (state()?.tab !== "PENDING") {
+        return;
       }
-    })();
 
-    return pendingLoadPromise;
+      const box = document.getElementById(
+        "tradeScroll",
+      );
+
+      if (box) {
+        box.innerHTML = `
+          <div class="empty">
+            <strong>Pending orders unavailable</strong>
+            <span>${esc(e.message)}</span>
+          </div>
+        `;
+      }
+    }
   }
 
   window.showPendingOrders = showPending;
