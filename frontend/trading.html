@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/css/trading-terminal.css?v=20260918-6">
+    <link rel="stylesheet" href="/css/trading-terminal.css?v=20260918-7">
     <link rel="stylesheet" href="/css/trading-terminal-fix.css?v=20260918-3">
     <link rel="stylesheet" href="/css/trading-terminal-modify.css?v=20260918-1">
     <link rel="stylesheet" href="/css/trading-terminal-search.css?v=20260918-1">
@@ -116,6 +116,110 @@
                         aria-hidden="true"
                     ></div>
                 </div>
+
+                <!-- Mobile-only floating order buttons -->
+                <div
+                    class="mobile-order-fab"
+                    id="mobileOrderFab"
+                    hidden
+                >
+                    <button
+                        class="fab-btn fab-sell"
+                        type="button"
+                        data-fab-side="SELL"
+                    >
+                        SELL
+                    </button>
+
+                    <button
+                        class="fab-btn fab-buy"
+                        type="button"
+                        data-fab-side="BUY"
+                    >
+                        BUY
+                    </button>
+                </div>
+
+                <!-- Mobile order ticket bottom sheet -->
+                <div
+                    class="mobile-order-sheet"
+                    id="mobileOrderSheet"
+                >
+                    <div class="mobile-order-sheet-backdrop"></div>
+
+                    <div class="mobile-order-sheet-card">
+                        <div class="mobile-order-sheet-header">
+                            <b id="mobileOrderSheetSymbol">
+                                EURUSD
+                            </b>
+
+                            <button
+                                class="mobile-order-sheet-close"
+                                type="button"
+                                id="mobileOrderSheetClose"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div class="mobile-order-sheet-body">
+                            <label>
+                                Volume
+                                <input
+                                    id="mobileVolume"
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value="0.10"
+                                >
+                            </label>
+
+                            <label>
+                                Stop Loss
+                                <input
+                                    id="mobileSl"
+                                    type="number"
+                                    step="any"
+                                    placeholder="Optional"
+                                >
+                            </label>
+
+                            <label>
+                                Take Profit
+                                <input
+                                    id="mobileTp"
+                                    type="number"
+                                    step="any"
+                                    placeholder="Optional"
+                                >
+                            </label>
+
+                            <div
+                                class="mobile-order-sheet-feedback"
+                                id="mobileOrderFeedback"
+                            ></div>
+                        </div>
+
+                        <div class="mobile-order-sheet-actions">
+                            <button
+                                class="sheet-btn sheet-btn-sell"
+                                type="button"
+                                data-sheet-side="SELL"
+                            >
+                                SELL
+                            </button>
+
+                            <button
+                                class="sheet-btn sheet-btn-buy"
+                                type="button"
+                                data-sheet-side="BUY"
+                            >
+                                BUY
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
             </section>
 
             <aside class="right-rail" id="right">
@@ -390,7 +494,7 @@
     <script src="/js/trading-terminal-pending.js?v=20260918-5"></script>
     <script src="/js/trading-terminal-pending-modify.js?v=20260918-1"></script>
     <script src="/js/trading-terminal-modify.js?v=20260918-1"></script>
-    <script src="/js/trading-terminal-responsive.js?v=20260918-2"></script>
+    <script src="/js/trading-terminal-responsive.js?v=20260918-3"></script>
     <script src="/js/trading-terminal-ui-fix.js?v=20260918-5"></script>
     <script src="/js/trading-terminal-pairs-fix.js?v=20260918-2"></script>
     <script src="/js/trading-terminal-history-ui.js?v=20260918-1"></script>
