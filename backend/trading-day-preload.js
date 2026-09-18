@@ -121,7 +121,7 @@ function prepareTradeInsert(sql, values) {
             : values;
 
         const isNewOrder =
-            /status\\s*[^,]*['"](?:OPEN|PENDING)['"]/i.test(sql);
+            /status\s*[^,]*['"](?:OPEN|PENDING)['"]/i.test(sql);
 
         if (
             isNewOrder &&
