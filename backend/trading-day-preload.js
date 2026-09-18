@@ -120,7 +120,15 @@ function prepareTradeInsert(sql, values) {
             ? [...values]
             : values;
 
+        const isNewOrder =
+            /status\\s*[^,]*['"](?:OPEN|PENDING)['"]/i.test(sql);
+
         if (
+            isNewOrder &&
+            Array.isArray(nextValues)
+        ) {
+            nextValues[placeholderIndex] = currentTradingDay();
+        } else if (
             Array.isArray(nextValues) &&
             (nextValues[placeholderIndex] === null ||
                 nextValues[placeholderIndex] === undefined ||
