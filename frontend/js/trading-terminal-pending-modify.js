@@ -85,28 +85,42 @@
     }
 
     function orderTypeOptions(side, selected) {
-        const types = side === "BUY"
-            ? ["BUY_LIMIT", "BUY_STOP"]
-            : ["SELL_LIMIT", "SELL_STOP"];
+        const types =
+            side === "BUY"
+                ? [
+                    "BUY_LIMIT",
+                    "BUY_STOP",
+                ]
+                : [
+                    "SELL_LIMIT",
+                    "SELL_STOP",
+                ];
 
         return types
-            .map((type) => {
-                const label = type.replace("_", " ");
+            .map(
+                (type) => {
+                    const label =
+                        type.replace(
+                            "_",
+                            " ",
+                        );
 
-                return (
-                    "<option value=\\"" +
-                    type +
-                    "\\"" +
-                    (
+                    const selectedAttribute =
                         type === selected
                             ? " selected"
-                            : ""
-                    ) +
-                    ">" +
-                    label +
-                    "</option>"
-                );
-            })
+                            : "";
+
+                    return (
+                        '<option value="' +
+                        type +
+                        '"' +
+                        selectedAttribute +
+                        ">" +
+                        label +
+                        "</option>"
+                    );
+                },
+            )
             .join("");
     }
 
