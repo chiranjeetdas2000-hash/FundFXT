@@ -173,12 +173,27 @@
 
                 renderPairs();
 
-                if (typeof openPanel === "function") {
-                    openPanel("center");
-                }
-
                 if (typeof loadChart === "function") {
                     loadChart();
+                }
+
+                const isMobile =
+                    window.innerWidth <= 1100
+                    || window.matchMedia(
+                        "(max-aspect-ratio: 1/1)",
+                    ).matches;
+
+                if (isMobile) {
+                    const chartTab =
+                        document.querySelector(
+                            '[data-mobile-section="chart"]',
+                        );
+
+                    if (chartTab) {
+                        chartTab.click();
+                    }
+                } else if (typeof openPanel === "function") {
+                    openPanel("center");
                 }
             };
         });
