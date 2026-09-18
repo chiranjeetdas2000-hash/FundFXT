@@ -977,7 +977,6 @@ function setup() {
         .then(() => {
             renderPairs();
             loadChart();
-            loadTrades();
 
             if (
                 typeof window.showPendingOrders
