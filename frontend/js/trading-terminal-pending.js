@@ -105,6 +105,16 @@
       return feedback("SELL STOP entry must be below current bid."), true;
     }
 
+    const button = side === "BUY"
+      ? document.getElementById("buy")
+      : document.getElementById("sell");
+
+    setButtonLoading(
+      button,
+      true,
+      side === "BUY" ? "Buying..." : "Selling...",
+    );
+
     try {
       /* Backend contract: POST /api/trades/pending uses limit_price as the pending entry field. */
       const d = await api("/api/trades/pending", {
@@ -115,6 +125,8 @@
       showPending();
     } catch (e) {
       feedback(e.message);
+    } finally {
+      setButtonLoading(button, false);
     }
     return true;
   }
