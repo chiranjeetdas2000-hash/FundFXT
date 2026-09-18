@@ -1834,3 +1834,184 @@ transition:none!important
         display: none !important;
     }
 }
+
+
+/* ============================================================
+   MOBILE ORDER SHEET — TOUCH LONG-PRESS
+   Uses the existing mobile order sheet markup in trading.html.
+   ============================================================ */
+
+@media (max-width: 768px) {
+    .chart-longpress-trigger {
+        position: absolute;
+        inset: 0;
+        z-index: 10;
+        display: block;
+        width: 100%;
+        height: 100%;
+        margin: 0;
+        padding: 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        touch-action: none;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-order-sheet {
+        position: fixed;
+        inset: 0;
+        z-index: 1000;
+        display: flex;
+        align-items: flex-end;
+        justify-content: center;
+        visibility: hidden;
+        pointer-events: none;
+    }
+
+    .mobile-order-sheet.open {
+        visibility: visible;
+        pointer-events: auto;
+    }
+
+    .mobile-order-sheet-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.58);
+        opacity: 0;
+        transition: opacity 220ms ease;
+    }
+
+    .mobile-order-sheet.open .mobile-order-sheet-backdrop {
+        opacity: 1;
+    }
+
+    .mobile-order-sheet-card {
+        position: relative;
+        z-index: 1;
+        width: 100%;
+        max-height: 60vh;
+        overflow-y: auto;
+        padding: 16px;
+        box-sizing: border-box;
+        border-top: 1px solid #2a2e39;
+        border-radius: 16px 16px 0 0;
+        background: #131722;
+        box-shadow: 0 -14px 34px rgba(0, 0, 0, 0.58);
+        transform: translateY(100%);
+        transition: transform 280ms ease;
+    }
+
+    .mobile-order-sheet.open .mobile-order-sheet-card {
+        transform: translateY(0);
+    }
+
+    .mobile-order-sheet-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+        padding-bottom: 9px;
+        border-bottom: 1px solid #2a2e39;
+    }
+
+    .mobile-order-sheet-header b {
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+    }
+
+    .mobile-order-sheet-close {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid #2a2e39;
+        border-radius: 8px;
+        background: #1e222d;
+        color: #8d9b94;
+        font-size: 22px;
+        line-height: 1;
+        cursor: pointer;
+    }
+
+    .mobile-order-sheet-body label {
+        display: block;
+        margin-bottom: 10px;
+        color: #8d9b94;
+        font-size: 12px;
+        font-weight: 600;
+    }
+
+    .mobile-order-sheet input,
+    .mobile-order-sheet select {
+        display: block;
+        width: 100%;
+        min-height: 40px;
+        margin-top: 5px;
+        margin-bottom: 0;
+        padding: 8px 12px;
+        box-sizing: border-box;
+        border: 1px solid #2a2e39;
+        border-radius: 7px;
+        outline: none;
+        background-color: #1e222d;
+        color: #ffffff;
+        color-scheme: dark;
+        font-size: 11px;
+    }
+
+    .mobile-order-sheet input:focus,
+    .mobile-order-sheet select:focus {
+        border-color: #00b56a;
+        box-shadow: 0 0 0 3px rgba(0, 181, 106, 0.08);
+    }
+
+    .mobile-order-sheet-feedback {
+        min-height: 18px;
+        margin-top: 4px;
+        color: #81909d;
+        font-size: 9px;
+    }
+
+    .mobile-order-sheet-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+        margin-top: 10px;
+    }
+
+    .sheet-btn {
+        min-height: 44px;
+        border-radius: 8px;
+        color: #ffffff;
+        font-size: 11px;
+        font-weight: 800;
+        cursor: pointer;
+    }
+
+    .sheet-btn-sell {
+        border: 1px solid #70313b;
+        background: #34151b;
+    }
+
+    .sheet-btn-buy {
+        border: 1px solid #1a7352;
+        background: #073a27;
+    }
+}
+
+@media (min-width: 769px) {
+    .chart-longpress-trigger,
+    .mobile-order-sheet {
+        display: none !important;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mobile-order-sheet-backdrop,
+    .mobile-order-sheet-card {
+        transition: none;
+    }
+}
