@@ -489,3 +489,30 @@
         transition: none;
     }
 }
+
+
+/* ============================================================
+   PROFIT / LOSS VISIBILITY
+   Positive P/L is green and negative P/L is red.
+   Applies to both open floating P/L and closed realized P/L.
+   ============================================================ */
+
+.trade-meta .pl.green {
+    color: #00e59a;
+    font-weight: 800;
+    text-shadow: 0 0 12px rgba(0, 229, 154, 0.16);
+}
+
+.trade-meta .pl.red {
+    color: #ff7180;
+    font-weight: 800;
+    text-shadow: 0 0 12px rgba(255, 113, 128, 0.14);
+}
+
+.trade-card.history-card .trade-meta .pl.green {
+    color: #00e59a;
+}
+
+.trade-card.history-card .trade-meta .pl.red {
+    color: #ff7180;
+}
