@@ -2900,58 +2900,6 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
 
 // ========== TRADE MANAGEMENT API ==========
 
-// 1. Manual Close Trade
-app.post("/api/trades/:tradeId/close", authenticateToken, async (req, res) => {
-  try {
-    const [trades] = await db.execute(
-      "SELECT * FROM trades WHERE trade_id = ? AND user_id = ?",
-      [req.params.tradeId, req.userId],
-    );
-    if (!trades.length)
-      return res.status(404).json({ error: "Trade not found" });
-
-    const trade = trades[0];
-    if (trade.status !== "OPEN")
-      return res.status(400).json({ error: "Trade already closed" });
-
-    // Get current price from cache
-    const priceCache = global.priceCache || {};
-    const price = priceCache[trade.symbol];
-    if (!price) return res.status(400).json({ error: "Price not available" });
-
-    const exitPrice = trade.side === "BUY" ? price.bid : price.ask;
-    const realizedCents = Math.round(
-      calculatePL(
-        trade.symbol,
-        trade.side,
-        trade.entry_price,
-        exitPrice,
-        trade.volume,
-      ) * 100,
-    );
-
-    // Update trade
-    await db.execute(
-      `UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), realized_profit_cents = ?, close_reason = 'MANUAL' WHERE trade_id = ?`,
-      [exitPrice, realizedCents, req.params.tradeId],
-    );
-
-    // Update account balance
-    await db.execute(
-      "UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?",
-      [realizedCents, trade.account_id],
-    );
-
-    res.json({
-      success: true,
-      exit_price: exitPrice,
-      realized_profit: realizedCents / 100,
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-});
-
 // 2. Modify SL/TP
 app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
   const { stop_loss, take_profit } = req.body;
