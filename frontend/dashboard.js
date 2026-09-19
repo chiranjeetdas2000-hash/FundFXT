@@ -296,10 +296,22 @@ async function loadCerts() {
 
 async function loadAffiliate() {
     try {
-        const data = await api('/api/affiliate/stats');
-        const code = data.affiliate_code || 'Unavailable';
+        const [stats, dashboard] = await Promise.all([
+            api('/api/affiliate/stats'),
+            api('/api/affiliate/dashboard')
+        ]);
+
+        const data = dashboard?.success ? dashboard : stats;
+        const code = data.affiliate_code || stats.affiliate_code || 'Unavailable';
+        const pendingCents = Number(
+            data.pending_earnings_cents
+            ?? data.available_earnings_cents
+            ?? stats.pending_earnings_cents
+            ?? 0
+        );
 
         $('affCode').textContent = code;
+
         $('copyCode').onclick = async () => {
             try {
                 await navigator.clipboard.writeText(code);
@@ -312,12 +324,75 @@ async function loadAffiliate() {
             }
         };
 
-        $('affRef').textContent = data.total_referrals || 0;
-        $('affSales').textContent = data.total_sales || 0;
-        $('affEarn').textContent = money(data.total_earnings_cents);
-        $('affPending').textContent = money(data.pending_earnings_cents);
+        $('shareCode').onclick = async () => {
+            const shareText = 'Join FundFXT with my referral code: ' + code;
+            try {
+                if (navigator.share) {
+                    await navigator.share({
+                        title: 'FundFXT Referral',
+                        text: shareText
+                    });
+                } else {
+                    await navigator.clipboard.writeText(shareText);
+                    $('shareCode').textContent = 'Copied';
+                    setTimeout(() => {
+                        $('shareCode').textContent = 'Share';
+                    }, 1500);
+                }
+            } catch (error) {
+                if (error?.name !== 'AbortError') {
+                    $('shareCode').textContent = 'Share failed';
+                    setTimeout(() => {
+                        $('shareCode').textContent = 'Share';
+                    }, 1500);
+                }
+            }
+        };
+
+        $('affRef').textContent = Number(data.total_referrals ?? stats.total_referrals ?? 0);
+        $('affSales').textContent = Number(data.verified_sales ?? data.total_sales ?? stats.total_sales ?? 0);
+        $('affEarn').textContent = money(
+            data.total_earnings_cents ?? stats.total_earnings_cents ?? 0
+        );
+        $('affPending').textContent = money(pendingCents);
+
+        const remaining = Math.max(10000 - pendingCents, 0);
+        $('affPendingHint').textContent = pendingCents < 10000
+            ? 'You need ' + money(remaining) + ' more to request payout'
+            : 'Minimum payout threshold reached';
+
+        const rows = Array.isArray(dashboard?.commissions)
+            ? dashboard.commissions
+            : [];
+
+        $('affiliateRows').innerHTML = rows.length
+            ? rows.map((sale) => {
+                const email = String(sale.customer_email || '—');
+                const maskedEmail = email.includes('@')
+                    ? email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
+                    : email;
+                const status = String(sale.status || 'PENDING').toUpperCase();
+                const statusClass = status === 'PAID'
+                    ? 'status-paid'
+                    : status === 'REJECTED' || status === 'CANCELLED'
+                        ? 'status-rejected'
+                        : 'status-pending';
+
+                return `
+                    <tr>
+                        <td><span class="masked-email">${esc(maskedEmail)}</span></td>
+                        <td class="mono-cell">${esc(sale.account_code || '—')}</td>
+                        <td>${sale.created_at ? new Date(sale.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                        <td>${money(sale.final_amount_cents)}</td>
+                        <td class="commission-cell">${money(sale.commission_cents)}</td>
+                        <td><span class="status-badge ${statusClass}">${esc(status)}</span></td>
+                    </tr>
+                `;
+            }).join('')
+            : '<tr><td colspan="6" class="empty-cell">No referred sales yet. Share your code to start earning.</td></tr>';
     } catch (error) {
         $('affCode').textContent = 'Unavailable';
+        $('affiliateRows').innerHTML = '<tr><td colspan="6" class="empty-cell">Unable to load referral activity.</td></tr>';
     }
 }
 
