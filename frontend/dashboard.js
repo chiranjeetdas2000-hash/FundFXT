@@ -361,12 +361,18 @@ async function loadAffiliate(page = affiliateWalletPage) {
             const isCredit = String(txn.txn_type || '').toUpperCase() === 'CREDIT';
             const status = String(txn.commission_status || 'EARNED').toUpperCase();
             const statusLabel = !isCredit && status === 'PAID' ? 'WITHDRAWN' : status;
-            const statusClass = status === 'PENDING' ? 'status-pending' : status === 'PAID' ? 'status-paid' : 'status-earned';
+            const statusClass = !isCredit && status === 'PAID'
+                ? 'status-withdrawn'
+                : status === 'PENDING'
+                    ? 'status-pending'
+                    : status === 'PAID'
+                        ? 'status-paid'
+                        : 'status-earned';
             const date = txn.created_at ? new Date(txn.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
             return '<tr>' +
                 '<td>' + date + '</td>' +
                 '<td><span class="txn-type ' + (isCredit ? 'txn-credit' : 'txn-debit') + '">' + (isCredit ? 'CREDIT' : 'DEBIT') + '</span></td>' +
-                '<td class="passbook-description">' + esc(txn.description || '—') + '</td>' +
+                '<td class="passbook-description">' + esc(txn.description || '—') + (txn.customer_email ? '<small class="passbook-email">' + esc(txn.customer_email) + '</small>' : '') + '</td>' +
                 '<td class="mono-cell">' + esc(txn.order_id || '—') + '</td>' +
                 '<td>' + esc(txn.sale_status || '—') + '</td>' +
                 '<td><span class="status-badge ' + statusClass + '">' + esc(statusLabel) + '</span></td>' +
