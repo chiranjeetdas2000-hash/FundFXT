@@ -1216,23 +1216,93 @@ app.get("/api/prices", authenticateToken, (req, res) => {
 app.get("/api/trade/get", authenticateToken, async (req, res) => {
   try {
     const accountCode = String(req.query.account_code || "").trim();
-    if (!accountCode)
+    const accountId = Number(req.query.account_id);
+
+    if (!accountCode && !Number.isInteger(accountId))
       return res
         .status(400)
-        .json({ success: false, error: "account_code is required" });
-    const [accounts] = await db.execute(
-      "SELECT id, account_code FROM accounts WHERE account_code = ? AND user_id = ? LIMIT 1",
-      [accountCode, req.userId],
-    );
-    if (!accounts.length)
+        .json({ success: false, error: "account_code or account_id is required" });
+
+    let accounts;
+
+    if (Number.isInteger(accountId)) {
+      const sql =
+        "SELECT id, account_code FROM accounts WHERE id = ? AND user_id = ? LIMIT 1";
+      const params = [accountId, req.userId];
+      console.log("[TRADE_GET_DEBUG]", {
+        userId: req.userId,
+        rawQuery: req.query.account_code,
+        normalized: accountCode,
+        len: accountCode.length,
+        chars: Array.from(accountCode).map(c => c.charCodeAt(0)).join(","),
+        sql,
+        params,
+      });
+      [accounts] = await db.execute(sql, params);
+    } else {
+      const sql =
+        "SELECT id, account_code FROM accounts WHERE account_code = ? AND user_id = ? LIMIT 1";
+      const params = [accountCode, req.userId];
+      console.log("[TRADE_GET_DEBUG]", {
+        userId: req.userId,
+        rawQuery: req.query.account_code,
+        normalized: accountCode,
+        len: accountCode.length,
+        chars: Array.from(accountCode).map(c => c.charCodeAt(0)).join(","),
+        sql,
+        params,
+      });
+      [accounts] = await db.execute(sql, params);
+
+      if (!accounts.length) {
+        const normalizedCode = accountCode
+          .normalize("NFKC")
+          .trim()
+          .replace(/[–—−]/g, "-")
+          .replace(/[^\x00-\x7F]/g, "");
+
+        const fallbackSql =
+          "SELECT id, account_code FROM accounts WHERE REPLACE(REPLACE(REPLACE(TRIM(account_code), '–', '-'), '—', '-'), '−', '-') = ? AND user_id = ? LIMIT 1";
+        const fallbackParams = [normalizedCode, req.userId];
+        console.log("[TRADE_GET_DEBUG]", {
+          userId: req.userId,
+          rawQuery: req.query.account_code,
+          normalized: normalizedCode,
+          len: normalizedCode.length,
+          chars: Array.from(normalizedCode).map(c => c.charCodeAt(0)).join(","),
+          sql: fallbackSql,
+          params: fallbackParams,
+        });
+        [accounts] = await db.execute(fallbackSql, fallbackParams);
+      }
+    }
+
+    if (!accounts.length) {
+      console.log("[TRADE_GET_DEBUG]", {
+        userId: req.userId,
+        rawQuery: req.query.account_code,
+        normalized: accountCode,
+        len: accountCode.length,
+        chars: Array.from(accountCode).map(c => c.charCodeAt(0)).join(","),
+        accountId: Number.isInteger(accountId) ? accountId : null,
+        result: "ACCOUNT_NOT_FOUND",
+      });
       return res
         .status(404)
         .json({ success: false, error: "Account not found" });
+    }
+
     const [trades] = await db.execute(
       "SELECT * FROM trades WHERE account_id = ? ORDER BY COALESCE(entry_time, created_at) DESC, id DESC",
       [accounts[0].id],
     );
-    res.json({ success: true, account_code: accountCode, trades });
+
+    res.json({
+      success: true,
+      account_code: accounts[0].account_code,
+      account_id: accounts[0].id,
+      trades
+    });
   } catch (e) {
     console.error("Trade fetch error:", e.message);
     res.status(500).json({ success: false, error: e.message });
