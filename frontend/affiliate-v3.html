@@ -13,12 +13,13 @@
            THEME VARIABLES
            ============================================================ */
         :root {
-            --bg: #070a0d;
-            --card: #0f151a;
-            --line: #26333c;
-            --green: #00b56a;
+            --bg: #0b0e14;
+            --card: #151924;
+            --line: #2a2e39;
+            --green: #00e59a;
             --muted: #8996a2;
-            --red: #ff4d5a;
+            --red: #ff7180;
+            --yellow: #f0b90b;
         }
 
         /* ============================================================
@@ -99,10 +100,11 @@
         }
 
         .card {
-            background: linear-gradient(145deg, var(--card), #0b1014);
+            background: linear-gradient(145deg, var(--card), #10141d);
             border: 1px solid var(--line);
-            border-radius: 18px;
-            padding: 24px;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 10px 28px rgba(0,0,0,.16);
         }
 
         .hero-card {
@@ -151,16 +153,26 @@
 
         .code-row {
             display: flex;
-            align-items: center;
+            align-items: stretch;
             gap: 9px;
-            margin-top: 5px;
+            margin-top: 8px;
+        }
+
+        .code-row .btn {
+            min-width: 92px;
         }
 
         .code {
-            font-size: 24px;
+            flex: 1;
+            font-size: 25px;
             font-weight: 800;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
             color: var(--green);
             word-break: break-all;
+            background: #0b0e14;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            padding: 12px 14px;
         }
 
         /* ============================================================
@@ -169,26 +181,38 @@
         .grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 10px;
-            margin-top: 13px;
+            gap: 14px;
+            margin-top: 14px;
         }
 
         .stat {
-            padding: 15px;
-            background: #0b1115;
+            padding: 18px;
+            background: #151924;
             border: 1px solid var(--line);
             border-radius: 12px;
+            transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+        }
+
+        .stat:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0,229,154,.35);
+            box-shadow: 0 12px 28px rgba(0,0,0,.2);
         }
 
         .stat span {
-            font-size: 9px;
+            display: block;
+            font-size: 10px;
+            font-weight: 600;
             color: var(--muted);
+            letter-spacing: .2px;
         }
 
         .stat b {
             display: block;
-            font-size: 19px;
-            margin-top: 4px;
+            font-size: 24px;
+            line-height: 1.2;
+            color: var(--green);
+            margin-top: 7px;
         }
 
         /* ============================================================
@@ -196,28 +220,66 @@
            ============================================================ */
         .lower {
             display: grid;
-            grid-template-columns: 1.2fr 0.8fr;
-            gap: 13px;
-            margin-top: 13px;
+            grid-template-columns: 1.35fr 0.65fr;
+            gap: 16px;
+            margin-top: 16px;
+            align-items: start;
+        }
+
+        .lower > div {
+            min-width: 0;
+        }
+
+        .payout-balance {
+            margin: 16px 0 8px;
+            padding: 14px;
+            background: #0b0e14;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+        }
+
+        .payout-balance span {
+            display: block;
+            color: var(--muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .payout-balance b {
+            display: block;
+            margin-top: 4px;
+            color: var(--green);
+            font-size: 24px;
+        }
+
+        .payout-hint {
+            color: var(--yellow);
+            font-size: 9px;
+            margin: 7px 0 0;
         }
 
         /* ============================================================
            TABLES
            ============================================================ */
         .table-wrap {
-            overflow: auto;
+            overflow-x: auto;
+            border: 1px solid var(--line);
+            border-radius: 10px;
+            background: #10141d;
         }
 
         .table {
             width: 100%;
-            min-width: 600px;
-            border-collapse: collapse;
+            min-width: 760px;
+            border-collapse: separate;
+            border-spacing: 0;
             font-size: 9px;
         }
 
         .table th,
         .table td {
-            padding: 10px 7px;
+            padding: 12px 10px;
             border-bottom: 1px solid var(--line);
             white-space: nowrap;
             text-align: left;
@@ -225,9 +287,48 @@
 
         .table th {
             color: var(--muted);
+            font-size: 8px;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            background: #0b0e14;
         }
 
-        .status-badge { display: inline-block; padding: 3px 7px; border-radius: 999px; background: #151924; font-size: 8px; font-weight: 700; }
+        .table tbody tr {
+            transition: background .15s ease;
+        }
+
+        .table tbody tr:hover {
+            background: rgba(255,255,255,.025);
+        }
+
+        .table tbody tr:last-child td {
+            border-bottom: 0;
+        }
+
+        .copy-email {
+            margin-left: 6px;
+            padding: 3px 6px;
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            background: #151924;
+            color: var(--muted);
+            font-size: 8px;
+            cursor: pointer;
+        }
+
+        .copy-email:hover {
+            color: var(--green);
+            border-color: rgba(0,229,154,.35);
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 8px;
+            font-weight: 700;
+        }
+
         .status-pending { color: #f0b90b; background: rgba(240, 185, 11, 0.12); }
         .status-paid { color: #00e59a; background: rgba(0, 229, 154, 0.12); }
 
@@ -236,10 +337,10 @@
            ============================================================ */
         input {
             width: 100%;
-            padding: 11px;
-            background: #090d10;
+            padding: 12px;
+            background: #0b0e14;
             border: 1px solid var(--line);
-            border-radius: 8px;
+            border-radius: 10px;
             color: #fff;
         }
 
@@ -328,9 +429,15 @@
         <section class="card">
             <span class="eyebrow">Payout</span>
             <h2>Commission withdrawal</h2>
-            <p style="color: var(--muted); font-size: 10px;">
+            <p style="color: var(--muted); font-size: 10px; line-height: 1.7;">
                 Minimum payout: $100. Available balance is backend-controlled.
             </p>
+
+            <div class="payout-balance">
+                <span>Current pending balance</span>
+                <b id="pendingBalance">$0.00</b>
+                <div id="payoutHint" class="payout-hint"></div>
+            </div>
 
             <div class="form">
                 <input id="amount" type="number" min="100" step="0.01" placeholder="Amount (USD)">
@@ -379,15 +486,14 @@
                         <tr>
                             <th>Email</th>
                             <th>Account Code</th>
-                            <th>Model</th>
+                            <th>Date</th>
                             <th>Amount Paid</th>
                             <th>Commission</th>
                             <th>Status</th>
-                            <th>Date</th>
                         </tr>
                     </thead>
                     <tbody id="rows">
-                        <tr><td colspan="7">Loading…</td></tr>
+                        <tr><td colspan="6">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -491,7 +597,15 @@ async function load() {
         $('ref').textContent = d.total_referrals || 0;
         $('sales').textContent = d.verified_sales ?? d.total_sales ?? 0;
         $('earn').textContent = money(d.total_earnings_cents);
-        $('pending').textContent = money(d.available_earnings_cents ?? d.pending_earnings_cents);
+        const pendingCents = Number(d.available_earnings_cents ?? d.pending_earnings_cents ?? 0);
+        $('pending').textContent = money(pendingCents);
+        $('pendingBalance').textContent = money(pendingCents);
+        $('payoutHint').textContent = pendingCents < 10000
+            ? 'You need ' + money(10000 - pendingCents) + ' more to request payout.'
+            : 'Minimum payout threshold reached.';
+
+        console.log('[Affiliate Center] dashboard fetch succeeded:', d);
+        console.log('[Affiliate Center] commissions:', d.commissions);
 
         // Commissions table
         const maskEmail = (email) => {
@@ -504,25 +618,61 @@ async function load() {
             return esc(local.slice(0, 3) + '***@' + domain);
         };
 
-        $('rows').innerHTML = d.commissions?.map((x) => `
-            <tr>
-                <td>${maskEmail(x.email ?? x.customer_email)}</td>
-                <td>${esc(x.account_code || x.accountCode || x.request_id)}</td>
-                <td>${esc(x.model)}</td>
-                <td>${money(x.final_amount_cents ?? x.paid_amount_cents)}</td>
-                <td>${money(x.commission_cents)}</td>
-                <td><span class="status-badge ${String(x.status || '').toUpperCase() === 'PAID' ? 'status-paid' : String(x.status || '').toUpperCase() === 'PENDING' ? 'status-pending' : ''}">${esc(String(x.status || '').toUpperCase() || '—')}</span></td>
-                <td>${x.created_at ? new Date(x.created_at).toLocaleDateString() : '—'}</td>
-            </tr>
-        `).join('') || '<tr><td colspan="7">No referred sales yet.</td></tr>';
+        const commissions = Array.isArray(d.commissions) ? d.commissions : [];
+        console.log('[Affiliate Center] rendering commission rows:', commissions.length);
+
+        $('rows').innerHTML = commissions.map((x) => {
+            const email = String(x.email ?? x.customer_email ?? '');
+            const status = String(x.status || '').toUpperCase();
+            const date = x.created_at
+                ? new Date(x.created_at).toLocaleDateString('en-GB', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                })
+                : '—';
+
+            return `
+                <tr>
+                    <td>
+                        ${maskEmail(email)}
+                        ${email ? '<button class="copy-email" type="button" data-email="' + esc(email) + '" onclick="copyEmail(this)">Copy</button>' : ''}
+                    </td>
+                    <td>${esc(x.account_code || x.accountCode || x.request_id)}</td>
+                    <td>${date}</td>
+                    <td>${money(x.final_amount_cents ?? x.paid_amount_cents)}</td>
+                    <td>${money(x.commission_cents)}</td>
+                    <td><span class="status-badge ${status === 'PAID' ? 'status-paid' : status === 'PENDING' ? 'status-pending' : ''}">${esc(status || '—')}</span></td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="6">No referred sales yet. Share your code to start earning.</td></tr>';
+        console.log('[Affiliate Center] #rows populated:', $('rows').children.length);
     } catch (e) {
+        console.error('[Affiliate Center] dashboard/render error:', e);
         $('msg').textContent = e.message;
+        $('rows').innerHTML = '<tr><td colspan="6">Unable to load referred sales.</td></tr>';
     }
 }
 
 
 /* ------------------------------------------------------------
-   3. PAYOUT REQUEST HANDLER
+   3. COPY CUSTOMER EMAIL
+   ------------------------------------------------------------ */
+window.copyEmail = async (button) => {
+    try {
+        await navigator.clipboard.writeText(button.dataset.email);
+        button.textContent = 'Copied!';
+        setTimeout(() => {
+            button.textContent = 'Copy';
+        }, 2000);
+    } catch {
+        button.textContent = 'Unavailable';
+    }
+};
+
+
+/* ------------------------------------------------------------
+   4. PAYOUT REQUEST HANDLER
    ------------------------------------------------------------ */
 $('request').onclick = async () => {
     const amount = Number($('amount').value);
@@ -541,7 +691,7 @@ $('request').onclick = async () => {
 
 
 /* ------------------------------------------------------------
-   4. INITIALIZE
+   5. INITIALIZE
    ------------------------------------------------------------ */
 load();
 </script>
