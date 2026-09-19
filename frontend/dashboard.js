@@ -294,107 +294,113 @@ async function loadCerts() {
     }
 }
 
-async function loadAffiliate() {
+let affiliateWalletPage = 1;
+const affiliateWalletFilters = { order_id: '', sale_status: '', commission_status: '' };
+
+async function loadAffiliate(page = affiliateWalletPage) {
     try {
-        const [stats, dashboard] = await Promise.all([
-            api('/api/affiliate/stats'),
-            api('/api/affiliate/dashboard')
-        ]);
+        affiliateWalletPage = Math.max(Number(page) || 1, 1);
+        const params = new URLSearchParams({ page: String(affiliateWalletPage), limit: '15' });
+        Object.entries(affiliateWalletFilters).forEach(([key, value]) => { if (value) params.set(key, value); });
 
-        const data = dashboard?.success ? dashboard : stats;
-        const code = data.affiliate_code || stats.affiliate_code || 'Unavailable';
-        const pendingCents = Number(
-            data.pending_earnings_cents
-            ?? data.available_earnings_cents
-            ?? stats.pending_earnings_cents
-            ?? 0
-        );
-
+        const data = await api('/api/affiliate/wallet?' + params.toString());
+        const code = data.affiliate_code || 'Unavailable';
         $('affCode').textContent = code;
 
         $('copyCode').onclick = async () => {
             try {
                 await navigator.clipboard.writeText(code);
                 $('copyCode').textContent = 'Copied';
-                setTimeout(() => {
-                    $('copyCode').textContent = 'Copy';
-                }, 1500);
-            } catch (error) {
-                $('copyCode').textContent = 'Copy failed';
-            }
+                setTimeout(() => $('copyCode').textContent = 'Copy', 1500);
+            } catch (error) { $('copyCode').textContent = 'Copy failed'; }
         };
 
         $('shareCode').onclick = async () => {
             const shareText = 'Join FundFXT with my referral code: ' + code;
             try {
-                if (navigator.share) {
-                    await navigator.share({
-                        title: 'FundFXT Referral',
-                        text: shareText
-                    });
-                } else {
+                if (navigator.share) await navigator.share({ title: 'FundFXT Referral', text: shareText });
+                else {
                     await navigator.clipboard.writeText(shareText);
                     $('shareCode').textContent = 'Copied';
-                    setTimeout(() => {
-                        $('shareCode').textContent = 'Share';
-                    }, 1500);
+                    setTimeout(() => $('shareCode').textContent = 'Share', 1500);
                 }
             } catch (error) {
                 if (error?.name !== 'AbortError') {
                     $('shareCode').textContent = 'Share failed';
-                    setTimeout(() => {
-                        $('shareCode').textContent = 'Share';
-                    }, 1500);
+                    setTimeout(() => $('shareCode').textContent = 'Share', 1500);
                 }
             }
         };
 
-        $('affRef').textContent = Number(data.total_referrals ?? stats.total_referrals ?? 0);
-        $('affSales').textContent = Number(data.verified_sales ?? data.total_sales ?? stats.total_sales ?? 0);
-        $('affEarn').textContent = money(
-            data.total_earnings_cents ?? stats.total_earnings_cents ?? 0
-        );
-        $('affPending').textContent = money(pendingCents);
+        $('affRef').textContent = Number(data.total_referrals || 0);
+        $('affSales').textContent = Number(data.total_sales || 0);
+        $('affEarn').textContent = money(data.total_earnings_cents || 0);
 
-        const remaining = Math.max(10000 - pendingCents, 0);
-        $('affPendingHint').textContent = pendingCents < 10000
-            ? 'You need ' + money(remaining) + ' more to request payout'
+        const walletBalance = Number(data.wallet_balance_cents || 0);
+        const pendingWithdrawal = Number(data.pending_withdrawal_cents || 0);
+        $('affPending').textContent = money(walletBalance);
+        $('affWalletBalance').textContent = money(walletBalance);
+        $('affWalletEarned').textContent = money(data.total_earnings_cents || 0);
+        $('affWalletPending').textContent = money(pendingWithdrawal);
+        $('affPendingHint').textContent = walletBalance < 10000
+            ? 'You need ' + money(10000 - walletBalance) + ' more to request payout'
             : 'Minimum payout threshold reached';
+        $('affAmount').max = (walletBalance / 100).toFixed(2);
 
-        const rows = Array.isArray(dashboard?.commissions)
-            ? dashboard.commissions
-            : [];
+        const totalPages = Number(data.total_pages || 0);
+        const currentPage = Number(data.page || 1);
+        $('affiliatePageLabel').textContent = 'Page ' + currentPage + ' of ' + Math.max(totalPages, 1);
+        $('affiliatePageSummary').textContent = data.total_count
+            ? data.total_count + ' wallet transaction' + (data.total_count === 1 ? '' : 's')
+            : 'No wallet transactions';
+        $('affiliatePrev').disabled = currentPage <= 1;
+        $('affiliateNext').disabled = !totalPages || currentPage >= totalPages;
 
-        $('affiliateRows').innerHTML = rows.length
-            ? rows.map((sale) => {
-                const email = String(sale.customer_email || '—');
-                const maskedEmail = email.includes('@')
-                    ? email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
-                    : email;
-                const status = String(sale.status || 'PENDING').toUpperCase();
-                const statusClass = status === 'PAID'
-                    ? 'status-paid'
-                    : status === 'REJECTED' || status === 'CANCELLED'
-                        ? 'status-rejected'
-                        : 'status-pending';
-
-                return `
-                    <tr>
-                        <td><span class="masked-email">${esc(maskedEmail)}</span></td>
-                        <td class="mono-cell">${esc(sale.account_code || '—')}</td>
-                        <td>${sale.created_at ? new Date(sale.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                        <td>${money(sale.final_amount_cents)}</td>
-                        <td class="commission-cell">${money(sale.commission_cents)}</td>
-                        <td><span class="status-badge ${statusClass}">${esc(status)}</span></td>
-                    </tr>
-                `;
-            }).join('')
-            : '<tr><td colspan="6" class="empty-cell">No referred sales yet. Share your code to start earning.</td></tr>';
+        const rows = Array.isArray(data.transactions) ? data.transactions : [];
+        $('affiliateRows').innerHTML = rows.length ? rows.map((txn) => {
+            const isCredit = String(txn.txn_type || '').toUpperCase() === 'CREDIT';
+            const status = String(txn.commission_status || 'EARNED').toUpperCase();
+            const statusLabel = !isCredit && status === 'PAID' ? 'WITHDRAWN' : status;
+            const statusClass = status === 'PENDING' ? 'status-pending' : status === 'PAID' ? 'status-paid' : 'status-earned';
+            const date = txn.created_at ? new Date(txn.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
+            return '<tr>' +
+                '<td>' + date + '</td>' +
+                '<td><span class="txn-type ' + (isCredit ? 'txn-credit' : 'txn-debit') + '">' + (isCredit ? 'CREDIT' : 'DEBIT') + '</span></td>' +
+                '<td class="passbook-description">' + esc(txn.description || '—') + '</td>' +
+                '<td class="mono-cell">' + esc(txn.order_id || '—') + '</td>' +
+                '<td>' + esc(txn.sale_status || '—') + '</td>' +
+                '<td><span class="status-badge ' + statusClass + '">' + esc(statusLabel) + '</span></td>' +
+                '<td class="' + (isCredit ? 'amount-credit' : 'amount-debit') + '">' + (isCredit ? '+' : '−') + money(txn.amount_cents) + '</td>' +
+                '<td class="balance-cell">' + money(txn.balance_after_cents) + '</td>' +
+                '</tr>';
+        }).join('') : '<tr><td colspan="8" class="empty-cell">No wallet transactions found.</td></tr>';
     } catch (error) {
         $('affCode').textContent = 'Unavailable';
-        $('affiliateRows').innerHTML = '<tr><td colspan="6" class="empty-cell">Unable to load referral activity.</td></tr>';
+        $('affiliateRows').innerHTML = '<tr><td colspan="8" class="empty-cell">Unable to load wallet passbook.</td></tr>';
     }
 }
+
+$('affWithdraw').addEventListener('click', () => {
+    $('affAmount').focus();
+    $('affAmount').scrollIntoView({ behavior: 'smooth', block: 'center' });
+});
+$('affiliateApplyFilters').addEventListener('click', () => {
+    affiliateWalletFilters.order_id = $('affiliateOrderFilter').value.trim();
+    affiliateWalletFilters.sale_status = $('affiliateSaleStatusFilter').value;
+    affiliateWalletFilters.commission_status = $('affiliateCommissionStatusFilter').value;
+    loadAffiliate(1);
+});
+$('affiliateClearFilters').addEventListener('click', () => {
+    affiliateWalletFilters.order_id = '';
+    affiliateWalletFilters.sale_status = '';
+    affiliateWalletFilters.commission_status = '';
+    $('affiliateOrderFilter').value = '';
+    $('affiliateSaleStatusFilter').value = '';
+    $('affiliateCommissionStatusFilter').value = '';
+    loadAffiliate(1);
+});
+$('affiliatePrev').addEventListener('click', () => { if (affiliateWalletPage > 1) loadAffiliate(affiliateWalletPage - 1); });
+$('affiliateNext').addEventListener('click', () => { loadAffiliate(affiliateWalletPage + 1); });
 
 async function loadTickets() {
     try {
