@@ -1216,7 +1216,6 @@ app.get("/api/prices", authenticateToken, (req, res) => {
 app.get("/api/trade/get", authenticateToken, async (req, res) => {
   try {
     const accountCode = String(req.query.account_code || "").trim();
-    console.log('PARAM_HEX:', Buffer.from(accountCode).toString('hex'), 'LEN:', Buffer.byteLength(accountCode));
     const accountId = Number(req.query.account_id);
 
     if (!accountCode && !Number.isInteger(accountId))
@@ -1242,17 +1241,8 @@ app.get("/api/trade/get", authenticateToken, async (req, res) => {
       [accounts] = await db.execute(sql, params);
     } else {
       const sql =
-        "SELECT id, account_code FROM accounts WHERE account_code = ? AND user_id = ? LIMIT 1";
+        "SELECT id, account_code FROM accounts WHERE BINARY account_code = BINARY ? AND user_id = ? LIMIT 1";
       const params = [accountCode, req.userId];
-      console.log("[TRADE_GET_DEBUG]", {
-        userId: req.userId,
-        rawQuery: req.query.account_code,
-        normalized: accountCode,
-        len: accountCode.length,
-        chars: Array.from(accountCode).map(c => c.charCodeAt(0)).join(","),
-        sql,
-        params,
-      });
       [accounts] = await db.execute(sql, params);
 
       if (!accounts.length) {
@@ -1263,36 +1253,13 @@ app.get("/api/trade/get", authenticateToken, async (req, res) => {
           .replace(/[^\x00-\x7F]/g, "");
 
         const fallbackSql =
-          "SELECT id, account_code FROM accounts WHERE REPLACE(REPLACE(REPLACE(TRIM(account_code), '–', '-'), '—', '-'), '−', '-') = ? AND user_id = ? LIMIT 1";
+          "SELECT id, account_code FROM accounts WHERE BINARY REPLACE(REPLACE(REPLACE(TRIM(account_code), '–', '-'), '—', '-'), '−', '-') = BINARY ? AND user_id = ? LIMIT 1";
         const fallbackParams = [normalizedCode, req.userId];
-        console.log("[TRADE_GET_DEBUG]", {
-          userId: req.userId,
-          rawQuery: req.query.account_code,
-          normalized: normalizedCode,
-          len: normalizedCode.length,
-          chars: Array.from(normalizedCode).map(c => c.charCodeAt(0)).join(","),
-          sql: fallbackSql,
-          params: fallbackParams,
-        });
         [accounts] = await db.execute(fallbackSql, fallbackParams);
       }
     }
 
     if (!accounts.length) {
-      const [allAccs] = await db.execute(
-        "SELECT id, account_code, HEX(account_code) AS hex_code, LENGTH(account_code) AS blen FROM accounts WHERE user_id = ?",
-        [req.userId]
-      );
-      console.log('ALL_ACCOUNTS_FROM_DB:', JSON.stringify(allAccs));
-      console.log("[TRADE_GET_DEBUG]", {
-        userId: req.userId,
-        rawQuery: req.query.account_code,
-        normalized: accountCode,
-        len: accountCode.length,
-        chars: Array.from(accountCode).map(c => c.charCodeAt(0)).join(","),
-        accountId: Number.isInteger(accountId) ? accountId : null,
-        result: "ACCOUNT_NOT_FOUND",
-      });
       return res
         .status(404)
         .json({ success: false, error: "Account not found" });
