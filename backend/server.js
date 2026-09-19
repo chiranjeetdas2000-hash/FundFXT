@@ -1271,12 +1271,101 @@ const instruments = {
   XAGUSD: { pip: 0.001, size: 5000 },
 };
 
+// Helper: safely get the mid rate for a symbol from the live price cache
+function getMidRate(symbol) {
+  const quote = global.priceCache && global.priceCache[symbol];
+  if (!quote) return null;
+  const mid = Number(quote.mid);
+  if (Number.isFinite(mid) && mid > 0) return mid;
+  const bid = Number(quote.bid);
+  const ask = Number(quote.ask);
+  if (Number.isFinite(bid) && Number.isFinite(ask) && bid > 0) {
+    return (bid + ask) / 2;
+  }
+  return null;
+}
+
+// Calculate realized / floating P/L in USD for any supported symbol
 function calculatePL(symbol, side, entry, current, volume) {
   const inst = instruments[symbol];
   if (!inst) return 0;
-  let diff = current - entry;
+
+  const entryNum = Number(entry);
+  const currentNum = Number(current);
+  const volumeNum = Number(volume);
+
+  if (
+    !Number.isFinite(entryNum) ||
+    !Number.isFinite(currentNum) ||
+    !Number.isFinite(volumeNum) ||
+    entryNum <= 0 ||
+    currentNum <= 0 ||
+    volumeNum <= 0
+  ) {
+    return 0;
+  }
+
+  let diff = currentNum - entryNum;
   if (side === "SELL") diff = -diff;
-  return (diff / inst.pip) * (inst.size * inst.pip) * volume;
+
+  // P/L in the pair's quote currency
+  const rawPL = diff * inst.size * volumeNum;
+  const quoteCurrency = symbol.slice(-3);
+
+  // USD-quoted pairs (EURUSD, GBPUSD, AUDUSD, XAUUSD, XAGUSD) — already USD
+  if (quoteCurrency === "USD") {
+    return rawPL;
+  }
+
+  // JPY-quoted pairs — divide by USD/JPY to convert JPY → USD
+  if (quoteCurrency === "JPY") {
+    const usdjpyRate =
+      symbol === "USDJPY" ? currentNum : getMidRate("USDJPY");
+    if (Number.isFinite(usdjpyRate) && usdjpyRate > 0) {
+      return rawPL / usdjpyRate;
+    }
+    return rawPL;
+  }
+
+  // CHF-quoted pairs — divide by USD/CHF
+  if (quoteCurrency === "CHF") {
+    const usdchfRate =
+      symbol === "USDCHF" ? currentNum : getMidRate("USDCHF");
+    if (Number.isFinite(usdchfRate) && usdchfRate > 0) {
+      return rawPL / usdchfRate;
+    }
+    return rawPL;
+  }
+
+  // CAD-quoted pairs — divide by USD/CAD
+  if (quoteCurrency === "CAD") {
+    const usdcadRate =
+      symbol === "USDCAD" ? currentNum : getMidRate("USDCAD");
+    if (Number.isFinite(usdcadRate) && usdcadRate > 0) {
+      return rawPL / usdcadRate;
+    }
+    return rawPL;
+  }
+
+  // GBP-quoted cross pairs — multiply by GBP/USD
+  if (quoteCurrency === "GBP") {
+    const gbpusdRate = getMidRate("GBPUSD");
+    if (Number.isFinite(gbpusdRate) && gbpusdRate > 0) {
+      return rawPL * gbpusdRate;
+    }
+    return rawPL;
+  }
+
+  // EUR-quoted cross pairs — multiply by EUR/USD
+  if (quoteCurrency === "EUR") {
+    const eurusdRate = getMidRate("EURUSD");
+    if (Number.isFinite(eurusdRate) && eurusdRate > 0) {
+      return rawPL * eurusdRate;
+    }
+    return rawPL;
+  }
+
+  return rawPL;
 }
 
 // ========== STEP 1: TRADING ENGINE & RISK MANAGEMENT ==========
