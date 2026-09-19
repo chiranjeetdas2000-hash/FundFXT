@@ -987,3 +987,155 @@ h2 {
     cursor: pointer;
     font-family: "Poppins", sans-serif;
 }
+
+
+/* ============================================================
+   AFFILIATE CENTER
+   ============================================================ */
+.code-box {
+    display: flex;
+    align-items: center;
+    min-width: 0;
+    padding: 12px 14px;
+    background: #0b0e14;
+    border: 1px solid #2a2e39;
+    border-radius: 10px;
+}
+
+.code-row .code-box {
+    flex: 1;
+}
+
+.affiliate .code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 25px;
+    line-height: 1.2;
+    color: #00e59a;
+}
+
+.code-row {
+    align-items: stretch;
+}
+
+.code-row .btn {
+    align-self: stretch;
+}
+
+.share {
+    white-space: nowrap;
+}
+
+.aff-stats {
+    margin-top: 13px;
+}
+
+.aff-stat {
+    min-height: 112px;
+    padding: 18px;
+}
+
+.aff-stat b {
+    margin-top: 7px;
+    color: #00e59a;
+    font-size: 24px;
+    line-height: 1.15;
+}
+
+.aff-stat small {
+    display: block;
+    margin-top: 7px;
+    color: var(--muted);
+    font-size: 9px;
+    line-height: 1.5;
+}
+
+.affiliate-sales-panel {
+    margin-top: 14px;
+    padding: 18px;
+}
+
+.affiliate-sales-title {
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.affiliate-sales-table {
+    min-width: 720px;
+}
+
+.affiliate-sales-table th,
+.affiliate-sales-table td {
+    padding: 13px 10px;
+}
+
+.masked-email {
+    color: #dce5e9;
+}
+
+.mono-cell {
+    color: #c8d1d6;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 10px;
+}
+
+.commission-cell {
+    color: #00e59a;
+    font-weight: 700;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 68px;
+    padding: 5px 9px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.status-paid {
+    color: #00e59a;
+    background: rgba(0, 229, 154, 0.1);
+    border: 1px solid rgba(0, 229, 154, 0.24);
+}
+
+.status-pending {
+    color: #f0b90b;
+    background: rgba(240, 185, 11, 0.1);
+    border: 1px solid rgba(240, 185, 11, 0.24);
+}
+
+.status-rejected {
+    color: #ff7180;
+    background: rgba(255, 113, 128, 0.1);
+    border: 1px solid rgba(255, 113, 128, 0.24);
+}
+
+.empty-cell {
+    padding: 30px 18px !important;
+    color: var(--muted);
+    text-align: center !important;
+}
+
+@media (max-width: 520px) {
+    .code-row {
+        flex-wrap: wrap;
+    }
+
+    .code-row .code-box {
+        flex: 1 1 100%;
+    }
+
+    .code-row .btn {
+        flex: 1;
+    }
+
+    .affiliate .code {
+        font-size: 21px;
+    }
+
+    .affiliate-sales-panel {
+        padding: 14px;
+    }
+}
