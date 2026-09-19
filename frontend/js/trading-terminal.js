@@ -503,11 +503,154 @@ async function loadTrades(force = false) {
 }
 
 function showDetails(id) {
-    const t=T.trades.find(x=>String(x.trade_id)===String(id));
-    if(!t)return;
-    const cents=Number(t.realized_profit_cents||0);
-    const fields=[['Trade ID',t.trade_id,'full-width'],['Pair',t.symbol],['Direction',t.side],['Lot Size',Number(t.volume).toFixed(2)],['Open Time',t.entry_time||t.created_at||'—'],['Close Time',t.exit_time||'—'],['Entry Price',fmt(Number(t.entry_price),t.symbol)],['Exit Price',fmt(Number(t.exit_price),t.symbol)],['Take Profit',(Number(t.take_profit)>0)?fmt(Number(t.take_profit),t.symbol):'Not set'],['Stop Loss',(Number(t.stop_loss)>0)?fmt(Number(t.stop_loss),t.symbol):'Not set'],['Exit By',t.close_reason||'—'],['Calculated P/L',t.status==='CLOSED'?`${cents>=0?'+':''}${money(cents)}`:'Open / Floating',t.status==='CLOSED'?(cents>=0?'pl-positive':'pl-negative'):'']].map(([a,b,className=''])=>`<div class="detail ${className}"><span>${a}</span><b>${b??'—'}</b></div>`).join('');
-    modal('Trade Details',fields,'')
+    const t = T.trades.find(
+        (x) => String(x.trade_id) === String(id),
+    );
+
+    if (!t) {
+        return;
+    }
+
+    const fmtDate = (value) => {
+        if (!value) {
+            return '—';
+        }
+
+        const date = new Date(value);
+
+        if (Number.isNaN(date.getTime())) {
+            return String(value);
+        }
+
+        const months = [
+            'Jan',
+            'Feb',
+            'Mar',
+            'Apr',
+            'May',
+            'Jun',
+            'Jul',
+            'Aug',
+            'Sep',
+            'Oct',
+            'Nov',
+            'Dec',
+        ];
+
+        const day = String(date.getDate()).padStart(2, '0');
+        const month = months[date.getMonth()];
+        const year = date.getFullYear();
+        const hours = String(date.getHours()).padStart(2, '0');
+        const minutes = String(date.getMinutes()).padStart(2, '0');
+
+        return day
+            + ' '
+            + month
+            + ' '
+            + year
+            + ', '
+            + hours
+            + ':'
+            + minutes;
+    };
+
+    const cents = Number(
+        t.realized_profit_cents || 0,
+    );
+
+    const fields = [
+        [
+            'Trade ID',
+            t.trade_id,
+            'full-width',
+        ],
+        [
+            'Pair',
+            t.symbol,
+        ],
+        [
+            'Direction',
+            t.side,
+        ],
+        [
+            'Lot Size',
+            Number(t.volume).toFixed(2),
+        ],
+        [
+            'Open Time',
+            fmtDate(
+                t.entry_time
+                || t.created_at,
+            ),
+        ],
+        [
+            'Close Time',
+            fmtDate(t.exit_time),
+        ],
+        [
+            'Entry Price',
+            fmt(
+                Number(t.entry_price),
+                t.symbol,
+            ),
+        ],
+        [
+            'Exit Price',
+            fmt(
+                Number(t.exit_price),
+                t.symbol,
+            ),
+        ],
+        [
+            'Take Profit',
+            Number(t.take_profit) > 0
+                ? fmt(
+                    Number(t.take_profit),
+                    t.symbol,
+                )
+                : 'Not set',
+        ],
+        [
+            'Stop Loss',
+            Number(t.stop_loss) > 0
+                ? fmt(
+                    Number(t.stop_loss),
+                    t.symbol,
+                )
+                : 'Not set',
+        ],
+        [
+            'Exit By',
+            t.close_reason || '—',
+        ],
+        [
+            'Calculated P/L',
+            t.status === 'CLOSED'
+                ? (
+                    (cents >= 0 ? '+' : '')
+                    + money(cents)
+                )
+                : 'Open / Floating',
+            t.status === 'CLOSED'
+                ? (
+                    cents >= 0
+                        ? 'pl-positive'
+                        : 'pl-negative'
+                )
+                : '',
+        ],
+    ]
+        .map(
+            ([label, value, className = '']) =>
+                `<div class="detail ${className}"><span>${label}</span><b>${value ?? '—'}</b></div>`,
+        )
+        .join('');
+
+    modal(
+        'Trade Details',
+        fields,
+        '',
+    );
 }
 function modal(title,body,actions) {
     document.querySelector('.trade-modal')?.remove();
