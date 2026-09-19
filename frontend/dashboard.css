@@ -628,6 +628,14 @@ h2 {
     gap: 14px;
 }
 
+.affiliate > .panel:nth-child(2) {
+    padding: 20px;
+}
+
+.affiliate > .panel:nth-child(2) .form {
+    padding: 0;
+}
+
 .aff-hero {
     min-height: 220px;
 }
