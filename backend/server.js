@@ -1354,7 +1354,20 @@ app.post(
     let connection;
 
     try {
-      connection = await db.getConnection();
+      connection = await Promise.race([
+        db.getConnection(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () =>
+              reject(
+                new Error(
+                  "DB connection timeout after 10s — pool likely exhausted",
+                ),
+              ),
+            10000,
+          ),
+        ),
+      ]);
       await connection.beginTransaction();
 
       const [trades] = await connection.execute(
@@ -1412,7 +1425,7 @@ app.post(
       );
 
       const [closeResult] = await connection.execute(
-        "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = 'MANUAL' WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' AND volume = ?",
+        "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = 'MANUAL', updated_at = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' AND volume = ?",
         [
           exitPrice,
           exitPrice,
@@ -1442,10 +1455,13 @@ app.post(
         Number(floatingRows[0]?.floating_cents || 0);
 
       const [accountResult] = await connection.execute(
-        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ? WHERE id = ? AND user_id = ?",
+        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + 1, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
         [
           realizedCents,
           floatingCents,
+          realizedCents,
+          realizedCents > 0 ? 1 : 0,
+          realizedCents < 0 ? 1 : 0,
           trade.account_id,
           req.userId,
         ],
