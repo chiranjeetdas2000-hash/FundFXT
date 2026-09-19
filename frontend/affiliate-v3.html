@@ -227,6 +227,10 @@
             color: var(--muted);
         }
 
+        .status-badge { display: inline-block; padding: 3px 7px; border-radius: 999px; background: #151924; font-size: 8px; font-weight: 700; }
+        .status-pending { color: #f0b90b; background: rgba(240, 185, 11, 0.12); }
+        .status-paid { color: #00e59a; background: rgba(0, 229, 154, 0.12); }
+
         /* ============================================================
            FORMS
            ============================================================ */
@@ -315,6 +319,7 @@
             <div class="code-row">
                 <div id="code" class="code">Loading…</div>
                 <button id="copy" class="btn primary">Copy</button>
+                <button id="share" class="btn">Share</button>
             </div>
             <div id="copyMsg" class="msg"></div>
         </section>
@@ -372,16 +377,17 @@
                 <table class="table">
                     <thead>
                         <tr>
-                            <th>Customer</th>
+                            <th>Email</th>
+                            <th>Account Code</th>
                             <th>Model</th>
-                            <th>Paid</th>
+                            <th>Amount Paid</th>
                             <th>Commission</th>
                             <th>Status</th>
                             <th>Date</th>
                         </tr>
                     </thead>
                     <tbody id="rows">
-                        <tr><td colspan="6">Loading…</td></tr>
+                        <tr><td colspan="7">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -458,11 +464,24 @@ async function load() {
         $('copy').onclick = async () => {
             try {
                 await navigator.clipboard.writeText(code);
-                $('copy').textContent = 'Copied';
+                $('copy').textContent = 'Copied!';
                 $('copyMsg').textContent = 'Affiliate code copied.';
                 setTimeout(() => {
                     $('copy').textContent = 'Copy';
-                }, 1500);
+                }, 2000);
+            } catch {
+                $('copyMsg').textContent = 'Copy is unavailable on this browser.';
+            }
+        };
+
+        $('share').onclick = async () => {
+            try {
+                const link = 'https://fundfxt.vercel.app/auth.html?ref=' + encodeURIComponent(code);
+                await navigator.clipboard.writeText(link);
+                $('share').textContent = 'Link copied!';
+                setTimeout(() => {
+                    $('share').textContent = 'Share';
+                }, 2000);
             } catch {
                 $('copyMsg').textContent = 'Copy is unavailable on this browser.';
             }
@@ -475,16 +494,27 @@ async function load() {
         $('pending').textContent = money(d.available_earnings_cents ?? d.pending_earnings_cents);
 
         // Commissions table
+        const maskEmail = (email) => {
+            if (!email) return '—';
+            const value = String(email);
+            const at = value.indexOf('@');
+            if (at < 0) return esc(value);
+            const local = value.slice(0, at);
+            const domain = value.slice(at + 1);
+            return esc(local.slice(0, 3) + '***@' + domain);
+        };
+
         $('rows').innerHTML = d.commissions?.map((x) => `
             <tr>
-                <td>${esc(x.customer_name)}</td>
+                <td>${maskEmail(x.email ?? x.customer_email)}</td>
+                <td>${esc(x.account_code || x.accountCode || x.request_id)}</td>
                 <td>${esc(x.model)}</td>
-                <td>${money(x.paid_amount_cents)}</td>
+                <td>${money(x.final_amount_cents ?? x.paid_amount_cents)}</td>
                 <td>${money(x.commission_cents)}</td>
-                <td>${esc(x.status)}</td>
+                <td><span class="status-badge ${String(x.status || '').toUpperCase() === 'PAID' ? 'status-paid' : String(x.status || '').toUpperCase() === 'PENDING' ? 'status-pending' : ''}">${esc(String(x.status || '').toUpperCase() || '—')}</span></td>
                 <td>${x.created_at ? new Date(x.created_at).toLocaleDateString() : '—'}</td>
             </tr>
-        `).join('') || '<tr><td colspan="6">No commission records yet.</td></tr>';
+        `).join('') || '<tr><td colspan="7">No referred sales yet.</td></tr>';
     } catch (e) {
         $('msg').textContent = e.message;
     }
