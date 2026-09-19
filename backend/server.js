@@ -35,13 +35,26 @@ const db = mysql.createPool({
   ssl: { rejectUnauthorized: false },
 });
 
-const GLOBAL_RPS_LIMIT = 100;
+const GLOBAL_RPS_LIMIT = 250;
 let globalRequestCount = 0;
 let globalWindowStart = Date.now();
 
 function globalRateLimit() {
   return (req, res, next) => {
     const now = Date.now();
+    const path = req.path || req.originalUrl?.split("?")[0] || "";
+
+    if (
+      path.startsWith("/api/trade/")
+      || path.startsWith("/api/trades/")
+    ) {
+      return next();
+    }
+
+    if (now - globalWindowStart > 2000) {
+      globalRequestCount = 0;
+      globalWindowStart = now;
+    }
 
     if (now - globalWindowStart >= 1000) {
       globalRequestCount = 0;
@@ -50,6 +63,15 @@ function globalRateLimit() {
 
     if (globalRequestCount >= GLOBAL_RPS_LIMIT) {
       const retryAfterMs = globalWindowStart + 1000 - now;
+
+      console.warn("RATE_LIMIT_HIT", {
+        path: path,
+        count: globalRequestCount,
+        limit: GLOBAL_RPS_LIMIT,
+        ip: req.ip || "unknown",
+        user_id: req.userId || "anonymous",
+        window_ms: now - globalWindowStart
+      });
 
       return res.status(429).json({
         error: "SERVER_BUSY",
