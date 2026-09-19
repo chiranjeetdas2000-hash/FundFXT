@@ -3901,20 +3901,24 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
 
     const [commissions] = await db.execute(
       `SELECT
-        id,
-        request_id AS order_ref,
-        model,
-        original_amount_cents,
-        discount_amount_cents,
-        final_amount_cents,
-        commission_amount_cents AS commission_cents,
-        commission_rate_bps,
-        fixed_bonus_cents,
-        status,
-        created_at
-       FROM affiliate_sales
-       WHERE affiliate_id = ?
-       ORDER BY created_at DESC`,
+        s.id,
+        s.request_id AS order_ref,
+        s.model,
+        s.original_amount_cents,
+        s.discount_amount_cents,
+        s.final_amount_cents,
+        s.commission_amount_cents AS commission_cents,
+        s.commission_rate_bps,
+        s.fixed_bonus_cents,
+        s.status,
+        s.created_at,
+        po.account_code AS account_code,
+        u.email AS customer_email
+       FROM affiliate_sales s
+       LEFT JOIN payment_requests po ON po.id = s.order_id
+       LEFT JOIN users u ON u.id = po.user_id
+       WHERE s.affiliate_id = ?
+       ORDER BY s.created_at DESC`,
       [affiliate.id]
     );
 
