@@ -564,6 +564,56 @@
     background: rgba(255, 113, 128, 0.08);
 }
 
+.trade-modal .trade-modal-card {
+    max-height: min(780px, calc(100dvh - 20px));
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.trade-modal .trade-modal-card .detail-grid {
+    padding: 12px 14px 14px;
+    gap: 8px;
+    flex: 1 1 auto;
+}
+
+.trade-modal .trade-modal-card .detail {
+    min-height: 0;
+    padding: 8px 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    align-items: flex-start;
+    justify-content: center;
+}
+
+.trade-modal .trade-modal-card .detail span {
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.4px;
+    max-width: 100%;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.trade-modal .trade-modal-card .detail b {
+    font-size: 11.5px;
+    font-weight: 700;
+    max-width: 100%;
+    text-align: left;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    line-height: 1.25;
+}
+
+.trade-modal .trade-modal-card .detail.full-width b {
+    font-family: 'Courier New', monospace;
+    font-size: 11px;
+    letter-spacing: 0.2px;
+    color: #4ce2a1;
+}
+
 @media (max-width: 520px) {
     .trade-modal .trade-modal-card {
         width: calc(100vw - 16px);
@@ -573,6 +623,26 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         max-height: none;
         overflow: visible;
+        padding: 10px 10px 12px;
+        gap: 6px;
+    }
+
+    .trade-modal .trade-modal-card .detail {
+        padding: 7px 8px;
+        border-radius: 8px;
+    }
+
+    .trade-modal .trade-modal-card .detail span {
+        font-size: 8px;
+        letter-spacing: 0.3px;
+    }
+
+    .trade-modal .trade-modal-card .detail b {
+        font-size: 10.5px;
+    }
+
+    .trade-modal .trade-modal-card .detail.full-width b {
+        font-size: 10px;
     }
 }
 
@@ -585,5 +655,13 @@
         grid-template-columns: repeat(2, minmax(0, 1fr));
         max-height: none;
         overflow: visible;
+    }
+
+    .trade-modal .trade-modal-card .detail span {
+        font-size: 7.5px;
+    }
+
+    .trade-modal .trade-modal-card .detail b {
+        font-size: 10px;
     }
 }
