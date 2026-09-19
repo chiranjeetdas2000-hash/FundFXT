@@ -72,78 +72,13 @@ async function sendEmail(to, subject, html) {
 async function ensureAffiliateSalesLedger() {
   try {
     await db.execute("INSERT INTO affiliates (user_id, affiliate_code, legal_name, total_sales, total_earnings_cents, pending_earnings_cents, status) SELECT u.id, u.affiliate_code, COALESCE(u.legal_name, u.email), 0, 0, 0, 'Active' FROM users u LEFT JOIN affiliates a ON a.user_id = u.id WHERE u.affiliate_code IS NOT NULL AND u.affiliate_code <> '' AND a.id IS NULL");
-
-    await db.execute("CREATE TABLE IF NOT EXISTS affiliate_sales (
-      id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
-      affiliate_id BIGINT NOT NULL,
-      order_id BIGINT NOT NULL,
-      request_id VARCHAR(100) NOT NULL,
-      affiliate_code VARCHAR(100) NULL,
-      model VARCHAR(100) NULL,
-      original_amount_cents BIGINT NOT NULL DEFAULT 0,
-      discount_amount_cents BIGINT NOT NULL DEFAULT 0,
-      final_amount_cents BIGINT NOT NULL DEFAULT 0,
-      commission_rate_bps INT NOT NULL DEFAULT 2000,
-      fixed_bonus_cents BIGINT NOT NULL DEFAULT 100,
-      commission_amount_cents BIGINT NOT NULL DEFAULT 0,
-      status VARCHAR(30) NOT NULL DEFAULT 'PENDING',
-      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_affiliate_sales_order (affiliate_id, order_id),
-      KEY idx_affiliate_sales_affiliate (affiliate_id, created_at)
-    )");
-
-    await db.execute("INSERT IGNORE INTO affiliate_sales (affiliate_id, order_id, request_id, affiliate_code, model, original_amount_cents, discount_amount_cents, final_amount_cents, commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at)
-      SELECT a.id, po.id, po.request_id, po.affiliate_code, po.model,
-             COALESCE(po.original_amount_cents,0), COALESCE(po.discount_amount_cents,0),
-             COALESCE(po.final_amount_cents,0), 2000, 100,
-             FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
-             po.status, COALESCE(po.created_at, NOW())
-      FROM payment_requests po
-      JOIN affiliates a ON a.affiliate_code = po.affiliate_code
-      WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> ''
-        AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
-
+    await db.execute("CREATE TABLE IF NOT EXISTS affiliate_sales (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, affiliate_id BIGINT NOT NULL, order_id BIGINT NOT NULL, request_id VARCHAR(100) NOT NULL, affiliate_code VARCHAR(100) NULL, model VARCHAR(100) NULL, original_amount_cents BIGINT NOT NULL DEFAULT 0, discount_amount_cents BIGINT NOT NULL DEFAULT 0, final_amount_cents BIGINT NOT NULL DEFAULT 0, commission_rate_bps INT NOT NULL DEFAULT 2000, fixed_bonus_cents BIGINT NOT NULL DEFAULT 100, commission_amount_cents BIGINT NOT NULL DEFAULT 0, status VARCHAR(30) NOT NULL DEFAULT 'PENDING', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_affiliate_sales_order (affiliate_id, order_id), KEY idx_affiliate_sales_affiliate (affiliate_id, created_at))");
+    await db.execute("INSERT IGNORE INTO affiliate_sales (affiliate_id, order_id, request_id, affiliate_code, model, original_amount_cents, discount_amount_cents, final_amount_cents, commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at) SELECT a.id, po.id, po.request_id, po.affiliate_code, po.model, COALESCE(po.original_amount_cents,0), COALESCE(po.discount_amount_cents,0), COALESCE(po.final_amount_cents,0), 2000, 100, FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100), po.status, COALESCE(po.created_at, NOW()) FROM payment_requests po JOIN affiliates a ON a.affiliate_code = po.affiliate_code WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> '' AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
     await db.execute("UPDATE affiliate_sales s JOIN payment_requests po ON po.id = s.order_id SET s.status = po.status WHERE po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
-
-    await db.execute("INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status)
-      SELECT s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING'
-      FROM affiliate_sales s JOIN payment_requests po ON po.id = s.order_id
-      LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id
-      WHERE ac.id IS NULL");
-
-    await db.execute("INSERT IGNORE INTO affiliate_wallet_transactions
-      (affiliate_id, txn_type, source, amount_cents, order_id, sale_status, commission_status, customer_email, account_code, description)
-      SELECT a.id, 'CREDIT', 'COMMISSION',
-             FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
-             po.id, po.status, 'EARNED', u.email, po.account_code,
-             CONCAT('Commission from ', po.model, ' for ', po.request_id)
-      FROM payment_requests po
-      JOIN affiliates a ON a.affiliate_code = po.affiliate_code
-      JOIN users u ON u.id = po.user_id
-      WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> ''
-        AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
-
-    await db.execute("UPDATE affiliate_wallet_transactions wt
-      JOIN payment_requests po ON po.id = wt.order_id
-      JOIN users u ON u.id = po.user_id
-      SET wt.sale_status = po.status, wt.customer_email = u.email,
-          wt.account_code = po.account_code,
-          wt.description = CONCAT('Commission from ', po.model, ' for ', po.request_id)
-      WHERE wt.source = 'COMMISSION' AND wt.order_id IS NOT NULL");
-
-    await db.execute("UPDATE affiliates a
-      LEFT JOIN (
-        SELECT affiliate_id, COUNT(*) AS sales_count,
-               COALESCE(SUM(commission_amount_cents),0) AS total_earnings,
-               COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents,0),0)),0) AS pending_earnings,
-               COALESCE(SUM(COALESCE(paid_amount_cents,0)),0) AS paid_earnings
-        FROM affiliate_commissions GROUP BY affiliate_id
-      ) x ON x.affiliate_id = a.id
-      SET a.total_sales = COALESCE(x.sales_count,0),
-          a.total_earnings_cents = COALESCE(x.total_earnings,0),
-          a.pending_earnings_cents = COALESCE(x.pending_earnings,0),
-          a.paid_earnings_cents = COALESCE(x.paid_earnings,0)");
-
+    await db.execute("INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status) SELECT s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING' FROM affiliate_sales s JOIN payment_requests po ON po.id = s.order_id LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id WHERE ac.id IS NULL");
+    await db.execute("INSERT IGNORE INTO affiliate_wallet_transactions (affiliate_id, txn_type, source, amount_cents, order_id, sale_status, commission_status, customer_email, account_code, description) SELECT a.id, 'CREDIT', 'COMMISSION', FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100), po.id, po.status, 'EARNED', u.email, po.account_code, CONCAT('Commission from ', po.model, ' for ', po.request_id) FROM payment_requests po JOIN affiliates a ON a.affiliate_code = po.affiliate_code JOIN users u ON u.id = po.user_id WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> '' AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
+    await db.execute("UPDATE affiliate_wallet_transactions wt JOIN payment_requests po ON po.id = wt.order_id JOIN users u ON u.id = po.user_id SET wt.sale_status = po.status, wt.customer_email = u.email, wt.account_code = po.account_code, wt.description = CONCAT('Commission from ', po.model, ' for ', po.request_id) WHERE wt.source = 'COMMISSION' AND wt.order_id IS NOT NULL");
+    await db.execute("UPDATE affiliates a LEFT JOIN (SELECT affiliate_id, COUNT(*) AS sales_count, COALESCE(SUM(commission_amount_cents),0) AS total_earnings, COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents,0),0)),0) AS pending_earnings, COALESCE(SUM(COALESCE(paid_amount_cents,0)),0) AS paid_earnings FROM affiliate_commissions GROUP BY affiliate_id) x ON x.affiliate_id = a.id SET a.total_sales = COALESCE(x.sales_count,0), a.total_earnings_cents = COALESCE(x.total_earnings,0), a.pending_earnings_cents = COALESCE(x.pending_earnings,0), a.paid_earnings_cents = COALESCE(x.paid_earnings,0)");
     const [walletRows] = await db.execute("SELECT id, affiliate_id, txn_type, amount_cents FROM affiliate_wallet_transactions ORDER BY affiliate_id ASC, created_at ASC, id ASC");
     let currentAffiliateId = null;
     let runningBalance = 0;
@@ -155,14 +90,7 @@ async function ensureAffiliateSalesLedger() {
       runningBalance += row.txn_type === 'CREDIT' ? Number(row.amount_cents || 0) : -Number(row.amount_cents || 0);
       await db.execute("UPDATE affiliate_wallet_transactions SET balance_after_cents = ? WHERE id = ?", [runningBalance, row.id]);
     }
-
-    await db.execute("UPDATE affiliates a
-      LEFT JOIN (
-        SELECT affiliate_id, COALESCE(SUM(CASE WHEN txn_type = 'CREDIT' THEN amount_cents WHEN txn_type = 'DEBIT' THEN -amount_cents ELSE 0 END),0) AS wallet_balance
-        FROM affiliate_wallet_transactions GROUP BY affiliate_id
-      ) w ON w.affiliate_id = a.id
-      SET a.wallet_balance_cents = COALESCE(w.wallet_balance,0)");
-
+    await db.execute("UPDATE affiliates a LEFT JOIN (SELECT affiliate_id, COALESCE(SUM(CASE WHEN txn_type = 'CREDIT' THEN amount_cents WHEN txn_type = 'DEBIT' THEN -amount_cents ELSE 0 END),0) AS wallet_balance FROM affiliate_wallet_transactions GROUP BY affiliate_id) w ON w.affiliate_id = a.id SET a.wallet_balance_cents = COALESCE(w.wallet_balance,0)");
     console.log('Affiliate sales ledger, wallet and historical passbook reconciled.');
   } catch (error) {
     console.error('Affiliate sales ledger migration failed:', error.message);
@@ -3769,32 +3697,10 @@ async function ensureAffiliateSchema() {
   await addColumnIfMissing('affiliate_commissions', 'fixed_bonus_cents', 'BIGINT NOT NULL DEFAULT 100');
   await addColumnIfMissing('affiliate_commissions', 'paid_amount_cents', 'BIGINT NOT NULL DEFAULT 0');
   await addColumnIfMissing('affiliate_commissions', 'paid_at', 'DATETIME NULL');
-  const [walletTableRows] = await db.execute(
-    "SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'affiliate_wallet_transactions'"
-  );
+  const [walletTableRows] = await db.execute("SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'affiliate_wallet_transactions'");
   if (!Number(walletTableRows[0]?.n)) {
-    await db.execute("CREATE TABLE affiliate_wallet_transactions (
-      id BIGINT AUTO_INCREMENT PRIMARY KEY,
-      affiliate_id BIGINT NOT NULL,
-      txn_type ENUM('CREDIT','DEBIT') NOT NULL,
-      source ENUM('COMMISSION','WITHDRAWAL','ADJUSTMENT') NOT NULL,
-      amount_cents BIGINT NOT NULL,
-      balance_after_cents BIGINT NOT NULL DEFAULT 0,
-      order_id BIGINT NULL,
-      withdrawal_id BIGINT NULL,
-      sale_status VARCHAR(50) NULL,
-      commission_status ENUM('EARNED','PAID','PENDING') DEFAULT 'EARNED',
-      customer_email VARCHAR(255) NULL,
-      account_code VARCHAR(50) NULL,
-      description VARCHAR(255) NULL,
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE KEY uq_commission_credit (order_id, source),
-      KEY idx_awt_affiliate_time (affiliate_id, created_at DESC),
-      KEY idx_awt_type (affiliate_id, txn_type)
-    )");
+    await db.execute("CREATE TABLE affiliate_wallet_transactions (id BIGINT AUTO_INCREMENT PRIMARY KEY, affiliate_id BIGINT NOT NULL, txn_type ENUM('CREDIT','DEBIT') NOT NULL, source ENUM('COMMISSION','WITHDRAWAL','ADJUSTMENT') NOT NULL, amount_cents BIGINT NOT NULL, balance_after_cents BIGINT NOT NULL DEFAULT 0, order_id BIGINT NULL, withdrawal_id BIGINT NULL, sale_status VARCHAR(50) NULL, commission_status ENUM('EARNED','PAID','PENDING') DEFAULT 'EARNED', customer_email VARCHAR(255) NULL, account_code VARCHAR(50) NULL, description VARCHAR(255) NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_commission_credit (order_id, source), KEY idx_awt_affiliate_time (affiliate_id, created_at DESC), KEY idx_awt_type (affiliate_id, txn_type))");
   }
-
-
 
   await db.execute(
     `UPDATE affiliate_commissions
@@ -4150,8 +4056,23 @@ app.post(
 
       if (status === "PAID") {
         await db.execute("UPDATE affiliate_wallet_transactions SET commission_status = 'PAID' WHERE withdrawal_id = ? AND txn_type = 'DEBIT' AND source = 'WITHDRAWAL'", [id]);
-        await db.execute("UPDATE affiliate_commissions SET paid_amount_cents = commission_amount_cents, status = 'PAID', paid_at = NOW() WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?) AND status IN ('PENDING','PARTIALLY_PAID')", [payout.user_id]);
-        await db.execute("UPDATE affiliates SET paid_earnings_cents = COALESCE(paid_earnings_cents,0) + ? WHERE user_id = ?", [Number(payout.amount_cents || 0), payout.user_id]);
+
+        let remaining = Number(payout.amount_cents || 0);
+        const [pendingCommissions] = await db.execute(
+          "SELECT id, commission_amount_cents, COALESCE(paid_amount_cents,0) AS paid_amount_cents FROM affiliate_commissions WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?) AND status IN ('PENDING','PARTIALLY_PAID') ORDER BY created_at ASC, id ASC",
+          [payout.user_id]
+        );
+        for (const commission of pendingCommissions) {
+          if (remaining <= 0) break;
+          const outstanding = Math.max(0, Number(commission.commission_amount_cents || 0) - Number(commission.paid_amount_cents || 0));
+          if (!outstanding) continue;
+          const allocation = Math.min(remaining, outstanding);
+          const newPaid = Number(commission.paid_amount_cents || 0) + allocation;
+          const newStatus = newPaid >= Number(commission.commission_amount_cents || 0) ? 'PAID' : 'PARTIALLY_PAID';
+          await db.execute("UPDATE affiliate_commissions SET paid_amount_cents = ?, status = ?, paid_at = CASE WHEN ? = 'PAID' THEN NOW() ELSE paid_at END WHERE id = ?", [newPaid, newStatus, newStatus, commission.id]);
+          remaining -= allocation;
+        }
+        await db.execute("UPDATE affiliates SET paid_earnings_cents = COALESCE(paid_earnings_cents,0) + ? WHERE user_id = ?", [Number(payout.amount_cents || 0) - remaining, payout.user_id]);
       }
 
       if (status === "REJECTED") {
