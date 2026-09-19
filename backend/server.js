@@ -1440,6 +1440,14 @@ app.post(
   "/api/trades/:tradeId/close",
   authenticateToken,
   async (req, res) => {
+    if (isForexWeekend()) {
+      return res.status(403).json({
+        error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
+        is_weekend: true
+      });
+    }
+
+
     let connection;
 
     try {
@@ -1592,6 +1600,14 @@ app.post(
   "/api/trades/:tradeId/partial-close",
   authenticateToken,
   async (req, res) => {
+    if (isForexWeekend()) {
+      return res.status(403).json({
+        error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
+        is_weekend: true
+      });
+    }
+
+
     const requestedVolume = Number(req.body?.volume);
 
     if (
@@ -2060,6 +2076,14 @@ app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
 
 // 4. PENDING ORDERS (Limit & Stop)
 app.post("/api/trades/pending", authenticateToken, async (req, res) => {
+    if (isForexWeekend()) {
+      return res.status(403).json({
+        error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
+        is_weekend: true
+      });
+    }
+
+
   const {
     account_code,
     symbol,
@@ -2322,6 +2346,14 @@ app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
 
 // 5. FLATTEN ALL (Close all open trades for an account)
 app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
+    if (isForexWeekend()) {
+      return res.status(403).json({
+        error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
+        is_weekend: true
+      });
+    }
+
+
   let connection;
 
   try {
@@ -2754,6 +2786,14 @@ app.post(
   "/api/trade/execute",
   authenticateToken,
   async (req, res) => {
+    if (isForexWeekend()) {
+      return res.status(403).json({
+        error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
+        is_weekend: true
+      });
+    }
+
+
     const {
       account_code,
       symbol,
