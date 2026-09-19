@@ -2154,6 +2154,10 @@ transition:none!important
     padding: 20px;
 }
 
+.server-busy-popup[hidden] {
+    display: none !important;
+}
+
 .server-busy-backdrop {
     position: absolute;
     inset: 0;
