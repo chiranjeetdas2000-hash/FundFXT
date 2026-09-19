@@ -1401,13 +1401,6 @@ app.post(
       const volume =
         Math.round(Number(trade.volume) * 100) / 100;
 
-      console.log(
-        "[FLATTEN] Closing trade:",
-        trade.trade_id,
-        "price:",
-        exitPrice,
-      );
-
       const realizedCents = Math.round(
         calculatePL(
           trade.symbol,
@@ -2287,6 +2280,13 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
       if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
         throw new Error(`Exit price unavailable for ${trade.symbol}.`);
       }
+
+      console.log(
+        "[FLATTEN] Closing trade:",
+        trade.trade_id,
+        "price:",
+        exitPrice,
+      );
 
       const realizedCents = Math.round(
         calculatePL(
