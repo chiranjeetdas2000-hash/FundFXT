@@ -207,35 +207,53 @@
                 </div>
             </div>
 
-            <div class="panel affiliate-sales-panel">
+            <div class="panel affiliate-wallet-card">
+                <div>
+                    <span class="eyebrow">Affiliate Wallet</span>
+                    <h2>Available Balance</h2>
+                    <b id="affWalletBalance" class="wallet-balance">$0.00</b>
+                    <p class="sub"><span id="affWalletEarned">$0.00</span> total earned · <span id="affWalletPending">$0.00</span> pending withdrawal</p>
+                </div>
+                <button class="btn primary" id="affWithdraw" type="button">Withdraw</button>
+            </div>
+            <div class="panel affiliate-passbook-panel">
                 <div class="section-title affiliate-sales-title">
-                    <div>
-                        <span class="eyebrow">Commission activity</span>
-                        <h2>Referred Sales</h2>
-                    </div>
-                    <small>Latest referral commissions</small>
+                    <div><span class="eyebrow">Wallet Ledger</span><h2>Passbook</h2></div>
+                    <small id="affiliatePageSummary">Latest wallet transactions</small>
+                </div>
+                <div class="affiliate-filters">
+                    <input id="affiliateOrderFilter" type="text" placeholder="Order ID">
+                    <select id="affiliateSaleStatusFilter">
+                        <option value="">All Sale Status</option>
+                        <option value="PAYMENT_DONE">PAYMENT_DONE</option>
+                        <option value="ACCOUNT_CREATED">ACCOUNT_CREATED</option>
+                        <option value="PAYMENT_APPROVED">PAYMENT_APPROVED</option>
+                        <option value="REJECTED">REJECTED</option>
+                    </select>
+                    <select id="affiliateCommissionStatusFilter">
+                        <option value="">All Commission Status</option>
+                        <option value="EARNED">EARNED</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="PAID">PAID</option>
+                    </select>
+                    <button class="btn primary" id="affiliateApplyFilters" type="button">Apply</button>
+                    <button class="btn" id="affiliateClearFilters" type="button">Clear</button>
                 </div>
                 <div class="table-wrap">
-                    <table class="table affiliate-sales-table">
-                        <thead>
-                            <tr>
-                                <th>Email</th>
-                                <th>Account Code</th>
-                                <th>Date</th>
-                                <th>Amount Paid</th>
-                                <th>Commission</th>
-                                <th>Status</th>
-                            </tr>
-                        </thead>
-                        <tbody id="affiliateRows">
-                            <tr>
-                                <td colspan="6" class="empty-cell">Loading referred sales…</td>
-                            </tr>
-                        </tbody>
+                    <table class="table affiliate-passbook-table">
+                        <thead><tr>
+                            <th>Date</th><th>Type</th><th>Description</th><th>Order ID</th>
+                            <th>Sale Status</th><th>Commission Status</th><th>Amount</th><th>Balance</th>
+                        </tr></thead>
+                        <tbody id="affiliateRows"><tr><td colspan="8" class="empty-cell">Loading passbook…</td></tr></tbody>
                     </table>
                 </div>
-            </div>
-        </section>
+                <div class="affiliate-pagination">
+                    <button class="btn" id="affiliatePrev" type="button">← Prev</button>
+                    <span id="affiliatePageLabel">Page 1 of 1</span>
+                    <button class="btn" id="affiliateNext" type="button">Next →</button>
+                </div>
+            </div>      </section>
 
         <section id="support" class="view">
             <div class="head">
