@@ -535,5 +535,29 @@
     <script src="/js/trading-terminal-ui-fix.js?v=20260918-5"></script>
     <script src="/js/trading-terminal-pairs-fix.js?v=20260919-1"></script>
     <script src="/js/trading-terminal-history-ui.js?v=20260918-1"></script>
+<div id="serverBusyPopup" class="server-busy-popup" hidden>
+    <div class="server-busy-backdrop"></div>
+
+    <div class="server-busy-card">
+        <div class="server-busy-icon">⏳</div>
+
+        <h3 class="server-busy-title">Server is a bit busy</h3>
+
+        <p class="server-busy-message">
+            We are processing a lot of requests right now.
+            Please try again in a few seconds.
+        </p>
+
+        <button
+            class="server-busy-btn"
+            type="button"
+            onclick="hideServerBusyPopup()"
+        >
+            Got it
+        </button>
+    </div>
+</div>
+
+    <script src="/js/server-busy-handler.js" defer></script>
 </body>
 </html>
