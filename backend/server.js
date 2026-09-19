@@ -71,6 +71,16 @@ async function sendEmail(to, subject, html) {
 // Sale history is stored separately and contains no customer PII.
 async function ensureAffiliateSalesLedger() {
   try {
+    // Self-heal missing affiliate rows for users created before the affiliates table existed.
+    await db.execute(\`\
+      INSERT INTO affiliates (user_id, affiliate_code, legal_name, total_sales, total_earnings_cents, pending_earnings_cents, status)
+      SELECT u.id, u.affiliate_code, COALESCE(u.legal_name, u.email), 0, 0, 0, 'Active'
+      FROM users u
+      LEFT JOIN affiliates a ON a.user_id = u.id
+      WHERE u.affiliate_code IS NOT NULL
+        AND u.affiliate_code <> ''
+        AND a.id IS NULL
+    \`);
     await db.execute(`CREATE TABLE IF NOT EXISTS affiliate_sales (
       id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       affiliate_id BIGINT NOT NULL,
@@ -109,7 +119,7 @@ async function ensureAffiliateSalesLedger() {
       JOIN affiliates a ON a.affiliate_code = po.affiliate_code
       WHERE po.affiliate_code IS NOT NULL
         AND TRIM(po.affiliate_code) <> ''
-        AND po.status IN ('PAYMENT_DONE','PAYMENT_APPROVED')
+        AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')
     `);
 
     // Keep the existing commission table compatible with the live schema.
@@ -3796,15 +3806,23 @@ app.get("/api/affiliate/stats", authenticateToken, async (req, res) => {
     );
 
     if (!affiliates.length) {
-      return res.json({
-        success: true,
-        affiliate_code: affiliateCode,
-        total_referrals: 0,
-        total_sales: 0,
-        total_earnings_cents: 0,
-        pending_earnings_cents: 0,
-        paid_earnings_cents: 0
-      });
+      await ensureAffiliateSalesLedger();
+      const [repairedAffiliates] = await db.execute(
+        "SELECT * FROM affiliates WHERE user_id = ? LIMIT 1",
+        [req.userId]
+      );
+      if (!repairedAffiliates.length) {
+        return res.json({
+          success: true,
+          affiliate_code: affiliateCode,
+          total_referrals: 0,
+          total_sales: 0,
+          total_earnings_cents: 0,
+          pending_earnings_cents: 0,
+          paid_earnings_cents: 0
+        });
+      }
+      affiliates.push(repairedAffiliates[0]);
     }
 
     const affiliate = affiliates[0];
@@ -3855,15 +3873,23 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
     );
 
     if (!affiliates.length) {
-      return res.json({
-        success: true,
-        affiliate_code: affiliateCode,
-        total_referrals: 0,
-        verified_sales: 0,
-        total_earnings_cents: 0,
-        available_earnings_cents: 0,
-        commissions: []
-      });
+      await ensureAffiliateSalesLedger();
+      const [repairedAffiliates] = await db.execute(
+        "SELECT * FROM affiliates WHERE user_id = ? LIMIT 1",
+        [req.userId]
+      );
+      if (!repairedAffiliates.length) {
+        return res.json({
+          success: true,
+          affiliate_code: affiliateCode,
+          total_referrals: 0,
+          verified_sales: 0,
+          total_earnings_cents: 0,
+          available_earnings_cents: 0,
+          commissions: []
+        });
+      }
+      affiliates.push(repairedAffiliates[0]);
     }
 
     const affiliate = affiliates[0];
