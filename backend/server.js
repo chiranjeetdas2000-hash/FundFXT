@@ -789,8 +789,9 @@ app.post(
     const { id } = req.params;
     const { status } = req.body;
 
-    const connection = await db.getConnection();
+    let connection;
     try {
+      connection = await db.getConnection();
       await connection.beginTransaction();
       const [orders] = await connection.execute(
         "SELECT * FROM payment_requests WHERE id = ? FOR UPDATE",
@@ -864,7 +865,9 @@ app.post(
       await connection.rollback();
       res.status(500).json({ error: error.message });
     } finally {
-      connection.release();
+      if (connection) {
+        connection.release();
+      }
     }
   },
 );
@@ -1348,9 +1351,10 @@ app.post(
   "/api/trades/:tradeId/close",
   authenticateToken,
   async (req, res) => {
-    const connection = await db.getConnection();
+    let connection;
 
     try {
+      connection = await db.getConnection();
       await connection.beginTransaction();
 
       const [trades] = await connection.execute(
@@ -1396,6 +1400,13 @@ app.post(
 
       const volume =
         Math.round(Number(trade.volume) * 100) / 100;
+
+      console.log(
+        "[FLATTEN] Closing trade:",
+        trade.trade_id,
+        "price:",
+        exitPrice,
+      );
 
       const realizedCents = Math.round(
         calculatePL(
@@ -1471,7 +1482,9 @@ app.post(
         error: error.message,
       });
     } finally {
-      connection.release();
+      if (connection) {
+        connection.release();
+      }
     }
   },
 );
@@ -1506,9 +1519,10 @@ app.post(
       });
     }
 
-    const connection = await db.getConnection();
+    let connection;
 
     try {
+      connection = await db.getConnection();
       await connection.beginTransaction();
 
       const [rows] = await connection.execute(
@@ -1720,7 +1734,9 @@ app.post(
         error: error.message,
       });
     } finally {
-      connection.release();
+      if (connection) {
+        connection.release();
+      }
     }
   },
 );
@@ -2192,10 +2208,35 @@ app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
 
 // 5. FLATTEN ALL (Close all open trades for an account)
 app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
-  const connection = await db.getConnection();
+  let connection;
 
   try {
+    console.log("[FLATTEN] Step 1: acquiring connection for account", req.params.id);
+
+    connection = await Promise.race([
+      db.getConnection(),
+      new Promise((_, reject) =>
+        setTimeout(
+          () =>
+            reject(
+              new Error(
+                "DB connection timeout after 10s — pool likely exhausted",
+              ),
+            ),
+          10000,
+        ),
+      ),
+    ]);
+
+    console.log(
+      "[FLATTEN] Step 2: connection acquired, beginning transaction",
+    );
+
     await connection.beginTransaction();
+
+    console.log(
+      "[FLATTEN] Step 3: transaction started, locking account",
+    );
 
     const [accounts] = await connection.execute(
       "SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE",
@@ -2212,9 +2253,18 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
 
     const account = accounts[0];
 
+    console.log(
+      "[FLATTEN] Step 4: account locked, fetching open trades",
+    );
+
     const [openTrades] = await connection.execute(
       "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN' FOR UPDATE",
       [account.id],
+    );
+
+    console.log(
+      "[FLATTEN] Step 5: open trades fetched, count =",
+      openTrades.length,
     );
 
     let totalRealizedCents = 0;
@@ -2309,7 +2359,11 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
       throw new Error("Account settlement failed.");
     }
 
+    console.log("[FLATTEN] Step 6: account updated, committing");
+
     await connection.commit();
+
+    console.log("[FLATTEN] Step 7: committed successfully");
 
     return res.json({
       success: true,
@@ -2322,17 +2376,21 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
       equity_cents: newEquityCents,
     });
   } catch (error) {
-    try {
-      await connection.rollback();
-    } catch {}
+    if (connection) {
+      try {
+        await connection.rollback();
+      } catch {}
+    }
 
-    console.error("Flatten error:", error);
+    console.error("FLATTEN FAILED:", error.message);
 
     return res.status(500).json({
       error: error.message,
     });
   } finally {
-    connection.release();
+    if (connection) {
+      connection.release();
+    }
   }
 });
 
@@ -2849,9 +2907,10 @@ app.post(
   authenticateAdmin,
   async (req, res) => {
     const { id } = req.params;
-    const connection = await db.getConnection();
+    let connection;
 
     try {
+      connection = await db.getConnection();
       await connection.beginTransaction();
 
       // Lock the payment order so two admin requests
@@ -2951,7 +3010,9 @@ app.post(
         error: error.message,
       });
     } finally {
-      connection.release();
+      if (connection) {
+        connection.release();
+      }
     }
   },
 );
