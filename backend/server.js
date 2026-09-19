@@ -3989,10 +3989,16 @@ app.post(
       }
 
       const [[userRow]] = await db.query("SELECT email, legal_name FROM users WHERE id = ?", [req.userId]);
-      await db.execute(
-        "INSERT INTO affiliate_wallet_transactions (affiliate_id, txn_type, source, amount_cents, balance_after_cents, withdrawal_id, commission_status, description) VALUES (?, 'DEBIT', 'WITHDRAWAL', ?, ?, ?, 'PENDING', ?)",
-        [affiliate.id, amount_cents, walletBalance - amount_cents, withdrawalResult.insertId, "Withdrawal request " + requestRef]
-      );
+      try {
+        await db.execute(
+          "INSERT INTO affiliate_wallet_transactions (affiliate_id, txn_type, source, amount_cents, balance_after_cents, withdrawal_id, commission_status, description) VALUES (?, 'DEBIT', 'WITHDRAWAL', ?, ?, ?, 'PENDING', ?)",
+          [affiliate.id, amount_cents, walletBalance - amount_cents, withdrawalResult.insertId, "Withdrawal request " + requestRef]
+        );
+      } catch (walletError) {
+        await db.execute("UPDATE affiliates SET wallet_balance_cents = wallet_balance_cents + ? WHERE id = ?", [amount_cents, affiliate.id]);
+        await db.execute("DELETE FROM withdrawal_request WHERE id = ?", [withdrawalResult.insertId]);
+        throw walletError;
+      }
 
       if (userRow) {
         await sendEmail(
