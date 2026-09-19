@@ -2192,47 +2192,150 @@ app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
 
 // 5. FLATTEN ALL (Close all open trades for an account)
 app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
+  const connection = await db.getConnection();
+
   try {
-    const [accounts] = await db.execute(
-      "SELECT * FROM accounts WHERE id = ? AND user_id = ?",
+    await connection.beginTransaction();
+
+    const [accounts] = await connection.execute(
+      "SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE",
       [req.params.id, req.userId],
     );
-    if (!accounts.length)
-      return res.status(404).json({ error: "Account not found" });
+
+    if (!accounts.length) {
+      await connection.rollback();
+
+      return res.status(404).json({
+        error: "Account not found",
+      });
+    }
+
     const account = accounts[0];
 
-    const [openTrades] = await db.execute(
-      "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN'",
+    const [openTrades] = await connection.execute(
+      "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN' FOR UPDATE",
       [account.id],
     );
+
+    let totalRealizedCents = 0;
+    let closedTradeCount = 0;
+    let winningTradeCount = 0;
+    let losingTradeCount = 0;
+
     for (const trade of openTrades) {
-      const price = global.priceCache[trade.symbol];
-      if (price) {
-        const exitPrice = trade.side === "BUY" ? price.bid : price.ask;
-        const realizedCents = Math.round(
-          calculatePL(
-            trade.symbol,
-            trade.side,
-            trade.entry_price,
-            exitPrice,
-            trade.volume,
-          ) * 100,
-        );
-        await db.execute(
-          "UPDATE trades SET status = 'CLOSED', exit_price = ?, realized_profit_cents = ?, close_reason = 'FLATTEN' WHERE trade_id = ?",
-          [exitPrice, realizedCents, trade.trade_id],
-        );
-        await db.execute(
-          "UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?",
-          [realizedCents, account.id],
+      const price = global.priceCache?.[trade.symbol];
+
+      if (!price) {
+        throw new Error(`Price not available for ${trade.symbol}.`);
+      }
+
+      const exitPrice =
+        trade.side === "BUY"
+          ? Number(price.bid)
+          : Number(price.ask);
+
+      if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
+        throw new Error(`Exit price unavailable for ${trade.symbol}.`);
+      }
+
+      const realizedCents = Math.round(
+        calculatePL(
+          trade.symbol,
+          trade.side,
+          trade.entry_price,
+          exitPrice,
+          trade.volume,
+        ) * 100,
+      );
+
+      const [closeResult] = await connection.execute(
+        "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = 'FLATTEN', updated_at = NOW() WHERE trade_id = ? AND account_id = ? AND status = 'OPEN'",
+        [
+          exitPrice,
+          exitPrice,
+          realizedCents,
+          trade.trade_id,
+          account.id,
+        ],
+      );
+
+      if (closeResult.affectedRows !== 1) {
+        throw new Error(
+          `Trade settlement failed for ${trade.trade_id}.`,
         );
       }
+
+      totalRealizedCents += realizedCents;
+      closedTradeCount += 1;
+
+      if (realizedCents > 0) {
+        winningTradeCount += 1;
+      } else if (realizedCents < 0) {
+        losingTradeCount += 1;
+      }
     }
-    res.json({ success: true, message: "All trades flattened" });
+
+    const [floatingRows] = await connection.execute(
+      "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
+      [account.id],
+    );
+
+    const remainingFloatingCents =
+      Number(floatingRows[0]?.floating_cents || 0);
+
+    const newBalanceCents =
+      Number(account.balance_cents || 0)
+      + totalRealizedCents;
+
+    const newEquityCents =
+      newBalanceCents
+      + remainingFloatingCents;
+
+    const [accountResult] = await connection.execute(
+      "UPDATE accounts SET balance_cents = ?, equity_cents = ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + ?, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
+      [
+        newBalanceCents,
+        newEquityCents,
+        totalRealizedCents,
+        closedTradeCount,
+        winningTradeCount,
+        losingTradeCount,
+        account.id,
+        req.userId,
+      ],
+    );
+
+    if (accountResult.affectedRows !== 1) {
+      throw new Error("Account settlement failed.");
+    }
+
+    await connection.commit();
+
+    return res.json({
+      success: true,
+      account_id: account.id,
+      closed_trades: closedTradeCount,
+      winning_trades: winningTradeCount,
+      losing_trades: losingTradeCount,
+      realized_profit: totalRealizedCents / 100,
+      balance_cents: newBalanceCents,
+      equity_cents: newEquityCents,
+    });
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    try {
+      await connection.rollback();
+    } catch {}
+
+    console.error("Flatten error:", error);
+
+    return res.status(500).json({
+      error: error.message,
+    });
+  } finally {
+    connection.release();
   }
 });
+
 async function processLivePrices() {
   const priceCache = global.priceCache || {};
   const [trades] = await db.execute(
