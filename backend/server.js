@@ -1216,6 +1216,7 @@ app.get("/api/prices", authenticateToken, (req, res) => {
 app.get("/api/trade/get", authenticateToken, async (req, res) => {
   try {
     const accountCode = String(req.query.account_code || "").trim();
+    console.log('PARAM_HEX:', Buffer.from(accountCode).toString('hex'), 'LEN:', Buffer.byteLength(accountCode));
     const accountId = Number(req.query.account_id);
 
     if (!accountCode && !Number.isInteger(accountId))
@@ -1278,6 +1279,11 @@ app.get("/api/trade/get", authenticateToken, async (req, res) => {
     }
 
     if (!accounts.length) {
+      const [allAccs] = await db.execute(
+        "SELECT id, account_code, HEX(account_code) AS hex_code, LENGTH(account_code) AS blen FROM accounts WHERE user_id = ?",
+        [req.userId]
+      );
+      console.log('ALL_ACCOUNTS_FROM_DB:', JSON.stringify(allAccs));
       console.log("[TRADE_GET_DEBUG]", {
         userId: req.userId,
         rawQuery: req.query.account_code,
