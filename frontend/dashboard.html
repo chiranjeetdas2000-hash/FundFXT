@@ -176,8 +176,11 @@
                     <div class="aff-content">
                         <span class="eyebrow">Your referral code</span>
                         <div class="code-row">
-                            <div class="code" id="affCode">Loading…</div>
+                            <div class="code-box">
+                                <div class="code" id="affCode">Loading…</div>
+                            </div>
                             <button class="btn copy" id="copyCode" type="button">Copy</button>
+                            <button class="btn share" id="shareCode" type="button">Share</button>
                         </div>
                     </div>
                 </div>
@@ -196,8 +199,41 @@
             <div class="aff-stats">
                 <div class="aff-stat tilt-card" data-tilt><span>Referrals</span><b id="affRef">0</b></div>
                 <div class="aff-stat tilt-card" data-tilt><span>Sales</span><b id="affSales">0</b></div>
-                <div class="aff-stat tilt-card" data-tilt><span>Total earnings</span><b id="affEarn">$0.00</b></div>
-                <div class="aff-stat tilt-card" data-tilt><span>Pending</span><b id="affPending">$0.00</b></div>
+                <div class="aff-stat tilt-card" data-tilt><span>Total Earnings</span><b id="affEarn">$0.00</b></div>
+                <div class="aff-stat tilt-card pending-stat" data-tilt>
+                    <span>Pending Balance</span>
+                    <b id="affPending">$0.00</b>
+                    <small id="affPendingHint">You need $100.00 more to request payout</small>
+                </div>
+            </div>
+
+            <div class="panel affiliate-sales-panel">
+                <div class="section-title affiliate-sales-title">
+                    <div>
+                        <span class="eyebrow">Commission activity</span>
+                        <h2>Referred Sales</h2>
+                    </div>
+                    <small>Latest referral commissions</small>
+                </div>
+                <div class="table-wrap">
+                    <table class="table affiliate-sales-table">
+                        <thead>
+                            <tr>
+                                <th>Email</th>
+                                <th>Account Code</th>
+                                <th>Date</th>
+                                <th>Amount Paid</th>
+                                <th>Commission</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="affiliateRows">
+                            <tr>
+                                <td colspan="6" class="empty-cell">Loading referred sales…</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </section>
 
