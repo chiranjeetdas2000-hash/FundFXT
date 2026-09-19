@@ -725,49 +725,159 @@ function partialClose(id) {
     closeAmountModal(id,t)
 }
 async function execute(side) {
-    const code=T.account?.account_code,volume=Number($('volume')?.value),sl=$('sl')?.value===''?null:Number($('sl')?.value),tp=$('tp')?.value===''?null:Number($('tp')?.value);
-    const orderType=$('orderType')?.value||'MARKET';
-    if(!code)return feedback('No trading account selected.');
+    const code =
+        T.account?.account_code;
+
+    const volume =
+        Number(
+            $('volume')?.value,
+        );
+
+    const sl =
+        $('sl')?.value === ''
+            ? null
+            : Number(
+                $('sl')?.value,
+            );
+
+    const tp =
+        $('tp')?.value === ''
+            ? null
+            : Number(
+                $('tp')?.value,
+            );
+
+    const orderType =
+        $('orderType')?.value || 'MARKET';
+
+    if (!code) {
+        return feedback(
+            'No trading account selected.',
+        );
+    }
 
     if (orderType !== 'MARKET') {
-        if (typeof window.executePendingOrder === 'function') {
+        if (
+            typeof window.executePendingOrder
+            === 'function'
+        ) {
             await window.executePendingOrder(side);
             return;
         }
 
-        return feedback('Pending order handler is not available. Please refresh the terminal.');
+        return feedback(
+            'Pending order handler is not available. Please refresh the terminal.',
+        );
     }
 
-    if(!isNum(volume)||volume<.01||volume>2)return feedback('Lot size must be 0.01 to 2.00.');
+    if (
+        !isNum(volume)
+        || volume < 0.01
+        || volume > 2
+    ) {
+        return feedback(
+            'Lot size must be 0.01 to 2.00.',
+        );
+    }
 
-    const button = side === 'BUY'
-        ? $('buy')
-        : $('sell');
+    const priceSnapshot =
+        T.prices?.[T.selected];
+
+    if (!priceSnapshot) {
+        return feedback(
+            'Live price not available. Please wait a moment.',
+        );
+    }
+
+    const clientPrice =
+        side === 'BUY'
+            ? Number(priceSnapshot.ask)
+            : Number(priceSnapshot.bid);
+
+    if (
+        !Number.isFinite(clientPrice)
+        || clientPrice <= 0
+    ) {
+        return feedback(
+            'Invalid live price.',
+        );
+    }
+
+    const button =
+        side === 'BUY'
+            ? $('buy')
+            : $('sell');
 
     setButtonLoading(
         button,
         true,
-        side === 'BUY' ? 'Buying...' : 'Selling...',
+        side === 'BUY'
+            ? 'Buying...'
+            : 'Selling...',
     );
 
     try {
-        const d=await api('/api/trade/execute', {
-            method:'POST',body:JSON.stringify( {
-                account_code:code,symbol:T.selected,side,volume,sl,tp
-            }            )
-        }        );
-        feedback(`${side} ${T.selected} ${volume.toFixed(2)} lot executed successfully${d.trade_id?' · '+d.trade_id:''}`,true);
+        const d =
+            await api(
+                '/api/trade/execute',
+                {
+                    method: 'POST',
+                    body: JSON.stringify({
+                        account_code: code,
+                        symbol: T.selected,
+                        side: side,
+                        volume: volume,
+                        sl: sl,
+                        tp: tp,
+                        client_price: clientPrice,
+                    }),
+                },
+            );
+
+        feedback(
+            side
+            + ' '
+            + T.selected
+            + ' '
+            + volume.toFixed(2)
+            + ' lot executed at '
+            + d.entry_price
+            + (
+                d.trade_id
+                    ? ' · ' + d.trade_id
+                    : ''
+            ),
+            true,
+        );
+
         await loadAccount();
         await loadTrades();
-        openPanel('trades')
+        openPanel('trades');
     }
-    catch(e) {
-        feedback(e.message)
+    catch (error) {
+        if (
+            error.message
+            && error.message.includes(
+                'PRICE_MOVED',
+            )
+        ) {
+            feedback(
+                'Price moved significantly since you clicked. Please try again.',
+            );
+        } else {
+            feedback(
+                error.message,
+            );
+        }
     }
     finally {
-        setButtonLoading(button, false);
+        setButtonLoading(
+            button,
+            false,
+        );
     }
 }
+
 function addPair() {
     const body = `
         <div class="pair-add-toolbar">
