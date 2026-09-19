@@ -481,8 +481,8 @@ async function loadTrades(force = false) {
     T.tradeLoadPromise = (async () => {
         try {
             const d = await api(
-                '/api/trade/get?account_code='
-                + encodeURIComponent(T.account.account_code),
+                '/api/trade/get?account_id='
+                + encodeURIComponent(T.account.id),
             );
 
             T.trades = Array.isArray(d.trades)
