@@ -524,3 +524,66 @@
 .trade-card.history-card .trade-meta .pl.red {
     color: #ff7180;
 }
+
+/* ============================================================
+   TRADE DETAILS MODAL — AUTHORITATIVE OVERRIDE
+   ============================================================ */
+
+.trade-modal .trade-modal-card {
+    width: min(560px, calc(100vw - 24px));
+}
+
+.trade-modal .trade-modal-card .detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    max-height: none;
+    overflow: visible;
+}
+
+.trade-modal .trade-modal-card .detail-grid .detail.full-width {
+    grid-column: 1 / -1;
+}
+
+.trade-modal .trade-modal-card .detail-grid .detail.full-width b {
+    overflow: visible;
+    max-width: none;
+    text-overflow: clip;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+}
+
+.trade-modal .trade-modal-card .detail-grid .detail.pl-positive {
+    border-color: rgba(0, 229, 154, 0.32);
+    background: rgba(0, 229, 154, 0.08);
+}
+
+.trade-modal .trade-modal-card .detail-grid .detail.pl-negative {
+    border-color: rgba(255, 113, 128, 0.32);
+    background: rgba(255, 113, 128, 0.08);
+}
+
+@media (max-width: 520px) {
+    .trade-modal .trade-modal-card {
+        width: calc(100vw - 16px);
+    }
+
+    .trade-modal .trade-modal-card .detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 360px) {
+    .trade-modal .trade-modal-card {
+        width: calc(100vw - 16px);
+    }
+
+    .trade-modal .trade-modal-card .detail-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        max-height: none;
+        overflow: visible;
+    }
+}
