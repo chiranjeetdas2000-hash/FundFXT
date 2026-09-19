@@ -2221,3 +2221,241 @@ transition:none!important
     cursor: pointer;
     font-family: "Poppins", sans-serif;
 }
+/* ============================================================
+   TRADE DETAILS MODAL — FINAL RESPONSIVE FIX
+   Additive modal styling only.
+   ============================================================ */
+
+.trade-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    box-sizing: border-box;
+    overflow: hidden;
+}
+
+.trade-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(4, 6, 10, 0.72);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+}
+
+.trade-modal-card {
+    position: relative;
+    z-index: 1;
+    width: min(520px, 100%);
+    max-height: min(720px, 88vh);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 18px;
+    background: linear-gradient(
+        155deg,
+        #111820 0%,
+        #0c1219 100%
+    );
+    box-shadow:
+        0 30px 80px rgba(0, 0, 0, 0.60),
+        0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+    animation: tradeModalIn 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.trade-modal-head {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.trade-modal-head h3 {
+    margin: 0;
+    color: #f5f7f8;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: -0.2px;
+}
+
+.trade-modal-close {
+    width: 32px;
+    height: 32px;
+    flex: 0 0 32px;
+    display: grid;
+    place-items: center;
+    padding: 0;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    color: #94a3b8;
+    font-size: 18px;
+    line-height: 1;
+    cursor: pointer;
+    transition:
+        color 0.18s ease,
+        background 0.18s ease,
+        border-color 0.18s ease,
+        transform 0.18s ease;
+}
+
+.trade-modal-close:hover {
+    color: #ffffff;
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.15);
+    transform: translateY(-1px);
+}
+
+.trade-modal-card .detail-grid {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 14px 20px 18px;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
+}
+
+.trade-modal-card .detail-grid::-webkit-scrollbar {
+    width: 6px;
+}
+
+.trade-modal-card .detail-grid::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.trade-modal-card .detail-grid::-webkit-scrollbar-thumb {
+    border-radius: 6px;
+    background: rgba(255, 255, 255, 0.12);
+}
+
+.trade-modal-card .detail {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    min-height: 42px;
+    padding: 10px 12px;
+    box-sizing: border-box;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    background: rgba(255, 255, 255, 0.025);
+}
+
+.trade-modal-card .detail + .detail {
+    margin-top: 7px;
+}
+
+.trade-modal-card .detail span {
+    flex: 0 0 auto;
+    color: #7f8d9a;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+}
+
+.trade-modal-card .detail b {
+    min-width: 0;
+    max-width: 65%;
+    color: #f5f7f8;
+    font-size: 11px;
+    font-weight: 700;
+    text-align: right;
+    overflow-wrap: anywhere;
+    font-variant-numeric: tabular-nums;
+}
+
+.trade-modal .modal-actions {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 20px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+@keyframes tradeModalIn {
+    from {
+        opacity: 0;
+        transform: translateY(12px) scale(0.98);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+@media (max-width: 600px) {
+    .trade-modal {
+        align-items: flex-end;
+        padding: 10px;
+    }
+
+    .trade-modal-card {
+        width: 100%;
+        max-width: 100%;
+        max-height: 82vh;
+        border-radius: 18px 18px 12px 12px;
+        animation: tradeModalInMobile 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .trade-modal-head {
+        padding: 14px 16px 12px;
+    }
+
+    .trade-modal-card .detail-grid {
+        padding: 12px 12px 14px;
+    }
+
+    .trade-modal-card .detail {
+        min-height: 40px;
+        padding: 9px 10px;
+        gap: 12px;
+    }
+
+    .trade-modal-card .detail span {
+        font-size: 9px;
+    }
+
+    .trade-modal-card .detail b {
+        max-width: 58%;
+        font-size: 10.5px;
+    }
+
+    .trade-modal .modal-actions {
+        padding: 10px 12px 14px;
+    }
+}
+
+@keyframes tradeModalInMobile {
+    from {
+        opacity: 0;
+        transform: translateY(36px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .trade-modal-card {
+        animation: none;
+    }
+
+    .trade-modal-close {
+        transition: none;
+    }
+}
