@@ -2219,11 +2219,11 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
           ) * 100,
         );
         await db.execute(
-          "UPDATE trades SET status = 'CLOSED', exit_price = ?, realized_profit_cents = ?, close_reason = 'FLATTEN', updated_at = NOW() WHERE trade_id = ?",
+          "UPDATE trades SET status = 'CLOSED', exit_price = ?, realized_profit_cents = ?, close_reason = 'FLATTEN' WHERE trade_id = ?",
           [exitPrice, realizedCents, trade.trade_id],
         );
         await db.execute(
-          "UPDATE accounts SET balance_cents = balance_cents + ?, updated_at = NOW() WHERE id = ?",
+          "UPDATE accounts SET balance_cents = balance_cents + ? WHERE id = ?",
           [realizedCents, account.id],
         );
       }
