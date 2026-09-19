@@ -11,6 +11,17 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+app.get("/api/health", (req, res) => {
+  res.json({
+    status: "ok",
+    uptime: process.uptime(),
+    timestamp: Date.now(),
+    service: "FundFXT Backend"
+  });
+});
+
+app.use(globalRateLimit());
+
 // ========== DATABASE ==========
 const db = mysql.createPool({
   host: process.env.DB_HOST,
@@ -20,8 +31,37 @@ const db = mysql.createPool({
   port: Number(process.env.DB_PORT),
   waitForConnections: true,
   connectionLimit: 10,
+  queueLimit: 0,
   ssl: { rejectUnauthorized: false },
 });
+
+const GLOBAL_RPS_LIMIT = 100;
+let globalRequestCount = 0;
+let globalWindowStart = Date.now();
+
+function globalRateLimit() {
+  return (req, res, next) => {
+    const now = Date.now();
+
+    if (now - globalWindowStart >= 1000) {
+      globalRequestCount = 0;
+      globalWindowStart = now;
+    }
+
+    if (globalRequestCount >= GLOBAL_RPS_LIMIT) {
+      const retryAfterMs = globalWindowStart + 1000 - now;
+
+      return res.status(429).json({
+        error: "SERVER_BUSY",
+        message: "We are experiencing high traffic right now. Please try again in a moment.",
+        retry_after_ms: retryAfterMs > 0 ? retryAfterMs : 0
+      });
+    }
+
+    globalRequestCount++;
+    next();
+  };
+}
 
 (async () => {
   try {
