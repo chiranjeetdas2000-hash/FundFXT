@@ -72,7 +72,7 @@ async function sendEmail(to, subject, html) {
 async function ensureAffiliateSalesLedger() {
   try {
     // Self-heal missing affiliate rows for users created before the affiliates table existed.
-    await db.execute(\`\
+    await db.execute(`
       INSERT INTO affiliates (user_id, affiliate_code, legal_name, total_sales, total_earnings_cents, pending_earnings_cents, status)
       SELECT u.id, u.affiliate_code, COALESCE(u.legal_name, u.email), 0, 0, 0, 'Active'
       FROM users u
@@ -80,7 +80,7 @@ async function ensureAffiliateSalesLedger() {
       WHERE u.affiliate_code IS NOT NULL
         AND u.affiliate_code <> ''
         AND a.id IS NULL
-    \`);
+    `);
     await db.execute(`CREATE TABLE IF NOT EXISTS affiliate_sales (
       id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       affiliate_id BIGINT NOT NULL,
