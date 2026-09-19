@@ -20,7 +20,6 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.use(globalRateLimit());
 
 // ========== DATABASE ==========
 const db = mysql.createPool({
@@ -34,70 +33,6 @@ const db = mysql.createPool({
   queueLimit: 0,
   ssl: { rejectUnauthorized: false },
 });
-
-const GLOBAL_RPS_LIMIT = 100;
-let globalRequestCount = 0;
-let globalWindowStart = Date.now();
-
-function globalRateLimit() {
-  return (req, res, next) => {
-    const path = String(
-      req.path || req.url || "",
-    );
-
-    if (
-      path.startsWith("/api/trade/")
-      || path.startsWith("/api/trades/")
-      || path.startsWith("/api/health")
-      || path.startsWith("/api/prices")
-      || path.startsWith("/ws")
-    ) {
-      return next();
-    }
-
-    const now = Date.now();
-
-    if (now - globalWindowStart > 2000) {
-      globalRequestCount = 0;
-      globalWindowStart = now;
-    }
-
-    if (now - globalWindowStart >= 1000) {
-      globalRequestCount = 0;
-      globalWindowStart = now;
-    }
-
-    if (globalRequestCount >= GLOBAL_RPS_LIMIT) {
-      const retryAfterMs =
-        globalWindowStart + 1000 - now;
-
-      console.warn(
-        "RATE_LIMIT_HIT",
-        {
-          path: path,
-          count: globalRequestCount,
-          limit: GLOBAL_RPS_LIMIT,
-          ip: req.ip || "unknown",
-          user_id: req.userId || "anonymous",
-          window_ms: now - globalWindowStart,
-        },
-      );
-
-      return res.status(429).json({
-        error: "SERVER_BUSY",
-        message:
-          "We are experiencing high traffic right now. Please try again in a moment.",
-        retry_after_ms:
-          retryAfterMs > 0
-            ? retryAfterMs
-            : 0,
-      });
-    }
-
-    globalRequestCount++;
-    next();
-  };
-}
 
 (async () => {
   try {
