@@ -35,21 +35,27 @@ const db = mysql.createPool({
   ssl: { rejectUnauthorized: false },
 });
 
-const GLOBAL_RPS_LIMIT = 250;
+const GLOBAL_RPS_LIMIT = 100;
 let globalRequestCount = 0;
 let globalWindowStart = Date.now();
 
 function globalRateLimit() {
   return (req, res, next) => {
-    const now = Date.now();
-    const path = req.path || req.originalUrl?.split("?")[0] || "";
+    const path = String(
+      req.path || req.url || "",
+    );
 
     if (
       path.startsWith("/api/trade/")
       || path.startsWith("/api/trades/")
+      || path.startsWith("/api/health")
+      || path.startsWith("/api/prices")
+      || path.startsWith("/ws")
     ) {
       return next();
     }
+
+    const now = Date.now();
 
     if (now - globalWindowStart > 2000) {
       globalRequestCount = 0;
@@ -62,21 +68,29 @@ function globalRateLimit() {
     }
 
     if (globalRequestCount >= GLOBAL_RPS_LIMIT) {
-      const retryAfterMs = globalWindowStart + 1000 - now;
+      const retryAfterMs =
+        globalWindowStart + 1000 - now;
 
-      console.warn("RATE_LIMIT_HIT", {
-        path: path,
-        count: globalRequestCount,
-        limit: GLOBAL_RPS_LIMIT,
-        ip: req.ip || "unknown",
-        user_id: req.userId || "anonymous",
-        window_ms: now - globalWindowStart
-      });
+      console.warn(
+        "RATE_LIMIT_HIT",
+        {
+          path: path,
+          count: globalRequestCount,
+          limit: GLOBAL_RPS_LIMIT,
+          ip: req.ip || "unknown",
+          user_id: req.userId || "anonymous",
+          window_ms: now - globalWindowStart,
+        },
+      );
 
       return res.status(429).json({
         error: "SERVER_BUSY",
-        message: "We are experiencing high traffic right now. Please try again in a moment.",
-        retry_after_ms: retryAfterMs > 0 ? retryAfterMs : 0
+        message:
+          "We are experiencing high traffic right now. Please try again in a moment.",
+        retry_after_ms:
+          retryAfterMs > 0
+            ? retryAfterMs
+            : 0,
       });
     }
 
@@ -2519,85 +2533,227 @@ async function processLivePrices() {
 }
 
 // ========== TRADE EXECUTION ==========
-app.post("/api/trade/execute", authenticateToken, async (req, res) => {
-  const { account_code, symbol, side, volume, sl, tp } = req.body;
+app.post(
+  "/api/trade/execute",
+  authenticateToken,
+  async (req, res) => {
+    const {
+      account_code,
+      symbol,
+      side,
+      volume,
+      sl,
+      tp,
+      client_price,
+    } = req.body;
 
-  // 1. Symbol validation
-  if (!Object.prototype.hasOwnProperty.call(instruments, symbol)) {
-    return res.status(400).json({ error: "Invalid symbol" });
-  }
-
-  // 2. Volume validation (strict server-side)
-  if (!volume || volume < 0.01 || volume > 2.0) {
-    return res
-      .status(400)
-      .json({ error: "Volume must be between 0.01 and 2.00" });
-  }
-
-  // 3. Fetch Account
-  const [accounts] = await db.execute(
-    "SELECT * FROM accounts WHERE account_code = ? AND user_id = ?",
-    [account_code, req.userId],
-  );
-  if (!accounts.length)
-    return res.status(404).json({ error: "Account not found" });
-  const account = accounts[0];
-
-  // 4. Check Account Status
-  if (account.status !== "ACTIVE") {
-    return res.status(403).json({ error: "Account is not active for trading" });
-  }
-
-  // 5. Check One-Position Rule
-  const [openTrades] = await db.execute(
-    "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN'",
-    [account.id],
-  );
-  if (openTrades.length > 0) {
-    return res.status(403).json({ error: "Only one open position allowed" });
-  }
-
-  // 6. Check Trades Today Limit
-  const [tradesToday] = await db.execute(
-    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
-    [account.id],
-  );
-  const config = await getChallengeConfig(account.challenge_model);
-  if (tradesToday[0].count >= config.max_trades_per_day) {
-    return res
-      .status(403)
-      .json({
-        error: `Max ${config.max_trades_per_day} trades per day reached`,
+    if (!Object.prototype.hasOwnProperty.call(instruments, symbol)) {
+      return res.status(400).json({
+        error: "Invalid symbol",
       });
-  }
+    }
 
-  // 7. Check Risk Engine (Breached or not)
-  const risk = await checkAccountRisk(account);
-  if (risk.breached) {
-    return res
-      .status(403)
-      .json({ error: "Account breached. Trading disabled" });
-  }
+    if (!["BUY", "SELL"].includes(side)) {
+      return res.status(400).json({
+        error: "Invalid trade direction",
+      });
+    }
 
-  // 8. Execute Trade
-  if (!global.priceCache[symbol])
-    return res.status(400).json({ error: "Price not available" });
-  const entry =
-    side === "BUY"
-      ? global.priceCache[symbol].ask
-      : global.priceCache[symbol].bid;
+    if (
+      !Number.isFinite(Number(volume))
+      || Number(volume) < 0.01
+      || Number(volume) > 2.0
+    ) {
+      return res.status(400).json({
+        error: "Volume must be between 0.01 and 2.00",
+      });
+    }
 
-  const tradeId = "TR-" + Date.now().toString(36).toUpperCase();
-  const tradingDay = new Date().toISOString().split("T")[0];
+    const [accounts] = await db.execute(
+      "SELECT * FROM accounts WHERE account_code = ? AND user_id = ?",
+      [
+        account_code,
+        req.userId,
+      ],
+    );
 
-await db.execute(
-  `INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, order_type, volume, entry_price, entry_time, trading_day, stop_loss, take_profit, status)
-         VALUES (?, ?, ?, ?, ?, ?, 'MARKET', ?, ?, NOW(), ?, ?, ?, 'OPEN')`,
-  [tradeId, account.id, account_code, req.userId, symbol, side, volume, entry, tradingDay, sl || null, tp || null],
+    if (!accounts.length) {
+      return res.status(404).json({
+        error: "Account not found",
+      });
+    }
+
+    const account = accounts[0];
+
+    if (account.status !== "ACTIVE") {
+      return res.status(403).json({
+        error: "Account is not active for trading",
+      });
+    }
+
+    const [openTrades] = await db.execute(
+      "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN'",
+      [
+        account.id,
+      ],
+    );
+
+    if (openTrades.length > 0) {
+      return res.status(403).json({
+        error: "Only one open position allowed",
+      });
+    }
+
+    const [tradesToday] = await db.execute(
+      "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+      [
+        account.id,
+      ],
+    );
+
+    const config = await getChallengeConfig(
+      account.challenge_model,
+    );
+
+    if (
+      Number(tradesToday[0].count)
+      >= Number(config.max_trades_per_day)
+    ) {
+      return res.status(403).json({
+        error:
+          `Max ${config.max_trades_per_day} trades per day reached`,
+      });
+    }
+
+    const risk = await checkAccountRisk(
+      account,
+    );
+
+    if (risk.breached) {
+      return res.status(403).json({
+        error: "Account breached. Trading disabled",
+      });
+    }
+
+    const price = global.priceCache?.[symbol];
+
+    if (!price) {
+      return res.status(400).json({
+        error: "Price not available",
+      });
+    }
+
+    const serverPrice =
+      side === "BUY"
+        ? Number(price.ask)
+        : Number(price.bid);
+
+    if (
+      !Number.isFinite(serverPrice)
+      || serverPrice <= 0
+    ) {
+      return res.status(400).json({
+        error: "Server price unavailable",
+      });
+    }
+
+    let entry = serverPrice;
+
+    if (
+      Number.isFinite(Number(client_price))
+      && Number(client_price) > 0
+    ) {
+      const requestedPrice = Number(
+        client_price,
+      );
+      const instrument = instruments[symbol];
+
+      let slippageUnit = instrument.pip;
+
+      if (/JPY$/i.test(symbol)) {
+        slippageUnit = 0.01;
+      } else if (/^XAUUSD$/i.test(symbol)) {
+        slippageUnit = 0.1;
+      }
+
+      const maxSlippagePips = 2;
+      const maxSlippage =
+        slippageUnit * maxSlippagePips;
+      const difference =
+        Math.abs(
+          requestedPrice - serverPrice,
+        );
+
+      if (difference <= maxSlippage) {
+        entry = requestedPrice;
+      } else {
+        return res.status(409).json({
+          error: "PRICE_MOVED",
+          message:
+            "Price moved too much since you clicked. Please try again.",
+          client_price: requestedPrice,
+          server_price: serverPrice,
+          max_slippage_pips: maxSlippagePips,
+        });
+      }
+    }
+
+    const tradeId =
+      "TR-"
+      + Date.now()
+        .toString(36)
+        .toUpperCase();
+
+    const tradingDay =
+      new Date()
+        .toISOString()
+        .split("T")[0];
+
+    await db.execute(
+      `INSERT INTO trades (
+        trade_id,
+        account_id,
+        account_code,
+        user_id,
+        symbol,
+        side,
+        order_type,
+        volume,
+        entry_price,
+        entry_time,
+        trading_day,
+        stop_loss,
+        take_profit,
+        status
+      )
+      VALUES (
+        ?, ?, ?, ?, ?, ?, 'MARKET', ?, ?, NOW(), ?, ?, ?, 'OPEN'
+      )`,
+      [
+        tradeId,
+        account.id,
+        account_code,
+        req.userId,
+        symbol,
+        side,
+        volume,
+        entry,
+        tradingDay,
+        sl || null,
+        tp || null,
+      ],
+    );
+
+    return res.json({
+      success: true,
+      trade_id: tradeId,
+      entry_price: entry,
+      server_price: serverPrice,
+      slippage:
+        entry - serverPrice,
+    });
+  },
 );
-
-  res.json({ success: true, trade_id: tradeId, entry_price: entry });
-});
 // ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
 let server;
