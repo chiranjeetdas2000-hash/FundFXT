@@ -1165,3 +1165,6 @@ h2 {
 .affiliate-pagination .btn:disabled{opacity:.38;cursor:not-allowed;transform:none;box-shadow:none}
 @media (max-width:900px){.affiliate-filters{grid-template-columns:1fr 1fr}.affiliate-filters input{grid-column:1/-1}}
 @media (max-width:520px){.affiliate-wallet-card{align-items:flex-start;flex-direction:column}.affiliate-wallet-card .btn{width:100%}.affiliate-filters{grid-template-columns:1fr}.affiliate-filters input{grid-column:auto}.wallet-balance{font-size:28px}}
+
+.status-withdrawn{color:#5aa9ff;background:rgba(90,169,255,.1);border:1px solid rgba(90,169,255,.24)}
+.passbook-email{display:block;margin-top:4px;color:var(--muted);font-size:8px;white-space:normal}
