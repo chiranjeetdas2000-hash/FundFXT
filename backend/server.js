@@ -43,7 +43,7 @@ const db = mysql.createPool({
   }
 })();
 
-ensureAffiliateSalesLedger().catch((error) => console.error('Affiliate ledger startup error:', error.message));
+
 
 // ========== SECURITY CHECKS ==========
 if (!process.env.JWT_SECRET) {
@@ -71,17 +71,9 @@ async function sendEmail(to, subject, html) {
 // Sale history is stored separately and contains no customer PII.
 async function ensureAffiliateSalesLedger() {
   try {
-    // Self-heal missing affiliate rows for users created before the affiliates table existed.
-    await db.execute(`
-      INSERT INTO affiliates (user_id, affiliate_code, legal_name, total_sales, total_earnings_cents, pending_earnings_cents, status)
-      SELECT u.id, u.affiliate_code, COALESCE(u.legal_name, u.email), 0, 0, 0, 'Active'
-      FROM users u
-      LEFT JOIN affiliates a ON a.user_id = u.id
-      WHERE u.affiliate_code IS NOT NULL
-        AND u.affiliate_code <> ''
-        AND a.id IS NULL
-    `);
-    await db.execute(`CREATE TABLE IF NOT EXISTS affiliate_sales (
+    await db.execute("INSERT INTO affiliates (user_id, affiliate_code, legal_name, total_sales, total_earnings_cents, pending_earnings_cents, status) SELECT u.id, u.affiliate_code, COALESCE(u.legal_name, u.email), 0, 0, 0, 'Active' FROM users u LEFT JOIN affiliates a ON a.user_id = u.id WHERE u.affiliate_code IS NOT NULL AND u.affiliate_code <> '' AND a.id IS NULL");
+
+    await db.execute("CREATE TABLE IF NOT EXISTS affiliate_sales (
       id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY,
       affiliate_id BIGINT NOT NULL,
       order_id BIGINT NOT NULL,
@@ -98,59 +90,80 @@ async function ensureAffiliateSalesLedger() {
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       UNIQUE KEY uq_affiliate_sales_order (affiliate_id, order_id),
       KEY idx_affiliate_sales_affiliate (affiliate_id, created_at)
-    )`);
+    )");
 
-    // Rebuild missing historical affiliate sales from successful payments.
-    // IMPORTANT: affiliate_code identifies the referrer, not the buyer.
-    await db.execute(`
-      INSERT IGNORE INTO affiliate_sales
-        (affiliate_id, order_id, request_id, affiliate_code, model,
-         original_amount_cents, discount_amount_cents, final_amount_cents,
-         commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at)
-      SELECT
-        a.id, po.id, po.request_id, po.affiliate_code, po.model,
-        COALESCE(po.original_amount_cents,0),
-        COALESCE(po.discount_amount_cents,0),
-        COALESCE(po.final_amount_cents,0),
-        2000, 100,
-        FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
-        'PENDING', COALESCE(po.created_at, NOW())
+    await db.execute("INSERT IGNORE INTO affiliate_sales (affiliate_id, order_id, request_id, affiliate_code, model, original_amount_cents, discount_amount_cents, final_amount_cents, commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at)
+      SELECT a.id, po.id, po.request_id, po.affiliate_code, po.model,
+             COALESCE(po.original_amount_cents,0), COALESCE(po.discount_amount_cents,0),
+             COALESCE(po.final_amount_cents,0), 2000, 100,
+             FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
+             po.status, COALESCE(po.created_at, NOW())
       FROM payment_requests po
       JOIN affiliates a ON a.affiliate_code = po.affiliate_code
-      WHERE po.affiliate_code IS NOT NULL
-        AND TRIM(po.affiliate_code) <> ''
-        AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')
-    `);
+      WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> ''
+        AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
 
-    // Keep the existing commission table compatible with the live schema.
-    // Do not assume optional reporting columns exist there.
-    await db.execute(`
-      INSERT INTO affiliate_commissions
-        (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status)
-      SELECT
-        s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING'
-      FROM affiliate_sales s
-      JOIN payment_requests po ON po.id = s.order_id
+    await db.execute("UPDATE affiliate_sales s JOIN payment_requests po ON po.id = s.order_id SET s.status = po.status WHERE po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
+
+    await db.execute("INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status)
+      SELECT s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING'
+      FROM affiliate_sales s JOIN payment_requests po ON po.id = s.order_id
       LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id
-      WHERE ac.id IS NULL
-    `);
+      WHERE ac.id IS NULL");
 
-    // Reconcile totals using only stable commission columns.
-    await db.execute(`
-      UPDATE affiliates a
+    await db.execute("INSERT IGNORE INTO affiliate_wallet_transactions
+      (affiliate_id, txn_type, source, amount_cents, order_id, sale_status, commission_status, customer_email, account_code, description)
+      SELECT a.id, 'CREDIT', 'COMMISSION',
+             FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100),
+             po.id, po.status, 'EARNED', u.email, po.account_code,
+             CONCAT('Commission from ', po.model, ' for ', po.request_id)
+      FROM payment_requests po
+      JOIN affiliates a ON a.affiliate_code = po.affiliate_code
+      JOIN users u ON u.id = po.user_id
+      WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> ''
+        AND po.status IN ('ACCOUNT_CREATED','PAYMENT_DONE','PAYMENT_APPROVED')");
+
+    await db.execute("UPDATE affiliate_wallet_transactions wt
+      JOIN payment_requests po ON po.id = wt.order_id
+      JOIN users u ON u.id = po.user_id
+      SET wt.sale_status = po.status, wt.customer_email = u.email,
+          wt.account_code = po.account_code,
+          wt.description = CONCAT('Commission from ', po.model, ' for ', po.request_id)
+      WHERE wt.source = 'COMMISSION' AND wt.order_id IS NOT NULL");
+
+    await db.execute("UPDATE affiliates a
       LEFT JOIN (
-        SELECT affiliate_id,
-               COUNT(*) AS sales_count,
-               COALESCE(SUM(commission_amount_cents),0) AS total_earnings
-        FROM affiliate_commissions
-        GROUP BY affiliate_id
+        SELECT affiliate_id, COUNT(*) AS sales_count,
+               COALESCE(SUM(commission_amount_cents),0) AS total_earnings,
+               COALESCE(SUM(GREATEST(commission_amount_cents - COALESCE(paid_amount_cents,0),0)),0) AS pending_earnings,
+               COALESCE(SUM(COALESCE(paid_amount_cents,0)),0) AS paid_earnings
+        FROM affiliate_commissions GROUP BY affiliate_id
       ) x ON x.affiliate_id = a.id
       SET a.total_sales = COALESCE(x.sales_count,0),
           a.total_earnings_cents = COALESCE(x.total_earnings,0),
-          a.pending_earnings_cents = COALESCE(x.total_earnings,0)
-    `);
+          a.pending_earnings_cents = COALESCE(x.pending_earnings,0),
+          a.paid_earnings_cents = COALESCE(x.paid_earnings,0)");
 
-    console.log('Affiliate sales ledger ready and historical sales reconciled.');
+    const [walletRows] = await db.execute("SELECT id, affiliate_id, txn_type, amount_cents FROM affiliate_wallet_transactions ORDER BY affiliate_id ASC, created_at ASC, id ASC");
+    let currentAffiliateId = null;
+    let runningBalance = 0;
+    for (const row of walletRows) {
+      if (currentAffiliateId !== row.affiliate_id) {
+        currentAffiliateId = row.affiliate_id;
+        runningBalance = 0;
+      }
+      runningBalance += row.txn_type === 'CREDIT' ? Number(row.amount_cents || 0) : -Number(row.amount_cents || 0);
+      await db.execute("UPDATE affiliate_wallet_transactions SET balance_after_cents = ? WHERE id = ?", [runningBalance, row.id]);
+    }
+
+    await db.execute("UPDATE affiliates a
+      LEFT JOIN (
+        SELECT affiliate_id, COALESCE(SUM(CASE WHEN txn_type = 'CREDIT' THEN amount_cents WHEN txn_type = 'DEBIT' THEN -amount_cents ELSE 0 END),0) AS wallet_balance
+        FROM affiliate_wallet_transactions GROUP BY affiliate_id
+      ) w ON w.affiliate_id = a.id
+      SET a.wallet_balance_cents = COALESCE(w.wallet_balance,0)");
+
+    console.log('Affiliate sales ledger, wallet and historical passbook reconciled.');
   } catch (error) {
     console.error('Affiliate sales ledger migration failed:', error.message);
   }
@@ -3072,6 +3085,7 @@ let wss;
 (async () => {
   try {
     await ensureAffiliateSchema();
+    await ensureAffiliateSalesLedger();
   } catch (migrationError) {
     console.error('Affiliate schema repair failed:', migrationError.message);
   }
@@ -3744,6 +3758,7 @@ async function ensureAffiliateSchema() {
     }
   };
 
+  await addColumnIfMissing('affiliates', 'wallet_balance_cents', 'BIGINT NOT NULL DEFAULT 0');
   await addColumnIfMissing('affiliates', 'total_earnings_cents', 'BIGINT NOT NULL DEFAULT 0');
   await addColumnIfMissing('affiliates', 'pending_earnings_cents', 'BIGINT NOT NULL DEFAULT 0');
   await addColumnIfMissing('affiliates', 'paid_earnings_cents', 'BIGINT NOT NULL DEFAULT 0');
@@ -3754,6 +3769,32 @@ async function ensureAffiliateSchema() {
   await addColumnIfMissing('affiliate_commissions', 'fixed_bonus_cents', 'BIGINT NOT NULL DEFAULT 100');
   await addColumnIfMissing('affiliate_commissions', 'paid_amount_cents', 'BIGINT NOT NULL DEFAULT 0');
   await addColumnIfMissing('affiliate_commissions', 'paid_at', 'DATETIME NULL');
+  const [walletTableRows] = await db.execute(
+    "SELECT COUNT(*) AS n FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'affiliate_wallet_transactions'"
+  );
+  if (!Number(walletTableRows[0]?.n)) {
+    await db.execute("CREATE TABLE affiliate_wallet_transactions (
+      id BIGINT AUTO_INCREMENT PRIMARY KEY,
+      affiliate_id BIGINT NOT NULL,
+      txn_type ENUM('CREDIT','DEBIT') NOT NULL,
+      source ENUM('COMMISSION','WITHDRAWAL','ADJUSTMENT') NOT NULL,
+      amount_cents BIGINT NOT NULL,
+      balance_after_cents BIGINT NOT NULL DEFAULT 0,
+      order_id BIGINT NULL,
+      withdrawal_id BIGINT NULL,
+      sale_status VARCHAR(50) NULL,
+      commission_status ENUM('EARNED','PAID','PENDING') DEFAULT 'EARNED',
+      customer_email VARCHAR(255) NULL,
+      account_code VARCHAR(50) NULL,
+      description VARCHAR(255) NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE KEY uq_commission_credit (order_id, source),
+      KEY idx_awt_affiliate_time (affiliate_id, created_at DESC),
+      KEY idx_awt_type (affiliate_id, txn_type)
+    )");
+  }
+
+
 
   await db.execute(
     `UPDATE affiliate_commissions
@@ -3952,6 +3993,62 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
   }
 });
 
+app.get("/api/affiliate/wallet", authenticateToken, async (req, res) => {
+  try {
+    await ensureAffiliateSalesLedger();
+    const [affiliates] = await db.execute("SELECT * FROM affiliates WHERE user_id = ? LIMIT 1", [req.userId]);
+    if (!affiliates.length) return res.status(404).json({ error: "Affiliate account not found" });
+    const affiliate = affiliates[0];
+
+    const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 15, 1), 50);
+    const orderId = req.query.order_id ? String(req.query.order_id).trim() : "";
+    const saleStatus = req.query.sale_status ? String(req.query.sale_status).trim() : "";
+    const commissionStatus = req.query.commission_status ? String(req.query.commission_status).trim() : "";
+
+    const filters = ["affiliate_id = ?"];
+    const params = [affiliate.id];
+    if (orderId) { filters.push("order_id = ?"); params.push(orderId); }
+    if (saleStatus) { filters.push("sale_status = ?"); params.push(saleStatus); }
+    if (commissionStatus) { filters.push("commission_status = ?"); params.push(commissionStatus); }
+    const where = filters.join(" AND ");
+
+    const [[countRow]] = await db.query("SELECT COUNT(*) AS total_count FROM affiliate_wallet_transactions WHERE " + where, params);
+    const totalCount = Number(countRow?.total_count || 0);
+    const totalPages = Math.ceil(totalCount / limit);
+    const safePage = totalPages ? Math.min(page, totalPages) : 1;
+    const offset = (safePage - 1) * limit;
+
+    const [transactions] = await db.query(
+      "SELECT id, txn_type, source, amount_cents, balance_after_cents, order_id, withdrawal_id, sale_status, commission_status, customer_email, account_code, description, created_at FROM affiliate_wallet_transactions WHERE " + where + " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
+      [...params, limit, offset]
+    );
+    const [[pendingRow]] = await db.query(
+      "SELECT COALESCE(SUM(amount_cents),0) AS pending_withdrawal_cents FROM affiliate_wallet_transactions WHERE affiliate_id = ? AND txn_type = 'DEBIT' AND commission_status = 'PENDING'",
+      [affiliate.id]
+    );
+    const [[statsRow]] = await db.query(
+      "SELECT COALESCE(SUM(CASE WHEN source = 'COMMISSION' AND txn_type = 'CREDIT' THEN amount_cents ELSE 0 END),0) AS total_earnings_cents, COUNT(CASE WHEN source = 'COMMISSION' AND txn_type = 'CREDIT' THEN 1 END) AS total_sales FROM affiliate_wallet_transactions WHERE affiliate_id = ?",
+      [affiliate.id]
+    );
+    const [[refRow]] = await db.query("SELECT COUNT(*) AS total_referrals FROM users WHERE referred_by_code = ?", [affiliate.affiliate_code]);
+
+    res.json({
+      success: true,
+      affiliate_code: affiliate.affiliate_code,
+      wallet_balance_cents: Number(affiliate.wallet_balance_cents || 0),
+      total_earnings_cents: Number(statsRow?.total_earnings_cents || 0),
+      total_sales: Number(statsRow?.total_sales || 0),
+      total_referrals: Number(refRow?.total_referrals || 0),
+      pending_withdrawal_cents: Number(pendingRow?.pending_withdrawal_cents || 0),
+      page: safePage, limit, total_count: totalCount, total_pages: totalPages, transactions
+    });
+  } catch (error) {
+    console.error("Affiliate wallet error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
 // ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
 
@@ -3961,68 +4058,43 @@ app.post(
   authenticateToken,
   async (req, res) => {
     const { amount_cents } = req.body;
-
     try {
-      // Fetch user's affiliate record
-      const [affiliates] = await db.execute(
-        "SELECT * FROM affiliates WHERE user_id = ?",
-        [req.userId],
-      );
-      if (!affiliates.length)
-        return res.status(404).json({ error: "Affiliate account not found" });
+      const [affiliates] = await db.execute("SELECT * FROM affiliates WHERE user_id = ?", [req.userId]);
+      if (!affiliates.length) return res.status(404).json({ error: "Affiliate account not found" });
       const affiliate = affiliates[0];
+      const minimumPayout = 10000;
+      if (!amount_cents || amount_cents < minimumPayout) return res.status(400).json({ error: "Minimum payout is $100.00" });
+      const walletBalance = Number(affiliate.wallet_balance_cents || 0);
+      if (amount_cents > walletBalance) return res.status(400).json({ error: "Insufficient wallet balance" });
 
-      // Validate amount (Min $100 = 10000 cents)
-      const minimumPayout = 10000; // $100
-      if (!amount_cents || amount_cents < minimumPayout) {
-        return res.status(400).json({ error: "Minimum payout is $100.00" });
+      const requestRef = "AF-PAY-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+      const [withdrawalResult] = await db.execute(
+        "INSERT INTO withdrawal_request (request_ref, user_id, kind, amount_cents, currency, method, payout_details, status, created_at) VALUES (?, ?, 'AFFILIATE', ?, 'USD', 'BANK', ?, 'PENDING', NOW())",
+        [requestRef, req.userId, amount_cents, JSON.stringify({ type: "AFFILIATE_COMMISSION" })]
+      );
+
+      const [holdResult] = await db.execute(
+        "UPDATE affiliates SET wallet_balance_cents = wallet_balance_cents - ? WHERE id = ? AND wallet_balance_cents >= ?",
+        [amount_cents, affiliate.id, amount_cents]
+      );
+      if (!holdResult.affectedRows) {
+        await db.execute("DELETE FROM withdrawal_request WHERE id = ?", [withdrawalResult.insertId]);
+        return res.status(400).json({ error: "Insufficient wallet balance" });
       }
 
-      // Check pending earnings are sufficient
-      if (amount_cents > affiliate.pending_earnings_cents) {
-        return res.status(400).json({ error: "Insufficient pending earnings" });
-      }
-
-      // Generate request reference
-      const requestRef =
-        "AF-PAY-" +
-        Date.now().toString(36).toUpperCase() +
-        "-" +
-        crypto.randomBytes(3).toString("hex").toUpperCase();
-
-      // Create payout request (kind = AFFILIATE)
+      const [[userRow]] = await db.query("SELECT email, legal_name FROM users WHERE id = ?", [req.userId]);
       await db.execute(
-        `INSERT INTO withdrawal_request (request_ref, user_id, kind, amount_cents, currency, method, payout_details, status, created_at)
-             VALUES (?, ?, 'AFFILIATE', ?, 'USD', 'BANK', ?, 'PENDING', NOW())`,
-        [
-          requestRef,
-          req.userId,
-          amount_cents,
-          JSON.stringify({ type: "AFFILIATE_COMMISSION" }),
-        ],
+        "INSERT INTO affiliate_wallet_transactions (affiliate_id, txn_type, source, amount_cents, balance_after_cents, withdrawal_id, commission_status, description) VALUES (?, 'DEBIT', 'WITHDRAWAL', ?, ?, ?, 'PENDING', ?)",
+        [affiliate.id, amount_cents, walletBalance - amount_cents, withdrawalResult.insertId, "Withdrawal request " + requestRef]
       );
 
-      // Deduct pending earnings immediately to prevent double spend
-      await db.execute(
-        "UPDATE affiliates SET pending_earnings_cents = pending_earnings_cents - ? WHERE id = ?",
-        [amount_cents, affiliate.id],
-      );
-
-      // Notify Admin via Email
-      const [users] = await db.execute(
-        "SELECT legal_name, email FROM users WHERE id = ?",
-        [req.userId],
-      );
-      if (users.length) {
+      if (userRow) {
         await sendEmail(
           "support.fundfxt@gmail.com",
-          `New Affiliate Payout Request: ${requestRef}`,
-          `<h3>Affiliate Payout Request</h3><p>User: ${users[0].legal_name}</p><p>Amount: $${(amount_cents / 100).toFixed(2)}</p>`,
-        ).catch((err) =>
-          console.log("Affiliate payout email failed:", err.message),
-        );
+          "New Affiliate Payout Request: " + requestRef,
+          "<h3>Affiliate Payout Request</h3><p>User: " + userRow.legal_name + "</p><p>Amount: $" + (amount_cents / 100).toFixed(2) + "</p>"
+        ).catch((err) => console.log("Affiliate payout email failed:", err.message));
       }
-
       res.json({ success: true, request_ref: requestRef });
     } catch (error) {
       console.error("Affiliate payout request error:", error);
@@ -4068,71 +4140,27 @@ app.post(
   async (req, res) => {
     const { id } = req.params;
     const { status } = req.body;
-
     try {
-      const [payouts] = await db.execute(
-        "SELECT * FROM withdrawal_request WHERE id = ?",
-        [id],
-      );
-      if (!payouts.length)
-        return res.status(404).json({ error: "Payout not found" });
+      const [payouts] = await db.execute("SELECT * FROM withdrawal_request WHERE id = ? AND kind = 'AFFILIATE'", [id]);
+      if (!payouts.length) return res.status(404).json({ error: "Payout not found" });
       const payout = payouts[0];
+      if (payout.status === status) return res.json({ success: true });
 
-      await db.execute(
-        "UPDATE withdrawal_request SET status = ? WHERE id = ?",
-        [status, id],
-      );
+      await db.execute("UPDATE withdrawal_request SET status = ? WHERE id = ?", [status, id]);
 
-      // If PAID, allocate this payout against the oldest unpaid commission balances.
       if (status === "PAID") {
-        let remaining = Number(payout.amount_cents || 0);
-        const [pendingCommissions] = await db.execute(
-          `SELECT id, commission_amount_cents, COALESCE(paid_amount_cents, 0) AS paid_amount_cents
-           FROM affiliate_commissions
-           WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?)
-             AND status IN ('PENDING', 'PARTIALLY_PAID')
-           ORDER BY created_at ASC, id ASC`,
-          [payout.user_id],
-        );
-
-        for (const commission of pendingCommissions) {
-          if (remaining <= 0) break;
-          const outstanding = Math.max(
-            0,
-            Number(commission.commission_amount_cents || 0) -
-              Number(commission.paid_amount_cents || 0),
-          );
-          if (!outstanding) continue;
-          const allocation = Math.min(remaining, outstanding);
-          const newPaid = Number(commission.paid_amount_cents || 0) + allocation;
-          const newStatus = newPaid >= Number(commission.commission_amount_cents || 0)
-            ? 'PAID'
-            : 'PARTIALLY_PAID';
-
-          await db.execute(
-            `UPDATE affiliate_commissions
-             SET paid_amount_cents = ?, status = ?, paid_at = CASE WHEN ? = 'PAID' THEN NOW() ELSE paid_at END
-             WHERE id = ?`,
-            [newPaid, newStatus, newStatus, commission.id],
-          );
-          remaining -= allocation;
-        }
-
-        await db.execute(
-          `UPDATE affiliates SET paid_earnings_cents = COALESCE(paid_earnings_cents, 0) + ? WHERE user_id = ?`,
-          [Number(payout.amount_cents || 0) - remaining, payout.user_id],
-        );
+        await db.execute("UPDATE affiliate_wallet_transactions SET commission_status = 'PAID' WHERE withdrawal_id = ? AND txn_type = 'DEBIT' AND source = 'WITHDRAWAL'", [id]);
+        await db.execute("UPDATE affiliate_commissions SET paid_amount_cents = commission_amount_cents, status = 'PAID', paid_at = NOW() WHERE affiliate_id = (SELECT id FROM affiliates WHERE user_id = ?) AND status IN ('PENDING','PARTIALLY_PAID')", [payout.user_id]);
+        await db.execute("UPDATE affiliates SET paid_earnings_cents = COALESCE(paid_earnings_cents,0) + ? WHERE user_id = ?", [Number(payout.amount_cents || 0), payout.user_id]);
       }
-      // If REJECTED, refund pending earnings
+
       if (status === "REJECTED") {
-        await db.execute(
-          "UPDATE affiliates SET pending_earnings_cents = pending_earnings_cents + ? WHERE user_id = ?",
-          [payout.amount_cents, payout.user_id],
-        );
+        await db.execute("DELETE FROM affiliate_wallet_transactions WHERE withdrawal_id = ? AND txn_type = 'DEBIT' AND source = 'WITHDRAWAL'", [id]);
+        await db.execute("UPDATE affiliates SET wallet_balance_cents = COALESCE(wallet_balance_cents,0) + ? WHERE user_id = ?", [Number(payout.amount_cents || 0), payout.user_id]);
       }
-
       res.json({ success: true });
     } catch (error) {
+      console.error("Affiliate payout status error:", error);
       res.status(500).json({ error: error.message });
     }
   },
