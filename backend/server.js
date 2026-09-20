@@ -497,6 +497,48 @@ async function getChallengeConfig(modelKey) {
   return rows[0];
 }
 
+async function parseChallengeModel(input) {
+  const normalized = String(input || "").trim();
+
+  const mapping = {
+    prototype_5k: { model_key: "prototype", size_key: "5k" },
+    warrior_5k: { model_key: "warrior", size_key: "5k" },
+    warrior_10k: { model_key: "warrior", size_key: "10k" },
+    warrior_15k: { model_key: "warrior", size_key: "15k" },
+    warrior_25k: { model_key: "warrior", size_key: "25k" },
+    direct: { model_key: "prototype", size_key: "5k" },
+    two_step: { model_key: "warrior", size_key: "5k" },
+    prototype: { model_key: "prototype", size_key: "5k" },
+    warrior: { model_key: "warrior", size_key: "5k" },
+  };
+
+  return mapping[normalized] || null;
+}
+
+async function getChallengeSize(model_key, size_key) {
+  const [rows] = await db.execute(
+    "SELECT * FROM challenge_sizes WHERE model_key = ? AND size_key = ? AND is_active = 1 LIMIT 1",
+    [model_key, size_key],
+  );
+  return rows.length ? rows[0] : null;
+}
+
+async function getChallengePhaseConfig(model_key, phase) {
+  const [rows] = await db.execute(
+    "SELECT * FROM challenge_phase_rules WHERE model_key = ? AND phase = ? AND is_active = 1 LIMIT 1",
+    [model_key, phase],
+  );
+  return rows.length ? rows[0] : null;
+}
+
+async function getModelWithDefaultSize(model_key) {
+  const [rows] = await db.execute(
+    "SELECT * FROM challenge_sizes WHERE model_key = ? AND is_active = 1 ORDER BY starting_balance_cents ASC LIMIT 1",
+    [model_key],
+  );
+  return rows.length ? rows[0] : null;
+}
+
 async function calculateServerPrice(model, affiliateCode) {
   const mappedModel = MODEL_MAP[model] || model;
   const config = await getChallengeConfig(mappedModel);
