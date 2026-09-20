@@ -3520,7 +3520,7 @@ app.get("/api/user/wallet/withdrawals", authenticateToken, async (req, res) => {
     const where = status ? "AND status = ?" : "";
     const params = status ? [req.userId, status] : [req.userId];
     const [rows] = await db.execute(`SELECT id, request_ref, amount_cents, currency, method, payout_details, status, admin_note, created_at, updated_at, reviewed_at FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
-    const [countRows] = await db.execute(`SELECT COUNT(*) AS total FROM withdrawal_request WHERE user_id = ? ${where}`, params);
+    const [countRows] = await db.execute(`SELECT COUNT(*) AS total FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' ${where}`, params);
     res.json({ success: true, withdrawals: rows, pagination: { page, limit, total: Number(countRows[0]?.total || 0) } });
   } catch (error) {
     res.status(500).json({ error: error.message });
