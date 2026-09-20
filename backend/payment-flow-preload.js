@@ -145,19 +145,61 @@ function installPaymentFlow(app) {
   async function createAccountAndCommission(connection, order) {
     if (order.account_code) return order.account_code;
 
-    const [configs] = await connection.execute(
-      "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
-      [order.model]
-    );
-    if (!configs.length) throw new Error("Challenge config not found for model: " + order.model);
+    const parsed = ({
+      warrior_5k: { model_key: "warrior", size_key: "5k" },
+      warrior_10k: { model_key: "warrior", size_key: "10k" },
+      warrior_15k: { model_key: "warrior", size_key: "15k" },
+      warrior_25k: { model_key: "warrior", size_key: "25k" },
+      prototype_5k: { model_key: "prototype", size_key: "5k" },
+      prototype: { model_key: "prototype", size_key: "5k" },
+      warrior: { model_key: "warrior", size_key: "5k" },
+    })[String(order.model || "").trim()] || null;
+
+    let startingBalanceCents;
+    let resolvedModel = order.model;
+    let initialPhase = "PHASE_1";
+
+    if (parsed) {
+      const [sizes] = await connection.execute(
+        "SELECT * FROM challenge_sizes WHERE model_key = ? AND size_key = ? AND is_active = 1 LIMIT 1",
+        [parsed.model_key, parsed.size_key]
+      );
+
+      if (sizes.length) {
+        const size = sizes[0];
+        startingBalanceCents = Number(size.starting_balance_cents);
+        resolvedModel = parsed.model_key + "_" + parsed.size_key;
+
+        if (parsed.model_key === "prototype") {
+          initialPhase = "FUNDED";
+        } else {
+          initialPhase = "PHASE_1";
+        }
+      }
+    }
+
+    if (startingBalanceCents === undefined) {
+      const [configs] = await connection.execute(
+        "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
+        [order.model]
+      );
+      if (!configs.length) throw new Error("Challenge config not found for model: " + order.model);
+      const config = configs[0];
+      startingBalanceCents = Number(config.starting_balance_cents);
+
+      if (order.model === "prototype_5k") {
+        initialPhase = "FUNDED";
+      } else {
+        initialPhase = "PHASE_1";
+      }
+    }
 
     const code = accountCode();
-    const config = configs[0];
     await connection.execute(
       `INSERT INTO accounts
        (account_code,user_id,challenge_model,phase,initial_balance_cents,balance_cents,equity_cents,status)
-       VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
-      [code, order.user_id, order.model, config.starting_balance_cents, config.starting_balance_cents, config.starting_balance_cents]
+       VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+      [code, order.user_id, resolvedModel, initialPhase, startingBalanceCents, startingBalanceCents, startingBalanceCents]
     );
 
     let affiliateId = null;
