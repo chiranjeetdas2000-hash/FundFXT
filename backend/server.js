@@ -3994,6 +3994,632 @@ app.get("/api/affiliate/wallet", authenticateToken, async (req, res) => {
   }
 });
 
+
+app.get("/api/user/wallet", authenticateToken, async (req, res) => {
+  try {
+    await db.execute(
+      `INSERT INTO user_wallets (user_id)
+       VALUES (?)
+       ON DUPLICATE KEY UPDATE user_id = user_id`,
+      [req.userId],
+    );
+
+    const [rows] = await db.execute(
+      `SELECT
+         balance_cents,
+         currency,
+         total_received_cents,
+         total_withdrawn_cents,
+         created_at,
+         updated_at
+       FROM user_wallets
+       WHERE user_id = ?
+       LIMIT 1`,
+      [req.userId],
+    );
+
+    if (!rows.length) {
+      return res.status(404).json({ error: "Wallet not found" });
+    }
+
+    const wallet = rows[0];
+
+    res.json({
+      success: true,
+      wallet: {
+        balance_cents: Number(wallet.balance_cents || 0),
+        currency: wallet.currency,
+        total_received_cents: Number(wallet.total_received_cents || 0),
+        total_withdrawn_cents: Number(wallet.total_withdrawn_cents || 0),
+        display_name: "FundFXT Wallet",
+        created_at: wallet.created_at,
+        updated_at: wallet.updated_at,
+      },
+    });
+  } catch (error) {
+    console.error("User wallet error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.get(
+  "/api/user/wallet/passbook",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 15, 1),
+        50,
+      );
+
+      const txnType = req.query.txn_type
+        ? String(req.query.txn_type).trim().toUpperCase()
+        : "";
+
+      const source = req.query.source
+        ? String(req.query.source).trim().toUpperCase()
+        : "";
+
+      const filters = ["user_id = ?"];
+      const params = [req.userId];
+
+      if (txnType) {
+        if (!["CREDIT", "DEBIT"].includes(txnType)) {
+          return res.status(400).json({ error: "Invalid txn_type" });
+        }
+        filters.push("txn_type = ?");
+        params.push(txnType);
+      }
+
+      if (source) {
+        filters.push("source = ?");
+        params.push(source);
+      }
+
+      const where = filters.join(" AND ");
+
+      const [[countRow]] = await db.query(
+        `SELECT COUNT(*) AS total_count
+         FROM user_wallet_transactions
+         WHERE ${where}`,
+        params,
+      );
+
+      const totalCount = Number(countRow?.total_count || 0);
+      const totalPages = Math.ceil(totalCount / limit);
+      const safePage = totalPages ? Math.min(page, totalPages) : 1;
+      const offset = (safePage - 1) * limit;
+
+      const [transactions] = await db.query(
+        `SELECT
+           id,
+           txn_type,
+           source,
+           amount_cents,
+           balance_after_cents,
+           reference_type,
+           reference_id,
+           description,
+           created_at
+         FROM user_wallet_transactions
+         WHERE ${where}
+         ORDER BY created_at DESC, id DESC
+         LIMIT ? OFFSET ?`,
+        [...params, limit, offset],
+      );
+
+      const [[walletRow]] = await db.query(
+        `SELECT balance_cents
+         FROM user_wallets
+         WHERE user_id = ?
+         LIMIT 1`,
+        [req.userId],
+      );
+
+      res.json({
+        success: true,
+        wallet_balance_cents: Number(walletRow?.balance_cents || 0),
+        page: safePage,
+        limit,
+        total_count: totalCount,
+        total_pages: totalPages,
+        transactions,
+      });
+    } catch (error) {
+      console.error("User wallet passbook error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+app.post(
+  "/api/user/wallet/request-affiliate-transfer",
+  authenticateToken,
+  async (req, res) => {
+    const { amount_cents, reason } = req.body;
+
+    try {
+      const amount = Number(amount_cents);
+
+      if (!Number.isInteger(amount) || amount <= 0) {
+        return res.status(400).json({
+          error: "amount_cents must be a positive integer",
+        });
+      }
+
+      const minimumTransfer = 5000;
+
+      if (amount < minimumTransfer) {
+        return res.status(400).json({
+          error: "Minimum affiliate transfer is $50.00",
+        });
+      }
+
+      const [affiliates] = await db.execute(
+        `SELECT id, wallet_balance_cents
+         FROM affiliates
+         WHERE user_id = ?
+         LIMIT 1`,
+        [req.userId],
+      );
+
+      if (!affiliates.length) {
+        return res.status(404).json({
+          error: "Affiliate account not found",
+        });
+      }
+
+      const affiliate = affiliates[0];
+      const affiliateBalance = Number(
+        affiliate.wallet_balance_cents || 0,
+      );
+
+      if (affiliateBalance < amount) {
+        return res.status(400).json({
+          error: "Insufficient affiliate wallet balance",
+        });
+      }
+
+      const [[pendingRow]] = await db.query(
+        `SELECT id
+         FROM affiliate_wallet_transfers
+         WHERE user_id = ?
+           AND status = 'PENDING'
+         LIMIT 1`,
+        [req.userId],
+      );
+
+      if (pendingRow) {
+        return res.status(409).json({
+          error: "A wallet transfer is already pending",
+        });
+      }
+
+      const transferRef =
+        "AWT-" +
+        Date.now().toString(36).toUpperCase() +
+        "-" +
+        crypto.randomBytes(3).toString("hex").toUpperCase();
+
+      const cleanReason =
+        reason == null
+          ? null
+          : String(reason).trim().slice(0, 255);
+
+      await db.execute(
+        `INSERT INTO affiliate_wallet_transfers
+         (
+           transfer_ref,
+           user_id,
+           affiliate_id,
+           amount_cents,
+           status,
+           reason
+         )
+         VALUES (?, ?, ?, ?, 'PENDING', ?)`,
+        [
+          transferRef,
+          req.userId,
+          affiliate.id,
+          amount,
+          cleanReason,
+        ],
+      );
+
+      res.json({
+        success: true,
+        transfer_ref: transferRef,
+        amount_cents: amount,
+        status: "PENDING",
+      });
+    } catch (error) {
+      console.error("Affiliate wallet transfer request error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+app.get(
+  "/api/user/wallet/affiliate-transfers",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+      const limit = Math.min(
+        Math.max(parseInt(req.query.limit, 10) || 15, 1),
+        50,
+      );
+
+      const [[countRow]] = await db.query(
+        `SELECT COUNT(*) AS total_count
+         FROM affiliate_wallet_transfers
+         WHERE user_id = ?`,
+        [req.userId],
+      );
+
+      const totalCount = Number(countRow?.total_count || 0);
+      const totalPages = Math.ceil(totalCount / limit);
+      const safePage = totalPages ? Math.min(page, totalPages) : 1;
+      const offset = (safePage - 1) * limit;
+
+      const [transfers] = await db.query(
+        `SELECT
+           id,
+           transfer_ref,
+           amount_cents,
+           status,
+           reason,
+           requested_at,
+           processed_at,
+           rejection_reason,
+           user_wallet_txn_id,
+           affiliate_txn_id
+         FROM affiliate_wallet_transfers
+         WHERE user_id = ?
+         ORDER BY requested_at DESC, id DESC
+         LIMIT ? OFFSET ?`,
+        [req.userId, limit, offset],
+      );
+
+      res.json({
+        success: true,
+        page: safePage,
+        limit,
+        total_count: totalCount,
+        total_pages: totalPages,
+        transfers,
+      });
+    } catch (error) {
+      console.error("Affiliate transfer history error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+app.get(
+  "/api/admin/wallet-transfers",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const status = req.query.status
+        ? String(req.query.status).trim().toUpperCase()
+        : "PENDING";
+
+      const validStatuses = ["PENDING", "APPROVED", "REJECTED"];
+
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({
+          error: "Invalid transfer status",
+        });
+      }
+
+      const [transfers] = await db.query(
+        `SELECT
+           awt.id,
+           awt.transfer_ref,
+           awt.user_id,
+           u.legal_name,
+           u.email,
+           awt.affiliate_id,
+           a.affiliate_code,
+           a.wallet_balance_cents AS affiliate_wallet_balance_cents,
+           awt.amount_cents,
+           awt.status,
+           awt.reason,
+           awt.requested_at,
+           awt.processed_at,
+           awt.processed_by_admin_id,
+           awt.rejection_reason,
+           awt.user_wallet_txn_id,
+           awt.affiliate_txn_id
+         FROM affiliate_wallet_transfers awt
+         JOIN users u ON u.id = awt.user_id
+         JOIN affiliates a ON a.id = awt.affiliate_id
+         WHERE awt.status = ?
+         ORDER BY awt.requested_at DESC, awt.id DESC`,
+        [status],
+      );
+
+      res.json({
+        success: true,
+        status,
+        transfers,
+      });
+    } catch (error) {
+      console.error("Admin wallet transfers error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+app.post(
+  "/api/admin/wallet-transfers/:id/approve",
+  authenticateAdmin,
+  async (req, res) => {
+    const { id } = req.params;
+    const connection = await db.getConnection();
+
+    try {
+      await connection.beginTransaction();
+
+      const [transferRows] = await connection.query(
+        `SELECT *
+         FROM affiliate_wallet_transfers
+         WHERE id = ?
+         FOR UPDATE`,
+        [id],
+      );
+
+      if (!transferRows.length) {
+        await connection.rollback();
+        return res.status(404).json({
+          error: "Wallet transfer not found",
+        });
+      }
+
+      const transfer = transferRows[0];
+
+      if (transfer.status !== "PENDING") {
+        await connection.rollback();
+        return res.status(409).json({
+          error: "Wallet transfer has already been processed",
+          status: transfer.status,
+        });
+      }
+
+      const amount = Number(transfer.amount_cents || 0);
+
+      if (!Number.isInteger(amount) || amount <= 0) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Invalid transfer amount",
+        });
+      }
+
+      const [affiliateRows] = await connection.query(
+        `SELECT *
+         FROM affiliates
+         WHERE id = ?
+         FOR UPDATE`,
+        [transfer.affiliate_id],
+      );
+
+      if (!affiliateRows.length) {
+        await connection.rollback();
+        return res.status(404).json({
+          error: "Affiliate account not found",
+        });
+      }
+
+      const affiliate = affiliateRows[0];
+      const affiliateBalance = Number(
+        affiliate.wallet_balance_cents || 0,
+      );
+
+      if (affiliateBalance < amount) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Insufficient affiliate wallet balance",
+        });
+      }
+
+      const affiliateBalanceAfter = affiliateBalance - amount;
+
+      await connection.execute(
+        `UPDATE affiliates
+         SET wallet_balance_cents = wallet_balance_cents - ?
+         WHERE id = ?
+           AND wallet_balance_cents >= ?`,
+        [amount, transfer.affiliate_id, amount],
+      );
+
+      const [affiliateTxnResult] = await connection.execute(
+        `INSERT INTO affiliate_wallet_transactions
+         (
+           affiliate_id,
+           txn_type,
+           source,
+           amount_cents,
+           balance_after_cents,
+           reference_type,
+           reference_id,
+           description
+         )
+         VALUES (?, 'DEBIT', 'MOVE_TO_WALLET', ?, ?, 'WALLET_TRANSFER', ?, ?)`,
+        [
+          transfer.affiliate_id,
+          amount,
+          affiliateBalanceAfter,
+          transfer.id,
+          "Moved to FundFXT Wallet",
+        ],
+      );
+
+      await connection.execute(
+        `INSERT INTO user_wallets
+         (
+           user_id,
+           balance_cents,
+           total_received_cents
+         )
+         VALUES (?, ?, ?)
+         ON DUPLICATE KEY UPDATE
+           balance_cents = balance_cents + VALUES(balance_cents),
+           total_received_cents =
+             total_received_cents + VALUES(total_received_cents)`,
+        [transfer.user_id, amount, amount],
+      );
+
+      const [walletRows] = await connection.query(
+        `SELECT id, balance_cents
+         FROM user_wallets
+         WHERE user_id = ?
+         FOR UPDATE`,
+        [transfer.user_id],
+      );
+
+      if (!walletRows.length) {
+        throw new Error("User wallet could not be created");
+      }
+
+      const wallet = walletRows[0];
+      const walletBalanceAfter = Number(wallet.balance_cents || 0);
+
+      const [userTxnResult] = await connection.execute(
+        `INSERT INTO user_wallet_transactions
+         (
+           user_id,
+           txn_type,
+           source,
+           amount_cents,
+           balance_after_cents,
+           reference_type,
+           reference_id,
+           description
+         )
+         VALUES
+         (
+           ?,
+           'CREDIT',
+           'AFFILIATE_TRANSFER',
+           ?,
+           ?,
+           'WALLET_TRANSFER',
+           ?,
+           'Transferred from affiliate earnings'
+         )`,
+        [
+          transfer.user_id,
+          amount,
+          walletBalanceAfter,
+          transfer.id,
+        ],
+      );
+
+      await connection.execute(
+        `UPDATE affiliate_wallet_transfers
+         SET
+           status = 'APPROVED',
+           processed_at = NOW(),
+           processed_by_admin_id = ?,
+           user_wallet_txn_id = ?,
+           affiliate_txn_id = ?
+         WHERE id = ?
+           AND status = 'PENDING'`,
+        [
+          req.adminId,
+          userTxnResult.insertId,
+          affiliateTxnResult.insertId,
+          transfer.id,
+        ],
+      );
+
+      await connection.commit();
+
+      res.json({
+        success: true,
+        new_wallet_balance: walletBalanceAfter,
+      });
+    } catch (error) {
+      try {
+        await connection.rollback();
+      } catch (_) {}
+
+      console.error(
+        "Admin wallet transfer approval error:",
+        error,
+      );
+
+      res.status(500).json({
+        error: error.message,
+      });
+    } finally {
+      connection.release();
+    }
+  },
+);
+
+app.post(
+  "/api/admin/wallet-transfers/:id/reject",
+  authenticateAdmin,
+  async (req, res) => {
+    const { id } = req.params;
+    const rejectionReason =
+      req.body?.rejection_reason == null
+        ? null
+        : String(req.body.rejection_reason)
+            .trim()
+            .slice(0, 255);
+
+    try {
+      const [transfers] = await db.execute(
+        `SELECT id, status
+         FROM affiliate_wallet_transfers
+         WHERE id = ?
+         LIMIT 1`,
+        [id],
+      );
+
+      if (!transfers.length) {
+        return res.status(404).json({
+          error: "Wallet transfer not found",
+        });
+      }
+
+      if (transfers[0].status !== "PENDING") {
+        return res.status(409).json({
+          error: "Wallet transfer has already been processed",
+          status: transfers[0].status,
+        });
+      }
+
+      await db.execute(
+        `UPDATE affiliate_wallet_transfers
+         SET
+           status = 'REJECTED',
+           processed_at = NOW(),
+           processed_by_admin_id = ?,
+           rejection_reason = ?
+         WHERE id = ?
+           AND status = 'PENDING'`,
+        [req.adminId, rejectionReason, id],
+      );
+
+      res.json({ success: true });
+    } catch (error) {
+      console.error(
+        "Admin wallet transfer rejection error:",
+        error,
+      );
+
+      res.status(500).json({
+        error: error.message,
+      });
+    }
+  },
+);
+
 // ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
 // ========== AFFILIATE LEDGER & PAYOUT SYSTEM ==========
 
