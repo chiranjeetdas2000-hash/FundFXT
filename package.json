@@ -4,10 +4,10 @@
   "description": "FundFXT Prop Firm Platform",
   "main": "backend/server.js",
   "scripts": {
-    "start": "node backend/payment-request-migration.js && node -r ./backend/database-control-preload.js -r ./backend/payment-flow-preload.js backend/server.js",
+    "start": "node backend/payment-request-migration.js && node backend/server.js",
     "test": "node --check backend/server.js && node --check backend/payment-request-migration.js && node --check backend/database-control-preload.js && node --check backend/payment-flow-preload.js && node --check frontend/admin/index.js"
   },
-  "engines": { "node": ">=18" },
+  "engines": { "node": "20.x" },
   "keywords": [],
   "author": "",
   "license": "ISC",
