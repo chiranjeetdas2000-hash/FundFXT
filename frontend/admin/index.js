@@ -83,18 +83,7 @@ async function loadWalletTransfers(status) {
             if (status === 'APPROVED') badgeClass = 'green';
             if (status === 'REJECTED') badgeClass = 'red';
 
-            const amount = 'setState("certificates",true);try{const d=await get("/api/admin/certificates"),rows=d.certificates||[];$("certificatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.account_code||"—")}</td><td>${esc(x.achievement||"—")}</td><td>${esc(x.issued_on||x.created_at||"—")}</td></tr>`).join("");$("certificatesLoading").style.display="none";$("certificatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("certificates",false,e.message);}}
-async function fetchSupportTickets(){setState("support",true);try{const d=await get("/api/admin/support/tickets"),rows=d.tickets||[];$("supportBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.ticket_ref||x.id)}</b></td><td>${esc(x.legal_name||x.email||"—")}</td><td>${esc(x.title||x.subject||"—")}</td><td style="max-width:420px">${esc(x.message||"—")}</td><td>${esc(x.created_at||"—")}</td></tr>`).join("");$("supportLoading").style.display="none";$("supportEmpty").style.display=rows.length?"none":"block";}catch(e){setState("support",false,e.message);}}
-async function loadSettings(){try{const d=await get("/api/settings"),s=d.settings||d,mode=String(s.payment_mode?.mode||s.payment_mode||"MANUAL").toUpperCase();document.querySelectorAll("[name=paymentMode]").forEach(x=>x.checked=x.value===mode);$("maintenanceMode").checked=Boolean(s.maintenance_mode?.enabled||s.maintenance_mode);}catch(e){$("settingsError").innerHTML=`<div class="error-box">${esc(e.message)}</div>`;}}
-async function saveSettings(){try{const mode=document.querySelector("[name=paymentMode]:checked")?.value||"MANUAL";await post("/api/admin/settings",{settings:{payment_mode:{mode},maintenance_mode:{enabled:$("maintenanceMode").checked}}});$("settingsMsg").textContent="Saved successfully";toast("Settings saved.");setTimeout(()=>($("settingsMsg").textContent=""),2200);}catch(e){toast(e.message,"err");}}
-document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){closeLinkModal();closeStatusModal();closeSidebarMobile();}});
-showSection("dashboard");
-
-const databaseControlScript = document.createElement("script");
-databaseControlScript.src = "database-control.js?v=20260911";
-databaseControlScript.defer = true;
-document.head.appendChild(databaseControlScript);
- + (Number(t.amount_cents || 0) / 100).toFixed(2);
+            const amount = money(t.amount_cents);
             const reqDate = t.requested_at ? new Date(t.requested_at).toLocaleDateString() : '—';
 
             let actionHtml = '<span class="badge ' + badgeClass + '">' + status + '</span>';
@@ -121,18 +110,7 @@ document.head.appendChild(databaseControlScript);
 }
 
 async function approveWalletTransfer(id, amountCents) {
-    const amount = 'setState("certificates",true);try{const d=await get("/api/admin/certificates"),rows=d.certificates||[];$("certificatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.account_code||"—")}</td><td>${esc(x.achievement||"—")}</td><td>${esc(x.issued_on||x.created_at||"—")}</td></tr>`).join("");$("certificatesLoading").style.display="none";$("certificatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("certificates",false,e.message);}}
-async function fetchSupportTickets(){setState("support",true);try{const d=await get("/api/admin/support/tickets"),rows=d.tickets||[];$("supportBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.ticket_ref||x.id)}</b></td><td>${esc(x.legal_name||x.email||"—")}</td><td>${esc(x.title||x.subject||"—")}</td><td style="max-width:420px">${esc(x.message||"—")}</td><td>${esc(x.created_at||"—")}</td></tr>`).join("");$("supportLoading").style.display="none";$("supportEmpty").style.display=rows.length?"none":"block";}catch(e){setState("support",false,e.message);}}
-async function loadSettings(){try{const d=await get("/api/settings"),s=d.settings||d,mode=String(s.payment_mode?.mode||s.payment_mode||"MANUAL").toUpperCase();document.querySelectorAll("[name=paymentMode]").forEach(x=>x.checked=x.value===mode);$("maintenanceMode").checked=Boolean(s.maintenance_mode?.enabled||s.maintenance_mode);}catch(e){$("settingsError").innerHTML=`<div class="error-box">${esc(e.message)}</div>`;}}
-async function saveSettings(){try{const mode=document.querySelector("[name=paymentMode]:checked")?.value||"MANUAL";await post("/api/admin/settings",{settings:{payment_mode:{mode},maintenance_mode:{enabled:$("maintenanceMode").checked}}});$("settingsMsg").textContent="Saved successfully";toast("Settings saved.");setTimeout(()=>($("settingsMsg").textContent=""),2200);}catch(e){toast(e.message,"err");}}
-document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){closeLinkModal();closeStatusModal();closeSidebarMobile();}});
-showSection("dashboard");
-
-const databaseControlScript = document.createElement("script");
-databaseControlScript.src = "database-control.js?v=20260911";
-databaseControlScript.defer = true;
-document.head.appendChild(databaseControlScript);
- + (Number(amountCents || 0) / 100).toFixed(2);
+    const amount = money(amountCents);
     if (!confirm('Approve this ' + amount + ' transfer? Funds will move from affiliate balance to FundFXT Wallet.')) return;
     try {
         await post('/api/admin/wallet-transfers/' + id + '/approve', {});
