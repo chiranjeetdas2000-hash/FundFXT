@@ -134,7 +134,7 @@ function installDatabaseControl(app) {
   app.post("/api/admin/database/payment-requests/:id/status",authenticateDatabaseAdmin,async(req,res)=>{
     const requested=String(req.body?.status||"").trim().toUpperCase();
     const nextStatus=requested;
-    if(!["PAYMENT_DONE","CANCELLED","PAYMENT_PENDING"].includes(nextStatus))return res.status(400).json({error:"Allowed payment outcomes are PAYMENT_PENDING, PAYMENT_DONE or CANCELLED."});
+    if(!["REQUESTED","PAYMENT_PENDING","PAYMENT_DONE","REJECTED","CANCELLED"].includes(nextStatus))return res.status(400).json({error:"Allowed payment statuses are REQUESTED, PAYMENT_PENDING, PAYMENT_DONE, REJECTED or CANCELLED."});
     const connection=await db.getConnection();
     try{
       await connection.beginTransaction();
