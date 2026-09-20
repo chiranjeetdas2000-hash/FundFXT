@@ -1399,7 +1399,152 @@ function calculatePL(symbol, side, entry, current, volume) {
 
 // ========== STEP 1: TRADING ENGINE & RISK MANAGEMENT ==========
 
-// 1. RISK ENGINE (Strict Rules Enforcement)
+// 1. BREACH SETTLEMENT (Atomically close all open trades and settle account)
+async function settleBreachedAccount(accountId, reason) {
+  let connection;
+
+  console.log("[BREACH SETTLE] Starting for account", accountId, "reason", reason);
+
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+
+    const [accounts] = await connection.execute(
+      "SELECT * FROM accounts WHERE id = ? FOR UPDATE",
+      [accountId],
+    );
+
+    if (!accounts.length || accounts[0].status === "BREACHED") {
+      await connection.rollback();
+      return {
+        success: true,
+        skipped: true,
+      };
+    }
+
+    const account = accounts[0];
+
+    const [openTrades] = await connection.execute(
+      "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN' FOR UPDATE",
+      [account.id],
+    );
+
+    let totalRealizedCents = 0;
+    let closedCount = 0;
+    let winCount = 0;
+    let lossCount = 0;
+
+    for (const trade of openTrades) {
+      const price = global.priceCache?.[trade.symbol];
+
+      if (!price) {
+        throw new Error(`Price not available for ${trade.symbol}.`);
+      }
+
+      const exitPrice =
+        trade.side === "BUY"
+          ? Number(price.bid)
+          : Number(price.ask);
+
+      if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
+        throw new Error(`Exit price unavailable for ${trade.symbol}.`);
+      }
+
+      const realizedCents = Math.round(
+        calculatePL(
+          trade.symbol,
+          trade.side,
+          trade.entry_price,
+          exitPrice,
+          trade.volume,
+        ) * 100,
+      );
+
+      const [closeResult] = await connection.execute(
+        "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = 'BREACH', updated_at = NOW() WHERE id = ? AND status = 'OPEN'",
+        [
+          exitPrice,
+          exitPrice,
+          realizedCents,
+          trade.id,
+        ],
+      );
+
+      if (closeResult.affectedRows !== 1) {
+        throw new Error(`Trade settlement failed for ${trade.id}.`);
+      }
+
+      totalRealizedCents += realizedCents;
+      closedCount += 1;
+
+      if (realizedCents > 0) {
+        winCount += 1;
+      } else if (realizedCents < 0) {
+        lossCount += 1;
+      }
+    }
+
+    const newBalanceCents =
+      Number(account.balance_cents || 0) + totalRealizedCents;
+    const newEquityCents = newBalanceCents;
+
+    const [accountResult] = await connection.execute(
+      "UPDATE accounts SET balance_cents = ?, equity_cents = ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + ?, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, status = 'BREACHED', breached_at = NOW(), breach_reason = ?, end_date = NOW(), updated_at = NOW() WHERE id = ?",
+      [
+        newBalanceCents,
+        newEquityCents,
+        totalRealizedCents,
+        closedCount,
+        winCount,
+        lossCount,
+        reason,
+        account.id,
+      ],
+    );
+
+    if (accountResult.affectedRows !== 1) {
+      throw new Error("Breach account settlement failed.");
+    }
+
+    console.log(
+      "[BREACH SETTLE] Closed",
+      closedCount,
+      "trades, total P/L =",
+      totalRealizedCents,
+      "cents",
+    );
+
+    await connection.commit();
+
+    console.log("[BREACH SETTLE] Committed");
+
+    return {
+      success: true,
+      closed_trades: closedCount,
+      winning_trades: winCount,
+      losing_trades: lossCount,
+      realized_profit_cents: totalRealizedCents,
+      balance_cents: newBalanceCents,
+      equity_cents: newEquityCents,
+    };
+  } catch (error) {
+    if (connection) {
+      await connection.rollback().catch(() => {});
+    }
+
+    console.error("[BREACH SETTLE] Error:", error.message);
+
+    return {
+      success: false,
+      error: error.message,
+    };
+  } finally {
+    if (connection) {
+      connection.release();
+    }
+  }
+}
+
 async function checkAccountRisk(account) {
   const parsed = parseChallengeModel(account.challenge_model);
 
@@ -1500,14 +1645,7 @@ async function checkAccountRisk(account) {
   const positionLimitReached = openPositions >= maxOpenPositions;
 
   if (breached) {
-    await db.execute(
-      "UPDATE accounts SET status = 'BREACHED', breached_at = NOW(), breach_reason = ? WHERE id = ?",
-      [reason, account.id],
-    );
-    await db.execute(
-      "UPDATE trades SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' WHERE account_id = ? AND status = 'OPEN'",
-      [account.id],
-    );
+    // Settlement is performed explicitly by each breach trigger.
   }
 
   return {
@@ -2292,6 +2430,7 @@ app.post("/api/trades/pending", authenticateToken, async (req, res) => {
     const risk = await checkAccountRisk(account);
 
     if (risk.breached) {
+      await settleBreachedAccount(account.id, risk.reason);
       return res.status(403).json({
         error: "Account breached. Trading disabled",
       });
@@ -2792,14 +2931,7 @@ async function processLivePrices() {
     const risk = await checkAccountRisk(freshAccount);
 
     if (risk.breached) {
-      await db.execute(
-        "UPDATE trades "
-        + "SET status = 'CLOSED', exit_time = NOW(), close_reason = 'BREACH' "
-        + "WHERE account_id = ? "
-        + "AND status = 'OPEN'",
-        [account.id],
-      );
-
+      await settleBreachedAccount(account.id, risk.reason);
       continue;
     }
 
@@ -2953,6 +3085,7 @@ app.post(
     );
 
     if (risk.breached) {
+      await settleBreachedAccount(account.id, risk.reason);
       return res.status(403).json({
         error: "Account breached. Trading disabled",
       });
@@ -3617,6 +3750,9 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
   const account = accounts[0];
   const config = await getChallengeConfig(account.challenge_model);
   const risk = await checkAccountRisk(account);
+  if (risk.breached) {
+    await settleBreachedAccount(account.id, risk.reason);
+  }
   const profitTargetCents =
     risk.profitTargetBps == null
       ? 0
