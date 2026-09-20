@@ -1288,30 +1288,74 @@ function calculatePL(symbol, side, entry, current, volume) {
 
 // 1. RISK ENGINE (Strict Rules Enforcement)
 async function checkAccountRisk(account) {
-  const config = await getChallengeConfig(account.challenge_model);
+  const parsed = parseChallengeModel(account.challenge_model);
+
+  let config;
+  let configSource = "legacy";
+  let model = parsed ? parsed.model_key : null;
+  let size = parsed ? parsed.size_key : null;
+  let phase = account.phase || null;
+
+  if (parsed && phase) {
+    const phaseConfig = await getChallengePhaseConfig(parsed.model_key, phase);
+    if (phaseConfig) {
+      config = phaseConfig;
+      configSource = "challenge_phase_rules";
+    }
+  }
+
+  if (!config) {
+    config = await getChallengeConfig(account.challenge_model);
+  }
+
   const maxTrades = config.max_trades_per_day;
   const maxTradesUnlimited = maxTrades === null || maxTrades === undefined;
-  const equity = account.equity_cents;
-  const balance = account.balance_cents;
-  const dayStartBalance = account.day_start_balance_cents;
-  const initialBalance = account.initial_balance_cents;
-  const equityHwm = account.equity_hwm_cents;
+  const maxOpenPositions =
+    config.max_open_positions == null ? 1 : Number(config.max_open_positions);
+  const minLot = config.min_lot == null ? 0.01 : Number(config.min_lot);
+  const maxLot = config.max_lot == null ? 2.0 : Number(config.max_lot);
+  const leverage = config.leverage == null ? null : Number(config.leverage);
+  const profitTargetBps =
+    config.profit_target_bps == null ? null : Number(config.profit_target_bps);
+  const consistencyBps =
+    config.consistency_bps == null ? null : Number(config.consistency_bps);
+  const dailyDdBasis = String(config.daily_dd_basis || "BALANCE").toUpperCase();
+  const maxDdBasis = String(config.max_dd_basis || "BALANCE").toUpperCase();
 
-  let dailyLossLimit, maxDrawdownLimit, currentDailyLoss, currentMaxDrawdown;
-  let breached = false,
-    reason = "";
+  const equity = Number(account.equity_cents || 0);
+  const balance = Number(account.balance_cents || 0);
+  const dayStartBalance = Number(account.day_start_balance_cents || 0);
+  const dayStartEquity = Number(
+    account.day_start_equity_cents || dayStartBalance,
+  );
+  const initialBalance = Number(account.initial_balance_cents || 0);
+  const equityHwm = Number(account.equity_hwm_cents || 0);
 
-  if (account.challenge_model === "prototype_5k") {
-    // Direct: Daily 2% (Balance based), Max 5% (Floating/Trailing based on HWM)
-    dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
+  let dailyLossLimit;
+  let maxDrawdownLimit;
+  let currentDailyLoss;
+  let currentMaxDrawdown;
+  let breached = false;
+  let reason = "";
+
+  if (dailyDdBasis === "EQUITY") {
+    dailyLossLimit = (Number(config.daily_dd_bps || 0) / 10000) * dayStartEquity;
+    currentDailyLoss = dayStartEquity - equity;
+  } else {
+    dailyLossLimit = (Number(config.daily_dd_bps || 0) / 10000) * dayStartBalance;
     currentDailyLoss = dayStartBalance - balance;
-    maxDrawdownLimit = (config.max_dd_bps / 10000) * equityHwm;
+  }
+
+  if (maxDdBasis === "TRAILING_EQUITY_HWM") {
+    maxDrawdownLimit = (Number(config.max_dd_bps || 0) / 10000) * equityHwm;
     currentMaxDrawdown = equityHwm - equity;
-  } else if (account.challenge_model === "warrior_5k") {
-    // Warrior: Daily 5% (Balance based), Max 8% (Balance based - Static)
-    dailyLossLimit = (config.daily_dd_bps / 10000) * dayStartBalance;
-    currentDailyLoss = dayStartBalance - balance;
-    maxDrawdownLimit = (config.max_dd_bps / 10000) * initialBalance;
+  } else if (maxDdBasis === "EQUITY") {
+    maxDrawdownLimit =
+      (Number(config.max_dd_bps || 0) / 10000) * initialBalance;
+    currentMaxDrawdown = initialBalance - equity;
+  } else {
+    maxDrawdownLimit =
+      (Number(config.max_dd_bps || 0) / 10000) * initialBalance;
     currentMaxDrawdown = initialBalance - balance;
   }
 
@@ -1327,8 +1371,16 @@ async function checkAccountRisk(account) {
     "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
     [account.id],
   );
-  const tradesToday = tradeCountRow[0].count;
-  const tradeLimitReached = !maxTradesUnlimited && tradesToday >= Number(maxTrades);
+  const tradesToday = Number(tradeCountRow[0].count || 0);
+  const tradeLimitReached =
+    !maxTradesUnlimited && tradesToday >= Number(maxTrades);
+
+  const [openPositionRow] = await db.execute(
+    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND status = 'OPEN'",
+    [account.id],
+  );
+  const openPositions = Number(openPositionRow[0].count || 0);
+  const positionLimitReached = openPositions >= maxOpenPositions;
 
   if (breached) {
     await db.execute(
@@ -1344,7 +1396,7 @@ async function checkAccountRisk(account) {
   return {
     breached,
     reason,
-    allowed: !breached && !tradeLimitReached,
+    allowed: !breached && !tradeLimitReached && !positionLimitReached,
     tradesToday,
     maxTrades: maxTrades,
     maxTradesUnlimited,
@@ -1352,6 +1404,19 @@ async function checkAccountRisk(account) {
     maxDrawdownLimit: maxDrawdownLimit / 100,
     currentDailyLoss: currentDailyLoss / 100,
     currentMaxDrawdown: currentMaxDrawdown / 100,
+    model,
+    size,
+    phase,
+    configSource,
+    openPositions,
+    maxOpenPositions,
+    dailyDdBasis,
+    maxDdBasis,
+    minLot,
+    maxLot,
+    leverage,
+    profitTargetBps,
+    consistencyBps,
   };
 }
 
