@@ -86,9 +86,9 @@ async function sendWalletTransferEmail(
   transferRef,
   reason,
 ) {
-  // FundFXT EMAIL POLICY: All transactional emails go to support.fundfxt@gmail.com.
-  // Admin manually forwards to customers. Reason: Resend free tier restriction.
-  // Future email functions MUST follow this pattern.
+  // FundFXT EMAIL POLICY: Transactional emails are sent to support.fundfxt@gmail.com.
+  // Admin manually forwards to customer. Email body MUST look customer-facing
+  // (no admin-specific text). Reason: Resend free tier requires verified recipient.
   try {
     const escapeHtml = (value) =>
       String(value || "").replace(
@@ -154,14 +154,13 @@ async function sendWalletTransferEmail(
             <tr>
               <td style="padding:12px 30px 24px;">
                 <div style="font-size:20px;font-weight:700;color:#f4f7fb;">Wallet Transfer ${safeStatus}</div>
-                <div style="margin-top:8px;color:#8d96a8;font-size:13px;">Admin notification — manual customer forwarding required.</div>
               </td>
             </tr>
             <tr>
               <td style="padding:0 30px 24px;">
                 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0b0e14;border:1px solid #252b3a;border-radius:8px;">
                   <tr>
-                    <td colspan="2" style="padding:14px 12px;color:#00e59a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Customer Details</td>
+                    <td colspan="2" style="padding:14px 12px;color:#00e59a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Transfer Details</td>
                   </tr>
                   <tr>
                     <td style="padding:10px 12px;border-top:1px solid #252b3a;color:#8d96a8;font-size:13px;width:38%;">Customer Name</td>
@@ -188,15 +187,6 @@ async function sendWalletTransferEmail(
                     <td style="padding:10px 12px;${status === "REJECTED" ? "border-bottom:1px solid #252b3a;" : ""}color:#00e59a;font-size:13px;font-weight:700;">${safeStatus}</td>
                   </tr>
                   ${reasonRow}
-                </table>
-              </td>
-            </tr>
-            <tr>
-              <td style="padding:0 30px 30px;">
-                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#10251f;border:1px solid #00e59a;border-radius:8px;">
-                  <tr>
-                    <td style="padding:16px;color:#00e59a;font-size:14px;font-weight:700;text-align:center;">Forward this to the customer email above.</td>
-                  </tr>
                 </table>
               </td>
             </tr>
