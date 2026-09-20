@@ -1324,12 +1324,16 @@ async function checkAccountRisk(account) {
 
   const equity = Number(account.equity_cents || 0);
   const balance = Number(account.balance_cents || 0);
-  const dayStartBalance = Number(account.day_start_balance_cents || 0);
+  const dayStartBalance = Number(
+    account.day_start_balance_cents || account.initial_balance_cents || 0
+  );
   const dayStartEquity = Number(
-    account.day_start_equity_cents || dayStartBalance,
+    account.day_start_equity_cents || account.equity_cents || account.initial_balance_cents || 0
   );
   const initialBalance = Number(account.initial_balance_cents || 0);
-  const equityHwm = Number(account.equity_hwm_cents || 0);
+  const equityHwm = Number(
+    account.equity_hwm_cents || account.equity_cents || account.initial_balance_cents || 0
+  );
 
   let dailyLossLimit;
   let maxDrawdownLimit;
@@ -3142,14 +3146,20 @@ app.post(
           initial_balance_cents,
           balance_cents,
           equity_cents,
+          day_start_balance_cents,
+          day_start_equity_cents,
+          equity_hwm_cents,
           status
         )
-        VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
         [
           accountCode,
           order.user_id,
           resolvedModel,
           initialPhase,
+          startingBalanceCents,
+          startingBalanceCents,
+          startingBalanceCents,
           startingBalanceCents,
           startingBalanceCents,
           startingBalanceCents,
