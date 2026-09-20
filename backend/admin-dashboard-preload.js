@@ -1,3 +1,4 @@
+console.log("[PRELOAD-LOAD] admin-dashboard loaded");
 const express = require("express");
 const mysql = require("mysql2/promise");
 const jwt = require("jsonwebtoken");
@@ -6,6 +7,7 @@ const originalListen = express.application.listen;
 let installed = false;
 
 function installDashboard(app) {
+  console.log("[PRELOAD] admin-dashboard installer called");
   if (installed) return;
   installed = true;
   const db = mysql.createPool({
