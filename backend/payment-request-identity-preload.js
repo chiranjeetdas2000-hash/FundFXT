@@ -47,7 +47,7 @@ function installPaymentRequestIdentity(app) {
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
   const requestRef = () => "REQ-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
 
-  async function email(to, subject, html) {
+  async function sendAdminNotificationEmail(to, subject, html) {
     const key = process.env.EMAIL_PASS;
     if (!key || !to) return false;
     const response = await fetch("https://api.resend.com/emails", {
@@ -162,7 +162,7 @@ function installPaymentRequestIdentity(app) {
 
       await connection.commit();
       try {
-        await email(
+        await sendAdminNotificationEmail(
           "support.fundfxt@gmail.com",
           `FundFXT Payment Request ${requestId}`,
           `<h2>New FundFXT Payment Request</h2><p><strong>Request ID:</strong> ${requestId}</p><p><strong>Name:</strong> ${user.legal_name}</p><p><strong>Email:</strong> ${user.email}</p><p><strong>Challenge:</strong> ${pricing.model}</p><p><strong>Payable:</strong> ${(pricing.finalAmountCents / 100).toFixed(2)} ${pricing.currency}</p><p><strong>Affiliate:</strong> ${storedAffiliateCode || "None"}</p><p>Please create and send a Razorpay Payment Link.</p>`,
