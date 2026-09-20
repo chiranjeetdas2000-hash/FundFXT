@@ -78,13 +78,17 @@ async function sendEmail(to, subject, html) {
 
 // ========== WALLET TRANSFER EMAIL ==========
 async function sendWalletTransferEmail(
-  toEmail,
+  customerEmail,
+  customerName,
   traderId,
   status,
   amountCents,
   transferRef,
   reason,
 ) {
+  // FundFXT EMAIL POLICY: All transactional emails go to support.fundfxt@gmail.com.
+  // Admin manually forwards to customers. Reason: Resend free tier restriction.
+  // Future email functions MUST follow this pattern.
   try {
     const escapeHtml = (value) =>
       String(value || "").replace(
@@ -99,31 +103,111 @@ async function sendWalletTransferEmail(
           })[c],
       );
 
+    const supportEmail = process.env.SUPPORT_EMAIL || "support.fundfxt@gmail.com";
+    if (!process.env.SUPPORT_EMAIL) {
+      if (!sendWalletTransferEmail.supportEmailWarningLogged) {
+        console.warn(
+          "SUPPORT_EMAIL is not configured; using fallback support.fundfxt@gmail.com",
+        );
+        sendWalletTransferEmail.supportEmailWarningLogged = true;
+      }
+    }
+    if (!supportEmail) {
+      console.warn("Skipping wallet transfer email — SUPPORT_EMAIL is missing");
+      return;
+    }
+
+    const safeCustomerName = escapeHtml(customerName);
+    const safeCustomerEmail = escapeHtml(customerEmail);
     const safeTraderId = escapeHtml(traderId);
+    const safeStatus = escapeHtml(status);
+    const safeTransferRef = escapeHtml(transferRef);
     const safeReason = escapeHtml(reason);
     const amount = (Number(amountCents || 0) / 100).toFixed(2);
+    const subjectPrefix =
+      status === "APPROVED"
+        ? "[FundFXT] Wallet Transfer Approved"
+        : "[FundFXT] Wallet Transfer Rejected";
+    const subject = `${subjectPrefix} — $${amount} — ${customerEmail}`;
 
-    if (status === "APPROVED") {
-      await sendEmail(
-        toEmail,
-        "Affiliate → FundFXT Wallet Transfer Approved",
-        `<h3>Wallet Transfer Approved</h3>
-         <p>Hello ${safeTraderId || "Trader"},</p>
-         <p>Your affiliate → FundFXT Wallet transfer of <b>${amount}</b> has been approved.</p>
-         <p>Transfer Reference: <b>${transferRef}</b></p>
-         <p>The amount has been credited to your FundFXT Wallet.</p>`,
-      );
-    } else if (status === "REJECTED") {
-      await sendEmail(
-        toEmail,
-        "FundFXT Wallet Transfer Rejected",
-        `<h3>Wallet Transfer Rejected</h3>
-         <p>Hello ${safeTraderId || "Trader"},</p>
-         <p>Your transfer of <b>${amount}</b> was rejected.</p>
-         <p>Transfer Reference: <b>${transferRef}</b></p>
-         <p>Reason: ${safeReason || "No reason provided."}</p>`,
-      );
-    }
+    const reasonRow =
+      status === "REJECTED"
+        ? `<tr>
+             <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Reason</td>
+             <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeReason || "No reason provided."}</td>
+           </tr>`
+        : "";
+
+    const html = `<!doctype html>
+<html>
+  <body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0b0e14;width:100%;">
+      <tr>
+        <td align="center" style="padding:32px 16px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#151924;border:1px solid #252b3a;border-radius:12px;">
+            <tr>
+              <td style="padding:28px 30px 12px;">
+                <div style="font-size:24px;font-weight:700;letter-spacing:.4px;color:#f4f7fb;">Fund<span style="color:#00e59a;">FXT</span></div>
+                <div style="margin-top:6px;color:#8d96a8;font-size:13px;">Wallet Transfer Notification</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:12px 30px 24px;">
+                <div style="font-size:20px;font-weight:700;color:#f4f7fb;">Wallet Transfer ${safeStatus}</div>
+                <div style="margin-top:8px;color:#8d96a8;font-size:13px;">Admin notification — manual customer forwarding required.</div>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 30px 24px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0b0e14;border:1px solid #252b3a;border-radius:8px;">
+                  <tr>
+                    <td colspan="2" style="padding:14px 12px;color:#00e59a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Customer Details</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border-top:1px solid #252b3a;color:#8d96a8;font-size:13px;width:38%;">Customer Name</td>
+                    <td style="padding:10px 12px;border-top:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeCustomerName || safeTraderId || "Trader"}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Customer Email</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;font-size:13px;"><a href="mailto:${safeCustomerEmail}" style="color:#00e59a;text-decoration:none;">${safeCustomerEmail}</a></td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Trader ID</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeTraderId || "—"}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Amount</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#00e59a;font-size:13px;font-weight:700;">$${amount}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Transfer Reference</td>
+                    <td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeTransferRef}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding:10px 12px;${status === "REJECTED" ? "border-bottom:1px solid #252b3a;" : ""}color:#8d96a8;font-size:13px;">Status</td>
+                    <td style="padding:10px 12px;${status === "REJECTED" ? "border-bottom:1px solid #252b3a;" : ""}color:#00e59a;font-size:13px;font-weight:700;">${safeStatus}</td>
+                  </tr>
+                  ${reasonRow}
+                </table>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 30px 30px;">
+                <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#10251f;border:1px solid #00e59a;border-radius:8px;">
+                  <tr>
+                    <td style="padding:16px;color:#00e59a;font-size:14px;font-weight:700;text-align:center;">Forward this to the customer email above.</td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>`;
+
+    await sendEmail(supportEmail, subject, html);
   } catch (error) {
     console.error("Wallet transfer email failed:", error.message);
   }
@@ -4591,14 +4675,14 @@ app.post(
 
       await connection.commit();
 
-      const [userRows] = await db.execute(
+      const [userEmailRows] = await db.execute(
         `SELECT id, email, trader_id
          FROM users
          WHERE id = ?
          LIMIT 1`,
         [transfer.user_id],
       );
-      const user = userRows[0];
+      const user = userEmailRows[0];
 
       if (!user || !user.email) {
         console.warn(
@@ -4611,8 +4695,24 @@ app.post(
         });
       }
 
+      const [legalNameColumns] = await db.execute(
+        "SHOW COLUMNS FROM users LIKE 'legal_name'",
+      );
+      let customerName = user.trader_id;
+      if (legalNameColumns.length) {
+        const [legalNameRows] = await db.execute(
+          `SELECT legal_name
+           FROM users
+           WHERE id = ?
+           LIMIT 1`,
+          [transfer.user_id],
+        );
+        customerName = legalNameRows[0]?.legal_name || user.trader_id;
+      }
+
       void sendWalletTransferEmail(
         user.email,
+        customerName,
         user.trader_id,
         "APPROVED",
         amount,
@@ -4695,14 +4795,14 @@ app.post(
       }
 
       const transfer = transfers[0];
-      const [userRows] = await db.execute(
+      const [userEmailRows] = await db.execute(
         `SELECT id, email, trader_id
          FROM users
          WHERE id = ?
          LIMIT 1`,
         [transfer.user_id],
       );
-      const user = userRows[0];
+      const user = userEmailRows[0];
 
       if (!user || !user.email) {
         console.warn(
@@ -4712,8 +4812,24 @@ app.post(
         return res.json({ success: true });
       }
 
+      const [legalNameColumns] = await db.execute(
+        "SHOW COLUMNS FROM users LIKE 'legal_name'",
+      );
+      let customerName = user.trader_id;
+      if (legalNameColumns.length) {
+        const [legalNameRows] = await db.execute(
+          `SELECT legal_name
+           FROM users
+           WHERE id = ?
+           LIMIT 1`,
+          [transfer.user_id],
+        );
+        customerName = legalNameRows[0]?.legal_name || user.trader_id;
+      }
+
       void sendWalletTransferEmail(
         user.email,
+        customerName,
         user.trader_id,
         "REJECTED",
         transfer.amount_cents,
