@@ -97,22 +97,46 @@
                 <div>
                     <span class="eyebrow">Withdraw</span>
                     <h1>Request withdrawal</h1>
-                    <p class="sub">Submit a withdrawal against an eligible account.</p>
+                    <p class="sub">Withdraw from your FundFXT Wallet. An active funded account is required.</p>
                 </div>
             </div>
             <div class="panel form tilt-card" data-tilt>
                 <select id="wAccount">
-                    <option value="">Select account</option>
+                    <option value="">Select funded account</option>
                 </select>
-                <input id="wAmount" type="number" min="0" step="0.01" placeholder="Amount (USD)">
+                <input id="wAmount" type="number" min="0.01" step="0.01" placeholder="Amount (USD)">
                 <select id="wMethod">
-                    <option>UPI</option>
-                    <option>BANK</option>
-                    <option>CRYPTO</option>
+                    <option value="UPI">UPI</option>
+                    <option value="CRYPTO">CRYPTO</option>
                 </select>
-                <input id="wAddress" placeholder="UPI ID / bank account / wallet">
+                <div id="wDetails"></div>
                 <button class="btn primary" id="wSubmit" type="button">Submit withdrawal request</button>
                 <div id="wMsg" class="message"></div>
+            </div>
+            <div class="panel" style="margin-top:16px;">
+                <div class="head-row">
+                    <h3>Withdrawal History</h3>
+                    <div class="wallet-filters">
+                        <select id="wHistoryStatus">
+                            <option value="">All Status</option>
+                            <option value="PENDING">PENDING</option>
+                            <option value="APPROVED">APPROVED</option>
+                            <option value="REJECTED">REJECTED</option>
+                        </select>
+                        <button class="btn" id="wHistoryRefresh" type="button">Refresh</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Request Ref</th><th>Amount</th><th>Method</th><th>Status</th><th>Requested</th><th>Reason</th></tr></thead>
+                        <tbody id="wHistoryRows"><tr><td colspan="6">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="wallet-pagination">
+                    <button class="btn" id="wHistoryPrev" type="button">← Prev</button>
+                    <span id="wHistoryPageLabel">Page 1 of 1</span>
+                    <button class="btn" id="wHistoryNext" type="button">Next →</button>
+                </div>
             </div>
         </section>
 
