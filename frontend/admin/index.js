@@ -2,6 +2,7 @@ const API_BASE_URL = "https://fundfxt.onrender.com";
 const token = localStorage.getItem("fundfxt_admin_token");
 if (!token) location.href = "login.html";
 let users = [], orders = [], selectedOrder = null, currentSection = "dashboard";
+let currentWalletTransferStatus = 'PENDING';
 const $ = (id) => document.getElementById(id);
 const auth = () => ({ Authorization: "Bearer " + token, "Content-Type": "application/json" });
 const esc = (v) => String(v ?? "").replace(/[&<>\'\"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '\"': "&quot;" })[c]);
@@ -15,7 +16,7 @@ async function post(path, body) { const r = await fetch(API_BASE_URL + path, { m
 function logout() { localStorage.removeItem("fundfxt_admin_token"); location.href = "login.html"; }
 function toggleSidebar() { $("sidebar").classList.toggle("open"); }
 function closeSidebarMobile() { $("sidebar").classList.remove("open"); }
-function showSection(name) { currentSection = name; document.querySelectorAll(".view").forEach((x) => x.classList.remove("active")); const target = $("section-" + name); if (target) target.classList.add("active"); document.querySelectorAll(".nav button").forEach((x) => x.classList.toggle("active", x.dataset.section === name)); closeSidebarMobile(); const loaders = { dashboard: fetchDashboard, users: fetchUsers, orders: fetchOrders, withdrawals: fetchWithdrawals, affiliates: fetchAffiliates, certificates: fetchCertificates, support: fetchSupportTickets, settings: loadSettings }; if (loaders[name]) loaders[name](); }
+function showSection(name) { currentSection = name; document.querySelectorAll(".view").forEach((x) => x.classList.remove("active")); const target = $("section-" + name); if (target) target.classList.add("active"); document.querySelectorAll(".nav button").forEach((x) => x.classList.toggle("active", x.dataset.section === name)); closeSidebarMobile(); const loaders = { dashboard: fetchDashboard, users: fetchUsers, orders: fetchOrders, withdrawals: fetchWithdrawals, affiliates: fetchAffiliates, certificates: fetchCertificates, support: fetchSupportTickets, settings: loadSettings, "wallet-transfers": loadWalletTransfers }; if (loaders[name]) loaders[name](); }
 function refreshCurrent() { showSection(currentSection); }
 function setState(kind, loading = false, error = "") { const ids = { users: ["usersLoading", "usersEmpty", "usersError"], orders: ["ordersLoading", "ordersEmpty", "ordersError"], withdrawals: ["withdrawalsLoading", "withdrawalsEmpty", "withdrawalsError"], affiliates: ["affiliatesLoading", "affiliatesEmpty", "affiliatesError"], certificates: ["certificatesLoading", "certificatesEmpty", "certificatesError"], support: ["supportLoading", "supportEmpty", "supportError"] }[kind]; if (!ids) return; const [l,e,er]=ids; $(l).style.display=loading?"block":"none"; $(e).style.display="none"; $(er).innerHTML=error?`<div class="error-box">${esc(error)}</div>`:""; }
 async function fetchDashboard(){try{const d=await get("/api/admin/dashboard-stats"),s=d.stats||{}; $("statPayments").textContent=s.payment_requests_today??0; $("statWithdrawals").textContent=s.withdrawal_requests_today??0; $("statPassed").textContent=s.passed_accounts_today??0; $("statFailed").textContent=s.failed_accounts_today??0; $("statRevenue").textContent=money(s.successful_revenue_cents);}catch(e){toast(e.message,"err");}}
@@ -34,6 +35,126 @@ async function setOrderStatus(s){if(!selectedOrder)return;if(!confirm("Set "+ord
 async function fetchWithdrawals(){setState("withdrawals",true);try{const d=await get("/api/admin/withdrawals"),rows=d.withdrawals||[];$("withdrawalsBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(field(x,"request_id","request_ref","id"))}</b></td><td><b>${esc(field(x,"legal_name","name"))}</b><br><small>${esc(field(x,"user_email","email"))}</small></td><td>${esc(x.account_code||"—")}</td><td>${money(x.amount_cents,x.currency)}</td><td>${esc(x.method||"—")}</td><td><span class="badge ${String(x.status).toUpperCase().includes("PAID")?"green":"yellow"}">${esc(x.status||"—")}</span></td></tr>`).join("");$("withdrawalsLoading").style.display="none";$("withdrawalsEmpty").style.display=rows.length?"none":"block";}catch(e){setState("withdrawals",false,e.message);}}
 async function fetchAffiliates(){setState("affiliates",true);try{const d=await get("/api/admin/affiliates"),rows=d.affiliates||[];$("affiliatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.email)}</td><td><b>${esc(x.affiliate_code||"—")}</b></td><td>${x.total_sales||0}</td><td>${money(x.total_earnings_cents)}</td><td>${money(x.pending_earnings_cents)}</td><td>${x.affiliate_code?`<button class="copy-btn" onclick="copyText(${JSON.stringify(String(x.affiliate_code))})">Copy Code</button>`:"—"}</td></tr>`).join("");$("affiliatesLoading").style.display="none";$("affiliatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("affiliates",false,e.message);}}
 async function copyText(v){try{await navigator.clipboard.writeText(v);toast("Affiliate code copied.");}catch{toast(v);}}
+async function loadWalletTransfers(status) {
+    if (status) currentWalletTransferStatus = status;
+    
+    const tabs = {
+        PENDING: 'wtTabPending',
+        APPROVED: 'wtTabApproved',
+        REJECTED: 'wtTabRejected'
+    };
+    Object.entries(tabs).forEach(([s, id]) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        if (s === currentWalletTransferStatus) {
+            el.classList.add('btn');
+            el.classList.remove('secondary');
+        } else {
+            el.classList.add('secondary');
+            el.classList.remove('btn');
+        }
+    });
+
+    const body = document.getElementById('walletTransfersBody');
+    const loading = document.getElementById('walletTransfersLoading');
+    const empty = document.getElementById('walletTransfersEmpty');
+    const errorEl = document.getElementById('walletTransfersError');
+
+    if (!body) return;
+    body.innerHTML = '';
+    if (loading) loading.style.display = 'block';
+    if (empty) empty.style.display = 'none';
+    if (errorEl) errorEl.innerHTML = '';
+
+    try {
+        const data = await get('/api/admin/wallet-transfers?status=' + currentWalletTransferStatus);
+        const transfers = Array.isArray(data.transfers) ? data.transfers : [];
+
+        if (loading) loading.style.display = 'none';
+
+        if (!transfers.length) {
+            if (empty) empty.style.display = 'block';
+            return;
+        }
+
+        body.innerHTML = transfers.map(t => {
+            const status = String(t.status || '').toUpperCase();
+            let badgeClass = 'yellow';
+            if (status === 'APPROVED') badgeClass = 'green';
+            if (status === 'REJECTED') badgeClass = 'red';
+
+            const amount = 'setState("certificates",true);try{const d=await get("/api/admin/certificates"),rows=d.certificates||[];$("certificatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.account_code||"—")}</td><td>${esc(x.achievement||"—")}</td><td>${esc(x.issued_on||x.created_at||"—")}</td></tr>`).join("");$("certificatesLoading").style.display="none";$("certificatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("certificates",false,e.message);}}
+async function fetchSupportTickets(){setState("support",true);try{const d=await get("/api/admin/support/tickets"),rows=d.tickets||[];$("supportBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.ticket_ref||x.id)}</b></td><td>${esc(x.legal_name||x.email||"—")}</td><td>${esc(x.title||x.subject||"—")}</td><td style="max-width:420px">${esc(x.message||"—")}</td><td>${esc(x.created_at||"—")}</td></tr>`).join("");$("supportLoading").style.display="none";$("supportEmpty").style.display=rows.length?"none":"block";}catch(e){setState("support",false,e.message);}}
+async function loadSettings(){try{const d=await get("/api/settings"),s=d.settings||d,mode=String(s.payment_mode?.mode||s.payment_mode||"MANUAL").toUpperCase();document.querySelectorAll("[name=paymentMode]").forEach(x=>x.checked=x.value===mode);$("maintenanceMode").checked=Boolean(s.maintenance_mode?.enabled||s.maintenance_mode);}catch(e){$("settingsError").innerHTML=`<div class="error-box">${esc(e.message)}</div>`;}}
+async function saveSettings(){try{const mode=document.querySelector("[name=paymentMode]:checked")?.value||"MANUAL";await post("/api/admin/settings",{settings:{payment_mode:{mode},maintenance_mode:{enabled:$("maintenanceMode").checked}}});$("settingsMsg").textContent="Saved successfully";toast("Settings saved.");setTimeout(()=>($("settingsMsg").textContent=""),2200);}catch(e){toast(e.message,"err");}}
+document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){closeLinkModal();closeStatusModal();closeSidebarMobile();}});
+showSection("dashboard");
+
+const databaseControlScript = document.createElement("script");
+databaseControlScript.src = "database-control.js?v=20260911";
+databaseControlScript.defer = true;
+document.head.appendChild(databaseControlScript);
+ + (Number(t.amount_cents || 0) / 100).toFixed(2);
+            const reqDate = t.requested_at ? new Date(t.requested_at).toLocaleDateString() : '—';
+
+            let actionHtml = '<span class="badge ' + badgeClass + '">' + status + '</span>';
+            if (status === 'PENDING') {
+                actionHtml = 
+                    '<button class="btn" onclick="approveWalletTransfer(' + t.id + ',' + t.amount_cents + ')">Approve</button> ' +
+                    '<button class="btn red" onclick="rejectWalletTransfer(' + t.id + ')">Reject</button>';
+            }
+
+            return '<tr>' +
+                '<td>' + (t.transfer_ref || '—') + '</td>' +
+                '<td>' + (t.legal_name || '—') + '<br><small>' + (t.email || '') + '</small></td>' +
+                '<td>' + (t.affiliate_code || '—') + '</td>' +
+                '<td>' + amount + '</td>' +
+                '<td>' + (t.reason || '—') + '</td>' +
+                '<td>' + reqDate + '</td>' +
+                '<td>' + actionHtml + '</td>' +
+                '</tr>';
+        }).join('');
+    } catch (error) {
+        if (loading) loading.style.display = 'none';
+        if (errorEl) errorEl.textContent = error.message;
+    }
+}
+
+async function approveWalletTransfer(id, amountCents) {
+    const amount = 'setState("certificates",true);try{const d=await get("/api/admin/certificates"),rows=d.certificates||[];$("certificatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.account_code||"—")}</td><td>${esc(x.achievement||"—")}</td><td>${esc(x.issued_on||x.created_at||"—")}</td></tr>`).join("");$("certificatesLoading").style.display="none";$("certificatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("certificates",false,e.message);}}
+async function fetchSupportTickets(){setState("support",true);try{const d=await get("/api/admin/support/tickets"),rows=d.tickets||[];$("supportBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.ticket_ref||x.id)}</b></td><td>${esc(x.legal_name||x.email||"—")}</td><td>${esc(x.title||x.subject||"—")}</td><td style="max-width:420px">${esc(x.message||"—")}</td><td>${esc(x.created_at||"—")}</td></tr>`).join("");$("supportLoading").style.display="none";$("supportEmpty").style.display=rows.length?"none":"block";}catch(e){setState("support",false,e.message);}}
+async function loadSettings(){try{const d=await get("/api/settings"),s=d.settings||d,mode=String(s.payment_mode?.mode||s.payment_mode||"MANUAL").toUpperCase();document.querySelectorAll("[name=paymentMode]").forEach(x=>x.checked=x.value===mode);$("maintenanceMode").checked=Boolean(s.maintenance_mode?.enabled||s.maintenance_mode);}catch(e){$("settingsError").innerHTML=`<div class="error-box">${esc(e.message)}</div>`;}}
+async function saveSettings(){try{const mode=document.querySelector("[name=paymentMode]:checked")?.value||"MANUAL";await post("/api/admin/settings",{settings:{payment_mode:{mode},maintenance_mode:{enabled:$("maintenanceMode").checked}}});$("settingsMsg").textContent="Saved successfully";toast("Settings saved.");setTimeout(()=>($("settingsMsg").textContent=""),2200);}catch(e){toast(e.message,"err");}}
+document.addEventListener("keydown",(e)=>{if(e.key==="Escape"){closeLinkModal();closeStatusModal();closeSidebarMobile();}});
+showSection("dashboard");
+
+const databaseControlScript = document.createElement("script");
+databaseControlScript.src = "database-control.js?v=20260911";
+databaseControlScript.defer = true;
+document.head.appendChild(databaseControlScript);
+ + (Number(amountCents || 0) / 100).toFixed(2);
+    if (!confirm('Approve this ' + amount + ' transfer? Funds will move from affiliate balance to FundFXT Wallet.')) return;
+    try {
+        await post('/api/admin/wallet-transfers/' + id + '/approve', {});
+        toast('Transfer approved');
+        loadWalletTransfers(currentWalletTransferStatus);
+    } catch (error) {
+        toast(error.message, 'err');
+    }
+}
+
+async function rejectWalletTransfer(id) {
+    const reason = prompt('Enter rejection reason:');
+    if (!reason) return;
+    try {
+        await post('/api/admin/wallet-transfers/' + id + '/reject', { rejection_reason: reason });
+        toast('Transfer rejected');
+        loadWalletTransfers(currentWalletTransferStatus);
+    } catch (error) {
+        toast(error.message, 'err');
+    }
+}
+
 async function fetchCertificates(){setState("certificates",true);try{const d=await get("/api/admin/certificates"),rows=d.certificates||[];$("certificatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.account_code||"—")}</td><td>${esc(x.achievement||"—")}</td><td>${esc(x.issued_on||x.created_at||"—")}</td></tr>`).join("");$("certificatesLoading").style.display="none";$("certificatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("certificates",false,e.message);}}
 async function fetchSupportTickets(){setState("support",true);try{const d=await get("/api/admin/support/tickets"),rows=d.tickets||[];$("supportBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.ticket_ref||x.id)}</b></td><td>${esc(x.legal_name||x.email||"—")}</td><td>${esc(x.title||x.subject||"—")}</td><td style="max-width:420px">${esc(x.message||"—")}</td><td>${esc(x.created_at||"—")}</td></tr>`).join("");$("supportLoading").style.display="none";$("supportEmpty").style.display=rows.length?"none":"block";}catch(e){setState("support",false,e.message);}}
 async function loadSettings(){try{const d=await get("/api/settings"),s=d.settings||d,mode=String(s.payment_mode?.mode||s.payment_mode||"MANUAL").toUpperCase();document.querySelectorAll("[name=paymentMode]").forEach(x=>x.checked=x.value===mode);$("maintenanceMode").checked=Boolean(s.maintenance_mode?.enabled||s.maintenance_mode);}catch(e){$("settingsError").innerHTML=`<div class="error-box">${esc(e.message)}</div>`;}}
