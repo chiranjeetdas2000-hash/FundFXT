@@ -178,36 +178,7 @@ function installPaymentFlow(app) {
     return code;
   }
 
-  app.post("/api/payments/request", authenticateUser, async (req, res) => {
-    const connection = await db.getConnection();
-    try {
-      await connection.beginTransaction();
-      const [users] = await connection.execute(
-        "SELECT id, legal_name, email, phone FROM users WHERE id = ? LIMIT 1",
-        [req.userId]
-      );
-      if (!users.length) throw new Error("User not found");
-      const user = users[0];
-      const p = await pricing(connection, req.body?.model, req.body?.affiliate_code);
-      const id = requestRef();
-      const affiliateCode = p.affiliateApplied ? String(req.body.affiliate_code).trim() : null;
-      await connection.execute(
-        `INSERT INTO payment_requests
-         (request_id,user_id,provider,razorpay_link,model,affiliate_code,affiliate_id,original_amount_cents,discount_amount_cents,final_amount_cents,paid_amount_cents,currency,status,created_at,updated_at)
-         VALUES (?, ?, 'RAZORPAY', NULL, ?, ?, ?, ?, ?, ?, 0, ?, 'REQUESTED', NOW(), NOW())`,
-        [id, user.id, p.model, affiliateCode, p.affiliate_user_id, p.originalAmountCents, p.discountAmountCents, p.finalAmountCents, p.currency]
-      );
-      await connection.commit();
-      try {
-        await email("support.fundfxt@gmail.com", `FundFXT Payment Request ${id}`, `<h2>New FundFXT Payment Request</h2><p><b>Request ID:</b> ${id}</p><p><b>Name:</b> ${user.legal_name}</p><p><b>Email:</b> ${user.email}</p><p><b>Challenge:</b> ${p.model}</p><p><b>Payable:</b> ${(p.finalAmountCents / 100).toFixed(2)} ${p.currency}</p><p><b>Affiliate:</b> ${affiliateCode || "None"}</p>`);
-      } catch (error) { console.error("Payment request email failed:", error.message); }
-      res.json({ success: true, request_id: id, request_ref: id, status: "REQUESTED", manual_payment: true, pricing: p });
-    } catch (error) {
-      try { await connection.rollback(); } catch {}
-      console.error("Payment request error:", error);
-      res.status(500).json({ error: error.message });
-    } finally { connection.release(); }
-  });
+
 
   app.post("/api/admin/payment-requests/:id/mark-link-sent", authenticateAdmin, async (req, res) => {
     const link = String(req.body?.razorpay_link || "").trim();
