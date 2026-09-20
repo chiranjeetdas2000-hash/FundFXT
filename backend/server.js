@@ -540,9 +540,31 @@ async function getModelWithDefaultSize(model_key) {
 }
 
 async function calculateServerPrice(model, affiliateCode) {
-  const mappedModel = MODEL_MAP[model] || model;
-  const config = await getChallengeConfig(mappedModel);
-  const original = config.price_cents;
+  const parsed = parseChallengeModel(model);
+
+  let priceCents;
+  let affiliateDiscountBps;
+  let resolvedModel;
+  let config;
+
+  if (parsed && !["direct", "two_step"].includes(String(model || "").trim())) {
+    const size = await getChallengeSize(parsed.model_key, parsed.size_key);
+    if (size) {
+      priceCents = Number(size.price_cents || 0);
+      affiliateDiscountBps = Number(size.affiliate_discount_bps || 0);
+      resolvedModel = parsed.model_key + "_" + parsed.size_key;
+      config = size;
+    }
+  }
+
+  if (priceCents === undefined) {
+    const mappedModel = MODEL_MAP[model] || model;
+    config = await getChallengeConfig(mappedModel);
+    priceCents = Number(config.price_cents || 0);
+    affiliateDiscountBps = Number(config.affiliate_discount_bps || 0);
+    resolvedModel = mappedModel;
+  }
+
   let discountAmountCents = 0,
     affiliateUserId = null,
     affiliateApplied = false;
@@ -555,16 +577,16 @@ async function calculateServerPrice(model, affiliateCode) {
     if (affiliateRows.length > 0) {
       affiliateUserId = affiliateRows[0].id;
       discountAmountCents = Math.floor(
-        original * (config.affiliate_discount_bps / 10000),
+        priceCents * (affiliateDiscountBps / 10000),
       );
       affiliateApplied = true;
     }
   }
 
-  const finalAmount = Math.max(original - discountAmountCents, 0);
+  const finalAmount = Math.max(priceCents - discountAmountCents, 0);
   return {
-    model: mappedModel,
-    originalAmountCents: original,
+    model: resolvedModel,
+    originalAmountCents: priceCents,
     discountAmountCents,
     finalAmountCents: finalAmount,
     currency: String(process.env.PAYMENT_CURRENCY || "USD").toUpperCase(),
