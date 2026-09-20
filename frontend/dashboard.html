@@ -30,6 +30,7 @@
         <nav class="nav">
             <a data-view="home" class="active">⌂ <span>Home</span></a>
             <a data-view="withdraw">↗ <span>Withdraw</span></a>
+            <a data-view="wallet">▣ <span>FundFXT Wallet</span></a>
             <a href="/buy-challenge.html">＋ <span>Buy Challenge</span></a>
             <a data-view="orders">▤ <span>Order History</span></a>
             <a data-view="certificates">★ <span>Certificates</span></a>
@@ -112,6 +113,103 @@
                 <input id="wAddress" placeholder="UPI ID / bank account / wallet">
                 <button class="btn primary" id="wSubmit" type="button">Submit withdrawal request</button>
                 <div id="wMsg" class="message"></div>
+            </div>
+        </section>
+
+        <section id="wallet" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Wallet</span>
+                    <h1>FundFXT Wallet</h1>
+                    <p class="sub">Your available platform balance.</p>
+                </div>
+            </div>
+
+            <div class="panel wallet-card">
+                <div class="wallet-balance">
+                    <span class="eyebrow">Available Balance</span>
+                    <h2 id="walletBalance">$0.00</h2>
+                    <p class="sub">
+                        <span id="walletTotalReceived">$0.00</span> total received ·
+                        <span id="walletTotalWithdrawn">$0.00</span> total withdrawn
+                    </p>
+                </div>
+                <div class="wallet-actions">
+                    <button class="btn" id="walletWithdrawBtn" type="button">Withdraw</button>
+                    <button class="btn primary" id="walletMoveAffiliateBtn" type="button">Move Affiliate Balance</button>
+                </div>
+            </div>
+
+            <div class="panel wallet-pending" id="walletPendingSection" style="display:none;">
+                <h3>Pending Affiliate Transfer</h3>
+                <div id="walletPendingBody"></div>
+            </div>
+
+            <div class="panel wallet-passbook">
+                <div class="head-row">
+                    <h3>Passbook</h3>
+                    <div class="wallet-filters">
+                        <select id="walletFilterType">
+                            <option value="">All Types</option>
+                            <option value="CREDIT">CREDIT</option>
+                            <option value="DEBIT">DEBIT</option>
+                        </select>
+                        <select id="walletFilterSource">
+                            <option value="">All Sources</option>
+                            <option value="AFFILIATE_TRANSFER">AFFILIATE_TRANSFER</option>
+                            <option value="WITHDRAWAL">WITHDRAWAL</option>
+                            <option value="ADJUSTMENT">ADJUSTMENT</option>
+                            <option value="REFUND">REFUND</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table wallet-passbook-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Source</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="walletPassbookRows">
+                            <tr><td colspan="6">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="wallet-pagination">
+                    <button class="btn" id="walletPassbookPrev" type="button">← Prev</button>
+                    <span id="walletPassbookPageLabel">Page 1 of 1</span>
+                    <button class="btn" id="walletPassbookNext" type="button">Next →</button>
+                </div>
+            </div>
+
+            <div class="panel wallet-transfers">
+                <h3>Affiliate Transfer Requests</h3>
+                <div class="table-wrap">
+                    <table class="table wallet-transfer-table">
+                        <thead>
+                            <tr>
+                                <th>Requested</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Reason</th>
+                                <th>Admin Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="walletTransferRows">
+                            <tr><td colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="wallet-pagination">
+                    <button class="btn" id="walletTransferPrev" type="button">← Prev</button>
+                    <span id="walletTransferPageLabel">Page 1 of 1</span>
+                    <button class="btn" id="walletTransferNext" type="button">Next →</button>
+                </div>
             </div>
         </section>
 

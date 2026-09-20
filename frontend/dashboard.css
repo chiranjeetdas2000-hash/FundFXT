@@ -1176,3 +1176,27 @@ h2 {
 
 .status-withdrawn{color:#5aa9ff;background:rgba(90,169,255,.1);border:1px solid rgba(90,169,255,.24)}
 .passbook-email{display:block;margin-top:4px;color:var(--muted);font-size:8px;white-space:normal}
+
+
+/* ============================================================
+   FUND FXT WALLET
+   ============================================================ */
+.wallet-card { padding: 20px; margin-bottom: 16px; }
+.wallet-balance h2 { font-size: 32px; color: var(--green); margin: 6px 0; }
+.wallet-actions { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+.wallet-pending { padding: 16px; margin-bottom: 16px; border-left: 3px solid #f0b90b; }
+.wallet-passbook, .wallet-transfers { padding: 16px; margin-bottom: 16px; }
+.wallet-filters { display: flex; gap: 8px; flex-wrap: wrap; }
+.wallet-filters select { padding: 6px 10px; background: var(--card-2); border: 1px solid var(--line); color: var(--text); border-radius: 6px; }
+.wallet-pagination { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 15px; }
+.wallet-pagination span { min-width: 90px; color: var(--muted); font-size: 10px; text-align: center; }
+.wallet-pagination .btn:disabled { opacity: 0.38; cursor: not-allowed; }
+.head-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.wallet-passbook-table { min-width: 760px; }
+.wallet-transfer-table { min-width: 720px; }
+
+@media (max-width: 600px) {
+    .wallet-balance h2 { font-size: 26px; }
+    .wallet-actions { flex-direction: column; }
+    .wallet-actions .btn { width: 100%; }
+}

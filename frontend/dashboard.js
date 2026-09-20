@@ -93,6 +93,10 @@ document.querySelectorAll('.nav a[data-view]').forEach((link) => {
         if (link.dataset.view === 'support') {
             loadTickets();
         }
+
+        if (link.dataset.view === 'wallet') {
+            loadWallet();
+        }
     });
 });
 
@@ -296,6 +300,97 @@ async function loadCerts() {
 
 let affiliateWalletPage = 1;
 const affiliateWalletFilters = { order_id: '', sale_status: '', commission_status: '' };
+let walletPassbookPage = 1;
+let walletTransferPage = 1;
+const walletPassbookFilters = { txn_type: '', source: '' };
+
+
+async function loadWallet() {
+    try {
+        const data = await api('/api/user/wallet');
+        const w = data.wallet || {};
+        
+        $('walletBalance').textContent = money(w.balance_cents || 0);
+        $('walletTotalReceived').textContent = money(w.total_received_cents || 0);
+        $('walletTotalWithdrawn').textContent = money(w.total_withdrawn_cents || 0);
+        
+        await loadWalletPassbook(1);
+        await loadAffiliateTransfers(1);
+    } catch (error) {
+        console.error('Wallet load error:', error);
+    }
+}
+
+async function loadWalletPassbook(page) {
+    try {
+        walletPassbookPage = Math.max(Number(page) || 1, 1);
+        const params = new URLSearchParams({ page: String(walletPassbookPage), limit: '15' });
+        if (walletPassbookFilters.txn_type) params.set('txn_type', walletPassbookFilters.txn_type);
+        if (walletPassbookFilters.source) params.set('source', walletPassbookFilters.source);
+        
+        const data = await api('/api/user/wallet/passbook?' + params.toString());
+        const rows = Array.isArray(data.transactions) ? data.transactions : [];
+        
+        $('walletPassbookRows').innerHTML = rows.length ? rows.map(txn => {
+            const isCredit = String(txn.txn_type || '').toUpperCase() === 'CREDIT';
+            const date = txn.created_at ? new Date(txn.created_at).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '—';
+            return '<tr>' +
+                '<td>' + date + '</td>' +
+                '<td><span class="txn-type ' + (isCredit ? 'txn-credit' : 'txn-debit') + '">' + (isCredit ? 'CREDIT' : 'DEBIT') + '</span></td>' +
+                '<td>' + esc(txn.source || '—') + '</td>' +
+                '<td>' + esc(txn.description || '—') + '</td>' +
+                '<td class="' + (isCredit ? 'amount-credit' : 'amount-debit') + '">' + (isCredit ? '+' : '−') + money(txn.amount_cents || 0) + '</td>' +
+                '<td class="balance-cell">' + money(txn.balance_after_cents || 0) + '</td>' +
+                '</tr>';
+        }).join('') : '<tr><td colspan="6">No transactions yet.</td></tr>';
+        
+        $('walletPassbookPageLabel').textContent = 'Page ' + (data.page || 1) + ' of ' + Math.max(data.total_pages || 1, 1);
+        $('walletPassbookPrev').disabled = (data.page || 1) <= 1;
+        $('walletPassbookNext').disabled = !data.total_pages || (data.page || 1) >= data.total_pages;
+    } catch (error) {
+        console.error('Passbook error:', error);
+        $('walletPassbookRows').innerHTML = '<tr><td colspan="6">Unable to load passbook.</td></tr>';
+    }
+}
+
+async function loadAffiliateTransfers(page) {
+    try {
+        walletTransferPage = Math.max(Number(page) || 1, 1);
+        const params = new URLSearchParams({ page: String(walletTransferPage), limit: '15' });
+        const data = await api('/api/user/wallet/affiliate-transfers?' + params.toString());
+        const rows = Array.isArray(data.transfers) ? data.transfers : [];
+        
+        const pending = rows.find(t => String(t.status).toUpperCase() === 'PENDING');
+        if (pending) {
+            $('walletPendingSection').style.display = 'block';
+            $('walletPendingBody').innerHTML = 
+                '<p><b>' + money(pending.amount_cents) + '</b> · ' + esc(pending.transfer_ref) + '</p>' +
+                '<p class="sub">Requested: ' + new Date(pending.requested_at).toLocaleString() + '</p>' +
+                '<p class="sub">Reason: ' + esc(pending.reason || '—') + '</p>' +
+                '<span class="status-badge status-pending">PENDING</span>';
+        } else {
+            $('walletPendingSection').style.display = 'none';
+        }
+        
+        $('walletTransferRows').innerHTML = rows.length ? rows.map(t => {
+            const status = String(t.status || '').toUpperCase();
+            const badgeClass = status === 'APPROVED' ? 'status-paid' : status === 'REJECTED' ? 'status-rejected' : 'status-pending';
+            return '<tr>' +
+                '<td>' + (t.requested_at ? new Date(t.requested_at).toLocaleDateString('en-GB', {day:'2-digit', month:'short', year:'numeric'}) : '—') + '</td>' +
+                '<td>' + money(t.amount_cents || 0) + '</td>' +
+                '<td><span class="status-badge ' + badgeClass + '">' + status + '</span></td>' +
+                '<td>' + esc(t.reason || '—') + '</td>' +
+                '<td>' + esc(t.rejection_reason || '—') + '</td>' +
+                '</tr>';
+        }).join('') : '<tr><td colspan="5">No affiliate transfer requests yet.</td></tr>';
+        
+        $('walletTransferPageLabel').textContent = 'Page ' + (data.page || 1) + ' of ' + Math.max(data.total_pages || 1, 1);
+        $('walletTransferPrev').disabled = (data.page || 1) <= 1;
+        $('walletTransferNext').disabled = !data.total_pages || (data.page || 1) >= data.total_pages;
+    } catch (error) {
+        console.error('Transfers error:', error);
+    }
+}
 
 async function loadAffiliate(page = affiliateWalletPage) {
     try {
@@ -407,6 +502,57 @@ $('affiliateClearFilters').addEventListener('click', () => {
 });
 $('affiliatePrev').addEventListener('click', () => { if (affiliateWalletPage > 1) loadAffiliate(affiliateWalletPage - 1); });
 $('affiliateNext').addEventListener('click', () => { loadAffiliate(affiliateWalletPage + 1); });
+
+// Wallet pagination
+document.getElementById('walletPassbookPrev')?.addEventListener('click', () => {
+    if (walletPassbookPage > 1) loadWalletPassbook(walletPassbookPage - 1);
+});
+document.getElementById('walletPassbookNext')?.addEventListener('click', () => {
+    loadWalletPassbook(walletPassbookPage + 1);
+});
+document.getElementById('walletTransferPrev')?.addEventListener('click', () => {
+    if (walletTransferPage > 1) loadAffiliateTransfers(walletTransferPage - 1);
+});
+document.getElementById('walletTransferNext')?.addEventListener('click', () => {
+    loadAffiliateTransfers(walletTransferPage + 1);
+});
+
+// Wallet filters
+document.getElementById('walletFilterType')?.addEventListener('change', (e) => {
+    walletPassbookFilters.txn_type = e.target.value;
+    loadWalletPassbook(1);
+});
+document.getElementById('walletFilterSource')?.addEventListener('change', (e) => {
+    walletPassbookFilters.source = e.target.value;
+    loadWalletPassbook(1);
+});
+
+// Move Affiliate Balance
+document.getElementById('walletMoveAffiliateBtn')?.addEventListener('click', async () => {
+    const amountStr = prompt('Enter amount to transfer (USD, min $50):');
+    if (!amountStr) return;
+    const amountDollars = parseFloat(amountStr);
+    if (isNaN(amountDollars) || amountDollars < 50) {
+        alert('Minimum transfer is $50.00');
+        return;
+    }
+    const amountCents = Math.round(amountDollars * 100);
+    try {
+        const result = await api('/api/user/wallet/request-affiliate-transfer', {
+            method: 'POST',
+            body: JSON.stringify({ amount_cents: amountCents, reason: 'Move from affiliate earnings' })
+        });
+        alert('Transfer requested: ' + result.transfer_ref);
+        await loadWallet();
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
+});
+
+// Withdraw (placeholder)
+document.getElementById('walletWithdrawBtn')?.addEventListener('click', () => {
+    alert('Wallet withdrawal will be available soon.');
+});
 
 async function loadTickets() {
     try {
