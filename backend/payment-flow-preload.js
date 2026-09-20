@@ -1,3 +1,4 @@
+console.log("[PRELOAD-LOAD] payment-flow loaded");
 const express = require("express");
 const mysql = require("mysql2/promise");
 const jwt = require("jsonwebtoken");
@@ -7,6 +8,7 @@ const originalListen = express.application.listen;
 let installed = false;
 
 function installPaymentFlow(app) {
+  console.log("[PRELOAD] payment-flow installer called");
   if (installed) return;
   installed = true;
 
