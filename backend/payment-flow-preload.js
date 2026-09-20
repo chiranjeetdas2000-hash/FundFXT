@@ -72,15 +72,51 @@ function installPaymentFlow(app) {
   }
 
   async function pricing(connection, model, affiliateCode) {
-    const [configs] = await connection.execute(
-      "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
-      [model]
-    );
-    if (!configs.length) throw new Error("Invalid challenge model");
-    const config = configs[0];
-    const original = Number(config.price_cents || 0);
-    let discount = 0;
+    const normalizedModel = String(model || "").trim();
+    const parsed = {
+      warrior_5k: { model_key: "warrior", size_key: "5k" },
+      warrior_10k: { model_key: "warrior", size_key: "10k" },
+      warrior_15k: { model_key: "warrior", size_key: "15k" },
+      warrior_25k: { model_key: "warrior", size_key: "25k" },
+      prototype_5k: { model_key: "prototype", size_key: "5k" },
+      prototype: { model_key: "prototype", size_key: "5k" },
+      warrior: { model_key: "warrior", size_key: "5k" },
+    }[normalizedModel] || null;
+
+    let priceCents;
+    let affiliateDiscountBps;
+    let resolvedModel;
+    let config;
+
+    if (parsed) {
+      const [sizes] = await connection.execute(
+        "SELECT * FROM challenge_sizes WHERE model_key = ? AND size_key = ? AND is_active = 1 LIMIT 1",
+        [parsed.model_key, parsed.size_key]
+      );
+      if (sizes.length) {
+        const size = sizes[0];
+        priceCents = Number(size.price_cents || 0);
+        affiliateDiscountBps = Number(size.affiliate_discount_bps || 0);
+        resolvedModel = parsed.model_key + "_" + parsed.size_key;
+        config = size;
+      }
+    }
+
+    if (priceCents === undefined) {
+      const [configs] = await connection.execute(
+        "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
+        [model]
+      );
+      if (!configs.length) throw new Error("Invalid challenge model");
+      config = configs[0];
+      priceCents = Number(config.price_cents || 0);
+      affiliateDiscountBps = Number(config.affiliate_discount_bps || 0);
+      resolvedModel = model;
+    }
+
+    let discountAmountCents = 0;
     let affiliateId = null;
+    let affiliateApplied = false;
 
     if (affiliateCode) {
       const [affiliates] = await connection.execute(
@@ -89,18 +125,20 @@ function installPaymentFlow(app) {
       );
       if (affiliates.length) {
         affiliateId = affiliates[0].id;
-        discount = Math.floor(original * Number(config.affiliate_discount_bps || 0) / 10000);
+        discountAmountCents = Math.floor(priceCents * affiliateDiscountBps / 10000);
+        affiliateApplied = true;
       }
     }
 
     return {
-      model,
-      originalAmountCents: original,
-      discountAmountCents: discount,
-      finalAmountCents: Math.max(original - discount, 0),
+      model: resolvedModel,
+      originalAmountCents: priceCents,
+      discountAmountCents,
+      finalAmountCents: Math.max(priceCents - discountAmountCents, 0),
       currency: String(process.env.PAYMENT_CURRENCY || "USD").toUpperCase(),
-      affiliateApplied: Boolean(affiliateId),
+      affiliateApplied,
       affiliate_user_id: affiliateId,
+      config,
     };
   }
 
