@@ -48,19 +48,31 @@ function installPaymentRequestIdentity(app) {
   const requestRef = () => "REQ-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
 
   async function sendAdminNotificationEmail(to, subject, html) {
+    const sender = process.env.EMAIL_USER || "onboarding@resend.dev";
+    if (!sender || !sender.includes("@")) {
+      console.error("Email FROM address invalid:", sender);
+      return false;
+    }
+
+    console.log("Sending email via Resend:", { from: sender, to });
+
     const key = process.env.EMAIL_PASS;
     if (!key || !to) return false;
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
       body: JSON.stringify({
-        from: process.env.EMAIL_USER || "onboarding@resend.dev",
+        from: sender,
         to: [to],
         subject,
         html,
       }),
     });
-    if (!response.ok) throw new Error("Email API Error: " + response.status);
+    if (!response.ok) {
+      const errBody = await response.text();
+      console.error("Resend API error response:", response.status, errBody);
+      throw new Error("Email API Error: " + response.status + " — " + errBody);
+    }
     return true;
   }
 
