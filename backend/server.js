@@ -879,13 +879,13 @@ app.get("/api/admin/withdrawals", authenticateAdmin, async (req, res) => {
     const status = String(req.query.status || "").toUpperCase();
     const allowedStatuses = ["PENDING", "APPROVED", "PAID", "REJECTED"];
     if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid withdrawal status" });
-    const where = status ? "WHERE wr.status = ?" : "";
+    const where = status ? "AND wr.status = ?" : "";
     const params = status ? [status] : [];
     const [withdrawals] = await db.query(
       `SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id
        FROM withdrawal_request wr
        JOIN users u ON wr.user_id = u.id
-       ${where}
+       WHERE wr.kind = 'WALLET' ${where}
        ORDER BY wr.created_at DESC`,
       params,
     );
@@ -3504,7 +3504,7 @@ app.get("/api/user/wallet/withdrawals", authenticateToken, async (req, res) => {
     if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid withdrawal status" });
     const where = status ? "AND status = ?" : "";
     const params = status ? [req.userId, status] : [req.userId];
-    const [rows] = await db.execute(`SELECT id, request_ref, amount_cents, currency, method, payout_details, status, admin_note, created_at, updated_at, reviewed_at FROM withdrawal_request WHERE user_id = ? ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+    const [rows] = await db.execute(`SELECT id, request_ref, amount_cents, currency, method, payout_details, status, admin_note, created_at, updated_at, reviewed_at FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
     const [countRows] = await db.execute(`SELECT COUNT(*) AS total FROM withdrawal_request WHERE user_id = ? ${where}`, params);
     res.json({ success: true, withdrawals: rows, pagination: { page, limit, total: Number(countRows[0]?.total || 0) } });
   } catch (error) {
@@ -3519,7 +3519,7 @@ app.post("/api/admin/withdrawals/:id/approve", authenticateAdmin, async (req, re
     connection = await db.getConnection();
     await connection.beginTransaction();
     const [rows] = await connection.execute(
-      "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? FOR UPDATE",
+      "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? AND wr.kind = 'WALLET' FOR UPDATE",
       [id],
     );
     if (!rows.length) {
@@ -3553,7 +3553,7 @@ app.post("/api/admin/withdrawals/:id/reject", authenticateAdmin, async (req, res
     connection = await db.getConnection();
     await connection.beginTransaction();
     const [rows] = await connection.execute(
-      "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? FOR UPDATE",
+      "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? AND wr.kind = 'WALLET' FOR UPDATE",
       [id],
     );
     if (!rows.length) {
