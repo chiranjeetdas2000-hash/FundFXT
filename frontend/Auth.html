@@ -217,5 +217,26 @@
     </main>
 
     <script src="/js/Auth.js?v=20260910" defer></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const params = new URLSearchParams(location.search);
+            const redirect = params.get('redirect') || '/dashboard.html';
+            const msg = document.getElementById('msg');
+
+            if (params.get('expired') === '1' && msg) {
+                msg.textContent = 'Session expired. Please log in again.';
+                msg.className = 'msg show';
+            }
+
+            if (params.has('redirect')) {
+                const timer = setInterval(() => {
+                    const token = localStorage.getItem('fundfxt_token');
+                    if (!token || token.length < 20) return;
+                    clearInterval(timer);
+                    window.location.href = redirect;
+                }, 100);
+            }
+        });
+    </script>
 </body>
 </html>
