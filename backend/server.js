@@ -1,3 +1,11 @@
+require("./trading-day-preload");
+require("./trade-pending-bridge");
+require("./trade-engine-preload");
+require("./payment-request-identity-preload");
+require("./database-control-preload");
+require("./payment-flow-preload");
+require("./admin-dashboard-preload");
+
 const WebSocket = require("ws");
 const express = require("express");
 const mysql = require("mysql2/promise");
