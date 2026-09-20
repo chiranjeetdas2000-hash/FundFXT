@@ -243,7 +243,7 @@ function installPaymentFlow(app) {
   app.post("/api/admin/payment-requests/:id/status", authenticateAdmin, async (req, res) => {
     const requested = String(req.body?.status || "").trim().toUpperCase();
     const nextStatus = requested;
-    if (!["PAYMENT_DONE", "CANCELLED"].includes(nextStatus)) return res.status(400).json({ error: "Allowed payment outcomes are PAYMENT_DONE or CANCELLED." });
+    if (!["REQUESTED", "PAYMENT_PENDING", "PAYMENT_DONE", "REJECTED", "CANCELLED"].includes(nextStatus)) return res.status(400).json({ error: "Allowed payment statuses are REQUESTED, PAYMENT_PENDING, PAYMENT_DONE, REJECTED or CANCELLED." });
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
