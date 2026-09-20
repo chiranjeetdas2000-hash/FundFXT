@@ -64,10 +64,18 @@ function installPaymentRequestIdentity(app) {
     return true;
   }
 
+  const MODEL_MAP = {
+    direct: "prototype_5k",
+    two_step: "warrior_5k",
+    prototype_5k: "prototype_5k",
+    warrior_5k: "warrior_5k",
+  };
+
   async function calculatePrice(connection, model, affiliateCode) {
+    const mappedModel = MODEL_MAP[model] || model;
     const [configs] = await connection.execute(
       "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
-      [model]
+      [mappedModel]
     );
     if (!configs.length) throw new Error("Invalid challenge model");
     const config = configs[0];
@@ -88,7 +96,7 @@ function installPaymentRequestIdentity(app) {
     }
 
     return {
-      model,
+      model: mappedModel,
       originalAmountCents: original,
       discountAmountCents: discount,
       finalAmountCents: Math.max(original - discount, 0),
