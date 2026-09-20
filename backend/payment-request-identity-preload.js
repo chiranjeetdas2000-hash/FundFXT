@@ -45,6 +45,23 @@ function installPaymentRequestIdentity(app) {
   const normalizeEmail = (value) => String(value || "").trim().toLowerCase();
   const requestRef = () => "REQ-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
 
+  async function email(to, subject, html) {
+    const key = process.env.EMAIL_PASS;
+    if (!key || !to) return false;
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        from: process.env.EMAIL_USER || "onboarding@resend.dev",
+        to: [to],
+        subject,
+        html,
+      }),
+    });
+    if (!response.ok) throw new Error("Email API Error: " + response.status);
+    return true;
+  }
+
   async function calculatePrice(connection, model, affiliateCode) {
     const [configs] = await connection.execute(
       "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
@@ -134,13 +151,21 @@ function installPaymentRequestIdentity(app) {
       );
 
       await connection.commit();
+      try {
+        await email(
+          "support.fundfxt@gmail.com",
+          `FundFXT Payment Request ${requestId}`,
+          `<h2>New FundFXT Payment Request</h2><p><strong>Request ID:</strong> ${requestId}</p><p><strong>Name:</strong> ${user.legal_name}</p><p><strong>Email:</strong> ${user.email}</p><p><strong>Challenge:</strong> ${pricing.model}</p><p><strong>Payable:</strong> ${(pricing.finalAmountCents / 100).toFixed(2)} ${pricing.currency}</p><p><strong>Affiliate:</strong> ${storedAffiliateCode || "None"}</p><p>Please create and send a Razorpay Payment Link.</p>`,
+        );
+      } catch (error) {
+        console.error("Payment request email failed:", error.message);
+      }
       res.json({
         success: true,
         request_id: requestId,
         request_ref: requestId,
         status: "REQUESTED",
         manual_payment: true,
-        customer: { id: user.id, legal_name: user.legal_name, email: user.email, phone: user.phone },
         pricing,
       });
     } catch (error) {
@@ -187,7 +212,7 @@ function installPaymentRequestIdentity(app) {
     }
   });
 
-  console.log("Payment Request Identity Guard registered");
+  console.log("[PaymentRequest] Authoritative handler: identity-preload");
 }
 
 express.application.listen = function (...args) {
