@@ -3365,6 +3365,21 @@ app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
 
 // ========== WITHDRAWAL RULES & REQUEST ==========
 
+// 1. Get Challenge Rules for a selected Account's Model
+app.get("/api/challenges/:model", async (req, res) => {
+  try {
+    const [config] = await db.execute(
+      "SELECT * FROM challenge_configs WHERE model_key = ?",
+      [req.params.model],
+    );
+    if (!config.length)
+      return res.status(404).json({ error: "Challenge not found" });
+    res.json({ success: true, config: config[0] });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 async function sendWithdrawalEmail(
   customerEmail,
   customerName,
@@ -3439,7 +3454,7 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
       await connection.rollback();
       return res.status(400).json({ error: "Insufficient wallet balance" });
     }
-    const [countRows] = await connection.execute("SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE user_id = ? AND status = 'APPROVED'", [req.userId]);
+    const [countRows] = await connection.execute("SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status = 'APPROVED'", [req.userId]);
     const withdrawalNumber = Number(countRows[0]?.approved_count || 0) + 1;
     let [tierRows] = await connection.execute(
       "SELECT id, tier_start, tier_end, max_amount_cents FROM withdrawal_tier_rules WHERE model_key = 'warrior' AND phase = 'FUNDED' AND is_active = 1 AND tier_start <= ? AND tier_end >= ? ORDER BY tier_start DESC LIMIT 1",
