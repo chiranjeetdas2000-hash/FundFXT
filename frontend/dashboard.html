@@ -1,3 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#070a0d">
+    <title>FundFXT | User Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/dashboard.css?v=20260918-2">
+</head>
+<body>
+    <header class="top">
+        <button class="menu" id="menu" type="button" aria-label="Open navigation">☰</button>
+        <a class="logo" href="/">Fund<b>FXT</b></a>
+        <div class="top-status">
+            <span class="live-dot"></span>
+            Live workspace
+        </div>
+        <div class="spacer"></div>
+        <div class="user" id="topName">Trader</div>
+    </header>
+
+    <div class="overlay" id="overlay"></div>
+
+    <aside class="drawer" id="drawer">
+        <a class="logo drawer-logo" href="/">Fund<b>FXT</b></a>
+        <div class="label">WORKSPACE</div>
+        <nav class="nav">
+            <a data-view="home" class="active">⌂ <span>Home</span></a>
+            <a data-view="withdraw">↗ <span>Withdraw</span></a>
+            <a data-view="wallet">▣ <span>FundFXT Wallet</span></a>
+            <a href="/buy-challenge.html">＋ <span>Buy Challenge</span></a>
+            <a data-view="orders">▤ <span>Order History</span></a>
+            <a data-view="certificates">★ <span>Certificates</span></a>
+            <a data-view="rules">◈ <span>Rules & FAQs</span></a>
+            <a data-view="affiliate">♧ <span>Affiliate</span></a>
+            <a data-view="support">? <span>Support</span></a>
+        </nav>
+        <div class="label nav-account-label">ACCOUNT</div>
+        <nav class="nav">
+            <a id="logout">↪ <span>Logout</span></a>
+        </nav>
+    </aside>
+
+    <main class="content">
+        <section id="home" class="view active">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">User dashboard</span>
+                    <h1>Welcome, <span id="heroName">Trader</span>.</h1>
+                    <p class="sub">Your accounts, activity and platform services.</p>
+                </div>
+                <a class="btn primary hero-action" href="/buy-challenge.html">＋ Get Funded</a>
+            </div>
+
+            <div class="home-grid">
+                <div class="panel stat tilt-card" data-tilt>
+                    <span>Total accounts</span>
+                    <b id="total">—</b>
+                    <small>All trading accounts</small>
+                </div>
+                <div class="panel stat tilt-card" data-tilt>
+                    <span>Active</span>
+                    <b id="active" class="green">—</b>
+                    <small>Currently trading</small>
+                </div>
+                <div class="panel stat tilt-card" data-tilt>
+                    <span>Passed</span>
+                    <b id="passed" class="green">—</b>
+                    <small>Challenge milestones</small>
+                </div>
+                <div class="panel stat tilt-card" data-tilt>
+                    <span>Breached</span>
+                    <b id="failed" class="red">—</b>
+                    <small>Closed or breached</small>
+                </div>
+            </div>
+
+            <div class="accounts">
+                <div class="section-title">
+                    <div>
+                        <span class="eyebrow">Portfolio</span>
+                        <h2>My Trading Accounts</h2>
+                    </div>
+                    <small>Live account data</small>
+                </div>
+                <div id="accounts" class="account-grid">
+                    <div class="empty">Loading accounts…</div>
+                </div>
+            </div>
+        </section>
+
         <section id="withdraw" class="view">
             <div class="head">
                 <div>
@@ -20,3 +114,323 @@
                 <div id="wMsg" class="message"></div>
             </div>
             <div class="panel" style="margin-top:16px;">
+                <div class="head-row">
+                    <h3>Withdrawal History</h3>
+                    <div class="wallet-filters">
+                        <select id="wHistoryStatus">
+                            <option value="">All Status</option>
+                            <option value="PENDING">PENDING</option>
+                            <option value="APPROVED">APPROVED</option>
+                            <option value="REJECTED">REJECTED</option>
+                        </select>
+                        <button class="btn" id="wHistoryRefresh" type="button">Refresh</button>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table">
+                        <thead><tr><th>Request Ref</th><th>Amount</th><th>Method</th><th>Status</th><th>Requested</th><th>Reason</th></tr></thead>
+                        <tbody id="wHistoryRows"><tr><td colspan="6">Loading...</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="wallet-pagination">
+                    <button class="btn" id="wHistoryPrev" type="button">← Prev</button>
+                    <span id="wHistoryPageLabel">Page 1 of 1</span>
+                    <button class="btn" id="wHistoryNext" type="button">Next →</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="wallet" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Wallet</span>
+                    <h1>FundFXT Wallet</h1>
+                    <p class="sub">Your available platform balance.</p>
+                </div>
+            </div>
+
+            <div class="panel wallet-card">
+                <div class="wallet-balance">
+                    <span class="eyebrow">Available Balance</span>
+                    <h2 id="walletBalance">$0.00</h2>
+                    <p class="sub">
+                        <span id="walletTotalReceived">$0.00</span> total received ·
+                        <span id="walletTotalWithdrawn">$0.00</span> total withdrawn
+                    </p>
+                </div>
+                <div class="wallet-actions">
+                    <button class="btn" id="walletWithdrawBtn" type="button">Withdraw</button>
+                    <button class="btn primary" id="walletMoveAffiliateBtn" type="button">Move Affiliate Balance</button>
+                </div>
+            </div>
+
+            <div class="panel wallet-pending" id="walletPendingSection" style="display:none;">
+                <h3>Pending Affiliate Transfer</h3>
+                <div id="walletPendingBody"></div>
+            </div>
+
+            <div class="panel wallet-passbook">
+                <div class="head-row">
+                    <h3>Passbook</h3>
+                    <div class="wallet-filters">
+                        <select id="walletFilterType">
+                            <option value="">All Types</option>
+                            <option value="CREDIT">CREDIT</option>
+                            <option value="DEBIT">DEBIT</option>
+                        </select>
+                        <select id="walletFilterSource">
+                            <option value="">All Sources</option>
+                            <option value="AFFILIATE_TRANSFER">AFFILIATE_TRANSFER</option>
+                            <option value="WITHDRAWAL">WITHDRAWAL</option>
+                            <option value="ADJUSTMENT">ADJUSTMENT</option>
+                            <option value="REFUND">REFUND</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="table-wrap">
+                    <table class="table wallet-passbook-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Type</th>
+                                <th>Source</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Balance</th>
+                            </tr>
+                        </thead>
+                        <tbody id="walletPassbookRows">
+                            <tr><td colspan="6">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="wallet-pagination">
+                    <button class="btn" id="walletPassbookPrev" type="button">← Prev</button>
+                    <span id="walletPassbookPageLabel">Page 1 of 1</span>
+                    <button class="btn" id="walletPassbookNext" type="button">Next →</button>
+                </div>
+            </div>
+
+            <div class="panel wallet-transfers">
+                <h3>Affiliate Transfer Requests</h3>
+                <div class="table-wrap">
+                    <table class="table wallet-transfer-table">
+                        <thead>
+                            <tr>
+                                <th>Requested</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Reason</th>
+                                <th>Admin Note</th>
+                            </tr>
+                        </thead>
+                        <tbody id="walletTransferRows">
+                            <tr><td colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="wallet-pagination">
+                    <button class="btn" id="walletTransferPrev" type="button">← Prev</button>
+                    <span id="walletTransferPageLabel">Page 1 of 1</span>
+                    <button class="btn" id="walletTransferNext" type="button">Next →</button>
+                </div>
+            </div>
+        </section>
+
+        <section id="orders" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Orders</span>
+                    <h1>Order History</h1>
+                </div>
+            </div>
+            <div class="panel table-wrap">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Order</th>
+                            <th>Model</th>
+                            <th>Original</th>
+                            <th>Discount</th>
+                            <th>Total</th>
+                            <th>Status</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody id="orderRows"></tbody>
+                </table>
+            </div>
+        </section>
+
+        <section id="certificates" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Achievements</span>
+                    <h1>Certificates</h1>
+                </div>
+            </div>
+            <div class="panel" id="certs">Loading…</div>
+        </section>
+
+        <section id="rules" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Account policy</span>
+                    <h1>Rules & FAQs</h1>
+                    <p class="sub">Rules are resolved from each account's configured data.</p>
+                </div>
+            </div>
+            <div id="ruleAccounts" class="rules-grid"></div>
+        </section>
+
+        <section id="affiliate" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Affiliate</span>
+                    <h1>Affiliate Center</h1>
+                    <p class="sub">Your referral identity and commission activity.</p>
+                </div>
+            </div>
+
+            <div class="affiliate">
+                <div class="panel aff-hero tilt-card" data-tilt>
+                    <img src="https://images.unsplash.com/photo-1556742049-0cfed4f6a45d?auto=format&fit=crop&w=1200&q=80" alt="Digital finance">
+                    <div class="aff-content">
+                        <span class="eyebrow">Your referral code</span>
+                        <div class="code-row">
+                            <div class="code-box">
+                                <div class="code" id="affCode">Loading…</div>
+                            </div>
+                            <button class="btn copy" id="copyCode" type="button">Copy</button>
+                            <button class="btn share" id="shareCode" type="button">Share</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel tilt-card" data-tilt>
+                    <h2>Commission payout</h2>
+                    <p class="sub payout-note">Minimum payout: $100.</p>
+                    <div class="form">
+                        <input id="affAmount" type="number" min="100" step="0.01" placeholder="Amount (USD)">
+                        <button class="btn primary" id="affPayout" type="button">Request payout</button>
+                        <div id="affMsg" class="message"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="aff-stats">
+                <div class="aff-stat tilt-card" data-tilt><span>Referrals</span><b id="affRef">0</b></div>
+                <div class="aff-stat tilt-card" data-tilt><span>Sales</span><b id="affSales">0</b></div>
+                <div class="aff-stat tilt-card" data-tilt><span>Total Earnings</span><b id="affEarn">$0.00</b></div>
+                <div class="aff-stat tilt-card pending-stat" data-tilt>
+                    <span>Pending Balance</span>
+                    <b id="affPending">$0.00</b>
+                    <small id="affPendingHint">You need $100.00 more to request payout</small>
+                </div>
+            </div>
+
+            <div class="panel affiliate-wallet-card">
+                <div>
+                    <span class="eyebrow">Affiliate Wallet</span>
+                    <h2>Available Balance</h2>
+                    <b id="affWalletBalance" class="wallet-balance">$0.00</b>
+                    <p class="sub"><span id="affWalletEarned">$0.00</span> total earned · <span id="affWalletPending">$0.00</span> pending withdrawal</p>
+                </div>
+                <button class="btn primary" id="affWithdraw" type="button">Withdraw</button>
+            </div>
+            <div class="panel affiliate-passbook-panel">
+                <div class="section-title affiliate-sales-title">
+                    <div><span class="eyebrow">Wallet Ledger</span><h2>Passbook</h2></div>
+                    <small id="affiliatePageSummary">Latest wallet transactions</small>
+                </div>
+                <div class="affiliate-filters">
+                    <input id="affiliateOrderFilter" type="text" placeholder="Order ID">
+                    <select id="affiliateSaleStatusFilter">
+                        <option value="">All Sale Status</option>
+                        <option value="REQUESTED">REQUESTED</option>
+                        <option value="PAYMENT_PENDING">PAYMENT_PENDING</option>
+                        <option value="PAYMENT_DONE">PAYMENT_DONE</option>
+                        
+                        
+                        <option value="REJECTED">REJECTED</option>
+                        <option value="CANCELLED">CANCELLED</option>
+                    </select>
+                    <select id="affiliateCommissionStatusFilter">
+                        <option value="">All Commission Status</option>
+                        <option value="EARNED">EARNED</option>
+                        <option value="PENDING">PENDING</option>
+                        <option value="PAID">PAID</option>
+                    </select>
+                    <button class="btn primary" id="affiliateApplyFilters" type="button">Apply</button>
+                    <button class="btn" id="affiliateClearFilters" type="button">Clear</button>
+                </div>
+                <div class="table-wrap">
+                    <table class="table affiliate-passbook-table">
+                        <thead><tr>
+                            <th>Date</th><th>Type</th><th>Description</th><th>Order ID</th>
+                            <th>Sale Status</th><th>Commission Status</th><th>Amount</th><th>Balance</th>
+                        </tr></thead>
+                        <tbody id="affiliateRows"><tr><td colspan="8" class="empty-cell">Loading passbook…</td></tr></tbody>
+                    </table>
+                </div>
+                <div class="affiliate-pagination">
+                    <button class="btn" id="affiliatePrev" type="button">← Prev</button>
+                    <span id="affiliatePageLabel">Page 1 of 1</span>
+                    <button class="btn" id="affiliateNext" type="button">Next →</button>
+                </div>
+            </div>      </section>
+
+        <section id="support" class="view">
+            <div class="head">
+                <div>
+                    <span class="eyebrow">Support</span>
+                    <h1>Help Center</h1>
+                </div>
+            </div>
+
+            <div class="affiliate">
+                <div class="panel tilt-card" data-tilt>
+                    <h2>Create support ticket</h2>
+                    <div class="form form-spaced">
+                        <input id="ticketSubject" placeholder="Subject">
+                        <textarea id="ticketMessage" rows="6" placeholder="Describe your issue"></textarea>
+                        <button class="btn primary" id="ticketSubmit" type="button">Submit ticket</button>
+                        <div id="ticketMsg" class="message"></div>
+                    </div>
+                </div>
+
+                <div class="panel tilt-card" data-tilt>
+                    <h2>Your tickets</h2>
+                    <div id="tickets" class="empty empty-spaced">Loading…</div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="/dashboard.js?v=20260918-2" defer></script>
+<div id="serverBusyPopup" class="server-busy-popup" hidden>
+    <div class="server-busy-backdrop"></div>
+
+    <div class="server-busy-card">
+        <div class="server-busy-icon">⏳</div>
+
+        <h3 class="server-busy-title">Server is a bit busy</h3>
+
+        <p class="server-busy-message">
+            We are processing a lot of requests right now.
+            Please try again in a few seconds.
+        </p>
+
+        <button
+            class="server-busy-btn"
+            type="button"
+            onclick="hideServerBusyPopup()"
+        >
+            Got it
+        </button>
+    </div>
+</div>
+
+    <script src="/js/server-busy-handler.js" defer></script>
+</body>
+</html>
