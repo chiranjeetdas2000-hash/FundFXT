@@ -1045,12 +1045,10 @@ async function processPendingOrders() {
       continue;
     }
 
-    const [openTrades] = await db.execute(
-      "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN' LIMIT 1",
-      [trade.account_id],
-    );
-
-    if (openTrades.length) {
+    if (
+      Number(trade.volume) < risk.minLot
+      || Number(trade.volume) > risk.maxLot
+    ) {
       continue;
     }
 
@@ -2142,16 +2140,6 @@ app.post("/api/trades/pending", authenticateToken, async (req, res) => {
       });
     }
 
-    if (
-      !Number.isFinite(tradeVolume)
-      || tradeVolume < 0.01
-      || tradeVolume > 2
-    ) {
-      return res.status(400).json({
-        error: "Volume must be between 0.01 and 2.00",
-      });
-    }
-
     if (!Number.isFinite(entryPrice) || entryPrice <= 0) {
       return res.status(400).json({
         error: "Invalid pending entry price",
@@ -2183,6 +2171,24 @@ app.post("/api/trades/pending", authenticateToken, async (req, res) => {
     if (account.status !== "ACTIVE") {
       return res.status(403).json({
         error: "Account is not active for trading",
+      });
+    }
+
+    const risk = await checkAccountRisk(account);
+
+    if (risk.breached) {
+      return res.status(403).json({
+        error: "Account breached. Trading disabled",
+      });
+    }
+
+    if (
+      !Number.isFinite(tradeVolume)
+      || tradeVolume < risk.minLot
+      || tradeVolume > risk.maxLot
+    ) {
+      return res.status(400).json({
+        error: `Volume must be between ${risk.minLot} and ${risk.maxLot.toFixed(2)}`,
       });
     }
 
@@ -2805,16 +2811,6 @@ app.post(
       });
     }
 
-    if (
-      !Number.isFinite(Number(volume))
-      || Number(volume) < 0.01
-      || Number(volume) > 2.0
-    ) {
-      return res.status(400).json({
-        error: "Volume must be between 0.01 and 2.00",
-      });
-    }
-
     const [accounts] = await db.execute(
       "SELECT * FROM accounts WHERE account_code = ? AND user_id = ?",
       [
@@ -2837,40 +2833,6 @@ app.post(
       });
     }
 
-    const [openTrades] = await db.execute(
-      "SELECT id FROM trades WHERE account_id = ? AND status = 'OPEN'",
-      [
-        account.id,
-      ],
-    );
-
-    if (openTrades.length > 0) {
-      return res.status(403).json({
-        error: "Only one open position allowed",
-      });
-    }
-
-    const [tradesToday] = await db.execute(
-      "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
-      [
-        account.id,
-      ],
-    );
-
-    const config = await getChallengeConfig(
-      account.challenge_model,
-    );
-
-    if (
-      config.max_trades_per_day !== null
-      && Number(tradesToday[0].count) >= Number(config.max_trades_per_day)
-    ) {
-      return res.status(403).json({
-        error:
-          `Max ${config.max_trades_per_day} trades per day reached`,
-      });
-    }
-
     const risk = await checkAccountRisk(
       account,
     );
@@ -2878,6 +2840,30 @@ app.post(
     if (risk.breached) {
       return res.status(403).json({
         error: "Account breached. Trading disabled",
+      });
+    }
+
+    const volumeNum = Number(volume);
+
+    if (
+      !Number.isFinite(volumeNum)
+      || volumeNum < risk.minLot
+      || volumeNum > risk.maxLot
+    ) {
+      return res.status(400).json({
+        error: `Volume must be between ${risk.minLot} and ${risk.maxLot.toFixed(2)}`,
+      });
+    }
+
+    if (risk.openPositions >= risk.maxOpenPositions) {
+      return res.status(403).json({
+        error: `Maximum ${risk.maxOpenPositions} open position(s) allowed. Currently: ${risk.openPositions}`,
+      });
+    }
+
+    if (!risk.allowed) {
+      return res.status(403).json({
+        error: `Trade not allowed. ${risk.reason || "Limit reached"}`,
       });
     }
 
