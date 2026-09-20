@@ -1,3 +1,4 @@
+console.log("[PRELOAD-LOAD] database-control loaded");
 const express = require("express");
 const mysql = require("mysql2/promise");
 const jwt = require("jsonwebtoken");
@@ -10,6 +11,7 @@ function quoteIdentifier(value) { return "`" + String(value).replace(/`/g, "``")
 function validIdentifier(value) { return /^[A-Za-z0-9_$-]+$/.test(String(value || "")); }
 
 function installDatabaseControl(app) {
+  console.log("[PRELOAD] database-control installer called");
   if (installed) return;
   installed = true;
   const db = mysql.createPool({host:process.env.DB_HOST,user:process.env.DB_USER,password:process.env.DB_PASSWORD,database:process.env.DB_NAME,port:Number(process.env.DB_PORT),waitForConnections:true,connectionLimit:5,ssl:{rejectUnauthorized:false}});
