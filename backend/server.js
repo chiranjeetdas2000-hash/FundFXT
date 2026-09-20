@@ -1484,9 +1484,16 @@ async function settleBreachedAccount(accountId, reason) {
       }
     }
 
-    const newBalanceCents =
+    let newBalanceCents =
       Number(account.balance_cents || 0) + totalRealizedCents;
-    const newEquityCents = newBalanceCents;
+    // A.4.1 — Cap balance at $0 to protect user from negative balance.
+    // Trading result (realized_pnl_cents) preserves full loss for audit.
+    // Firm absorbs any surplus below zero.
+    if (newBalanceCents < 0) {
+      newBalanceCents = 0;
+    }
+
+    const newEquityCents = newBalanceCents;  // all trades closed, no floating
 
     const [accountResult] = await connection.execute(
       "UPDATE accounts SET balance_cents = ?, equity_cents = ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + ?, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, status = 'BREACHED', breached_at = NOW(), breach_reason = ?, end_date = NOW(), updated_at = NOW() WHERE id = ?",
