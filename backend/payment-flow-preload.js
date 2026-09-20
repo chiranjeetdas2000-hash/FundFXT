@@ -242,16 +242,16 @@ function installPaymentFlow(app) {
 
   app.post("/api/admin/payment-requests/:id/status", authenticateAdmin, async (req, res) => {
     const requested = String(req.body?.status || "").trim().toUpperCase();
-    const nextStatus = requested === "PAYMENT_APPROVED" || requested === "PAYMENT_DONE" ? "PAYMENT_DONE" : requested === "CANCELLED" || requested === "REJECTED" || requested === "PAYMENT_CANCELLED" ? "PAYMENT_CANCELLED" : requested;
-    if (!["PAYMENT_DONE", "PAYMENT_CANCELLED"].includes(nextStatus)) return res.status(400).json({ error: "Allowed payment outcomes are PAYMENT_DONE or PAYMENT_CANCELLED." });
+    const nextStatus = requested;
+    if (!["PAYMENT_DONE", "CANCELLED"].includes(nextStatus)) return res.status(400).json({ error: "Allowed payment outcomes are PAYMENT_DONE or CANCELLED." });
     const connection = await db.getConnection();
     try {
       await connection.beginTransaction();
       const [rows] = await connection.execute("SELECT * FROM payment_requests WHERE id = ? FOR UPDATE", [req.params.id]);
       if (!rows.length) throw new Error("Payment request not found");
       const request = rows[0];
-      if (!["LINK_SENT", "PAYMENT_PENDING", "PAYMENT_DONE", "PAYMENT_CANCELLED"].includes(String(request.status))) throw new Error(`Payment outcome cannot be set from ${request.status}`);
-      if (request.status === "PAYMENT_CANCELLED" && nextStatus === "PAYMENT_DONE") throw new Error("A cancelled payment cannot be marked done.");
+      if (!["LINK_SENT", "PAYMENT_PENDING", "PAYMENT_DONE", "CANCELLED"].includes(String(request.status))) throw new Error(`Payment outcome cannot be set from ${request.status}`);
+      if (request.status === "CANCELLED" && nextStatus === "PAYMENT_DONE") throw new Error("A cancelled payment cannot be marked done.");
       let code = request.account_code || null;
       if (nextStatus === "PAYMENT_DONE") code = await createAccountAndCommission(connection, request);
       await connection.execute("UPDATE payment_requests SET status = ?, paid_amount_cents = ?, updated_at = NOW() WHERE id = ?", [nextStatus, nextStatus === "PAYMENT_DONE" ? Number(request.final_amount_cents || 0) : 0, request.id]);
