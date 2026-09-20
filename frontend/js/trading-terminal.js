@@ -39,16 +39,23 @@ function setButtonLoading(button, isLoading, loadingText) {
     }
 }
 
-async function api(path,opt= {
-}) {
+async function api(path,opt= {}) {
     const r=await fetch(FX_API+path, {
-        ...opt,headers: {
-            Authorization:'Bearer '+token(),'Content-Type':'application/json',...(opt.headers|| {
-            }            )
+        ...opt,
+        headers: {
+            Authorization:'Bearer '+token(),
+            'Content-Type':'application/json',
+            ...(opt.headers|| {})
         }
-    }    );
-    let d= {
-    }    ;
+    });
+
+    if (r.status === 401 || r.status === 403) {
+        localStorage.removeItem('fundfxt_token');
+        window.location.href = '/auth.html?expired=1';
+        throw Error('Session expired. Redirecting to login...');
+    }
+
+    let d= {};
     try {
         d=await r.json()
     }
@@ -1098,6 +1105,18 @@ function setup() {
     }
 }
 
-document.addEventListener('DOMContentLoaded',setup);
+function requireAuth() {
+    const t = localStorage.getItem('fundfxt_token');
+    if (!t || t.length < 20) {
+        window.location.href = '/auth.html?redirect=' + encodeURIComponent(location.pathname + location.search);
+        return false;
+    }
+    return true;
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (!requireAuth()) return;
+    setup();
+});
 window.loadTrades=loadTrades;
 window.loadAccount=loadAccount;
