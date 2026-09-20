@@ -3382,6 +3382,16 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
   const account = accounts[0];
   const config = await getChallengeConfig(account.challenge_model);
   const risk = await checkAccountRisk(account);
+  const profitTargetCents =
+    risk.profitTargetBps == null
+      ? 0
+      : Math.round(
+          Number(account.initial_balance_cents || 0) *
+            Number(risk.profitTargetBps) /
+            10000,
+        );
+  const consistencyLimitPercent =
+    risk.consistencyBps == null ? 0 : Number(risk.consistencyBps) / 100;
 
   res.json({
     success: true,
@@ -3394,7 +3404,23 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
       maxDrawdownLimit: risk.maxDrawdownLimit,
       tradesToday: risk.tradesToday,
       maxTrades: risk.maxTrades,
+      maxTradesUnlimited: risk.maxTradesUnlimited,
       breached: risk.breached,
+      phase: account.phase,
+      configSource: risk.configSource,
+      model: risk.model,
+      size: risk.size,
+      openPositions: risk.openPositions,
+      maxOpenPositions: risk.maxOpenPositions,
+      minLot: risk.minLot,
+      maxLot: risk.maxLot,
+      leverage: risk.leverage,
+      profitTargetBps: risk.profitTargetBps,
+      profitTargetCents,
+      consistencyBps: risk.consistencyBps,
+      consistencyLimitPercent,
+      dailyDdBasis: risk.dailyDdBasis,
+      maxDdBasis: risk.maxDdBasis,
     },
   });
 });
