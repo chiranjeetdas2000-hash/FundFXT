@@ -876,37 +876,24 @@ app.post(
 // Get withdrawals
 app.get("/api/admin/withdrawals", authenticateAdmin, async (req, res) => {
   try {
-    const [withdrawals] = await db.query(`
-            SELECT pr.*, u.legal_name, u.email as user_email, a.account_code 
-            FROM withdrawal_request pr 
-            JOIN users u ON pr.user_id = u.id 
-            LEFT JOIN accounts a ON pr.account_id = a.id 
-            ORDER BY pr.created_at DESC
-        `);
+    const status = String(req.query.status || "").toUpperCase();
+    const allowedStatuses = ["PENDING", "APPROVED", "PAID", "REJECTED"];
+    if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid withdrawal status" });
+    const where = status ? "WHERE wr.status = ?" : "";
+    const params = status ? [status] : [];
+    const [withdrawals] = await db.query(
+      `SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id
+       FROM withdrawal_request wr
+       JOIN users u ON wr.user_id = u.id
+       ${where}
+       ORDER BY wr.created_at DESC`,
+      params,
+    );
     res.json({ success: true, withdrawals });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
-
-// Update withdrawal status
-app.post(
-  "/api/admin/withdrawals/:id/status",
-  authenticateAdmin,
-  async (req, res) => {
-    const { id } = req.params;
-    const { status } = req.body;
-    try {
-      await db.execute(
-        "UPDATE withdrawal_request SET status = ? WHERE id = ?",
-        [status, id],
-      );
-      res.json({ success: true });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
-    }
-  },
-);
 
 // Get affiliates
 app.get("/api/admin/affiliates", authenticateAdmin, async (req, res) => {
@@ -3378,118 +3365,227 @@ app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
 
 // ========== WITHDRAWAL RULES & REQUEST ==========
 
-// 1. Get Challenge Rules for a selected Account's Model
-app.get("/api/challenges/:model", async (req, res) => {
+async function sendWithdrawalEmail(
+  customerEmail,
+  customerName,
+  traderId,
+  status,
+  amountCents,
+  requestRef,
+  reason,
+) {
   try {
-    const [config] = await db.execute(
-      "SELECT * FROM challenge_configs WHERE model_key = ?",
-      [req.params.model],
+    const escapeHtml = (value) =>
+      String(value || "").replace(
+        /[&<>"']/g,
+        (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+      );
+    const supportEmail = process.env.SUPPORT_EMAIL || "support.fundfxt@gmail.com";
+    if (!process.env.SUPPORT_EMAIL && !sendWithdrawalEmail.supportEmailWarningLogged) {
+      console.warn("SUPPORT_EMAIL is not configured; using fallback support.fundfxt@gmail.com");
+      sendWithdrawalEmail.supportEmailWarningLogged = true;
+    }
+    if (!supportEmail) return;
+    const safeCustomerName = escapeHtml(customerName);
+    const safeCustomerEmail = escapeHtml(customerEmail);
+    const safeTraderId = escapeHtml(traderId);
+    const safeStatus = escapeHtml(status);
+    const safeRequestRef = escapeHtml(requestRef);
+    const safeReason = escapeHtml(reason);
+    const amount = (Number(amountCents || 0) / 100).toFixed(2);
+    const subjectPrefix = status === "APPROVED"
+      ? "[FundFXT] Withdrawal Approved"
+      : status === "REJECTED"
+        ? "[FundFXT] Withdrawal Rejected"
+        : "[FundFXT] Withdrawal Request Received";
+    const subject = `${subjectPrefix} — $${amount} — ${customerEmail}`;
+    const reasonRow = status === "REJECTED"
+      ? `<tr><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Reason</td><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeReason || "No reason provided."}</td></tr>`
+      : "";
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0b0e14;width:100%;"><tr><td align="center" style="padding:32px 16px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:620px;background:#151924;border:1px solid #252b3a;border-radius:12px;"><tr><td style="padding:28px 30px 12px;"><div style="font-size:24px;font-weight:700;letter-spacing:.4px;color:#f4f7fb;">Fund<span style="color:#00e59a;">FXT</span></div><div style="margin-top:6px;color:#8d96a8;font-size:13px;">Withdrawal Notification</div></td></tr><tr><td style="padding:12px 30px 24px;"><div style="font-size:20px;font-weight:700;color:#f4f7fb;">Withdrawal ${safeStatus}</div></td></tr><tr><td style="padding:0 30px 24px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0b0e14;border:1px solid #252b3a;border-radius:8px;"><tr><td colspan="2" style="padding:14px 12px;color:#00e59a;font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Withdrawal Details</td></tr><tr><td style="padding:10px 12px;border-top:1px solid #252b3a;color:#8d96a8;font-size:13px;width:38%;">Customer Name</td><td style="padding:10px 12px;border-top:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeCustomerName || safeTraderId || "Trader"}</td></tr><tr><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Customer Email</td><td style="padding:10px 12px;border-bottom:1px solid #252b3a;font-size:13px;"><a href="mailto:${safeCustomerEmail}" style="color:#00e59a;text-decoration:none;">${safeCustomerEmail}</a></td></tr><tr><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Trader ID</td><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeTraderId || "—"}</td></tr><tr><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Amount</td><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#00e59a;font-size:13px;font-weight:700;">$${amount}</td></tr><tr><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#8d96a8;font-size:13px;">Request Reference</td><td style="padding:10px 12px;border-bottom:1px solid #252b3a;color:#f4f7fb;font-size:13px;">${safeRequestRef}</td></tr><tr><td style="padding:10px 12px;${status === "REJECTED" ? "border-bottom:1px solid #252b3a;" : ""}color:#8d96a8;font-size:13px;">Status</td><td style="padding:10px 12px;${status === "REJECTED" ? "border-bottom:1px solid #252b3a;" : ""}color:#00e59a;font-size:13px;font-weight:700;">${safeStatus}</td></tr>${reasonRow}</table></td></tr></table></td></tr></table></body></html>`;
+    await sendEmail(supportEmail, subject, html);
+  } catch (error) {
+    console.error("Withdrawal email failed:", error.message);
+  }
+}
+
+app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, res) => {
+  const { amount_cents, method, details } = req.body;
+  let connection;
+  try {
+    if (!Number.isInteger(amount_cents) || amount_cents <= 0) return res.status(400).json({ error: "Withdrawal amount must be a positive integer in cents" });
+    if (!["UPI", "CRYPTO"].includes(method)) return res.status(400).json({ error: "Withdrawal method must be UPI or CRYPTO" });
+    if (method === "UPI" && !String(details?.upi_id || "").trim()) return res.status(400).json({ error: "UPI ID is required" });
+    if (method === "CRYPTO" && (!String(details?.wallet_address || "").trim() || !String(details?.network || "").trim())) return res.status(400).json({ error: "Crypto wallet address and network are required" });
+
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const [fundedAccounts] = await connection.execute(
+      "SELECT id, account_code, challenge_model, phase, status FROM accounts WHERE user_id = ? AND status = 'ACTIVE' AND phase = 'FUNDED' ORDER BY id ASC FOR UPDATE",
+      [req.userId],
     );
-    if (!config.length)
-      return res.status(404).json({ error: "Challenge not found" });
-    res.json({ success: true, config: config[0] });
+    if (!fundedAccounts.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: "At least one active funded account is required for withdrawal" });
+    }
+    const [walletRows] = await connection.execute("SELECT * FROM user_wallets WHERE user_id = ? FOR UPDATE", [req.userId]);
+    if (!walletRows.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: "FundFXT Wallet not found" });
+    }
+    const wallet = walletRows[0];
+    const walletBalance = Number(wallet.balance_cents || 0);
+    if (walletBalance < amount_cents) {
+      await connection.rollback();
+      return res.status(400).json({ error: "Insufficient wallet balance" });
+    }
+    const [countRows] = await connection.execute("SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE user_id = ? AND status = 'APPROVED'", [req.userId]);
+    const withdrawalNumber = Number(countRows[0]?.approved_count || 0) + 1;
+    let [tierRows] = await connection.execute(
+      "SELECT id, tier_start, tier_end, max_amount_cents FROM withdrawal_tier_rules WHERE model_key = 'warrior' AND phase = 'FUNDED' AND is_active = 1 AND tier_start <= ? AND tier_end >= ? ORDER BY tier_start DESC LIMIT 1",
+      [withdrawalNumber, withdrawalNumber],
+    );
+    if (!tierRows.length) {
+      [tierRows] = await connection.execute(
+        "SELECT id, tier_start, tier_end, max_amount_cents FROM withdrawal_tier_rules WHERE model_key = 'warrior' AND phase = 'FUNDED' AND is_active = 1 ORDER BY tier_end DESC LIMIT 1",
+      );
+    }
+    if (!tierRows.length) {
+      await connection.rollback();
+      return res.status(500).json({ error: "Withdrawal tier rules are not configured" });
+    }
+    const tier = tierRows[0];
+    const maxAllowedCents = Number(tier.max_amount_cents || 0);
+    if (amount_cents > maxAllowedCents) {
+      await connection.rollback();
+      return res.status(400).json({ error: "Maximum withdrawal for this tier is $" + (maxAllowedCents / 100).toFixed(2) });
+    }
+    const requestRef = "WD-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+    const payoutDetails = method === "UPI"
+      ? { upi_id: String(details.upi_id).trim() }
+      : { wallet_address: String(details.wallet_address).trim(), network: String(details.network).trim() };
+    const eligibilitySnapshot = {
+      funded_accounts_count: fundedAccounts.length,
+      funded_account_codes: fundedAccounts.map((account) => account.account_code),
+      withdrawal_count_at_request: withdrawalNumber,
+      tier_applied: { id: tier.id, tier_start: tier.tier_start, tier_end: tier.tier_end },
+      max_allowed_cents: maxAllowedCents,
+    };
+    await connection.execute("UPDATE user_wallets SET balance_cents = balance_cents - ?, updated_at = NOW() WHERE user_id = ?", [amount_cents, req.userId]);
+    const [withdrawalResult] = await connection.execute(
+      "INSERT INTO withdrawal_request (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, eligibility_snapshot, status, created_at, updated_at) VALUES (?, ?, 'WALLET', NULL, ?, 'USD', ?, ?, ?, 'PENDING', NOW(), NOW())",
+      [requestRef, req.userId, amount_cents, method, JSON.stringify(payoutDetails), JSON.stringify(eligibilitySnapshot)],
+    );
+    const newBalance = walletBalance - amount_cents;
+    await connection.execute(
+      "INSERT INTO user_wallet_transactions (user_id, txn_type, source, amount_cents, balance_after_cents, reference_type, reference_id, description) VALUES (?, 'DEBIT', 'WITHDRAWAL', ?, ?, 'withdrawal_request', ?, ?)",
+      [req.userId, amount_cents, newBalance, withdrawalResult.insertId, "Withdrawal request " + requestRef],
+    );
+    await connection.commit();
+    const [users] = await db.execute("SELECT legal_name, email, trader_id FROM users WHERE id = ? LIMIT 1", [req.userId]);
+    if (users.length) void sendWithdrawalEmail(users[0].email, users[0].legal_name, users[0].trader_id, "PENDING", amount_cents, requestRef);
+    res.json({ success: true, request_ref: requestRef, status: "PENDING" });
+  } catch (error) {
+    if (connection) await connection.rollback().catch(() => {});
+    console.error("Wallet withdrawal request error:", error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.get("/api/user/wallet/withdrawals", authenticateToken, async (req, res) => {
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 10));
+    const offset = (page - 1) * limit;
+    const status = String(req.query.status || "").toUpperCase();
+    const allowedStatuses = ["PENDING", "APPROVED", "PAID", "REJECTED"];
+    if (status && !allowedStatuses.includes(status)) return res.status(400).json({ error: "Invalid withdrawal status" });
+    const where = status ? "AND status = ?" : "";
+    const params = status ? [req.userId, status] : [req.userId];
+    const [rows] = await db.execute(`SELECT id, request_ref, amount_cents, currency, method, payout_details, status, admin_note, created_at, updated_at, reviewed_at FROM withdrawal_request WHERE user_id = ? ${where} ORDER BY created_at DESC LIMIT ? OFFSET ?`, [...params, limit, offset]);
+    const [countRows] = await db.execute(`SELECT COUNT(*) AS total FROM withdrawal_request WHERE user_id = ? ${where}`, params);
+    res.json({ success: true, withdrawals: rows, pagination: { page, limit, total: Number(countRows[0]?.total || 0) } });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
-// 2. Request Withdrawal (User submits form)
-app.post("/api/withdrawals/request", authenticateToken, async (req, res) => {
-  const { account_id, amount_cents, method, payment_address } = req.body;
-
+app.post("/api/admin/withdrawals/:id/approve", authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  let connection;
   try {
-    // Validate inputs
-    if (!account_id || !amount_cents || !method || !payment_address) {
-      return res.status(400).json({ error: "All fields are required" });
-    }
-
-    // Fetch Account and verify ownership
-    const [accounts] = await db.execute(
-      "SELECT * FROM accounts WHERE id = ? AND user_id = ?",
-      [account_id, req.userId],
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const [rows] = await connection.execute(
+      "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? FOR UPDATE",
+      [id],
     );
-    if (!accounts.length)
-      return res.status(404).json({ error: "Account not found" });
-    const account = accounts[0];
-
-    // Check Account Status
-    if (account.status !== "ACTIVE") {
-      return res
-        .status(400)
-        .json({ error: "Account is not active for withdrawal" });
+    if (!rows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: "Withdrawal request not found" });
     }
-
-    // Fetch Challenge Rules
-    const [configs] = await db.execute(
-      "SELECT * FROM challenge_configs WHERE model_key = ?",
-      [account.challenge_model],
-    );
-    if (!configs.length)
-      return res.status(404).json({ error: "Challenge rules not found" });
-    const config = configs[0];
-
-    // Check Payout Eligibility (Max Payout Count)
-    if (
-      config.max_payout_count &&
-      account.payout_count >= config.max_payout_count
-    ) {
-      return res
-        .status(400)
-        .json({ error: "Max payout limit reached for this account" });
+    const withdrawal = rows[0];
+    if (withdrawal.status !== "PENDING") {
+      await connection.rollback();
+      return res.status(400).json({ error: "Only pending withdrawals can be approved" });
     }
-
-    // Check Amount vs Equity (Can only withdraw profit)
-    const profitCents = account.equity_cents - account.initial_balance_cents;
-    if (amount_cents > profitCents) {
-      return res
-        .status(400)
-        .json({ error: "Withdrawal amount exceeds current profit" });
-    }
-
-    // Generate Request Reference
-    const requestRef =
-      "WD-" +
-      Date.now().toString(36).toUpperCase() +
-      "-" +
-      crypto.randomBytes(3).toString("hex").toUpperCase();
-
-    // Create Payout Request
-    await db.execute(
-      `INSERT INTO withdrawal_request 
-             (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, status, eligibility_snapshot, created_at) 
-             VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', ?, ?, 'PENDING', ?, NOW())`,
-      [
-        requestRef,
-        req.userId,
-        account_id,
-        amount_cents,
-        method,
-        JSON.stringify({ payment_address }),
-        JSON.stringify({
-          profit: profitCents,
-          equity: account.equity_cents,
-          balance: account.balance_cents,
-        }),
-      ],
-    );
-
-    // Notify Admin via Email (Optional)
-    const [users] = await db.execute(
-      "SELECT legal_name, email FROM users WHERE id = ?",
-      [req.userId],
-    );
-    if (users.length) {
-      await sendEmail(
-        "support.fundfxt@gmail.com",
-        `New Withdrawal Request: ${requestRef}`,
-        `<h2>Withdrawal Request</h2><p>User: ${users[0].legal_name}</p><p>Account: ${account.account_code}</p><p>Amount: $${(amount_cents / 100).toFixed(2)}</p><p>Method: ${method}</p>`,
-      ).catch((err) => console.log("Withdrawal email failed:", err.message));
-    }
-
-    res.json({ success: true, request_ref: requestRef });
+    await connection.execute("UPDATE withdrawal_request SET status = 'APPROVED', reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW() WHERE id = ?", [req.adminId, id]);
+    await connection.execute("UPDATE user_wallets SET total_withdrawn_cents = COALESCE(total_withdrawn_cents, 0) + ?, updated_at = NOW() WHERE user_id = ?", [withdrawal.amount_cents, withdrawal.user_id]);
+    await connection.commit();
+    void sendWithdrawalEmail(withdrawal.user_email, withdrawal.legal_name, withdrawal.trader_id, "APPROVED", withdrawal.amount_cents, withdrawal.request_ref);
+    res.json({ success: true, request_ref: withdrawal.request_ref, status: "APPROVED" });
   } catch (error) {
-    console.error("Withdrawal request error:", error);
+    if (connection) await connection.rollback().catch(() => {});
     res.status(500).json({ error: error.message });
+  } finally {
+    if (connection) connection.release();
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/reject", authenticateAdmin, async (req, res) => {
+  const { id } = req.params;
+  const reason = String(req.body?.reason || "").trim();
+  if (!reason) return res.status(400).json({ error: "Rejection reason is required" });
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const [rows] = await connection.execute(
+      "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? FOR UPDATE",
+      [id],
+    );
+    if (!rows.length) {
+      await connection.rollback();
+      return res.status(404).json({ error: "Withdrawal request not found" });
+    }
+    const withdrawal = rows[0];
+    if (withdrawal.status !== "PENDING") {
+      await connection.rollback();
+      return res.status(400).json({ error: "Only pending withdrawals can be rejected" });
+    }
+    const [walletRows] = await connection.execute("SELECT * FROM user_wallets WHERE user_id = ? FOR UPDATE", [withdrawal.user_id]);
+    if (!walletRows.length) {
+      await connection.rollback();
+      return res.status(400).json({ error: "FundFXT Wallet not found" });
+    }
+    const wallet = walletRows[0];
+    const newBalance = Number(wallet.balance_cents || 0) + Number(withdrawal.amount_cents || 0);
+    await connection.execute("UPDATE withdrawal_request SET status = 'REJECTED', admin_note = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW() WHERE id = ?", [reason, req.adminId, id]);
+    await connection.execute("UPDATE user_wallets SET balance_cents = balance_cents + ?, updated_at = NOW() WHERE user_id = ?", [withdrawal.amount_cents, withdrawal.user_id]);
+    await connection.execute(
+      "INSERT INTO user_wallet_transactions (user_id, txn_type, source, amount_cents, balance_after_cents, reference_type, reference_id, description) VALUES (?, 'CREDIT', 'WITHDRAWAL_REFUND', ?, ?, 'withdrawal_request', ?, ?)",
+      [withdrawal.user_id, withdrawal.amount_cents, newBalance, withdrawal.id, "Withdrawal refund " + withdrawal.request_ref],
+    );
+    await connection.commit();
+    void sendWithdrawalEmail(withdrawal.user_email, withdrawal.legal_name, withdrawal.trader_id, "REJECTED", withdrawal.amount_cents, withdrawal.request_ref, reason);
+    res.json({ success: true, request_ref: withdrawal.request_ref, status: "REJECTED" });
+  } catch (error) {
+    if (connection) await connection.rollback().catch(() => {});
+    res.status(500).json({ error: error.message });
+  } finally {
+    if (connection) connection.release();
   }
 });
 
