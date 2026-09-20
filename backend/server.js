@@ -497,7 +497,7 @@ async function getChallengeConfig(modelKey) {
   return rows[0];
 }
 
-async function parseChallengeModel(input) {
+function parseChallengeModel(input) {
   const normalized = String(input || "").trim();
 
   const mapping = {
