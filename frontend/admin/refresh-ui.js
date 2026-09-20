@@ -53,7 +53,7 @@
       const withdrawalData = withdrawals.ok ? await withdrawals.json() : { withdrawals: [] };
       const rows = paymentData.rows || [];
       const withdrawalRows = withdrawalData.withdrawals || [];
-      const successful = rows.filter((x) => ['PAYMENT_DONE', 'PAYMENT_APPROVED', 'ACCOUNT_CREATED'].includes(String(x.status || '').toUpperCase()));
+      const successful = rows.filter((x) => String(x.status || '').toUpperCase() === 'PAYMENT_DONE');
       return jsonResponse({ success: true, stats: {
         payment_requests_today: rows.filter((x) => isToday(x.created_at)).length,
         withdrawal_requests_today: withdrawalRows.filter((x) => isToday(x.created_at)).length,
