@@ -238,13 +238,15 @@ function bindAccountActions() {
 
 function renderWithdrawAccounts() {
     const normalized = accounts.map(normalizeAccount);
+    const funded = normalized.filter((account) => account.status === 'ACTIVE' && account.phase === 'FUNDED');
 
     $('wAccount').innerHTML = [
-        '<option value="">Select account</option>',
-        ...normalized.map((account) => {
-            return `<option value="${esc(account.id)}">${esc(account.account_code)} · ${esc(account.status)}</option>`;
+        '<option value="">Select funded account</option>',
+        ...funded.map((account) => {
+            return `<option value="${esc(account.id)}">${esc(account.account_code)} · FUNDED</option>`;
         })
     ].join('');
+    renderWithdrawalMethodFields();
 }
 
 async function load() {
@@ -599,21 +601,71 @@ $('affPayout').addEventListener('click', async () => {
     }
 });
 
+let withdrawalHistoryPage = 1;
+
+function renderWithdrawalMethodFields() {
+    const method = $('wMethod')?.value || 'UPI';
+    if (!$('wDetails')) return;
+    $('wDetails').innerHTML = method === 'UPI'
+        ? '<input id="wUpiId" placeholder="UPI ID (e.g. name@upi)">'
+        : '<input id="wWalletAddress" placeholder="Crypto wallet address"><input id="wNetwork" placeholder="Network (e.g. TRC20)">';
+}
+
+function renderWithdrawalHistory(rows) {
+    const body = $('wHistoryRows');
+    if (!body) return;
+    body.innerHTML = rows.length
+        ? rows.map((row) => `<tr><td><b>${esc(row.request_ref)}</b></td><td>${money(row.amount_cents)}</td><td>${esc(row.method)}</td><td><span class="badge ${row.status === 'APPROVED' ? 'green' : row.status === 'REJECTED' ? 'red' : 'yellow'}">${esc(row.status)}</span></td><td>${row.created_at ? new Date(row.created_at).toLocaleString() : '—'}</td><td>${esc(row.admin_note || '—')}</td></tr>`).join('')
+        : '<tr><td colspan="6">No withdrawal requests found.</td></tr>';
+}
+
+async function loadWithdrawalHistory() {
+    try {
+        const status = $('wHistoryStatus')?.value || '';
+        const params = new URLSearchParams({ page: String(withdrawalHistoryPage), limit: '10' });
+        if (status) params.set('status', status);
+        const data = await api('/api/user/wallet/withdrawals?' + params.toString());
+        renderWithdrawalHistory(Array.isArray(data.withdrawals) ? data.withdrawals : []);
+        const total = Number(data.pagination?.total || 0);
+        const limit = Number(data.pagination?.limit || 10);
+        const pages = Math.max(1, Math.ceil(total / limit));
+        $('wHistoryPageLabel').textContent = `Page ${withdrawalHistoryPage} of ${pages}`;
+        $('wHistoryPrev').disabled = withdrawalHistoryPage <= 1;
+        $('wHistoryNext').disabled = withdrawalHistoryPage >= pages;
+    } catch (error) {
+        $('wHistoryRows').innerHTML = `<tr><td colspan="6">${esc(error.message)}</td></tr>`;
+    }
+}
+
+$('wMethod').addEventListener('change', renderWithdrawalMethodFields);
+$('wHistoryStatus').addEventListener('change', () => { withdrawalHistoryPage = 1; loadWithdrawalHistory(); });
+$('wHistoryRefresh').addEventListener('click', loadWithdrawalHistory);
+$('wHistoryPrev').addEventListener('click', () => { if (withdrawalHistoryPage > 1) { withdrawalHistoryPage--; loadWithdrawalHistory(); } });
+$('wHistoryNext').addEventListener('click', () => { withdrawalHistoryPage++; loadWithdrawalHistory(); });
+
 $('wSubmit').addEventListener('click', async () => {
     try {
-        const data = await api('/api/withdrawals/request', {
+        const fundedAccount = accounts.map(normalizeAccount).find((account) => String(account.id) === String($('wAccount').value) && account.status === 'ACTIVE' && account.phase === 'FUNDED');
+        if (!fundedAccount) throw new Error('Select an active funded account');
+        const amountCents = Math.round(Number($('wAmount').value) * 100);
+        if (!Number.isInteger(amountCents) || amountCents <= 0) throw new Error('Enter a valid withdrawal amount');
+        const method = $('wMethod').value;
+        const details = method === 'UPI'
+            ? { upi_id: $('wUpiId').value.trim() }
+            : { wallet_address: $('wWalletAddress').value.trim(), network: $('wNetwork').value.trim() };
+        if (method === 'UPI' && !details.upi_id) throw new Error('Enter your UPI ID');
+        if (method === 'CRYPTO' && (!details.wallet_address || !details.network)) throw new Error('Enter wallet address and network');
+        const data = await api('/api/user/wallet/withdrawals/request', {
             method: 'POST',
-            body: JSON.stringify({
-                account_id: $('wAccount').value,
-                amount_cents: Math.round(Number($('wAmount').value) * 100),
-                method: $('wMethod').value,
-                payment_address: $('wAddress').value
-            })
+            body: JSON.stringify({ amount_cents: amountCents, method, details })
         });
-
-        $('wMsg').textContent = data.success
-            ? 'Request submitted: ' + data.request_ref
-            : data.error || 'Failed';
+        $('wMsg').textContent = data.success ? 'Request submitted: ' + data.request_ref : data.error || 'Failed';
+        if (data.success) {
+            $('wAmount').value = '';
+            renderWithdrawalMethodFields();
+            withdrawalHistoryPage = 1;
+            loadWithdrawalHistory();
+        }
     } catch (error) {
         $('wMsg').textContent = error.message;
     }
