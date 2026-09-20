@@ -110,9 +110,9 @@ function installDatabaseControl(app) {
     const code = accountCode();
     await connection.execute(
       `INSERT INTO accounts
-       (account_code,user_id,challenge_model,phase,initial_balance_cents,balance_cents,equity_cents,status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
-      [code, order.user_id, resolvedModel, initialPhase, startingBalanceCents, startingBalanceCents, startingBalanceCents]
+       (account_code,user_id,challenge_model,phase,initial_balance_cents,balance_cents,equity_cents,day_start_balance_cents,day_start_equity_cents,equity_hwm_cents,status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
+      [code, order.user_id, resolvedModel, initialPhase, startingBalanceCents, startingBalanceCents, startingBalanceCents, startingBalanceCents, startingBalanceCents, startingBalanceCents]
     );
 
     let affiliateId = null;
