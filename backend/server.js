@@ -3098,16 +3098,41 @@ app.post(
         });
       }
 
-      const [configs] = await connection.execute(
-        "SELECT * FROM challenge_configs WHERE model_key = ? LIMIT 1",
-        [order.model],
-      );
+      const parsed = parseChallengeModel(order.model);
 
-      if (!configs.length) {
-        throw new Error("Challenge config not found");
+      let startingBalanceCents;
+      let resolvedModel = order.model;
+      let initialPhase = "PHASE_1";
+
+      if (parsed) {
+        const [sizes] = await connection.execute(
+          "SELECT * FROM challenge_sizes WHERE model_key = ? AND size_key = ? AND is_active = 1 LIMIT 1",
+          [parsed.model_key, parsed.size_key],
+        );
+
+        if (sizes.length) {
+          const size = sizes[0];
+          startingBalanceCents = Number(size.starting_balance_cents);
+          resolvedModel = parsed.model_key + "_" + parsed.size_key;
+
+          if (parsed.model_key === "prototype") {
+            initialPhase = "FUNDED";
+          } else {
+            initialPhase = "PHASE_1";
+          }
+        }
       }
 
-      const config = configs[0];
+      if (startingBalanceCents === undefined) {
+        const config = await getChallengeConfig(order.model);
+        startingBalanceCents = Number(config.starting_balance_cents);
+
+        if (order.model === "prototype_5k") {
+          initialPhase = "FUNDED";
+        } else {
+          initialPhase = "PHASE_1";
+        }
+      }
 
       const accountCode =
         "ACC-" +
@@ -3126,14 +3151,15 @@ app.post(
           equity_cents,
           status
         )
-        VALUES (?, ?, ?, 'PHASE_1', ?, ?, ?, 'ACTIVE')`,
+        VALUES (?, ?, ?, ?, ?, ?, ?, 'ACTIVE')`,
         [
           accountCode,
           order.user_id,
-          order.model,
-          config.starting_balance_cents,
-          config.starting_balance_cents,
-          config.starting_balance_cents,
+          resolvedModel,
+          initialPhase,
+          startingBalanceCents,
+          startingBalanceCents,
+          startingBalanceCents,
         ],
       );
 
