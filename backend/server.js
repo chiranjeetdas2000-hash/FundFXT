@@ -439,7 +439,7 @@ async function checkAccountRisk(account) {
   }
 
   const [tradeCountRow] = await db.execute(
-    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
     [account.id],
   );
   const tradesToday = tradeCountRow[0].count;
@@ -1365,6 +1365,8 @@ function calculatePL(symbol, side, entry, current, volume) {
 // 1. RISK ENGINE (Strict Rules Enforcement)
 async function checkAccountRisk(account) {
   const config = await getChallengeConfig(account.challenge_model);
+  const maxTrades = config.max_trades_per_day;
+  const maxTradesUnlimited = maxTrades === null || maxTrades === undefined;
   const equity = account.equity_cents;
   const balance = account.balance_cents;
   const dayStartBalance = account.day_start_balance_cents;
@@ -1398,10 +1400,11 @@ async function checkAccountRisk(account) {
   }
 
   const [tradeCountRow] = await db.execute(
-    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
     [account.id],
   );
   const tradesToday = tradeCountRow[0].count;
+  const tradeLimitReached = !maxTradesUnlimited && tradesToday >= Number(maxTrades);
 
   if (breached) {
     await db.execute(
@@ -1417,9 +1420,10 @@ async function checkAccountRisk(account) {
   return {
     breached,
     reason,
-    allowed: !breached && tradesToday < config.max_trades_per_day,
+    allowed: !breached && !tradeLimitReached,
     tradesToday,
-    maxTrades: config.max_trades_per_day,
+    maxTrades: maxTrades,
+    maxTradesUnlimited,
     dailyLossLimit: dailyLossLimit / 100,
     maxDrawdownLimit: maxDrawdownLimit / 100,
     currentDailyLoss: currentDailyLoss / 100,
@@ -2854,7 +2858,7 @@ app.post(
     }
 
     const [tradesToday] = await db.execute(
-      "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE() AND status = 'OPEN'",
+      "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
       [
         account.id,
       ],
@@ -2865,8 +2869,8 @@ app.post(
     );
 
     if (
-      Number(tradesToday[0].count)
-      >= Number(config.max_trades_per_day)
+      config.max_trades_per_day !== null
+      && Number(tradesToday[0].count) >= Number(config.max_trades_per_day)
     ) {
       return res.status(403).json({
         error:
