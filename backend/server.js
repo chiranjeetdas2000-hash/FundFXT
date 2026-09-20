@@ -75,6 +75,60 @@ async function sendEmail(to, subject, html) {
 }
 
 
+
+// ========== WALLET TRANSFER EMAIL ==========
+async function sendWalletTransferEmail(
+  toEmail,
+  traderId,
+  status,
+  amountCents,
+  transferRef,
+  reason,
+) {
+  try {
+    const escapeHtml = (value) =>
+      String(value || "").replace(
+        /[&<>"']/g,
+        (c) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            '"': "&quot;",
+            "'": "&#39;",
+          })[c],
+      );
+
+    const safeTraderId = escapeHtml(traderId);
+    const safeReason = escapeHtml(reason);
+    const amount = (Number(amountCents || 0) / 100).toFixed(2);
+
+    if (status === "APPROVED") {
+      await sendEmail(
+        toEmail,
+        "Affiliate → FundFXT Wallet Transfer Approved",
+        `<h3>Wallet Transfer Approved</h3>
+         <p>Hello ${safeTraderId || "Trader"},</p>
+         <p>Your affiliate → FundFXT Wallet transfer of <b>${amount}</b> has been approved.</p>
+         <p>Transfer Reference: <b>${transferRef}</b></p>
+         <p>The amount has been credited to your FundFXT Wallet.</p>`,
+      );
+    } else if (status === "REJECTED") {
+      await sendEmail(
+        toEmail,
+        "FundFXT Wallet Transfer Rejected",
+        `<h3>Wallet Transfer Rejected</h3>
+         <p>Hello ${safeTraderId || "Trader"},</p>
+         <p>Your transfer of <b>${amount}</b> was rejected.</p>
+         <p>Transfer Reference: <b>${transferRef}</b></p>
+         <p>Reason: ${safeReason || "No reason provided."}</p>`,
+      );
+    }
+  } catch (error) {
+    console.error("Wallet transfer email failed:", error.message);
+  }
+}
+
 // ========== AFFILIATE SALES LEDGER ==========
 // Sale history is stored separately and contains no customer PII.
 async function ensureAffiliateSalesLedger() {
@@ -4537,6 +4591,34 @@ app.post(
 
       await connection.commit();
 
+      const [userRows] = await db.execute(
+        `SELECT id, email, trader_id
+         FROM users
+         WHERE id = ?
+         LIMIT 1`,
+        [transfer.user_id],
+      );
+      const user = userRows[0];
+
+      if (!user || !user.email) {
+        console.warn(
+          "Skipping transfer email — no email for user",
+          transfer.user_id,
+        );
+        return res.json({
+          success: true,
+          new_wallet_balance: walletBalanceAfter,
+        });
+      }
+
+      void sendWalletTransferEmail(
+        user.email,
+        user.trader_id,
+        "APPROVED",
+        amount,
+        transfer.transfer_ref,
+      );
+
       res.json({
         success: true,
         new_wallet_balance: walletBalanceAfter,
@@ -4574,7 +4656,7 @@ app.post(
 
     try {
       const [transfers] = await db.execute(
-        `SELECT id, status
+        `SELECT id, status, user_id, amount_cents, transfer_ref
          FROM affiliate_wallet_transfers
          WHERE id = ?
          LIMIT 1`,
@@ -4594,7 +4676,7 @@ app.post(
         });
       }
 
-      await db.execute(
+      const [result] = await db.execute(
         `UPDATE affiliate_wallet_transfers
          SET
            status = 'REJECTED',
@@ -4604,6 +4686,39 @@ app.post(
          WHERE id = ?
            AND status = 'PENDING'`,
         [req.adminId, rejectionReason, id],
+      );
+
+      if (result.affectedRows === 0) {
+        return res.status(409).json({
+          error: "Wallet transfer has already been processed",
+        });
+      }
+
+      const transfer = transfers[0];
+      const [userRows] = await db.execute(
+        `SELECT id, email, trader_id
+         FROM users
+         WHERE id = ?
+         LIMIT 1`,
+        [transfer.user_id],
+      );
+      const user = userRows[0];
+
+      if (!user || !user.email) {
+        console.warn(
+          "Skipping transfer email — no email for user",
+          transfer.user_id,
+        );
+        return res.json({ success: true });
+      }
+
+      void sendWalletTransferEmail(
+        user.email,
+        user.trader_id,
+        "REJECTED",
+        transfer.amount_cents,
+        transfer.transfer_ref,
+        rejectionReason,
       );
 
       res.json({ success: true });
