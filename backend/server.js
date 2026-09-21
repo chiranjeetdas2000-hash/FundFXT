@@ -3568,6 +3568,38 @@ app.get("/api/dashboard/stats", authenticateToken, async (req, res) => {
 // ========== WITHDRAWAL RULES & REQUEST ==========
 
 // 1. Get Challenge Rules for a selected Account's Model
+// Public challenge catalog
+app.get("/api/challenges/catalog", async (req, res) => {
+  try {
+    const [sizes] = await db.execute(
+      "SELECT model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps FROM challenge_sizes WHERE is_active = 1 ORDER BY model_key, starting_balance_cents ASC",
+    );
+    const [rules] = await db.execute(
+      "SELECT model_key, phase, profit_target_bps, daily_dd_bps, max_dd_bps, consistency_bps, leverage, max_trades_per_day, max_open_positions, min_lot, max_lot FROM challenge_phase_rules WHERE is_active = 1 ORDER BY model_key, phase",
+    );
+    const rulesByModel = {};
+    for (const r of rules) {
+      if (!rulesByModel[r.model_key]) rulesByModel[r.model_key] = [];
+      rulesByModel[r.model_key].push({
+        phase:r.phase, profit_target_bps:r.profit_target_bps, daily_dd_bps:r.daily_dd_bps,
+        max_dd_bps:r.max_dd_bps, consistency_bps:r.consistency_bps, leverage:r.leverage,
+        max_trades_per_day:r.max_trades_per_day, max_open_positions:r.max_open_positions,
+        min_lot:r.min_lot, max_lot:r.max_lot,
+      });
+    }
+    const challenges = sizes.map(s => ({
+      model:s.model_key, size:s.size_key, model_key:s.model_key + "_" + s.size_key,
+      display_name:s.display_name, starting_balance_cents:s.starting_balance_cents,
+      price_cents:s.price_cents, affiliate_discount_bps:s.affiliate_discount_bps,
+      phases:rulesByModel[s.model_key] || [],
+    }));
+    res.json({ success:true, challenges });
+  } catch (error) {
+    console.error("Catalog error:", error);
+    res.status(500).json({ error:error.message });
+  }
+});
+
 app.get("/api/challenges/:model", async (req, res) => {
   try {
     const [config] = await db.execute(
