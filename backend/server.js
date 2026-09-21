@@ -3663,27 +3663,6 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
       await connection.rollback();
       return res.status(400).json({ error: "Insufficient wallet balance" });
     }
-    const [countRows] = await connection.execute("SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status = 'APPROVED'", [req.userId]);
-    const withdrawalNumber = Number(countRows[0]?.approved_count || 0) + 1;
-    let [tierRows] = await connection.execute(
-      "SELECT id, tier_start, tier_end, max_amount_cents FROM withdrawal_tier_rules WHERE model_key = 'warrior' AND phase = 'FUNDED' AND is_active = 1 AND tier_start <= ? AND tier_end >= ? ORDER BY tier_start DESC LIMIT 1",
-      [withdrawalNumber, withdrawalNumber],
-    );
-    if (!tierRows.length) {
-      [tierRows] = await connection.execute(
-        "SELECT id, tier_start, tier_end, max_amount_cents FROM withdrawal_tier_rules WHERE model_key = 'warrior' AND phase = 'FUNDED' AND is_active = 1 ORDER BY tier_end DESC LIMIT 1",
-      );
-    }
-    if (!tierRows.length) {
-      await connection.rollback();
-      return res.status(500).json({ error: "Withdrawal tier rules are not configured" });
-    }
-    const tier = tierRows[0];
-    const maxAllowedCents = Number(tier.max_amount_cents || 0);
-    if (amount_cents > maxAllowedCents) {
-      await connection.rollback();
-      return res.status(400).json({ error: "Maximum withdrawal for this tier is $" + (maxAllowedCents / 100).toFixed(2) });
-    }
     const requestRef = "WD-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
     const payoutDetails = method === "UPI"
       ? { upi_id: String(details.upi_id).trim() }
@@ -3691,9 +3670,6 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
     const eligibilitySnapshot = {
       funded_accounts_count: fundedAccounts.length,
       funded_account_codes: fundedAccounts.map((account) => account.account_code),
-      withdrawal_count_at_request: withdrawalNumber,
-      tier_applied: { id: tier.id, tier_start: tier.tier_start, tier_end: tier.tier_end },
-      max_allowed_cents: maxAllowedCents,
     };
     await connection.execute("UPDATE user_wallets SET balance_cents = balance_cents - ?, updated_at = NOW() WHERE user_id = ?", [amount_cents, req.userId]);
     const [withdrawalResult] = await connection.execute(
@@ -3744,6 +3720,13 @@ app.post(
         await connection.rollback();
         return res.status(400).json({ error: "Account must be ACTIVE and FUNDED for a profit transfer" });
       }
+      const parsedModel = parseChallengeModel(account.challenge_model);
+      const modelKey = parsedModel?.model_key;
+      const sizeKey = parsedModel?.size_key;
+      if (!modelKey) {
+        await connection.rollback();
+        return res.status(400).json({ error: "Unsupported challenge model" });
+      }
       const profitCents = Number(account.balance_cents || 0) - Number(account.initial_balance_cents || 0);
       if (profitCents < 10000) {
         await connection.rollback();
@@ -3753,7 +3736,8 @@ app.post(
         "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND status = 'OPEN'",
         [account.id],
       );
-      if (Number(openTradeRows[0]?.count || 0) > 0) {
+      const openTradeCount = Number(openTradeRows[0]?.count || 0);
+      if (openTradeCount > 0) {
         await connection.rollback();
         return res.status(400).json({ error: "All open trades must be closed before requesting a profit transfer" });
       }
@@ -3763,7 +3747,8 @@ app.post(
       );
       const cooldown = cooldownRows[0];
       const cooldownSeconds = Number(cooldown?.seconds_remaining || 0);
-      if (cooldownSeconds > 0) {
+      const cooldownOk = cooldownSeconds <= 0;
+      if (!cooldownOk) {
         const daysRemaining = Math.ceil(cooldownSeconds / 86400);
         await connection.rollback();
         return res.status(429).json({
@@ -3777,7 +3762,8 @@ app.post(
         return res.status(400).json({ error: "Account is not eligible for profit transfer", reason: risk.reason });
       }
       const consistency = await calculateConsistencyScore(account.id);
-      if (risk.consistencyBps == null || consistency.scoreBps > Number(risk.consistencyBps)) {
+      const consistencyOk = risk.consistencyBps != null && consistency.scoreBps <= Number(risk.consistencyBps);
+      if (!consistencyOk) {
         await connection.rollback();
         return res.status(400).json({
           error: "Account consistency requirement not met",
@@ -3785,17 +3771,84 @@ app.post(
           consistency_limit_bps: risk.consistencyBps,
         });
       }
+
+      let withdrawalNumber = 1;
+      let tierRange = null;
+      let tierMaxCents = 0;
+      let amountToApproveCents = 0;
+
+      if (modelKey === "prototype") {
+        const [priorRows] = await connection.execute(
+          "SELECT id FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED' LIMIT 1",
+          [account.id],
+        );
+        if (priorRows.length) {
+          await connection.rollback();
+          return res.status(400).json({ error: "Prototype allows only one withdrawal" });
+        }
+        amountToApproveCents = Math.min(10000, profitCents);
+      } else if (modelKey === "warrior") {
+        const [countRows] = await connection.execute(
+          "SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED'",
+          [account.id],
+        );
+        withdrawalNumber = Number(countRows[0]?.approved_count || 0) + 1;
+
+        let [tierRows] = await connection.execute(
+          "SELECT id, tier_start, tier_end, max_amount_bps FROM withdrawal_tier_rules WHERE model_key = ? AND phase = 'FUNDED' AND is_active = 1 AND tier_start <= ? AND tier_end >= ? ORDER BY tier_start DESC LIMIT 1",
+          [modelKey, withdrawalNumber, withdrawalNumber],
+        );
+        if (!tierRows.length) {
+          [tierRows] = await connection.execute(
+            "SELECT id, tier_start, tier_end, max_amount_bps FROM withdrawal_tier_rules WHERE model_key = ? AND phase = 'FUNDED' AND is_active = 1 ORDER BY tier_end DESC LIMIT 1",
+            [modelKey],
+          );
+        }
+        if (!tierRows.length) {
+          await connection.rollback();
+          return res.status(400).json({ error: "No active withdrawal tier configured for this account" });
+        }
+
+        const tier = tierRows[0];
+        tierRange = tier.tier_end == null
+          ? String(tier.tier_start) + "+"
+          : String(tier.tier_start) + "-" + String(tier.tier_end);
+        tierMaxCents = Math.floor(
+          (Number(account.initial_balance_cents || 0) * Number(tier.max_amount_bps || 0)) / 10000
+        );
+        amountToApproveCents = Math.min(tierMaxCents, profitCents);
+      } else {
+        await connection.rollback();
+        return res.status(400).json({ error: "Unsupported challenge model for profit transfer" });
+      }
+
       const requestRef =
         "TR-PAY-" +
         Date.now().toString(36).toUpperCase() +
         "-" +
         crypto.randomBytes(3).toString("hex").toUpperCase();
       const eligibilitySnapshot = {
+        profit_at_request: profitCents,
         profit_cents: profitCents,
         balance_at_request: Number(account.balance_cents || 0),
         hwm_at_request: Number(account.balance_hwm_cents ?? account.initial_balance_cents ?? 0),
         consistency_score: consistency.scoreBps,
         funded_at: account.funded_at ?? null,
+        model: modelKey,
+        size: sizeKey,
+        tier_number: withdrawalNumber,
+        tier_range: tierRange,
+        tier_max_cents: tierMaxCents,
+        amount_to_approve: amountToApproveCents,
+        extra_remaining: Math.max(0, profitCents - amountToApproveCents),
+        is_prototype_one_time: modelKey === "prototype",
+        rules_status: {
+          open_trades: openTradeCount === 0,
+          daily_dd_ok: risk.dailyLossBreached !== true,
+          max_dd_ok: risk.maxDrawdownBreached !== true,
+          consistency_ok: consistencyOk,
+          cooldown_ok: cooldownOk,
+        },
       };
       const [withdrawalResult] = await connection.execute(
         "INSERT INTO withdrawal_request (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, eligibility_snapshot, status, created_at, updated_at) VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', 'INTERNAL', NULL, ?, 'PENDING', NOW(), NOW())",
@@ -3803,7 +3856,7 @@ app.post(
           requestRef,
           req.userId,
           account.id,
-          profitCents,
+          amountToApproveCents,
           JSON.stringify(eligibilitySnapshot),
         ],
       );
@@ -3883,9 +3936,23 @@ app.post(
         "INSERT INTO user_wallet_transactions (user_id, txn_type, source, amount_cents, balance_after_cents, reference_type, reference_id, description) VALUES (?, 'CREDIT', 'PROFIT_TRANSFER', ?, ?, 'withdrawal_request', ?, ?)",
         [request.user_id, request.amount_cents, walletBalanceAfter, request.id, "Profit from " + accountCode],
       );
+      const W = Number(request.amount_cents || 0);
+      const HWM_REDUCTION = Math.round((W * 100) / 90);
+      const DD_REDUCTION = Math.round((W * 100) / 95);
+      const newBalance = Math.max(0, Number(account.balance_cents || 0) - W);
+      const newEquity = Math.max(0, Number(account.equity_cents || 0) - W);
+      const oldBalanceHwm = Number(account.balance_hwm_cents ?? account.initial_balance_cents ?? 0);
+      const oldEquityHwm = Number(account.equity_hwm_cents ?? account.balance_hwm_cents ?? account.initial_balance_cents ?? 0);
+      const newHWM = Math.max(Number(account.initial_balance_cents || 0), oldBalanceHwm - HWM_REDUCTION);
+      const newDayStartBal = Math.max(0, Number(account.day_start_balance_cents || 0) - DD_REDUCTION);
+      const newDayStartEq = Math.max(0, Number(account.day_start_equity_cents || 0) - DD_REDUCTION);
+      const newEqHWM = Math.max(Number(account.initial_balance_cents || 0), oldEquityHwm - HWM_REDUCTION);
+      const isPrototype = parseChallengeModel(account.challenge_model)?.model_key === "prototype";
+      const newStatus = isPrototype ? "PASSED" : "ACTIVE";
+
       await connection.execute(
-        "UPDATE accounts SET balance_cents = initial_balance_cents, equity_cents = initial_balance_cents, day_start_balance_cents = initial_balance_cents, day_start_equity_cents = initial_balance_cents, equity_hwm_cents = initial_balance_cents, status = 'ACTIVE', force_hwm_reset = 1, updated_at = NOW() WHERE id = ?",
-        [account.id],
+        "UPDATE accounts SET balance_cents = ?, equity_cents = ?, balance_hwm_cents = ?, equity_hwm_cents = ?, day_start_balance_cents = ?, day_start_equity_cents = ?, status = ?, force_hwm_reset = 1, updated_at = NOW() WHERE id = ?",
+        [newBalance, newEquity, newHWM, newEqHWM, newDayStartBal, newDayStartEq, newStatus, account.id],
       );
       const [requestUpdate] = await connection.execute(
         "UPDATE withdrawal_request SET status = 'APPROVED', reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW() WHERE id = ? AND status = 'PENDING'",
@@ -3971,10 +4038,62 @@ app.get(
       const where = status ? "AND wr.status = ?" : "";
       const params = status ? [status] : [];
       const [rows] = await db.execute(
-        "SELECT wr.id, wr.request_ref, wr.user_id, u.legal_name, u.email, u.trader_id, a.account_code, wr.amount_cents, wr.status, wr.reviewed_at, wr.admin_note AS rejection_reason, wr.created_at FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id JOIN accounts a ON a.id = wr.account_id WHERE wr.kind = 'TRADER_PROFIT' " + where + " ORDER BY wr.created_at DESC",
+        "SELECT wr.id, wr.request_ref, wr.user_id, u.legal_name, u.email, u.trader_id, a.id AS account_id, a.account_code, a.challenge_model, a.initial_balance_cents, a.balance_cents, a.equity_cents, a.balance_hwm_cents, a.equity_hwm_cents, a.day_start_balance_cents, a.day_start_equity_cents, a.status AS account_status, a.phase, wr.amount_cents, wr.status, wr.reviewed_at, wr.admin_note AS rejection_reason, wr.eligibility_snapshot, wr.created_at FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id JOIN accounts a ON a.id = wr.account_id WHERE wr.kind = 'TRADER_PROFIT' " + where + " ORDER BY wr.created_at DESC",
         params,
       );
-      res.json({ success: true, payouts: rows });
+      const payouts = [];
+      for (const row of rows) {
+        const parsed = parseChallengeModel(row.challenge_model);
+        let snapshot = {};
+        try {
+          snapshot = row.eligibility_snapshot
+            ? (typeof row.eligibility_snapshot === "string" ? JSON.parse(row.eligibility_snapshot) : row.eligibility_snapshot)
+            : {};
+        } catch {}
+        const [priorRows] = await db.execute(
+          "SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED' AND id < ?",
+          [row.account_id, row.id],
+        );
+        const withdrawalNumber = Number(snapshot.tier_number || priorRows[0]?.approved_count || 0) || 1;
+        const [trades] = await db.execute(
+          "SELECT id, symbol, side, type, volume, open_price, close_price, profit, realized_profit_cents, status, open_time, close_time, close_reason, trading_day FROM trades WHERE account_id = ? ORDER BY COALESCE(close_time, open_time) DESC, id DESC",
+          [row.account_id],
+        );
+        payouts.push({
+          id: row.id,
+          request_ref: row.request_ref,
+          user: { id: row.user_id, name: row.legal_name, email: row.email, trader_id: row.trader_id },
+          account: {
+            id: row.account_id,
+            code: row.account_code,
+            challenge_model: row.challenge_model,
+            initial_balance_cents: Number(row.initial_balance_cents || 0),
+            balance_cents: Number(row.balance_cents || 0),
+            balance_hwm_cents: Number(row.balance_hwm_cents || 0),
+          },
+          model_key: parsed?.model_key || snapshot.model || null,
+          size_key: parsed?.size_key || snapshot.size || null,
+          withdrawal_number: withdrawalNumber,
+          tier_range: snapshot.tier_range || null,
+          tier_max_cents: Number(snapshot.tier_max_cents || 0),
+          profit_cents: Number(snapshot.profit_at_request ?? snapshot.profit_cents ?? 0),
+          amount_to_approve: Number(row.amount_cents || 0),
+          extra_remaining: Number(snapshot.extra_remaining ?? 0),
+          rules_status: snapshot.rules_status || {
+            open_trades: !trades.some((t) => String(t.status).toUpperCase() === "OPEN"),
+            daily_dd_ok: true,
+            max_dd_ok: true,
+            consistency_ok: true,
+            cooldown_ok: true,
+          },
+          trades,
+          status: row.status,
+          rejection_reason: row.rejection_reason,
+          created_at: row.created_at,
+          reviewed_at: row.reviewed_at,
+        });
+      }
+      res.json({ success: true, payouts });
     } catch (error) {
       console.error("Admin account payout list error:", error);
       res.status(500).json({ error: error.message });
