@@ -76,6 +76,42 @@ async function sendEmail(to, subject, html) {
 
 
 
+// ========== PHASE REVIEW EMAIL ==========
+async function sendPhaseEmail(toEmail, customerName, traderId, phase, status, reason) {
+  try {
+    if (!toEmail) return;
+    const escHtml = (v) => String(v || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
+    const p = escHtml(phase || "—");
+    const name = escHtml(customerName || "Trader");
+    const trader = escHtml(traderId || "—");
+    const r = escHtml(reason || "");
+    const st = String(status || "").toUpperCase();
+    const heading = st === "TARGET_HIT" ? `Challenge Phase ${p} Passed` : st === "APPROVED" ? `Phase ${p} Approved` : `Phase ${p} Review Rejected`;
+    const subheading = st === "TARGET_HIT" ? "Your challenge phase is now under review." : st === "APPROVED" ? "Your new account is ready." : "Your phase review has been rejected.";
+    const reasonRow = r ? `<tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Reason</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${r}</td></tr>` : "";
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0e14;"><tr><td align="center" style="padding:32px 16px;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#151924;border:1px solid #252b3a;border-radius:12px;"><tr><td style="padding:28px 30px 12px;"><div style="font-size:24px;font-weight:700;">Fund<span style="color:#00e59a;">FXT</span></div><div style="margin-top:6px;color:#8d96a8;font-size:13px;">Challenge Phase Notification</div></td></tr><tr><td style="padding:12px 30px 24px;"><div style="font-size:20px;font-weight:700;">${heading}</div><div style="margin-top:7px;color:#8d96a8;font-size:13px;">${subheading}</div></td></tr><tr><td style="padding:0 30px 24px;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0e14;border:1px solid #252b3a;border-radius:8px;"><tr><td style="padding:14px 12px;color:#00e59a;font-size:13px;font-weight:700;">ACCOUNT DETAILS</td></tr><tr><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">Customer: ${name}</td></tr><tr><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">Trader ID: ${trader}</td></tr><tr><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">Phase: ${p}</td></tr>${reasonRow}</table></td></tr></table></td></tr></table></body></html>`;
+    const subject = st === "TARGET_HIT" ? `[FundFXT] Challenge Phase ${phase} Passed — Under Review` : st === "APPROVED" ? `[FundFXT] Phase ${phase} Approved — New Account Ready` : `[FundFXT] Phase ${phase} Review Rejected`;
+    await sendEmail(toEmail, subject, html);
+  } catch (error) { console.error("Phase email failed:", error.message); }
+}
+
+async function notifyTargetPassed(reviewId, accountId, userId) {
+  try {
+    const [rows] = await db.execute(`SELECT r.id, r.review_ref, r.from_phase, r.to_phase, r.target_snapshot, r.created_at, a.account_code, u.legal_name, u.email, u.trader_id, u.id AS user_id FROM account_phase_reviews r JOIN accounts a ON a.id = r.account_id JOIN users u ON u.id = r.user_id WHERE r.id = ? AND r.account_id = ? AND r.user_id = ? LIMIT 1`, [reviewId, accountId, userId]);
+    if (!rows.length) return;
+    const review = rows[0];
+    const snapshot = typeof review.target_snapshot === "string" ? (() => { try { return JSON.parse(review.target_snapshot); } catch { return {}; } })() : (review.target_snapshot || {});
+    const profit = (Number(snapshot.profit_cents || 0) / 100).toFixed(2);
+    const target = (Number(snapshot.target_cents || 0) / 100).toFixed(2);
+    const supportEmail = process.env.SUPPORT_EMAIL || "support.fundfxt@gmail.com";
+    const escHtml = (v) => String(v || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
+    const adminHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:620px;margin:32px auto;padding:28px;background:#151924;border:1px solid #252b3a;border-radius:12px;"><div style="font-size:24px;font-weight:700;">Fund<span style="color:#00e59a;">FXT</span></div><h2>Phase Review Required</h2><p style="color:#8d96a8;">A challenge phase has been marked PASSED and is awaiting review.</p><table width="100%" cellpadding="8" style="background:#0b0e14;border:1px solid #252b3a;"><tr><td>Request Ref</td><td>${escHtml(review.review_ref)}</td></tr><tr><td>User</td><td>${escHtml(review.legal_name)} (${escHtml(review.email)})</td></tr><tr><td>Trader ID</td><td>${escHtml(review.trader_id)}</td></tr><tr><td>Account</td><td>${escHtml(review.account_code)}</td></tr><tr><td>Phase</td><td>${escHtml(review.from_phase)} → ${escHtml(review.to_phase)}</td></tr><tr><td>Profit at Target</td><td style="color:#00e59a;">${profit}</td></tr><tr><td>Target Value</td><td>${target}</td></tr></table></div></body></html>`;
+    await sendEmail(supportEmail, `[FundFXT] Phase Review Required — ${review.review_ref} — ${review.account_code}`, adminHtml);
+    await sendPhaseEmail(review.email, review.legal_name, review.trader_id, review.from_phase, "TARGET_HIT");
+    await createNotification(review.user_id, "phase_passed", `Phase ${review.from_phase} passed, review pending`, `Your ${review.from_phase} profit target has been reached. Your phase review is now pending.`, null);
+  } catch (error) { console.error("Target-pass notification failed:", error.message); }
+}
+
 // ========== WALLET TRANSFER EMAIL ==========
 async function sendWalletTransferEmail(
   customerEmail,
@@ -2080,6 +2116,10 @@ app.post(
       const targetResult = await evaluateProfitTargetLocked(connection, account);
       await connection.commit();
 
+      if (targetResult.passed && targetResult.reviewId) {
+        notifyTargetPassed(targetResult.reviewId, account.id, req.userId).catch((err) => console.error("Phase notify error:", err));
+      }
+
       return res.json({
         success: true,
         trade_id: trade.trade_id,
@@ -2257,6 +2297,10 @@ app.post(
       const targetResult = await evaluateProfitTargetLocked(connection, account);
 
       await connection.commit();
+
+      if (targetResult.passed && targetResult.reviewId) {
+        notifyTargetPassed(targetResult.reviewId, account.id, req.userId).catch((err) => console.error("Phase notify error:", err));
+      }
 
       return res.json({
         success: true,
@@ -2839,6 +2883,10 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
 
     await connection.commit();
 
+    if (targetResult.passed && targetResult.reviewId) {
+      notifyTargetPassed(targetResult.reviewId, account.id, req.userId).catch((err) => console.error("Phase notify error:", err));
+    }
+
     console.log("[FLATTEN] committed successfully; passed=", targetResult.passed);
 
     return res.json({
@@ -2994,6 +3042,10 @@ async function processLivePrices() {
       const targetResult = await evaluateProfitTargetLocked(connection, lockedAccount);
 
       await connection.commit();
+
+      if (targetResult.passed && targetResult.reviewId) {
+        notifyTargetPassed(targetResult.reviewId, lockedTrade.account_id, lockedTrade.user_id).catch((err) => console.error("Phase notify error:", err));
+      }
 
       console.log("[TP/SL SETTLE]", lockedTrade.trade_id, closeReason, "realized_cents=", settlement.realizedCents, "passed=", targetResult.passed);
     } catch (error) {
@@ -4398,6 +4450,97 @@ async function createNotification(userId, type, title, message, link = null) {
     console.error("Create notification error:", error.message);
   }
 }
+
+
+app.get("/api/admin/phase-reviews", authenticateAdmin, async (req, res) => {
+  try {
+    const status = String(req.query.status || "PENDING").toUpperCase();
+    if (!["PENDING","APPROVED","REJECTED"].includes(status)) return res.status(400).json({ error: "Invalid phase review status" });
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 50));
+    const offset = (page - 1) * limit;
+    const [[countRow]] = await db.query("SELECT COUNT(*) AS total FROM account_phase_reviews WHERE status = ?", [status]);
+    const [reviews] = await db.query(`SELECT r.id, r.review_ref, r.account_id, r.user_id, r.from_phase, r.to_phase, r.status, r.target_snapshot, r.created_at, r.reviewed_by, r.reviewed_at, r.admin_note, r.new_account_id, u.legal_name AS user_name, u.email AS user_email, u.trader_id, a.account_code, a.challenge_model, a.initial_balance_cents, a.balance_cents, a.equity_cents FROM account_phase_reviews r JOIN users u ON u.id = r.user_id JOIN accounts a ON a.id = r.account_id WHERE r.status = ? ORDER BY r.created_at DESC LIMIT ? OFFSET ?`, [status, limit, offset]);
+    const normalized = reviews.map((row) => ({ ...row, user: { id: row.user_id, name: row.user_name, email: row.user_email, trader_id: row.trader_id }, account: { id: row.account_id, code: row.account_code, challenge_model: row.challenge_model, initial_balance_cents: Number(row.initial_balance_cents || 0), balance_cents: Number(row.balance_cents || 0), equity_cents: Number(row.equity_cents || 0) }, target_snapshot: typeof row.target_snapshot === "string" ? (() => { try { return JSON.parse(row.target_snapshot); } catch { return {}; } })() : (row.target_snapshot || {}) }));
+    res.json({ success: true, reviews: normalized, pagination: { page, limit, total: Number(countRow?.total || 0), total_pages: Math.max(1, Math.ceil(Number(countRow?.total || 0) / limit)) } });
+  } catch (error) { console.error("Admin phase review list error:", error); res.status(500).json({ error: error.message }); }
+});
+
+app.get("/api/admin/phase-reviews/:id", authenticateAdmin, async (req, res) => {
+  try {
+    const [rows] = await db.query(`SELECT r.*, u.legal_name AS user_name, u.email AS user_email, u.trader_id, a.account_code, a.challenge_model, a.initial_balance_cents, a.balance_cents, a.equity_cents FROM account_phase_reviews r JOIN users u ON u.id = r.user_id JOIN accounts a ON a.id = r.account_id WHERE r.id = ? LIMIT 1`, [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: "Phase review not found" });
+    const review = rows[0];
+    const [trades] = await db.query(`SELECT id, trade_id, symbol, side, order_type, volume, entry_price, exit_price, entry_time, exit_time, realized_profit_cents, status, close_reason, stop_loss, take_profit FROM trades WHERE account_id = ? AND status = 'CLOSED' AND close_reason IN ('PASS_CLOSE','MANUAL','TP','SL','FLATTEN') AND exit_time <= ? ORDER BY exit_time ASC, id ASC`, [review.account_id, review.created_at]);
+    const snapshot = typeof review.target_snapshot === "string" ? (() => { try { return JSON.parse(review.target_snapshot); } catch { return {}; } })() : (review.target_snapshot || {});
+    res.json({ success: true, review: { id: review.id, review_ref: review.review_ref, account_id: review.account_id, user_id: review.user_id, from_phase: review.from_phase, to_phase: review.to_phase, status: review.status, target_snapshot: snapshot, created_at: review.created_at, reviewed_by: review.reviewed_by, reviewed_at: review.reviewed_at, admin_note: review.admin_note, new_account_id: review.new_account_id }, user: { id: review.user_id, name: review.user_name, email: review.user_email, trader_id: review.trader_id }, account: { id: review.account_id, code: review.account_code, challenge_model: review.challenge_model, initial_balance_cents: Number(review.initial_balance_cents || 0), balance_cents: Number(review.balance_cents || 0), equity_cents: Number(review.equity_cents || 0) }, trades });
+  } catch (error) { console.error("Admin phase review detail error:", error); res.status(500).json({ error: error.message }); }
+});
+
+app.post("/api/admin/phase-reviews/:id/approve", authenticateAdmin, async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const [reviewRows] = await connection.execute("SELECT * FROM account_phase_reviews WHERE id = ? FOR UPDATE", [req.params.id]);
+    if (!reviewRows.length) { await connection.rollback(); return res.status(404).json({ error: "Phase review not found" }); }
+    const review = reviewRows[0];
+    if (review.status !== "PENDING") { await connection.rollback(); return res.status(409).json({ error: `Phase review is already ${review.status.toLowerCase()}.` }); }
+    const [accountRows] = await connection.execute("SELECT * FROM accounts WHERE id = ? FOR UPDATE", [review.account_id]);
+    if (!accountRows.length) { await connection.rollback(); return res.status(404).json({ error: "Source account not found" }); }
+    const sourceAccount = accountRows[0];
+    if (sourceAccount.status !== "PASSED") { await connection.rollback(); return res.status(409).json({ error: "Source account is not PASSED." }); }
+    const fromPhase = String(review.from_phase || "").toUpperCase();
+    const toPhase = fromPhase === "PHASE_1" ? "PHASE_2" : fromPhase === "PHASE_2" ? "FUNDED" : null;
+    if (!toPhase) { await connection.rollback(); return res.status(400).json({ error: "Invalid phase transition." }); }
+    const newAccount = await createPhaseAccount(connection, { sourceAccount, phase: toPhase });
+    await connection.execute("UPDATE account_phase_reviews SET status = 'APPROVED', reviewed_by = ?, reviewed_at = NOW(), new_account_id = ? WHERE id = ?", [req.adminId, newAccount.accountId, review.id]);
+    await connection.commit();
+    try {
+      const [userRows] = await db.query("SELECT legal_name, email, trader_id FROM users WHERE id = ? LIMIT 1", [review.user_id]);
+      const user = userRows[0] || {};
+      await sendPhaseEmail(user.email, user.legal_name, user.trader_id, fromPhase, "APPROVED");
+      await createNotification(review.user_id, "phase_approved", `Phase ${fromPhase} approved — new account ready`, `Your ${toPhase} account is ready for trading.`, null);
+    } catch (notifyError) { console.error("Phase approval notification failed:", notifyError.message); }
+    res.json({ success: true, new_account_id: newAccount.accountId, new_account_code: newAccount.accountCode });
+  } catch (error) { if (connection) { try { await connection.rollback(); } catch {} } console.error("Approve phase review error:", error); res.status(500).json({ error: error.message }); }
+  finally { if (connection) connection.release(); }
+});
+
+app.post("/api/admin/phase-reviews/:id/reject", authenticateAdmin, async (req, res) => {
+  let connection;
+  try {
+    connection = await db.getConnection();
+    await connection.beginTransaction();
+    const [reviewRows] = await connection.execute("SELECT * FROM account_phase_reviews WHERE id = ? FOR UPDATE", [req.params.id]);
+    if (!reviewRows.length) { await connection.rollback(); return res.status(404).json({ error: "Phase review not found" }); }
+    const review = reviewRows[0];
+    if (review.status !== "PENDING") { await connection.rollback(); return res.status(409).json({ error: `Phase review is already ${review.status.toLowerCase()}.` }); }
+    const adminNote = String(req.body?.admin_note || "").trim();
+    if (!adminNote) { await connection.rollback(); return res.status(400).json({ error: "Admin note is required." }); }
+    await connection.execute("UPDATE account_phase_reviews SET status = 'REJECTED', admin_note = ?, reviewed_by = ?, reviewed_at = NOW() WHERE id = ?", [adminNote, req.adminId, review.id]);
+    await connection.commit();
+    try {
+      const [userRows] = await db.query("SELECT legal_name, email, trader_id FROM users WHERE id = ? LIMIT 1", [review.user_id]);
+      const user = userRows[0] || {};
+      await sendPhaseEmail(user.email, user.legal_name, user.trader_id, review.from_phase, "REJECTED", adminNote);
+      await createNotification(review.user_id, "phase_rejected", `Phase ${review.from_phase} rejected`, `Your ${review.from_phase} phase review was rejected.`, null);
+    } catch (notifyError) { console.error("Phase rejection notification failed:", notifyError.message); }
+    res.json({ success: true });
+  } catch (error) { if (connection) { try { await connection.rollback(); } catch {} } console.error("Reject phase review error:", error); res.status(500).json({ error: error.message }); }
+  finally { if (connection) connection.release(); }
+});
+
+app.get("/api/user/phase-reviews", authenticateToken, async (req, res) => {
+  try {
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+    const [[countRow]] = await db.query("SELECT COUNT(*) AS total FROM account_phase_reviews WHERE user_id = ?", [req.userId]);
+    const [reviews] = await db.query(`SELECT r.id, r.review_ref, r.account_id, r.from_phase, r.to_phase, r.status, r.target_snapshot, r.created_at, r.reviewed_at, r.admin_note, r.new_account_id, a.account_code, a.challenge_model FROM account_phase_reviews r JOIN accounts a ON a.id = r.account_id WHERE r.user_id = ? ORDER BY r.created_at DESC LIMIT ? OFFSET ?`, [req.userId, limit, offset]);
+    res.json({ success: true, reviews: reviews.map((row) => ({ ...row, target_snapshot: typeof row.target_snapshot === "string" ? (() => { try { return JSON.parse(row.target_snapshot); } catch { return {}; } })() : (row.target_snapshot || {}), account: { id: row.account_id, code: row.account_code, challenge_model: row.challenge_model } })), pagination: { page, limit, total: Number(countRow?.total || 0), total_pages: Math.max(1, Math.ceil(Number(countRow?.total || 0) / limit)) } });
+  } catch (error) { console.error("User phase review list error:", error); res.status(500).json({ error: error.message }); }
+});
 
 // ========== ADMIN ADVANCED CONTROLS (STEP 4) ==========
 
