@@ -315,6 +315,7 @@ async function loadWallet() {
         $('walletBalance').textContent = money(w.balance_cents || 0);
         $('walletTotalReceived').textContent = money(w.total_received_cents || 0);
         $('walletTotalWithdrawn').textContent = money(w.total_withdrawn_cents || 0);
+        renderWithdrawalCooldown(w.next_withdrawal_at, w.days_until_next_withdrawal);
         
         await loadWalletPassbook(1);
         await loadAffiliateTransfers(1);
@@ -606,9 +607,24 @@ let withdrawalHistoryPage = 1;
 function renderWithdrawalMethodFields() {
     const method = $('wMethod')?.value || 'UPI';
     if (!$('wDetails')) return;
-    $('wDetails').innerHTML = method === 'UPI'
+    const minimum = method === 'UPI' ? '$10.00' : '$25.00';
+    $('wDetails').innerHTML = (method === 'UPI'
         ? '<input id="wUpiId" placeholder="UPI ID (e.g. name@upi)">'
-        : '<input id="wWalletAddress" placeholder="Crypto wallet address"><input id="wNetwork" placeholder="Network (e.g. TRC20)">';
+        : '<input id="wWalletAddress" placeholder="Crypto wallet address"><input id="wNetwork" placeholder="Network (e.g. TRC20)">') +
+        '<small class="sub">Minimum: ' + minimum + '</small>';
+}
+
+function renderWithdrawalCooldown(nextWithdrawalAt, daysUntilNextWithdrawal) {
+    const banner = $('wCooldown');
+    if (!banner) return;
+    if (nextWithdrawalAt && Number(daysUntilNextWithdrawal || 0) > 0) {
+        const date = new Date(nextWithdrawalAt);
+        banner.textContent = 'Next withdrawal available: ' + (Number.isNaN(date.getTime()) ? nextWithdrawalAt : date.toLocaleString());
+        banner.style.display = 'block';
+    } else {
+        banner.style.display = 'none';
+        banner.textContent = '';
+    }
 }
 
 function renderWithdrawalHistory(rows) {
@@ -665,6 +681,7 @@ $('wSubmit').addEventListener('click', async () => {
             renderWithdrawalMethodFields();
             withdrawalHistoryPage = 1;
             loadWithdrawalHistory();
+            loadWallet();
         }
     } catch (error) {
         $('wMsg').textContent = error.message;

@@ -3573,6 +3573,39 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
     if (method === "UPI" && !String(details?.upi_id || "").trim()) return res.status(400).json({ error: "UPI ID is required" });
     if (method === "CRYPTO" && (!String(details?.wallet_address || "").trim() || !String(details?.network || "").trim())) return res.status(400).json({ error: "Crypto wallet address and network are required" });
 
+    const [pendingRow] = await db.execute(
+      "SELECT id FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status = 'PENDING' LIMIT 1",
+      [req.userId],
+    );
+    if (pendingRow.length) {
+      return res.status(409).json({
+        error: "You already have a pending withdrawal request. Wait for admin review.",
+      });
+    }
+
+    const [cooldownRows] = await db.execute(
+      "SELECT reviewed_at, TIMESTAMPADD(DAY, 14, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 14, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status IN ('APPROVED', 'PAID') AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
+      [req.userId],
+    );
+    const cooldown = cooldownRows[0];
+    const cooldownSeconds = Number(cooldown?.seconds_remaining || 0);
+    if (cooldownSeconds > 0) {
+      const daysRemaining = Math.ceil(cooldownSeconds / 86400);
+      return res.status(429).json({
+        error: "Withdrawal cooldown active. Next withdrawal available in " + daysRemaining + " day(s)",
+        next_available_at: new Date(cooldown.next_available_at).toISOString(),
+      });
+    }
+
+    const minCents = method === "UPI" ? 1000 : 2500;
+    if (amount_cents < minCents) {
+      return res.status(400).json({
+        error: method === "UPI"
+          ? "Minimum UPI withdrawal is $10.00"
+          : "Minimum Crypto withdrawal is $25.00",
+      });
+    }
+
     connection = await db.getConnection();
     await connection.beginTransaction();
     const [fundedAccounts] = await connection.execute(
@@ -4405,6 +4438,18 @@ app.get("/api/user/wallet", authenticateToken, async (req, res) => {
     }
 
     const wallet = rows[0];
+    const [cooldownRows] = await db.execute(
+      "SELECT reviewed_at, TIMESTAMPADD(DAY, 14, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 14, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status IN ('APPROVED', 'PAID') AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
+      [req.userId],
+    );
+    const cooldown = cooldownRows[0];
+    const cooldownSeconds = Number(cooldown?.seconds_remaining || 0);
+    const nextWithdrawalAt = cooldown && cooldownSeconds > 0
+      ? new Date(cooldown.next_available_at).toISOString()
+      : null;
+    const daysUntilNextWithdrawal = cooldownSeconds > 0
+      ? Math.ceil(cooldownSeconds / 86400)
+      : 0;
 
     res.json({
       success: true,
@@ -4416,6 +4461,8 @@ app.get("/api/user/wallet", authenticateToken, async (req, res) => {
         display_name: "FundFXT Wallet",
         created_at: wallet.created_at,
         updated_at: wallet.updated_at,
+        next_withdrawal_at: nextWithdrawalAt,
+        days_until_next_withdrawal: daysUntilNextWithdrawal,
       },
     });
   } catch (error) {
