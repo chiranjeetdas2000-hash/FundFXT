@@ -74,10 +74,6 @@ document.querySelectorAll('.nav a[data-view]').forEach((link) => {
         link.classList.add('active');
         closeMenu();
 
-        if (link.dataset.view === 'withdraw') {
-            renderWithdrawAccounts();
-        }
-
         if (link.dataset.view === 'orders') {
             loadOrders();
         }
@@ -217,7 +213,6 @@ function render() {
 
     bindAccountActions();
     bindTiltCards();
-    renderWithdrawAccounts();
 }
 
 function bindAccountActions() {
@@ -552,10 +547,55 @@ document.getElementById('walletMoveAffiliateBtn')?.addEventListener('click', asy
     }
 });
 
-// Withdraw (placeholder)
-document.getElementById('walletWithdrawBtn')?.addEventListener('click', () => {
-    alert('Wallet withdrawal will be available soon.');
+// Wallet withdrawal modal
+const walletWithdrawModal = $('walletWithdrawModal');
+const walletWithdrawNewTab = $('walletWithdrawNewTab');
+const walletWithdrawHistoryTab = $('walletWithdrawHistoryTab');
+const walletWithdrawNewPanel = $('walletWithdrawNewPanel');
+const walletWithdrawHistoryPanel = $('walletWithdrawHistoryPanel');
+
+function setWalletWithdrawTab(tab) {
+    const history = tab === 'history';
+    walletWithdrawNewTab.classList.toggle('active', !history);
+    walletWithdrawHistoryTab.classList.toggle('active', history);
+    walletWithdrawNewTab.setAttribute('aria-selected', String(!history));
+    walletWithdrawHistoryTab.setAttribute('aria-selected', String(history));
+    walletWithdrawNewPanel.classList.toggle('active', !history);
+    walletWithdrawHistoryPanel.classList.toggle('active', history);
+    walletWithdrawHistoryPanel.hidden = !history;
+    walletWithdrawNewPanel.hidden = history;
+}
+
+function openWalletWithdrawModal() {
+    if (!walletWithdrawModal) return;
+    renderWithdrawAccounts();
+    loadWithdrawalHistory();
+    setWalletWithdrawTab('new');
+    walletWithdrawModal.classList.add('show');
+    walletWithdrawModal.setAttribute('aria-hidden', 'false');
+    document.body.classList.add('modal-open');
+}
+
+function closeWalletWithdrawModal() {
+    if (!walletWithdrawModal) return;
+    walletWithdrawModal.classList.remove('show');
+    walletWithdrawModal.setAttribute('aria-hidden', 'true');
+    document.body.classList.remove('modal-open');
+}
+
+document.getElementById('walletWithdrawBtn')?.addEventListener('click', openWalletWithdrawModal);
+document.getElementById('walletWithdrawClose')?.addEventListener('click', closeWalletWithdrawModal);
+walletWithdrawModal?.addEventListener('click', (event) => {
+    if (event.target === walletWithdrawModal) closeWalletWithdrawModal();
 });
+walletWithdrawNewTab?.addEventListener('click', () => setWalletWithdrawTab('new'));
+walletWithdrawHistoryTab?.addEventListener('click', () => setWalletWithdrawTab('history'));
+document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && walletWithdrawModal?.classList.contains('show')) {
+        closeWalletWithdrawModal();
+    }
+});
+
 
 async function loadTickets() {
     try {
