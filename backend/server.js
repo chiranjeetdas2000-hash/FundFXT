@@ -1690,6 +1690,34 @@ async function checkAccountRisk(account) {
   };
 }
 
+
+async function calculateConsistencyScore(accountId) {
+  try {
+    const [rows] = await db.execute(
+      "SELECT trading_day, SUM(realized_profit_cents) AS daily_pnl FROM trades WHERE account_id = ? AND status = 'CLOSED' AND realized_profit_cents > 0 AND trading_day IS NOT NULL GROUP BY trading_day HAVING daily_pnl > 0 ORDER BY daily_pnl DESC",
+      [accountId],
+    );
+    if (!rows.length) {
+      return { scoreBps: 0, highestDayCents: 0, totalProfitCents: 0 };
+    }
+    const highestDayCents = Number(rows[0].daily_pnl || 0);
+    const totalProfitCents = rows.reduce(
+      (sum, row) => sum + Number(row.daily_pnl || 0),
+      0,
+    );
+    if (totalProfitCents <= 0) {
+      return { scoreBps: 0, highestDayCents, totalProfitCents: 0 };
+    }
+    const scoreBps = Math.round(
+      (highestDayCents / totalProfitCents) * 10000,
+    );
+    return { scoreBps, highestDayCents, totalProfitCents };
+  } catch (error) {
+    console.error("Consistency score error:", error);
+    return { scoreBps: 0, highestDayCents: 0, totalProfitCents: 0 };
+  }
+}
+
 // 2. MANUAL CLOSE TRADE (Real-time P/L at market price)
 app.post(
   "/api/trades/:tradeId/close",
@@ -3689,6 +3717,299 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
     if (connection) connection.release();
   }
 });
+
+
+app.post(
+  "/api/user/wallet/account-payout/request",
+  authenticateToken,
+  async (req, res) => {
+    const accountId = Number(req.body?.account_id);
+    if (!Number.isInteger(accountId) || accountId <= 0) {
+      return res.status(400).json({ error: "Valid account_id is required" });
+    }
+    let connection;
+    try {
+      connection = await db.getConnection();
+      await connection.beginTransaction();
+      const [accountRows] = await connection.execute(
+        "SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE",
+        [accountId, req.userId],
+      );
+      if (!accountRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account not found" });
+      }
+      const account = accountRows[0];
+      if (account.status !== "ACTIVE" || account.phase !== "FUNDED") {
+        await connection.rollback();
+        return res.status(400).json({ error: "Account must be ACTIVE and FUNDED for a profit transfer" });
+      }
+      const profitCents = Number(account.balance_cents || 0) - Number(account.initial_balance_cents || 0);
+      if (profitCents < 10000) {
+        await connection.rollback();
+        return res.status(400).json({ error: "Minimum profit transfer is $100.00" });
+      }
+      const [openTradeRows] = await connection.execute(
+        "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND status = 'OPEN'",
+        [account.id],
+      );
+      if (Number(openTradeRows[0]?.count || 0) > 0) {
+        await connection.rollback();
+        return res.status(400).json({ error: "All open trades must be closed before requesting a profit transfer" });
+      }
+      const [cooldownRows] = await connection.execute(
+        "SELECT reviewed_at, TIMESTAMPADD(DAY, 7, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 7, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED' AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
+        [account.id],
+      );
+      const cooldown = cooldownRows[0];
+      const cooldownSeconds = Number(cooldown?.seconds_remaining || 0);
+      if (cooldownSeconds > 0) {
+        const daysRemaining = Math.ceil(cooldownSeconds / 86400);
+        await connection.rollback();
+        return res.status(429).json({
+          error: "Profit transfer cooldown active. Next transfer available in " + daysRemaining + " day(s)",
+          next_available_at: new Date(cooldown.next_available_at).toISOString(),
+        });
+      }
+      const risk = await checkAccountRisk(account);
+      if (risk.breached) {
+        await connection.rollback();
+        return res.status(400).json({ error: "Account is not eligible for profit transfer", reason: risk.reason });
+      }
+      const consistency = await calculateConsistencyScore(account.id);
+      if (risk.consistencyBps == null || consistency.scoreBps > Number(risk.consistencyBps)) {
+        await connection.rollback();
+        return res.status(400).json({
+          error: "Account consistency requirement not met",
+          consistency_score_bps: consistency.scoreBps,
+          consistency_limit_bps: risk.consistencyBps,
+        });
+      }
+      const requestRef =
+        "TR-PAY-" +
+        Date.now().toString(36).toUpperCase() +
+        "-" +
+        crypto.randomBytes(3).toString("hex").toUpperCase();
+      const eligibilitySnapshot = {
+        profit_cents: profitCents,
+        balance_at_request: Number(account.balance_cents || 0),
+        hwm_at_request: Number(account.balance_hwm_cents ?? account.initial_balance_cents ?? 0),
+        consistency_score: consistency.scoreBps,
+        funded_at: account.funded_at ?? null,
+      };
+      const [withdrawalResult] = await connection.execute(
+        "INSERT INTO withdrawal_request (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, eligibility_snapshot, status, created_at, updated_at) VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', NULL, NULL, ?, 'PENDING', NOW(), NOW())",
+        [
+          requestRef,
+          req.userId,
+          account.id,
+          profitCents,
+          JSON.stringify(eligibilitySnapshot),
+        ],
+      );
+      const [freezeResult] = await connection.execute(
+        "UPDATE accounts SET status = 'FROZEN', updated_at = NOW() WHERE id = ? AND status = 'ACTIVE'",
+        [account.id],
+      );
+      if (freezeResult.affectedRows !== 1 || !withdrawalResult.insertId) {
+        throw new Error("Profit transfer request could not be created");
+      }
+      await connection.commit();
+      const [users] = await db.execute(
+        "SELECT legal_name, email, trader_id FROM users WHERE id = ? LIMIT 1",
+        [req.userId],
+      );
+      if (users.length) {
+        void sendWithdrawalEmail(users[0].email, users[0].legal_name, users[0].trader_id, "PENDING", profitCents, requestRef);
+      }
+      res.json({ success: true, request_ref: requestRef, status: "PENDING" });
+    } catch (error) {
+      if (connection) await connection.rollback().catch(() => {});
+      console.error("Account payout request error:", error);
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (connection) connection.release();
+    }
+  },
+);
+
+app.post(
+  "/api/admin/account-payouts/:id/approve",
+  authenticateAdmin,
+  async (req, res) => {
+    const { id } = req.params;
+    let connection;
+    try {
+      connection = await db.getConnection();
+      await connection.beginTransaction();
+      const [requestRows] = await connection.execute(
+        "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? AND wr.kind = 'TRADER_PROFIT' FOR UPDATE",
+        [id],
+      );
+      if (!requestRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account payout request not found" });
+      }
+      const request = requestRows[0];
+      if (request.status !== "PENDING") {
+        await connection.rollback();
+        return res.status(400).json({ error: "Only pending account payout requests can be approved" });
+      }
+      const [accountRows] = await connection.execute(
+        "SELECT * FROM accounts WHERE id = ? FOR UPDATE",
+        [request.account_id],
+      );
+      if (!accountRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account not found" });
+      }
+      const account = accountRows[0];
+      if (account.status !== "FROZEN" || account.phase !== "FUNDED") {
+        await connection.rollback();
+        return res.status(409).json({ error: "Account is not in the expected frozen funded state" });
+      }
+      await connection.execute(
+        "INSERT INTO user_wallets (user_id, balance_cents, total_received_cents) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE balance_cents = balance_cents + VALUES(balance_cents), total_received_cents = total_received_cents + VALUES(total_received_cents)",
+        [request.user_id, request.amount_cents, request.amount_cents],
+      );
+      const [walletRows] = await connection.execute(
+        "SELECT * FROM user_wallets WHERE user_id = ? FOR UPDATE",
+        [request.user_id],
+      );
+      if (!walletRows.length) throw new Error("FundFXT Wallet could not be created");
+      const walletBalanceAfter = Number(walletRows[0].balance_cents || 0);
+      const accountCode = account.account_code || ("ACC-" + account.id);
+      await connection.execute(
+        "INSERT INTO user_wallet_transactions (user_id, txn_type, source, amount_cents, balance_after_cents, reference_type, reference_id, description) VALUES (?, 'CREDIT', 'PROFIT_TRANSFER', ?, ?, 'withdrawal_request', ?, ?)",
+        [request.user_id, request.amount_cents, walletBalanceAfter, request.id, "Profit from " + accountCode],
+      );
+      await connection.execute(
+        "UPDATE accounts SET balance_cents = initial_balance_cents, equity_cents = initial_balance_cents, day_start_balance_cents = initial_balance_cents, day_start_equity_cents = initial_balance_cents, equity_hwm_cents = initial_balance_cents, status = 'ACTIVE', force_hwm_reset = 1, updated_at = NOW() WHERE id = ?",
+        [account.id],
+      );
+      const [requestUpdate] = await connection.execute(
+        "UPDATE withdrawal_request SET status = 'APPROVED', reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW() WHERE id = ? AND status = 'PENDING'",
+        [req.adminId, request.id],
+      );
+      if (requestUpdate.affectedRows !== 1) throw new Error("Account payout request was already processed");
+      await connection.commit();
+      void sendWithdrawalEmail(request.user_email, request.legal_name, request.trader_id, "APPROVED", request.amount_cents, request.request_ref);
+      res.json({ success: true, request_ref: request.request_ref, status: "APPROVED", wallet_balance_cents: walletBalanceAfter });
+    } catch (error) {
+      if (connection) await connection.rollback().catch(() => {});
+      console.error("Account payout approval error:", error);
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (connection) connection.release();
+    }
+  },
+);
+
+app.post(
+  "/api/admin/account-payouts/:id/reject",
+  authenticateAdmin,
+  async (req, res) => {
+    const { id } = req.params;
+    const rejectionReason = String(req.body?.rejection_reason || "").trim();
+    if (!rejectionReason) return res.status(400).json({ error: "Rejection reason is required" });
+    let connection;
+    try {
+      connection = await db.getConnection();
+      await connection.beginTransaction();
+      const [requestRows] = await connection.execute(
+        "SELECT wr.*, u.legal_name, u.email AS user_email, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.id = ? AND wr.kind = 'TRADER_PROFIT' FOR UPDATE",
+        [id],
+      );
+      if (!requestRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account payout request not found" });
+      }
+      const request = requestRows[0];
+      if (request.status !== "PENDING") {
+        await connection.rollback();
+        return res.status(400).json({ error: "Only pending account payout requests can be rejected" });
+      }
+      const [accountRows] = await connection.execute(
+        "SELECT id, status FROM accounts WHERE id = ? FOR UPDATE",
+        [request.account_id],
+      );
+      if (!accountRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account not found" });
+      }
+      await connection.execute(
+        "UPDATE withdrawal_request SET status = 'REJECTED', admin_note = ?, reviewed_by = ?, reviewed_at = NOW(), updated_at = NOW() WHERE id = ? AND status = 'PENDING'",
+        [rejectionReason.slice(0, 255), req.adminId, request.id],
+      );
+      await connection.execute(
+        "UPDATE accounts SET status = 'ACTIVE', updated_at = NOW() WHERE id = ?",
+        [request.account_id],
+      );
+      await connection.commit();
+      void sendWithdrawalEmail(request.user_email, request.legal_name, request.trader_id, "REJECTED", request.amount_cents, request.request_ref, rejectionReason);
+      res.json({ success: true, request_ref: request.request_ref, status: "REJECTED" });
+    } catch (error) {
+      if (connection) await connection.rollback().catch(() => {});
+      console.error("Account payout rejection error:", error);
+      res.status(500).json({ error: error.message });
+    } finally {
+      if (connection) connection.release();
+    }
+  },
+);
+
+app.get(
+  "/api/admin/account-payouts",
+  authenticateAdmin,
+  async (req, res) => {
+    try {
+      const status = String(req.query.status || "").toUpperCase();
+      const allowedStatuses = ["PENDING", "APPROVED", "REJECTED"];
+      if (status && !allowedStatuses.includes(status)) {
+        return res.status(400).json({ error: "Invalid account payout status" });
+      }
+      const where = status ? "AND wr.status = ?" : "";
+      const params = status ? [status] : [];
+      const [rows] = await db.execute(
+        "SELECT wr.id, wr.request_ref, wr.user_id, u.legal_name, u.email, u.trader_id, a.account_code, wr.amount_cents, wr.status, wr.reviewed_at, wr.admin_note AS rejection_reason, wr.created_at FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id JOIN accounts a ON a.id = wr.account_id WHERE wr.kind = 'TRADER_PROFIT' " + where + " ORDER BY wr.created_at DESC",
+        params,
+      );
+      res.json({ success: true, payouts: rows });
+    } catch (error) {
+      console.error("Admin account payout list error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
+
+app.get(
+  "/api/user/account-payouts",
+  authenticateToken,
+  async (req, res) => {
+    try {
+      const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+      const limit = Math.min(50, Math.max(1, Number.parseInt(req.query.limit, 10) || 10));
+      const offset = (page - 1) * limit;
+      const [rows] = await db.execute(
+        "SELECT id, request_ref, account_id, amount_cents, currency, status, admin_note AS rejection_reason, eligibility_snapshot, created_at, reviewed_at FROM withdrawal_request WHERE user_id = ? AND kind = 'TRADER_PROFIT' ORDER BY created_at DESC LIMIT ? OFFSET ?",
+        [req.userId, limit, offset],
+      );
+      const [countRows] = await db.execute(
+        "SELECT COUNT(*) AS total FROM withdrawal_request WHERE user_id = ? AND kind = 'TRADER_PROFIT'",
+        [req.userId],
+      );
+      const total = Number(countRows[0]?.total || 0);
+      res.json({
+        success: true,
+        payouts: rows,
+        pagination: { page, limit, total, total_pages: Math.ceil(total / limit) },
+      });
+    } catch (error) {
+      console.error("User account payout list error:", error);
+      res.status(500).json({ error: error.message });
+    }
+  },
+);
 
 app.get("/api/user/wallet/withdrawals", authenticateToken, async (req, res) => {
   try {
