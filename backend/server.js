@@ -4286,6 +4286,94 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
   });
 });
 
+// GET /api/accounts/:id/passbook
+app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
+  const accountId = req.params.id;
+  const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+  const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+
+  try {
+    const [accounts] = await db.execute(
+      "SELECT id, account_code, initial_balance_cents, balance_cents FROM accounts WHERE id = ? AND user_id = ?",
+      [accountId, req.userId],
+    );
+    if (!accounts.length)
+      return res.status(404).json({ error: "Account not found" });
+
+    const account = accounts[0];
+    const [trades] = await db.execute(
+      "SELECT id, trade_id, account_id, symbol, side, volume, realized_profit_cents, status, close_reason, exit_time, entry_time, created_at FROM trades WHERE account_id = ? AND status = 'CLOSED' ORDER BY COALESCE(entry_time, created_at) ASC, id ASC",
+      [accountId],
+    );
+    const [transfers] = await db.execute(
+      "SELECT id, request_ref, account_id, amount_cents, status, created_at, reviewed_at FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED' ORDER BY COALESCE(reviewed_at, created_at) ASC, id ASC",
+      [accountId],
+    );
+
+    const events = [
+      ...trades.map((trade) => ({
+        id: "TRADE-" + trade.id,
+        type: "TRADE",
+        timestamp: trade.entry_time || trade.created_at,
+        amount_cents: Number(trade.realized_profit_cents || 0),
+        trade_id: trade.trade_id,
+        symbol: trade.symbol,
+        side: trade.side,
+        volume: Number(trade.volume || 0),
+        close_reason: trade.close_reason,
+      })),
+      ...transfers.map((transfer) => ({
+        id: "TRANSFER-" + transfer.id,
+        type: "TRANSFER",
+        timestamp: transfer.reviewed_at || transfer.created_at,
+        amount_cents: -Math.abs(Number(transfer.amount_cents || 0)),
+        request_ref: transfer.request_ref,
+        status: transfer.status,
+      })),
+    ];
+
+    events.sort((a, b) => {
+      const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
+      return timeDiff || String(a.id).localeCompare(String(b.id));
+    });
+
+    let runningBalance = Number(account.initial_balance_cents || 0);
+    for (const event of events) {
+      runningBalance += event.amount_cents;
+      event.balance_after_cents = runningBalance;
+      event.description =
+        event.type === "TRADE"
+          ? (event.symbol || "Trade") + " " + (event.side || "") + " " + event.volume.toFixed(2) + " — " + (event.amount_cents >= 0 ? "Profit" : "Loss")
+          : "Transfer to FundFXT Wallet — " + (event.request_ref || "—");
+    }
+
+    events.reverse();
+    const total = events.length;
+    const start = (page - 1) * limit;
+    const entries = events.slice(start, start + limit);
+
+    res.json({
+      success: true,
+      account: {
+        id: account.id,
+        account_code: account.account_code,
+        initial_balance_cents: Number(account.initial_balance_cents || 0),
+        current_balance_cents: Number(account.balance_cents || 0),
+      },
+      entries,
+      pagination: {
+        page,
+        limit,
+        total,
+        total_pages: Math.max(1, Math.ceil(total / limit)),
+      },
+    });
+  } catch (error) {
+    console.error("Account passbook error:", error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // ========== TRADE MANAGEMENT API ==========
 
 // 2. Modify SL/TP
