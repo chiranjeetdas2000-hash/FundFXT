@@ -50,7 +50,40 @@ async function approveWithdrawal(id){if(!confirm("Confirm the external payout ha
 async function rejectWithdrawal(id){const reason=prompt("Enter rejection reason:");if(!reason||!reason.trim())return;try{await post("/api/admin/withdrawals/"+id+"/reject",{reason:reason.trim()});toast("Withdrawal rejected and wallet refunded.");await fetchWithdrawals();}catch(e){toast(e.message,"err");}}
 async function fetchAffiliates(){setState("affiliates",true);try{const d=await get("/api/admin/affiliates"),rows=d.affiliates||[];$("affiliatesBody").innerHTML=rows.map(x=>`<tr><td><b>${esc(x.legal_name)}</b></td><td>${esc(x.email)}</td><td><b>${esc(x.affiliate_code||"—")}</b></td><td>${x.total_sales||0}</td><td>${money(x.total_earnings_cents)}</td><td>${money(x.pending_earnings_cents)}</td><td>${x.affiliate_code?`<button class="copy-btn" onclick="copyText(${JSON.stringify(String(x.affiliate_code))})">Copy Code</button>`:"—"}</td></tr>`).join("");$("affiliatesLoading").style.display="none";$("affiliatesEmpty").style.display=rows.length?"none":"block";}catch(e){setState("affiliates",false,e.message);}}
 async function copyText(v){try{await navigator.clipboard.writeText(v);toast("Affiliate code copied.");}catch{toast(v);}}
+async function loadAffiliateTransferMode() {
+    try {
+        const data = await get('/api/admin/settings/affiliate-transfer-mode');
+        const mode = String(data.mode || 'MANUAL').toUpperCase();
+        ['MANUAL', 'AUTO'].forEach((value) => {
+            const el = document.getElementById('affiliateTransferMode' + value.charAt(0) + value.slice(1).toLowerCase());
+            if (!el) return;
+            el.classList.toggle('btn', value === mode);
+            el.classList.toggle('secondary', value !== mode);
+        });
+        const msg = document.getElementById('affiliateTransferModeMsg');
+        if (msg) msg.textContent = 'Current mode: ' + mode;
+    } catch (error) {
+        const msg = document.getElementById('affiliateTransferModeMsg');
+        if (msg) msg.textContent = 'Unable to load transfer mode: ' + error.message;
+    }
+}
+
+async function setAffiliateTransferMode(mode) {
+    const nextMode = String(mode || '').toUpperCase();
+    if (!['AUTO', 'MANUAL'].includes(nextMode)) return;
+    if (!confirm('Switch Affiliate Transfer Mode to ' + nextMode + '?')) return;
+    try {
+        await post('/api/admin/settings/affiliate-transfer-mode', { mode: nextMode });
+        toast('Affiliate Transfer Mode set to ' + nextMode);
+        await loadAffiliateTransferMode();
+        await loadWalletTransfers(currentWalletTransferStatus);
+    } catch (error) {
+        toast(error.message, 'err');
+    }
+}
+
 async function loadWalletTransfers(status) {
+    loadAffiliateTransferMode();
     if (status) currentWalletTransferStatus = status;
     
     const tabs = {
