@@ -3798,7 +3798,7 @@ app.post(
         funded_at: account.funded_at ?? null,
       };
       const [withdrawalResult] = await connection.execute(
-        "INSERT INTO withdrawal_request (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, eligibility_snapshot, status, created_at, updated_at) VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', NULL, NULL, ?, 'PENDING', NOW(), NOW())",
+        "INSERT INTO withdrawal_request (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, eligibility_snapshot, status, created_at, updated_at) VALUES (?, ?, 'TRADER_PROFIT', ?, ?, 'USD', 'INTERNAL', NULL, ?, 'PENDING', NOW(), NOW())",
         [
           requestRef,
           req.userId,
