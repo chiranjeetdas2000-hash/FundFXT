@@ -531,11 +531,11 @@ document.getElementById('walletFilterSource')?.addEventListener('change', (e) =>
 
 // Move Affiliate Balance
 document.getElementById('walletMoveAffiliateBtn')?.addEventListener('click', async () => {
-    const amountStr = prompt('Enter amount to transfer (USD, min $50):');
+    const amountStr = prompt('Enter amount to transfer (USD, min $10):');
     if (!amountStr) return;
     const amountDollars = parseFloat(amountStr);
-    if (isNaN(amountDollars) || amountDollars < 50) {
-        alert('Minimum transfer is $50.00');
+    if (isNaN(amountDollars) || amountDollars < 10) {
+        alert('Minimum transfer is $10.00');
         return;
     }
     const amountCents = Math.round(amountDollars * 100);
