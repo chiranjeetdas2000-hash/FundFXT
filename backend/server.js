@@ -4056,7 +4056,7 @@ app.get(
         );
         const withdrawalNumber = Number(snapshot.tier_number || priorRows[0]?.approved_count || 0) || 1;
         const [trades] = await db.execute(
-          "SELECT id, symbol, side, type, volume, open_price, close_price, profit, realized_profit_cents, status, open_time, close_time, close_reason, trading_day FROM trades WHERE account_id = ? ORDER BY COALESCE(close_time, open_time) DESC, id DESC",
+          "SELECT id, symbol, side, order_type, volume, open_price, close_price, profit, realized_profit_cents, status, open_time, close_time, close_reason, trading_day FROM trades WHERE account_id = ? ORDER BY COALESCE(close_time, open_time) DESC, id DESC",
           [row.account_id],
         );
         payouts.push({
