@@ -1622,7 +1622,15 @@ async function checkAccountRisk(account) {
     maxDrawdownLimit =
       (Number(config.max_dd_bps || 0) / 10000) * initialBalance;
     currentMaxDrawdown = initialBalance - equity;
+  } else if (maxDdBasis === "TRAILING_BALANCE_HWM") {
+    const balanceHwm = Number(
+      account.balance_hwm_cents ?? account.initial_balance_cents ?? 0
+    );
+    maxDrawdownLimit =
+      (Number(config.max_dd_bps || 0) / 10000) * balanceHwm;
+    currentMaxDrawdown = balanceHwm - balance;
   } else {
+    // existing BALANCE fallback (legacy)
     maxDrawdownLimit =
       (Number(config.max_dd_bps || 0) / 10000) * initialBalance;
     currentMaxDrawdown = initialBalance - balance;
