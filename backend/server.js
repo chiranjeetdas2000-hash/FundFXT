@@ -3778,6 +3778,7 @@ app.post(
       let amountToApproveCents = 0;
 
       if (modelKey === "prototype") {
+        tierMaxCents = 10000;
         const [priorRows] = await connection.execute(
           "SELECT id FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED' LIMIT 1",
           [account.id],
