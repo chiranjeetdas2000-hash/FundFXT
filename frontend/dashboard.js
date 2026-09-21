@@ -117,7 +117,7 @@ function normalizeAccount(account) {
         rules.profitTargetCents
         ?? account.profit_target_cents
         ?? account.target_profit_cents
-        ?? (size && model.includes('5k') ? size * 0.08 : 0)
+        ?? (size && model.includes('5k') && String(account.phase || profile.phase || '').toUpperCase() !== 'FUNDED' ? size * 0.08 : 0)
     );
 
     const daily = Number(
