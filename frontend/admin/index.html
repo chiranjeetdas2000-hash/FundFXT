@@ -44,6 +44,17 @@
 </button>
 </div>
 <div class="panel">
+<div style="display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:16px;">
+<div>
+<strong>Affiliate Transfer Mode</strong>
+<div style="font-size:12px;color:var(--muted);margin-top:4px;">AUTO credits instantly; MANUAL requires admin approval.</div>
+</div>
+<div style="display:flex;gap:8px;">
+<button class="btn" id="affiliateTransferModeManual" onclick="setAffiliateTransferMode('MANUAL')">MANUAL</button>
+<button class="btn secondary" id="affiliateTransferModeAuto" onclick="setAffiliateTransferMode('AUTO')">AUTO</button>
+</div>
+</div>
+<div id="affiliateTransferModeMsg" style="font-size:12px;color:var(--muted);margin-bottom:16px;"></div>
 <div style="display:flex;gap:8px;margin-bottom:16px;">
 <button class="btn" id="wtTabPending" onclick="loadWalletTransfers('PENDING')">Pending</button>
 <button class="btn secondary" id="wtTabApproved" onclick="loadWalletTransfers('APPROVED')">Approved</button>
