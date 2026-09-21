@@ -1718,6 +1718,281 @@ async function calculateConsistencyScore(accountId) {
   }
 }
 
+
+async function settleClosedTrade(
+  connection,
+  { trade, exitPrice, closeReason, overrideRealizedCents = null, account },
+) {
+  const volume = Math.round(Number(trade.volume) * 100) / 100;
+  const realizedCents =
+    overrideRealizedCents == null
+      ? Math.round(
+          calculatePL(
+            trade.symbol,
+            trade.side,
+            Number(trade.entry_price),
+            Number(exitPrice),
+            volume,
+          ) * 100,
+        )
+      : Number(overrideRealizedCents);
+
+  const [closeResult] = await connection.execute(
+    "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = ?, updated_at = NOW() WHERE trade_id = ? AND status = 'OPEN' AND volume = ?",
+    [Number(exitPrice), Number(exitPrice), realizedCents, closeReason, trade.trade_id, volume],
+  );
+
+  if (closeResult.affectedRows !== 1) {
+    throw new Error(`Trade settlement failed for ${trade.trade_id}.`);
+  }
+
+  const [floatingRows] = await connection.execute(
+    "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
+    [trade.account_id],
+  );
+  const floatingCents = Number(floatingRows[0]?.floating_cents || 0);
+
+  const [accountResult] = await connection.execute(
+    "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + 1, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ?",
+    [realizedCents, floatingCents, realizedCents, realizedCents > 0 ? 1 : 0, realizedCents < 0 ? 1 : 0, trade.account_id],
+  );
+
+  if (accountResult.affectedRows !== 1) {
+    throw new Error("Account settlement failed.");
+  }
+
+  const [accountRows] = await connection.execute(
+    "SELECT balance_cents, equity_cents, balance_hwm_cents, equity_hwm_cents FROM accounts WHERE id = ? LIMIT 1",
+    [trade.account_id],
+  );
+  const updatedAccount = accountRows[0] || account || {};
+  const newBalance = Number(updatedAccount.balance_cents || 0);
+  const newEquity = Number(updatedAccount.equity_cents || 0);
+  const newHwm = Math.max(
+    Number(updatedAccount.balance_hwm_cents || 0),
+    Number(updatedAccount.equity_hwm_cents || 0),
+  );
+
+  console.log("[TRADE SETTLE]", trade.trade_id, closeReason, "realized_cents=", realizedCents, "balance_cents=", newBalance, "equity_cents=", newEquity);
+
+  return { realizedCents, newBalance, newEquity, newHwm };
+}
+
+async function settlePartialRealized(connection, { account, realizedCents }) {
+  const realized = Number(realizedCents || 0);
+  const [floatingRows] = await connection.execute(
+    "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
+    [account.id],
+  );
+  const floatingCents = Number(floatingRows[0]?.floating_cents || 0);
+
+  const [accountResult] = await connection.execute(
+    "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + 1, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ?",
+    [realized, floatingCents, realized, realized > 0 ? 1 : 0, realized < 0 ? 1 : 0, account.id],
+  );
+  if (accountResult.affectedRows !== 1) {
+    throw new Error("Partial account settlement failed.");
+  }
+
+  const [accountRows] = await connection.execute(
+    "SELECT balance_cents, equity_cents, balance_hwm_cents, equity_hwm_cents FROM accounts WHERE id = ? LIMIT 1",
+    [account.id],
+  );
+  const updatedAccount = accountRows[0] || account;
+  const newBalance = Number(updatedAccount.balance_cents || 0);
+  const newEquity = Number(updatedAccount.equity_cents || 0);
+  console.log("[PARTIAL SETTLE]", account.id, "realized_cents=", realized, "balance_cents=", newBalance, "equity_cents=", newEquity);
+
+  return {
+    realizedCents: realized,
+    newBalance,
+    newEquity,
+    newHwm: Math.max(Number(updatedAccount.balance_hwm_cents || 0), Number(updatedAccount.equity_hwm_cents || 0)),
+  };
+}
+
+async function evaluateProfitTargetLocked(connection, account) {
+  if (!account || account.status !== "ACTIVE") {
+    return { passed: false, reviewId: null };
+  }
+
+  const phase = String(account.phase || "").toUpperCase();
+  if (phase === "FUNDED") {
+    return { passed: false, reviewId: null };
+  }
+
+  const [existingReviews] = await connection.execute(
+    "SELECT id, review_ref FROM account_phase_reviews WHERE account_id = ? AND status IN ('PENDING','RETRY_PENDING') LIMIT 1",
+    [account.id],
+  );
+  if (existingReviews.length) {
+    console.log("[TARGET] Existing pending review; skipping duplicate:", account.id, existingReviews[0].review_ref);
+    return { passed: true, reviewId: existingReviews[0].id, reviewRef: existingReviews[0].review_ref };
+  }
+
+  const parsed = parseChallengeModel(account.challenge_model);
+  if (!parsed) {
+    console.warn("[TARGET] Unable to parse challenge model:", account.challenge_model);
+    return { passed: false, reviewId: null };
+  }
+
+  const phaseConfig = await getChallengePhaseConfig(parsed.model_key, phase);
+  if (!phaseConfig) {
+    console.warn("[TARGET] No phase config for", parsed.model_key, phase);
+    return { passed: false, reviewId: null };
+  }
+
+  const profitTargetBps = phaseConfig.profit_target_bps == null ? 0 : Number(phaseConfig.profit_target_bps);
+  if (profitTargetBps <= 0) {
+    return { passed: false, reviewId: null };
+  }
+
+  const targetCents = Math.round(Number(account.initial_balance_cents || 0) * profitTargetBps / 10000);
+
+  const [freshRows] = await connection.execute(
+    "SELECT * FROM accounts WHERE id = ? LIMIT 1",
+    [account.id],
+  );
+  if (!freshRows.length || freshRows[0].status !== "ACTIVE") {
+    return { passed: false, reviewId: null };
+  }
+
+  const currentAccount = freshRows[0];
+  const currentProfitCents = Number(currentAccount.realized_pnl_cents || 0);
+  if (currentProfitCents < targetCents) {
+    return { passed: false, reviewId: null };
+  }
+
+  console.log("[TARGET] Profit target reached:", currentAccount.account_code, "phase=", phase, "profit_cents=", currentProfitCents, "target_cents=", targetCents);
+
+  const [openTrades] = await connection.execute(
+    "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN' FOR UPDATE",
+    [currentAccount.id],
+  );
+  let passClosedCount = 0;
+
+  for (const trade of openTrades) {
+    const price = global.priceCache?.[trade.symbol];
+    if (!price) {
+      throw new Error(`Price not available for PASS_CLOSE on ${trade.symbol}.`);
+    }
+    const exitPrice = trade.side === "BUY" ? Number(price.bid) : Number(price.ask);
+    if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
+      throw new Error(`Exit price unavailable for PASS_CLOSE on ${trade.symbol}.`);
+    }
+
+    await settleClosedTrade(connection, {
+      trade,
+      exitPrice,
+      closeReason: "PASS_CLOSE",
+      account: currentAccount,
+    });
+    passClosedCount += 1;
+  }
+
+  const [pendingResult] = await connection.execute(
+    "UPDATE trades SET status = 'CANCELLED', exit_time = NOW(), updated_at = NOW() WHERE account_id = ? AND status = 'PENDING'",
+    [currentAccount.id],
+  );
+  const pendingOrdersCancelled = Number(pendingResult.affectedRows || 0);
+
+  const [finalRows] = await connection.execute(
+    "SELECT * FROM accounts WHERE id = ? LIMIT 1",
+    [currentAccount.id],
+  );
+  if (!finalRows.length) {
+    throw new Error("Account disappeared during profit-target settlement.");
+  }
+
+  const finalAccount = finalRows[0];
+  const finalProfitCents = Number(finalAccount.realized_pnl_cents || 0);
+  const toPhase = phase === "PHASE_1" ? "PHASE_2" : phase === "PHASE_2" ? "FUNDED" : null;
+  if (!toPhase) {
+    console.warn("[TARGET] No next phase mapping for:", phase);
+    return { passed: false, reviewId: null };
+  }
+
+  const targetSnapshot = {
+    profit_cents: finalProfitCents,
+    target_cents: targetCents,
+    balance_cents: Number(finalAccount.balance_cents || 0),
+    equity_cents: Number(finalAccount.equity_cents || 0),
+    initial_balance_cents: Number(finalAccount.initial_balance_cents || 0),
+    realized_pnl_cents: finalProfitCents,
+    balance_hwm_cents: Number(finalAccount.balance_hwm_cents || 0),
+    equity_hwm_cents: Number(finalAccount.equity_hwm_cents || 0),
+    consistency_bps: null,
+    open_trades_closed: passClosedCount,
+    pending_orders_cancelled: pendingOrdersCancelled,
+  };
+
+  const reviewRef = "PR-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+
+  const [reviewResult] = await connection.execute(
+    "INSERT INTO account_phase_reviews (review_ref, account_id, user_id, from_phase, to_phase, status, target_snapshot) VALUES (?, ?, ?, ?, ?, 'PENDING', ?)",
+    [reviewRef, finalAccount.id, finalAccount.user_id, phase, toPhase, JSON.stringify(targetSnapshot)],
+  );
+
+  const [passResult] = await connection.execute(
+    "UPDATE accounts SET status = 'PASSED', updated_at = NOW() WHERE id = ? AND status = 'ACTIVE'",
+    [finalAccount.id],
+  );
+  if (passResult.affectedRows !== 1) {
+    throw new Error("Failed to mark account PASSED.");
+  }
+
+  console.log("[TARGET] Account PASSED:", finalAccount.account_code, "review_ref=", reviewRef, "review_id=", reviewResult.insertId);
+
+  return { passed: true, reviewId: reviewResult.insertId, reviewRef };
+}
+
+async function createPhaseAccount(connection, { sourceAccount, phase }) {
+  if (!sourceAccount) {
+    throw new Error("Source account is required.");
+  }
+
+  const parsed = parseChallengeModel(sourceAccount.challenge_model);
+  if (!parsed) {
+    throw new Error(`Invalid challenge model: ${sourceAccount.challenge_model}`);
+  }
+
+  const nextPhase = String(phase || "").toUpperCase();
+  if (!["PHASE_2", "FUNDED"].includes(nextPhase)) {
+    throw new Error(`Invalid next phase: ${nextPhase}`);
+  }
+
+  const size = await getChallengeSize(parsed.model_key, parsed.size_key);
+  if (!size) {
+    throw new Error(`Challenge size not found for ${parsed.model_key}_${parsed.size_key}.`);
+  }
+
+  const startingBalanceCents = Number(size.starting_balance_cents || 0);
+  const accountCode = "ACC-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
+
+  const [result] = await connection.execute(
+    "INSERT INTO accounts (account_code, user_id, challenge_model, phase, initial_balance_cents, balance_cents, equity_cents, day_start_balance_cents, day_start_equity_cents, equity_hwm_cents, balance_hwm_cents, status, parent_account_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'ACTIVE', ?)",
+    [
+      accountCode,
+      sourceAccount.user_id,
+      sourceAccount.challenge_model,
+      nextPhase,
+      startingBalanceCents,
+      startingBalanceCents,
+      startingBalanceCents,
+      startingBalanceCents,
+      startingBalanceCents,
+      startingBalanceCents,
+      startingBalanceCents,
+      sourceAccount.id,
+    ],
+  );
+
+  console.log("[PHASE ACCOUNT] Created:", accountCode, "parent=", sourceAccount.account_code, "phase=", nextPhase);
+
+  return { accountId: result.insertId, accountCode };
+}
+
+
 // 2. MANUAL CLOSE TRADE (Real-time P/L at market price)
 app.post(
   "/api/trades/:tradeId/close",
@@ -1729,7 +2004,6 @@ app.post(
         is_weekend: true
       });
     }
-
 
     let connection;
 
@@ -1750,130 +2024,78 @@ app.post(
       ]);
       await connection.beginTransaction();
 
+      const [tradeMetaRows] = await connection.execute(
+        "SELECT account_id FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' LIMIT 1",
+        [req.params.tradeId, req.userId],
+      );
+
+      if (!tradeMetaRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Open trade not found" });
+      }
+
+      const [accounts] = await connection.execute(
+        "SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE",
+        [tradeMetaRows[0].account_id, req.userId],
+      );
+
+      if (!accounts.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account not found" });
+      }
+
+      const account = accounts[0];
+
       const [trades] = await connection.execute(
         "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' FOR UPDATE",
-        [
-          req.params.tradeId,
-          req.userId,
-        ],
+        [req.params.tradeId, req.userId],
       );
 
       if (!trades.length) {
         await connection.rollback();
-
-        return res.status(404).json({
-          error: "Open trade not found",
-        });
+        return res.status(404).json({ error: "Open trade not found" });
       }
 
       const trade = trades[0];
-      const priceCache = global.priceCache || {};
-      const price = priceCache[trade.symbol];
+      const price = global.priceCache?.[trade.symbol];
 
       if (!price) {
         await connection.rollback();
-
-        return res.status(400).json({
-          error: "Price not available",
-        });
+        return res.status(400).json({ error: "Price not available" });
       }
 
-      const exitPrice =
-        trade.side === "BUY"
-          ? Number(price.bid)
-          : Number(price.ask);
-
+      const exitPrice = trade.side === "BUY" ? Number(price.bid) : Number(price.ask);
       if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
         await connection.rollback();
-
-        return res.status(400).json({
-          error: "Exit price is unavailable",
-        });
+        return res.status(400).json({ error: "Exit price is unavailable" });
       }
 
-      const volume =
-        Math.round(Number(trade.volume) * 100) / 100;
+      const settlement = await settleClosedTrade(connection, {
+        trade,
+        exitPrice,
+        closeReason: "MANUAL",
+        account,
+      });
 
-      const realizedCents = Math.round(
-        calculatePL(
-          trade.symbol,
-          trade.side,
-          trade.entry_price,
-          exitPrice,
-          volume,
-        ) * 100,
-      );
-
-      const [closeResult] = await connection.execute(
-        "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = 'MANUAL', updated_at = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' AND volume = ?",
-        [
-          exitPrice,
-          exitPrice,
-          realizedCents,
-          req.params.tradeId,
-          req.userId,
-          volume,
-        ],
-      );
-
-      if (closeResult.affectedRows !== 1) {
-        await connection.rollback();
-
-        return res.status(409).json({
-          error: "Position changed before the close could be completed.",
-        });
-      }
-
-      const [floatingRows] = await connection.execute(
-        "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
-        [
-          trade.account_id,
-        ],
-      );
-
-      const floatingCents =
-        Number(floatingRows[0]?.floating_cents || 0);
-
-      const [accountResult] = await connection.execute(
-        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + 1, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
-        [
-          realizedCents,
-          floatingCents,
-          realizedCents,
-          realizedCents > 0 ? 1 : 0,
-          realizedCents < 0 ? 1 : 0,
-          trade.account_id,
-          req.userId,
-        ],
-      );
-
-      if (accountResult.affectedRows !== 1) {
-        throw new Error("Account settlement failed.");
-      }
-
+      const targetResult = await evaluateProfitTargetLocked(connection, account);
       await connection.commit();
 
       return res.json({
         success: true,
         trade_id: trade.trade_id,
-        closed_volume: volume,
+        closed_volume: Math.round(Number(trade.volume) * 100) / 100,
         exit_price: exitPrice,
-        realized_profit: realizedCents / 100,
+        realized_profit: settlement.realizedCents / 100,
+        passed: targetResult.passed,
+        review_id: targetResult.reviewId || null,
+        review_ref: targetResult.reviewRef || null,
       });
     } catch (error) {
-      try {
-        await connection.rollback();
-      } catch {}
-
+      try { await connection.rollback(); } catch {}
       console.error("Manual close error:", error);
-
-      return res.status(500).json({
-        error: error.message,
-      });
+      return res.status(500).json({ error: error.message });
     } finally {
-      if (connection) {
-        connection.release();
-      }
+      if (connection) connection.release();
     }
   },
 );
@@ -1890,30 +2112,14 @@ app.post(
       });
     }
 
-
     const requestedVolume = Number(req.body?.volume);
-
-    if (
-      !Number.isFinite(requestedVolume)
-      || requestedVolume <= 0
-    ) {
-      return res.status(400).json({
-        error: "Enter a valid lot size.",
-      });
+    if (!Number.isFinite(requestedVolume) || requestedVolume <= 0) {
+      return res.status(400).json({ error: "Enter a valid lot size." });
     }
 
-    const closeVolume =
-      Math.round(requestedVolume * 100) / 100;
-
-    if (
-      Math.abs(
-        requestedVolume - closeVolume,
-      ) > 0.000001
-      || closeVolume < 0.01
-    ) {
-      return res.status(400).json({
-        error: "Lot size must use 0.01 steps.",
-      });
+    const closeVolume = Math.round(requestedVolume * 100) / 100;
+    if (Math.abs(requestedVolume - closeVolume) > 0.000001 || closeVolume < 0.01) {
+      return res.status(400).json({ error: "Lot size must use 0.01 steps." });
     }
 
     let connection;
@@ -1923,74 +2129,67 @@ app.post(
         db.getConnection(),
         new Promise((_, reject) =>
           setTimeout(
-            () =>
-              reject(
-                new Error(
-                  "DB connection timeout after 10s — pool likely exhausted",
-                ),
-              ),
+            () => reject(new Error("DB connection timeout after 10s — pool likely exhausted")),
             10000,
           ),
         ),
       ]);
       await connection.beginTransaction();
 
+      const [tradeMetaRows] = await connection.execute(
+        "SELECT account_id FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' LIMIT 1",
+        [req.params.tradeId, req.userId],
+      );
+
+      if (!tradeMetaRows.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Open trade not found." });
+      }
+
+      const [accounts] = await connection.execute(
+        "SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE",
+        [tradeMetaRows[0].account_id, req.userId],
+      );
+
+      if (!accounts.length) {
+        await connection.rollback();
+        return res.status(404).json({ error: "Account not found." });
+      }
+
+      const account = accounts[0];
+
       const [rows] = await connection.execute(
         "SELECT * FROM trades WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' FOR UPDATE",
-        [
-          req.params.tradeId,
-          req.userId,
-        ],
+        [req.params.tradeId, req.userId],
       );
 
       if (!rows.length) {
         await connection.rollback();
-
-        return res.status(404).json({
-          error: "Open trade not found.",
-        });
+        return res.status(404).json({ error: "Open trade not found." });
       }
 
       const trade = rows[0];
+      const currentVolume = Math.round(Number(trade.volume) * 100) / 100;
 
-      const currentVolume =
-        Math.round(Number(trade.volume) * 100) / 100;
-
-      if (
-        !Number.isFinite(currentVolume)
-        || currentVolume < 0.01
-      ) {
+      if (!Number.isFinite(currentVolume) || currentVolume < 0.01) {
         await connection.rollback();
-
-        return res.status(400).json({
-          error: "Current position volume is invalid.",
-        });
+        return res.status(400).json({ error: "Current position volume is invalid." });
       }
 
       if (closeVolume >= currentVolume) {
         await connection.rollback();
-
         return res.status(400).json({
-          error:
-            closeVolume === currentVolume
-              ? "You cannot close the full position with Partial Close. Use Close."
-              : "Lots to close cannot be greater than the current position size.",
+          error: closeVolume === currentVolume
+            ? "You cannot close the full position with Partial Close. Use Close."
+            : "Lots to close cannot be greater than the current position size.",
           current_volume: currentVolume,
           requested_volume: closeVolume,
         });
       }
 
-      const remainingVolume =
-        Math.round(
-          (
-            currentVolume
-            - closeVolume
-          ) * 100,
-        ) / 100;
-
+      const remainingVolume = Math.round((currentVolume - closeVolume) * 100) / 100;
       if (remainingVolume < 0.01) {
         await connection.rollback();
-
         return res.status(400).json({
           error: "At least 0.01 lot must remain open.",
           current_volume: currentVolume,
@@ -1998,110 +2197,39 @@ app.post(
         });
       }
 
-      const priceCache = global.priceCache || {};
-      const price = priceCache[trade.symbol];
-
+      const price = global.priceCache?.[trade.symbol];
       if (!price) {
         await connection.rollback();
-
-        return res.status(400).json({
-          error: "Price not available.",
-        });
+        return res.status(400).json({ error: "Price not available." });
       }
 
-      const exitPrice =
-        trade.side === "BUY"
-          ? Number(price.bid)
-          : Number(price.ask);
-
-      if (
-        !Number.isFinite(exitPrice)
-        || exitPrice <= 0
-      ) {
+      const exitPrice = trade.side === "BUY" ? Number(price.bid) : Number(price.ask);
+      if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
         await connection.rollback();
-
-        return res.status(400).json({
-          error: "Exit price is unavailable.",
-        });
+        return res.status(400).json({ error: "Exit price is unavailable." });
       }
 
       const realizedCents = Math.round(
-        calculatePL(
-          trade.symbol,
-          trade.side,
-          trade.entry_price,
-          exitPrice,
-          closeVolume,
-        ) * 100,
+        calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, closeVolume) * 100,
       );
-
       const remainingFloatingCents = Math.round(
-        calculatePL(
-          trade.symbol,
-          trade.side,
-          trade.entry_price,
-          exitPrice,
-          remainingVolume,
-        ) * 100,
+        calculatePL(trade.symbol, trade.side, trade.entry_price, exitPrice, remainingVolume) * 100,
       );
 
       const [updateResult] = await connection.execute(
         "UPDATE trades SET volume = ?, current_price = ?, floating_profit_cents = ?, updated_at = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'OPEN' AND volume = ?",
-        [
-          remainingVolume,
-          exitPrice,
-          remainingFloatingCents,
-          req.params.tradeId,
-          req.userId,
-          currentVolume,
-        ],
+        [remainingVolume, exitPrice, remainingFloatingCents, req.params.tradeId, req.userId, currentVolume],
       );
 
       if (updateResult.affectedRows !== 1) {
         await connection.rollback();
-
         return res.status(409).json({
           error: "Position changed before the partial close could be completed.",
         });
       }
 
-      const [floatingRows] = await connection.execute(
-        "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
-        [
-          trade.account_id,
-        ],
-      );
-
-      const floatingCents =
-        Number(floatingRows[0]?.floating_cents || 0);
-
-      const [accountResult] = await connection.execute(
-        "UPDATE accounts SET balance_cents = balance_cents + ?, equity_cents = balance_cents + ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + 1, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
-        [
-          realizedCents,
-          floatingCents,
-          realizedCents,
-          realizedCents > 0 ? 1 : 0,
-          realizedCents < 0 ? 1 : 0,
-          trade.account_id,
-          req.userId,
-        ],
-      );
-
-      if (accountResult.affectedRows !== 1) {
-        throw new Error("Account settlement failed.");
-      }
-
       const partialTradeId =
-        "PC-"
-        + Date.now()
-          .toString(36)
-          .toUpperCase()
-        + "-"
-        + crypto
-          .randomBytes(3)
-          .toString("hex")
-          .toUpperCase();
+        "PC-" + Date.now().toString(36).toUpperCase() + "-" + crypto.randomBytes(3).toString("hex").toUpperCase();
 
       await connection.execute(
         "INSERT INTO trades (trade_id, account_id, account_code, user_id, symbol, side, volume, entry_price, entry_time, exit_price, exit_time, trading_day, stop_loss, take_profit, current_price, floating_profit_cents, realized_profit_cents, status, close_reason) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), ?, ?, ?, ?, ?, ?, 'CLOSED', 'PARTIAL_CLOSE')",
@@ -2125,6 +2253,9 @@ app.post(
         ],
       );
 
+      const settlement = await settlePartialRealized(connection, { account, realizedCents });
+      const targetResult = await evaluateProfitTargetLocked(connection, account);
+
       await connection.commit();
 
       return res.json({
@@ -2134,22 +2265,17 @@ app.post(
         closed_volume: closeVolume,
         remaining_volume: remainingVolume,
         exit_price: exitPrice,
-        realized_profit: realizedCents / 100,
+        realized_profit: settlement.realizedCents / 100,
+        passed: targetResult.passed,
+        review_id: targetResult.reviewId || null,
+        review_ref: targetResult.reviewRef || null,
       });
     } catch (error) {
-      try {
-        await connection.rollback();
-      } catch {}
-
+      try { await connection.rollback(); } catch {}
       console.error("Partial close error:", error);
-
-      return res.status(500).json({
-        error: error.message,
-      });
+      return res.status(500).json({ error: error.message });
     } finally {
-      if (connection) {
-        connection.release();
-      }
+      if (connection) connection.release();
     }
   },
 );
@@ -2638,177 +2764,82 @@ app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
 
 // 5. FLATTEN ALL (Close all open trades for an account)
 app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
-    if (isForexWeekend()) {
-      return res.status(403).json({
-        error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
-        is_weekend: true
-      });
-    }
-
+  if (isForexWeekend()) {
+    return res.status(403).json({
+      error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
+      is_weekend: true
+    });
+  }
 
   let connection;
 
   try {
-    console.log("[FLATTEN] Step 1: acquiring connection for account", req.params.id);
+    console.log("[FLATTEN] acquiring connection for account", req.params.id);
 
     connection = await Promise.race([
       db.getConnection(),
       new Promise((_, reject) =>
         setTimeout(
-          () =>
-            reject(
-              new Error(
-                "DB connection timeout after 10s — pool likely exhausted",
-              ),
-            ),
+          () => reject(new Error("DB connection timeout after 10s — pool likely exhausted")),
           10000,
         ),
       ),
     ]);
-
-    console.log(
-      "[FLATTEN] Step 2: connection acquired, beginning transaction",
-    );
-
     await connection.beginTransaction();
-
-    console.log(
-      "[FLATTEN] Step 3: transaction started, locking account",
-    );
 
     const [accounts] = await connection.execute(
       "SELECT * FROM accounts WHERE id = ? AND user_id = ? FOR UPDATE",
       [req.params.id, req.userId],
     );
-
     if (!accounts.length) {
       await connection.rollback();
-
-      return res.status(404).json({
-        error: "Account not found",
-      });
+      return res.status(404).json({ error: "Account not found" });
     }
 
     const account = accounts[0];
-
-    console.log(
-      "[FLATTEN] Step 4: account locked, fetching open trades",
-    );
-
     const [openTrades] = await connection.execute(
       "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN' FOR UPDATE",
       [account.id],
     );
 
-    console.log(
-      "[FLATTEN] Step 5: open trades fetched, count =",
-      openTrades.length,
-    );
-
-    let totalRealizedCents = 0;
     let closedTradeCount = 0;
     let winningTradeCount = 0;
     let losingTradeCount = 0;
+    let totalRealizedCents = 0;
 
     for (const trade of openTrades) {
       const price = global.priceCache?.[trade.symbol];
+      if (!price) throw new Error(`Price not available for ${trade.symbol}.`);
 
-      if (!price) {
-        throw new Error(`Price not available for ${trade.symbol}.`);
-      }
-
-      const exitPrice =
-        trade.side === "BUY"
-          ? Number(price.bid)
-          : Number(price.ask);
-
+      const exitPrice = trade.side === "BUY" ? Number(price.bid) : Number(price.ask);
       if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
         throw new Error(`Exit price unavailable for ${trade.symbol}.`);
       }
 
-      console.log(
-        "[FLATTEN] Closing trade:",
-        trade.trade_id,
-        "price:",
+      const settlement = await settleClosedTrade(connection, {
+        trade,
         exitPrice,
-      );
+        closeReason: "FLATTEN",
+        account,
+      });
 
-      const realizedCents = Math.round(
-        calculatePL(
-          trade.symbol,
-          trade.side,
-          trade.entry_price,
-          exitPrice,
-          trade.volume,
-        ) * 100,
-      );
-
-      const [closeResult] = await connection.execute(
-        "UPDATE trades SET status = 'CLOSED', exit_price = ?, exit_time = NOW(), current_price = ?, floating_profit_cents = 0, realized_profit_cents = ?, close_reason = 'FLATTEN', updated_at = NOW() WHERE trade_id = ? AND account_id = ? AND status = 'OPEN'",
-        [
-          exitPrice,
-          exitPrice,
-          realizedCents,
-          trade.trade_id,
-          account.id,
-        ],
-      );
-
-      if (closeResult.affectedRows !== 1) {
-        throw new Error(
-          `Trade settlement failed for ${trade.trade_id}.`,
-        );
-      }
-
-      totalRealizedCents += realizedCents;
+      totalRealizedCents += settlement.realizedCents;
       closedTradeCount += 1;
-
-      if (realizedCents > 0) {
-        winningTradeCount += 1;
-      } else if (realizedCents < 0) {
-        losingTradeCount += 1;
-      }
+      if (settlement.realizedCents > 0) winningTradeCount += 1;
+      else if (settlement.realizedCents < 0) losingTradeCount += 1;
     }
 
-    const [floatingRows] = await connection.execute(
-      "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
+    const targetResult = await evaluateProfitTargetLocked(connection, account);
+
+    const [freshAccountRows] = await connection.execute(
+      "SELECT balance_cents, equity_cents FROM accounts WHERE id = ? LIMIT 1",
       [account.id],
     );
-
-    const remainingFloatingCents =
-      Number(floatingRows[0]?.floating_cents || 0);
-
-    const newBalanceCents =
-      Number(account.balance_cents || 0)
-      + totalRealizedCents;
-
-    const newEquityCents =
-      newBalanceCents
-      + remainingFloatingCents;
-
-    const [accountResult] = await connection.execute(
-      "UPDATE accounts SET balance_cents = ?, equity_cents = ?, realized_pnl_cents = COALESCE(realized_pnl_cents, 0) + ?, total_closed_trades = COALESCE(total_closed_trades, 0) + ?, winning_trades = COALESCE(winning_trades, 0) + ?, losing_trades = COALESCE(losing_trades, 0) + ?, updated_at = NOW() WHERE id = ? AND user_id = ?",
-      [
-        newBalanceCents,
-        newEquityCents,
-        totalRealizedCents,
-        closedTradeCount,
-        winningTradeCount,
-        losingTradeCount,
-        account.id,
-        req.userId,
-      ],
-    );
-
-    if (accountResult.affectedRows !== 1) {
-      throw new Error("Account settlement failed.");
-    }
-
-    console.log("[FLATTEN] Step 6: account updated, committing");
+    const freshAccount = freshAccountRows[0] || {};
 
     await connection.commit();
 
-    console.log("[FLATTEN] Step 7: committed successfully");
+    console.log("[FLATTEN] committed successfully; passed=", targetResult.passed);
 
     return res.json({
       success: true,
@@ -2817,158 +2848,80 @@ app.post("/api/accounts/:id/flatten", authenticateToken, async (req, res) => {
       winning_trades: winningTradeCount,
       losing_trades: losingTradeCount,
       realized_profit: totalRealizedCents / 100,
-      balance_cents: newBalanceCents,
-      equity_cents: newEquityCents,
+      balance_cents: Number(freshAccount.balance_cents || 0),
+      equity_cents: Number(freshAccount.equity_cents || 0),
+      passed: targetResult.passed,
+      review_id: targetResult.reviewId || null,
+      review_ref: targetResult.reviewRef || null,
     });
   } catch (error) {
     if (connection) {
-      try {
-        await connection.rollback();
-      } catch {}
+      try { await connection.rollback(); } catch {}
     }
-
     console.error("FLATTEN FAILED:", error.message);
-
-    return res.status(500).json({
-      error: error.message,
-    });
+    return res.status(500).json({ error: error.message });
   } finally {
-    if (connection) {
-      connection.release();
-    }
+    if (connection) connection.release();
   }
 });
 
 async function processLivePrices() {
   const priceCache = global.priceCache || {};
-  const [trades] = await db.execute(
-    "SELECT * FROM trades WHERE status = 'OPEN'",
-  );
+  const [trades] = await db.execute("SELECT * FROM trades WHERE status = 'OPEN'");
 
   for (const trade of trades) {
     const price = priceCache[trade.symbol];
+    if (!price) continue;
 
-    if (!price) {
-      continue;
-    }
+    const currentPrice = trade.side === "BUY" ? Number(price.bid) : Number(price.ask);
+    const snapshotVolume = Math.round(Number(trade.volume) * 100) / 100;
 
-    const currentPrice =
-      trade.side === "BUY"
-        ? Number(price.bid)
-        : Number(price.ask);
-
-    const snapshotVolume =
-      Math.round(Number(trade.volume) * 100) / 100;
-
-    if (
-      !Number.isFinite(currentPrice)
-      || currentPrice <= 0
-      || !Number.isFinite(snapshotVolume)
-      || snapshotVolume < 0.01
-    ) {
+    if (!Number.isFinite(currentPrice) || currentPrice <= 0 || !Number.isFinite(snapshotVolume) || snapshotVolume < 0.01) {
       continue;
     }
 
     const floatingCents = Math.round(
-      calculatePL(
-        trade.symbol,
-        trade.side,
-        Number(trade.entry_price),
-        currentPrice,
-        snapshotVolume,
-      ) * 100,
+      calculatePL(trade.symbol, trade.side, Number(trade.entry_price), currentPrice, snapshotVolume) * 100,
     );
 
-    /*
-     * IMPORTANT:
-     * The live-price loop runs every second while partial-close and
-     * manual-close requests can modify the same row concurrently.
-     *
-     * The volume predicate prevents an old one-second snapshot from
-     * restoring the pre-partial-close lot size after the close commits.
-     */
     const [tradeUpdate] = await db.execute(
-      "UPDATE trades "
-      + "SET current_price = ?, floating_profit_cents = ? "
-      + "WHERE trade_id = ? "
-      + "AND status = 'OPEN' "
-      + "AND volume = ?",
-      [
-        currentPrice,
-        floatingCents,
-        trade.trade_id,
-        snapshotVolume,
-      ],
+      "UPDATE trades SET current_price = ?, floating_profit_cents = ? WHERE trade_id = ? AND status = 'OPEN' AND volume = ?",
+      [currentPrice, floatingCents, trade.trade_id, snapshotVolume],
     );
+    if (tradeUpdate.affectedRows !== 1) continue;
 
-    if (tradeUpdate.affectedRows !== 1) {
-      continue;
-    }
-
-    /*
-     * Reload account state after the trade update. This avoids using
-     * an account snapshot that may have been changed by a partial
-     * close or another close operation in the same second.
-     */
     const [accounts] = await db.execute(
       "SELECT * FROM accounts WHERE id = ? LIMIT 1",
       [trade.account_id],
     );
-
-    if (!accounts.length) {
-      continue;
-    }
+    if (!accounts.length) continue;
 
     const account = accounts[0];
 
     const [floatingRows] = await db.execute(
-      "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents "
-      + "FROM trades "
-      + "WHERE account_id = ? "
-      + "AND status = 'OPEN'",
+      "SELECT COALESCE(SUM(floating_profit_cents), 0) AS floating_cents FROM trades WHERE account_id = ? AND status = 'OPEN'",
       [account.id],
     );
+    const totalFloatingCents = Number(floatingRows[0]?.floating_cents || 0);
+    const newEquity = Number(account.balance_cents || 0) + totalFloatingCents;
 
-    const totalFloatingCents =
-      Number(floatingRows[0]?.floating_cents || 0);
-
-    const newEquity =
-      Number(account.balance_cents || 0)
-      + totalFloatingCents;
-
-    if (
-      account.challenge_model === "prototype_5k"
-      && newEquity > Number(account.equity_hwm_cents || 0)
-    ) {
+    if (account.challenge_model === "prototype_5k" && newEquity > Number(account.equity_hwm_cents || 0)) {
       await db.execute(
         "UPDATE accounts SET equity_hwm_cents = ? WHERE id = ?",
-        [
-          newEquity,
-          account.id,
-        ],
+        [newEquity, account.id],
       );
     }
 
     await db.execute(
       "UPDATE accounts SET equity_cents = ? WHERE id = ?",
-      [
-        newEquity,
-        account.id,
-      ],
+      [newEquity, account.id],
     );
 
-    /*
-     * Risk is evaluated from the freshly persisted account state.
-     * Do not reuse the stale account snapshot from before a close.
-     */
     const [freshAccounts] = await db.execute(
       "SELECT * FROM accounts WHERE id = ? LIMIT 1",
       [account.id],
     );
-
-    if (!freshAccounts.length) {
-      continue;
-    }
+    if (!freshAccounts.length) continue;
 
     const freshAccount = freshAccounts[0];
     const risk = await checkAccountRisk(freshAccount);
@@ -2981,88 +2934,76 @@ async function processLivePrices() {
     let closeReason = null;
 
     if (trade.side === "BUY") {
-      if (
-        trade.stop_loss
-        && currentPrice <= Number(trade.stop_loss)
-      ) {
-        closeReason = "SL";
-      }
-
-      if (
-        trade.take_profit
-        && currentPrice >= Number(trade.take_profit)
-      ) {
-        closeReason = "TP";
-      }
+      if (trade.stop_loss && currentPrice <= Number(trade.stop_loss)) closeReason = "SL";
+      if (trade.take_profit && currentPrice >= Number(trade.take_profit)) closeReason = "TP";
     } else {
-      if (
-        trade.stop_loss
-        && currentPrice >= Number(trade.stop_loss)
-      ) {
-        closeReason = "SL";
-      }
-
-      if (
-        trade.take_profit
-        && currentPrice <= Number(trade.take_profit)
-      ) {
-        closeReason = "TP";
-      }
+      if (trade.stop_loss && currentPrice >= Number(trade.stop_loss)) closeReason = "SL";
+      if (trade.take_profit && currentPrice <= Number(trade.take_profit)) closeReason = "TP";
     }
 
-    if (!closeReason) {
-      continue;
-    }
+    if (!closeReason) continue;
 
-    const realizedCents = Math.round(
-      calculatePL(
-        trade.symbol,
-        trade.side,
-        Number(trade.entry_price),
-        currentPrice,
-        snapshotVolume,
-      ) * 100,
-    );
+    let connection;
 
-    /*
-     * Keep the same optimistic volume guard for SL/TP closing.
-     * A stale price-engine snapshot must never close a newer,
-     * resized position created by partial close.
-     */
-    const [closeResult] = await db.execute(
-      "UPDATE trades "
-      + "SET status = 'CLOSED', "
-      + "exit_price = ?, "
-      + "exit_time = NOW(), "
-      + "realized_profit_cents = ?, "
-      + "close_reason = ? "
-      + "WHERE trade_id = ? "
-      + "AND status = 'OPEN' "
-      + "AND volume = ?",
-      [
-        currentPrice,
-        realizedCents,
+    try {
+      connection = await Promise.race([
+        db.getConnection(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("DB connection timeout after 10s — pool likely exhausted")),
+            10000,
+          ),
+        ),
+      ]);
+      await connection.beginTransaction();
+
+      const [lockedAccounts] = await connection.execute(
+        "SELECT * FROM accounts WHERE id = ? FOR UPDATE",
+        [trade.account_id],
+      );
+      if (!lockedAccounts.length || lockedAccounts[0].status !== "ACTIVE") {
+        await connection.rollback();
+        continue;
+      }
+
+      const lockedAccount = lockedAccounts[0];
+      const [lockedTrades] = await connection.execute(
+        "SELECT * FROM trades WHERE trade_id = ? AND status = 'OPEN' FOR UPDATE",
+        [trade.trade_id],
+      );
+      if (!lockedTrades.length) {
+        await connection.rollback();
+        continue;
+      }
+
+      const lockedTrade = lockedTrades[0];
+      const latestPrice = global.priceCache?.[lockedTrade.symbol];
+      if (!latestPrice) throw new Error(`Price not available for ${lockedTrade.symbol} during ${closeReason}.`);
+
+      const executablePrice = lockedTrade.side === "BUY" ? Number(latestPrice.bid) : Number(latestPrice.ask);
+      if (!Number.isFinite(executablePrice) || executablePrice <= 0) {
+        throw new Error(`Exit price unavailable for ${lockedTrade.symbol}.`);
+      }
+
+      const settlement = await settleClosedTrade(connection, {
+        trade: lockedTrade,
+        exitPrice: executablePrice,
         closeReason,
-        trade.trade_id,
-        snapshotVolume,
-      ],
-    );
+        account: lockedAccount,
+      });
+      const targetResult = await evaluateProfitTargetLocked(connection, lockedAccount);
 
-    if (closeResult.affectedRows !== 1) {
-      continue;
+      await connection.commit();
+
+      console.log("[TP/SL SETTLE]", lockedTrade.trade_id, closeReason, "realized_cents=", settlement.realizedCents, "passed=", targetResult.passed);
+    } catch (error) {
+      if (connection) {
+        try { await connection.rollback(); } catch {}
+      }
+      console.error("[TP/SL SETTLE] Failed:", trade.trade_id, error.message);
+    } finally {
+      if (connection) connection.release();
     }
-
-    await db.execute(
-      "UPDATE accounts "
-      + "SET balance_cents = balance_cents + ?, "
-      + "equity_cents = balance_cents + ? "
-      + "WHERE id = ?",
-      [
-        realizedCents,
-        realizedCents,
-        trade.account_id,
-      ],
-    );
   }
 }
 
