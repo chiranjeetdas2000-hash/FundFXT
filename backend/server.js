@@ -3844,8 +3844,8 @@ app.post(
         is_prototype_one_time: modelKey === "prototype",
         rules_status: {
           open_trades: openTradeCount === 0,
-          daily_dd_ok: risk.dailyLossBreached !== true,
-          max_dd_ok: risk.maxDrawdownBreached !== true,
+          daily_dd_ok: Number(risk.currentDailyLoss || 0) < Number(risk.dailyLossLimit || 0),
+          max_dd_ok: Number(risk.currentMaxDrawdown || 0) < Number(risk.maxDrawdownLimit || 0),
           consistency_ok: consistencyOk,
           cooldown_ok: cooldownOk,
         },
