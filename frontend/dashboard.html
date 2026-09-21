@@ -29,7 +29,6 @@
         <div class="label">WORKSPACE</div>
         <nav class="nav">
             <a data-view="home" class="active">⌂ <span>Home</span></a>
-            <a data-view="withdraw">↗ <span>Withdraw</span></a>
             <a data-view="wallet">▣ <span>FundFXT Wallet</span></a>
             <a href="/buy-challenge.html">＋ <span>Buy Challenge</span></a>
             <a data-view="orders">▤ <span>Order History</span></a>
@@ -92,55 +91,6 @@
             </div>
         </section>
 
-        <section id="withdraw" class="view">
-            <div class="head">
-                <div>
-                    <span class="eyebrow">Withdraw</span>
-                    <h1>Request withdrawal</h1>
-                    <p class="sub">Withdraw from your FundFXT Wallet. An active funded account is required.</p>
-                </div>
-            </div>
-            <div id="wCooldown" class="message" style="display:none;margin-bottom:16px;"></div>
-            <div class="panel form">
-                <select id="wAccount">
-                    <option value="">Select funded account</option>
-                </select>
-                <input id="wAmount" type="number" min="0.01" step="0.01" placeholder="Amount (USD)">
-                <select id="wMethod">
-                    <option value="UPI">UPI</option>
-                    <option value="CRYPTO">CRYPTO</option>
-                </select>
-                <div id="wDetails"></div>
-                <button class="btn primary" id="wSubmit" type="button">Submit withdrawal request</button>
-                <div id="wMsg" class="message"></div>
-            </div>
-            <div class="panel" style="margin-top:16px;">
-                <div class="head-row">
-                    <h3>Withdrawal History</h3>
-                    <div class="wallet-filters">
-                        <select id="wHistoryStatus">
-                            <option value="">All Status</option>
-                            <option value="PENDING">PENDING</option>
-                            <option value="APPROVED">APPROVED</option>
-                            <option value="REJECTED">REJECTED</option>
-                        </select>
-                        <button class="btn" id="wHistoryRefresh" type="button">Refresh</button>
-                    </div>
-                </div>
-                <div class="table-wrap">
-                    <table class="table">
-                        <thead><tr><th>Request Ref</th><th>Amount</th><th>Method</th><th>Status</th><th>Requested</th><th>Reason</th></tr></thead>
-                        <tbody id="wHistoryRows"><tr><td colspan="6">Loading...</td></tr></tbody>
-                    </table>
-                </div>
-                <div class="wallet-pagination">
-                    <button class="btn" id="wHistoryPrev" type="button">← Prev</button>
-                    <span id="wHistoryPageLabel">Page 1 of 1</span>
-                    <button class="btn" id="wHistoryNext" type="button">Next →</button>
-                </div>
-            </div>
-        </section>
-
         <section id="wallet" class="view">
             <div class="head">
                 <div>
@@ -163,6 +113,63 @@
                     <button class="btn" id="walletWithdrawBtn" type="button">Withdraw</button>
                     <button class="btn primary" id="walletMoveAffiliateBtn" type="button">Move Affiliate Balance</button>
                     <span class="sub" style="font-size:12px;">Minimum transfer: $10.00</span>
+                </div>
+            </div>
+
+            <div class="modal-overlay" id="walletWithdrawModal" aria-hidden="true">
+                <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="walletWithdrawModalTitle">
+                    <div class="modal-header">
+                        <div>
+                            <span class="eyebrow">FundFXT Wallet</span>
+                            <h3 id="walletWithdrawModalTitle">Withdraw from FundFXT Wallet</h3>
+                        </div>
+                        <button class="modal-close" id="walletWithdrawClose" type="button" aria-label="Close withdrawal modal">×</button>
+                    </div>
+                    <div class="modal-tabs" role="tablist" aria-label="Wallet withdrawal">
+                        <button class="modal-tab active" id="walletWithdrawNewTab" type="button" role="tab" aria-selected="true">New Request</button>
+                        <button class="modal-tab" id="walletWithdrawHistoryTab" type="button" role="tab" aria-selected="false">History</button>
+                    </div>
+                    <div class="modal-tab-panel active" id="walletWithdrawNewPanel" role="tabpanel">
+                        <div id="wCooldown" class="message" style="display:none;margin-bottom:16px;"></div>
+                        <div class="form">
+                            <select id="wAccount">
+                                <option value="">Select funded account</option>
+                            </select>
+                            <input id="wAmount" type="number" min="0.01" step="0.01" placeholder="Amount (USD)">
+                            <select id="wMethod">
+                                <option value="UPI">UPI</option>
+                                <option value="CRYPTO">CRYPTO</option>
+                            </select>
+                            <div id="wDetails"></div>
+                            <button class="btn primary" id="wSubmit" type="button">Submit withdrawal request</button>
+                            <div id="wMsg" class="message"></div>
+                        </div>
+                    </div>
+                    <div class="modal-tab-panel" id="walletWithdrawHistoryPanel" role="tabpanel" hidden>
+                        <div class="head-row">
+                            <h3>Withdrawal History</h3>
+                            <div class="wallet-filters">
+                                <select id="wHistoryStatus">
+                                    <option value="">All Status</option>
+                                    <option value="PENDING">PENDING</option>
+                                    <option value="APPROVED">APPROVED</option>
+                                    <option value="REJECTED">REJECTED</option>
+                                </select>
+                                <button class="btn" id="wHistoryRefresh" type="button">Refresh</button>
+                            </div>
+                        </div>
+                        <div class="table-wrap">
+                            <table class="table">
+                                <thead><tr><th>Request Ref</th><th>Amount</th><th>Method</th><th>Status</th><th>Requested</th><th>Reason</th></tr></thead>
+                                <tbody id="wHistoryRows"><tr><td colspan="6">Loading...</td></tr></tbody>
+                            </table>
+                        </div>
+                        <div class="wallet-pagination">
+                            <button class="btn" id="wHistoryPrev" type="button">← Prev</button>
+                            <span id="wHistoryPageLabel">Page 1 of 1</span>
+                            <button class="btn" id="wHistoryNext" type="button">Next →</button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
