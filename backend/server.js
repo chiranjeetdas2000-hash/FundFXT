@@ -3817,6 +3817,7 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
     summary: {
       balance: account.balance_cents / 100,
       equity: account.equity_cents / 100,
+      balanceHwmCents: account.balance_hwm_cents,
       currentDailyLoss: risk.currentDailyLoss,
       dailyLossLimit: risk.dailyLossLimit,
       currentMaxDrawdown: risk.currentMaxDrawdown,
