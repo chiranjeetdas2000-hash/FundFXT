@@ -3584,7 +3584,7 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
     }
 
     const [cooldownRows] = await db.execute(
-      "SELECT reviewed_at, TIMESTAMPADD(DAY, 14, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 14, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status IN ('APPROVED', 'PAID') AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
+      "SELECT reviewed_at, TIMESTAMPADD(DAY, 14, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 14, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status = 'APPROVED' AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
       [req.userId],
     );
     const cooldown = cooldownRows[0];
@@ -4439,7 +4439,7 @@ app.get("/api/user/wallet", authenticateToken, async (req, res) => {
 
     const wallet = rows[0];
     const [cooldownRows] = await db.execute(
-      "SELECT reviewed_at, TIMESTAMPADD(DAY, 14, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 14, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status IN ('APPROVED', 'PAID') AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
+      "SELECT reviewed_at, TIMESTAMPADD(DAY, 14, reviewed_at) AS next_available_at, TIMESTAMPDIFF(SECOND, NOW(), TIMESTAMPADD(DAY, 14, reviewed_at)) AS seconds_remaining FROM withdrawal_request WHERE user_id = ? AND kind = 'WALLET' AND status = 'APPROVED' AND reviewed_at IS NOT NULL ORDER BY reviewed_at DESC LIMIT 1",
       [req.userId],
     );
     const cooldown = cooldownRows[0];
