@@ -77,22 +77,50 @@ async function sendEmail(to, subject, html) {
 
 
 // ========== PHASE REVIEW EMAIL ==========
-async function sendPhaseEmail(toEmail, customerName, traderId, phase, status, reason) {
+async function sendPhaseEmail(customerEmail, customerName, traderId, accountCode, fromPhase, toPhase, status, reason, profitCents, targetCents) {
   try {
-    if (!toEmail) return;
-    const escHtml = (v) => String(v || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
-    const p = escHtml(phase || "—");
-    const name = escHtml(customerName || "Trader");
-    const trader = escHtml(traderId || "—");
-    const r = escHtml(reason || "");
+    const supportEmail = process.env.SUPPORT_EMAIL || "support.fundfxt@gmail.com";
+    const escapeHtml = (value) =>
+      String(value || "").replace(
+        /[&<>"']/g,
+        (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c],
+      );
+    const safeCustomerName = escapeHtml(customerName);
+    const safeCustomerEmail = escapeHtml(customerEmail);
+    const safeTraderId = escapeHtml(traderId);
+    const safeAccountCode = escapeHtml(accountCode);
+    const safeFromPhase = escapeHtml(fromPhase);
+    const safeToPhase = escapeHtml(toPhase);
+    const safeReason = escapeHtml(reason);
     const st = String(status || "").toUpperCase();
-    const heading = st === "TARGET_HIT" ? `Challenge Phase ${p} Passed` : st === "APPROVED" ? `Phase ${p} Approved` : `Phase ${p} Review Rejected`;
-    const subheading = st === "TARGET_HIT" ? "Your challenge phase is now under review." : st === "APPROVED" ? "Your new account is ready." : "Your phase review has been rejected.";
-    const reasonRow = r ? `<tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Reason</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${r}</td></tr>` : "";
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0e14;"><tr><td align="center" style="padding:32px 16px;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#151924;border:1px solid #252b3a;border-radius:12px;"><tr><td style="padding:28px 30px 12px;"><div style="font-size:24px;font-weight:700;">Fund<span style="color:#00e59a;">FXT</span></div><div style="margin-top:6px;color:#8d96a8;font-size:13px;">Challenge Phase Notification</div></td></tr><tr><td style="padding:12px 30px 24px;"><div style="font-size:20px;font-weight:700;">${heading}</div><div style="margin-top:7px;color:#8d96a8;font-size:13px;">${subheading}</div></td></tr><tr><td style="padding:0 30px 24px;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0e14;border:1px solid #252b3a;border-radius:8px;"><tr><td style="padding:14px 12px;color:#00e59a;font-size:13px;font-weight:700;">ACCOUNT DETAILS</td></tr><tr><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">Customer: ${name}</td></tr><tr><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">Trader ID: ${trader}</td></tr><tr><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">Phase: ${p}</td></tr>${reasonRow}</table></td></tr></table></td></tr></table></body></html>`;
-    const subject = st === "TARGET_HIT" ? `[FundFXT] Challenge Phase ${phase} Passed — Under Review` : st === "APPROVED" ? `[FundFXT] Phase ${phase} Approved — New Account Ready` : `[FundFXT] Phase ${phase} Review Rejected`;
-    await sendEmail(toEmail, subject, html);
-  } catch (error) { console.error("Phase email failed:", error.message); }
+    const heading =
+      st === "TARGET_HIT"
+        ? "Phase Passed — Under Review"
+        : st === "APPROVED"
+          ? "Phase Approved — New Account Ready"
+          : "Phase Review Rejected";
+    const actionText =
+      st === "TARGET_HIT"
+        ? "Review and approve/reject"
+        : st === "APPROVED"
+          ? "Forward this customer-facing approval notice to the customer."
+          : "Forward this customer-facing rejection notice to the customer.";
+    const reasonRow = safeReason
+      ? `<tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Reason</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${safeReason}</td></tr>`
+      : "";
+    const profit = (Number(profitCents || 0) / 100).toFixed(2);
+    const target = (Number(targetCents || 0) / 100).toFixed(2);
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0e14;"><tr><td align="center" style="padding:32px 16px;"><table width="100%" cellpadding="0" cellspacing="0" style="max-width:620px;background:#151924;border:1px solid #252b3a;border-radius:12px;"><tr><td style="padding:28px 30px 12px;"><div style="font-size:24px;font-weight:700;">Fund<span style="color:#00e59a;">FXT</span></div><div style="margin-top:6px;color:#8d96a8;font-size:13px;">Challenge Phase Notification</div></td></tr><tr><td style="padding:12px 30px 24px;"><div style="font-size:20px;font-weight:700;">${heading}</div></td></tr><tr><td style="padding:0 30px 24px;"><table width="100%" cellpadding="0" cellspacing="0" style="background:#0b0e14;border:1px solid #252b3a;border-radius:8px;"><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Customer Name</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${safeCustomerName}</td></tr><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Customer Email</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;"><a href="mailto:${safeCustomerEmail}" style="color:#00e59a;">${safeCustomerEmail}</a></td></tr><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Trader ID</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${safeTraderId}</td></tr><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Account Code</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${safeAccountCode}</td></tr><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Phase</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${safeFromPhase} → ${safeToPhase}</td></tr><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Profit at Target</td><td style="padding:10px 12px;color:#00e59a;font-size:13px;">$${profit}</td></tr><tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Target Value</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">$${target}</td></tr>${reasonRow}<tr><td style="padding:10px 12px;color:#8d96a8;font-size:13px;">Action Needed</td><td style="padding:10px 12px;color:#f4f7fb;font-size:13px;">${escapeHtml(actionText)}</td></tr></table></td></tr></table></td></tr></table></body></html>`;
+    const subject =
+      st === "TARGET_HIT"
+        ? `[FundFXT] Phase Passed — ${customerEmail} — ${accountCode}`
+        : st === "APPROVED"
+          ? `[FundFXT] Phase Approved — ${customerEmail} — ${accountCode}`
+          : `[FundFXT] Phase Rejected — ${customerEmail} — ${accountCode}`;
+    await sendEmail(supportEmail, subject, html);
+  } catch (error) {
+    console.error("Phase email failed:", error.message);
+  }
 }
 
 async function notifyTargetPassed(reviewId, accountId, userId) {
@@ -101,13 +129,18 @@ async function notifyTargetPassed(reviewId, accountId, userId) {
     if (!rows.length) return;
     const review = rows[0];
     const snapshot = typeof review.target_snapshot === "string" ? (() => { try { return JSON.parse(review.target_snapshot); } catch { return {}; } })() : (review.target_snapshot || {});
-    const profit = (Number(snapshot.profit_cents || 0) / 100).toFixed(2);
-    const target = (Number(snapshot.target_cents || 0) / 100).toFixed(2);
-    const supportEmail = process.env.SUPPORT_EMAIL || "support.fundfxt@gmail.com";
-    const escHtml = (v) => String(v || "").replace(/[&<>"']/g, (c) => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" })[c]);
-    const adminHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#0b0e14;color:#f4f7fb;font-family:Arial,Helvetica,sans-serif;"><div style="max-width:620px;margin:32px auto;padding:28px;background:#151924;border:1px solid #252b3a;border-radius:12px;"><div style="font-size:24px;font-weight:700;">Fund<span style="color:#00e59a;">FXT</span></div><h2>Phase Review Required</h2><p style="color:#8d96a8;">A challenge phase has been marked PASSED and is awaiting review.</p><table width="100%" cellpadding="8" style="background:#0b0e14;border:1px solid #252b3a;"><tr><td>Request Ref</td><td>${escHtml(review.review_ref)}</td></tr><tr><td>User</td><td>${escHtml(review.legal_name)} (${escHtml(review.email)})</td></tr><tr><td>Trader ID</td><td>${escHtml(review.trader_id)}</td></tr><tr><td>Account</td><td>${escHtml(review.account_code)}</td></tr><tr><td>Phase</td><td>${escHtml(review.from_phase)} → ${escHtml(review.to_phase)}</td></tr><tr><td>Profit at Target</td><td style="color:#00e59a;">${profit}</td></tr><tr><td>Target Value</td><td>${target}</td></tr></table></div></body></html>`;
-    await sendEmail(supportEmail, `[FundFXT] Phase Review Required — ${review.review_ref} — ${review.account_code}`, adminHtml);
-    await sendPhaseEmail(review.email, review.legal_name, review.trader_id, review.from_phase, "TARGET_HIT");
+    await sendPhaseEmail(
+      review.email,
+      review.legal_name,
+      review.trader_id,
+      review.account_code,
+      review.from_phase,
+      review.to_phase,
+      "TARGET_HIT",
+      "",
+      snapshot.profit_cents,
+      snapshot.target_cents,
+    );
     await createNotification(review.user_id, "phase_passed", `Phase ${review.from_phase} passed, review pending`, `Your ${review.from_phase} profit target has been reached. Your phase review is now pending.`, null);
   } catch (error) { console.error("Target-pass notification failed:", error.message); }
 }
@@ -4499,7 +4532,8 @@ app.post("/api/admin/phase-reviews/:id/approve", authenticateAdmin, async (req, 
     try {
       const [userRows] = await db.query("SELECT legal_name, email, trader_id FROM users WHERE id = ? LIMIT 1", [review.user_id]);
       const user = userRows[0] || {};
-      await sendPhaseEmail(user.email, user.legal_name, user.trader_id, fromPhase, "APPROVED");
+      const sourceSnapshot = typeof review.target_snapshot === "string" ? (() => { try { return JSON.parse(review.target_snapshot); } catch { return {}; } })() : (review.target_snapshot || {});
+      await sendPhaseEmail(user.email, user.legal_name, user.trader_id, review.account_code, fromPhase, toPhase, "APPROVED", "", sourceSnapshot.profit_cents, sourceSnapshot.target_cents);
       await createNotification(review.user_id, "phase_approved", `Phase ${fromPhase} approved — new account ready`, `Your ${toPhase} account is ready for trading.`, null);
     } catch (notifyError) { console.error("Phase approval notification failed:", notifyError.message); }
     res.json({ success: true, new_account_id: newAccount.accountId, new_account_code: newAccount.accountCode });
@@ -4523,7 +4557,8 @@ app.post("/api/admin/phase-reviews/:id/reject", authenticateAdmin, async (req, r
     try {
       const [userRows] = await db.query("SELECT legal_name, email, trader_id FROM users WHERE id = ? LIMIT 1", [review.user_id]);
       const user = userRows[0] || {};
-      await sendPhaseEmail(user.email, user.legal_name, user.trader_id, review.from_phase, "REJECTED", adminNote);
+      const sourceSnapshot = typeof review.target_snapshot === "string" ? (() => { try { return JSON.parse(review.target_snapshot); } catch { return {}; } })() : (review.target_snapshot || {});
+      await sendPhaseEmail(user.email, user.legal_name, user.trader_id, review.account_code, review.from_phase, review.to_phase, "REJECTED", adminNote, sourceSnapshot.profit_cents, sourceSnapshot.target_cents);
       await createNotification(review.user_id, "phase_rejected", `Phase ${review.from_phase} rejected`, `Your ${review.from_phase} phase review was rejected.`, null);
     } catch (notifyError) { console.error("Phase rejection notification failed:", notifyError.message); }
     res.json({ success: true });
