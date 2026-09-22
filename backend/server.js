@@ -3701,14 +3701,6 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
 
     connection = await db.getConnection();
     await connection.beginTransaction();
-    const [fundedAccounts] = await connection.execute(
-      "SELECT id, account_code, challenge_model, phase, status FROM accounts WHERE user_id = ? AND status = 'ACTIVE' AND phase = 'FUNDED' ORDER BY id ASC FOR UPDATE",
-      [req.userId],
-    );
-    if (!fundedAccounts.length) {
-      await connection.rollback();
-      return res.status(400).json({ error: "At least one active funded account is required for withdrawal" });
-    }
     const [walletRows] = await connection.execute("SELECT * FROM user_wallets WHERE user_id = ? FOR UPDATE", [req.userId]);
     if (!walletRows.length) {
       await connection.rollback();
@@ -3724,10 +3716,7 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
     const payoutDetails = method === "UPI"
       ? { upi_id: String(details.upi_id).trim() }
       : { wallet_address: String(details.wallet_address).trim(), network: String(details.network).trim() };
-    const eligibilitySnapshot = {
-      funded_accounts_count: fundedAccounts.length,
-      funded_account_codes: fundedAccounts.map((account) => account.account_code),
-    };
+    const eligibilitySnapshot = {};
     await connection.execute("UPDATE user_wallets SET balance_cents = balance_cents - ?, updated_at = NOW() WHERE user_id = ?", [amount_cents, req.userId]);
     const [withdrawalResult] = await connection.execute(
       "INSERT INTO withdrawal_request (request_ref, user_id, kind, account_id, amount_cents, currency, method, payout_details, eligibility_snapshot, status, created_at, updated_at) VALUES (?, ?, 'WALLET', NULL, ?, 'USD', ?, ?, ?, 'PENDING', NOW(), NOW())",
