@@ -13,11 +13,32 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const cors = require("cors");
 const crypto = require("crypto");
+const { createRateLimiter, userRateLimiter } = require("./rate-limits");
 require("dotenv").config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+// ========== RATE LIMITERS ==========
+// Public auth limits are IP-based. Authenticated limits are keyed by user ID.
+const registerRateLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+const loginRateLimiter = createRateLimiter({ windowMs: 60 * 1000, limit: 10 });
+const forgotPasswordRateLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+const verifyOtpRateLimiter = createRateLimiter({ windowMs: 10 * 60 * 1000, limit: 10 });
+const resetPasswordRateLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+const adminLoginRateLimiter = createRateLimiter({ windowMs: 15 * 60 * 1000, limit: 5 });
+
+const tradeExecuteRateLimiter = userRateLimiter(30, 60 * 1000);
+const tradeCloseRateLimiter = userRateLimiter(30, 60 * 1000);
+const tradePendingRateLimiter = userRateLimiter(30, 60 * 1000);
+const tradeModifyRateLimiter = userRateLimiter(30, 60 * 1000);
+const tradeDeleteRateLimiter = userRateLimiter(30, 60 * 1000);
+const pricesRateLimiter = userRateLimiter(120, 60 * 1000);
+const accountsRateLimiter = userRateLimiter(60, 60 * 1000);
+
+const walletWithdrawalRateLimiter = userRateLimiter(5, 60 * 60 * 1000);
+const accountPayoutRateLimiter = userRateLimiter(5, 60 * 60 * 1000);
 
 app.get("/api/health", (req, res) => {
   res.json({
@@ -341,7 +362,8 @@ async function getUniqueAffiliateCode() {
 }
 
 // ========== REGISTER ==========
-app.post("/api/register", async (req, res) => {
+// Rate-limit account registration attempts per IP.
+app.post("/api/register", registerRateLimiter, async (req, res) => {
   const {
     trader_id,
     email,
@@ -400,7 +422,8 @@ app.post("/api/register", async (req, res) => {
 });
 
 // ========== LOGIN ==========
-app.post("/api/login", async (req, res) => {
+// Rate-limit user login attempts per IP.
+app.post("/api/login", loginRateLimiter, async (req, res) => {
   const { identifier, password } = req.body;
   try {
     const [rows] = await db.execute(
@@ -424,7 +447,8 @@ app.post("/api/login", async (req, res) => {
 
 
 // ========== FORGOT PASSWORD (SECURE) ==========
-app.post("/api/forgot-password", async (req, res) => {
+// Rate-limit password reset initiation per IP.
+app.post("/api/forgot-password", forgotPasswordRateLimiter, async (req, res) => {
   const { email } = req.body;
   try {
     const [rows] = await db.execute("SELECT * FROM users WHERE email = ?", [
@@ -469,7 +493,8 @@ app.post("/api/forgot-password", async (req, res) => {
 });
 
 // VERIFY OTP (Return reset_token)
-app.post("/api/verify-otp", async (req, res) => {
+// Rate-limit password-reset OTP verification per IP.
+app.post("/api/verify-otp", verifyOtpRateLimiter, async (req, res) => {
   const { email, otp } = req.body;
   try {
     const otpHash = crypto.createHash("sha256").update(otp).digest("hex");
@@ -488,7 +513,8 @@ app.post("/api/verify-otp", async (req, res) => {
 });
 
 // RESET PASSWORD (Now requires reset_token + OTP)
-app.post("/api/reset-password", async (req, res) => {
+// Rate-limit password reset submissions per IP.
+app.post("/api/reset-password", resetPasswordRateLimiter, async (req, res) => {
   const { email, otp, password, reset_token } = req.body;
   try {
     // Verify OTP + Token exist and valid
@@ -589,7 +615,8 @@ app.get("/api/get-user-by-email", async (req, res) => {
 });
 
 // ========== ACCOUNTS ==========
-app.get("/api/accounts", authenticateToken, async (req, res) => {
+// Rate-limit account list requests per authenticated user.
+app.get("/api/accounts", authenticateToken, accountsRateLimiter, async (req, res) => {
   try {
     const [accounts] = await db.execute(
       "SELECT * FROM accounts WHERE user_id = ?",
@@ -746,7 +773,8 @@ app.post("/api/payments/quote", authenticateToken, async (req, res) => {
 
 
 // ========== ADMIN AUTH ==========
-app.post("/api/admin/login", async (req, res) => {
+// Rate-limit admin login attempts per IP.
+app.post("/api/admin/login", adminLoginRateLimiter, async (req, res) => {
   const { email, password } = req.body;
   try {
     const [admins] = await db.execute(
@@ -1257,7 +1285,8 @@ async function processPendingOrders() {
 }
 
 // Terminal market-data endpoint. Authenticated because the terminal is account-bound.
-app.get("/api/prices", authenticateToken, (req, res) => {
+// Rate-limit terminal market-data polling per authenticated user.
+app.get("/api/prices", authenticateToken, pricesRateLimiter, (req, res) => {
   res.json({
     success: true,
     source: "BiQuote",
@@ -2065,6 +2094,7 @@ async function createPhaseAccount(connection, { sourceAccount, phase }) {
 app.post(
   "/api/trades/:tradeId/close",
   authenticateToken,
+  tradeCloseRateLimiter,
   async (req, res) => {
     if (isForexWeekend()) {
       return res.status(403).json({
@@ -2357,7 +2387,8 @@ app.post(
 );
 
 // 3. MODIFY SL/TP
-app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
+// Rate-limit SL/TP and pending-order modifications per authenticated user.
+app.patch("/api/trades/:tradeId", authenticateToken, tradeModifyRateLimiter, async (req, res) => {
   const {
     stop_loss,
     take_profit,
@@ -2560,7 +2591,8 @@ app.patch("/api/trades/:tradeId", authenticateToken, async (req, res) => {
 });
 
 // 4. PENDING ORDERS (Limit & Stop)
-app.post("/api/trades/pending", authenticateToken, async (req, res) => {
+// Rate-limit pending-order creation per authenticated user.
+app.post("/api/trades/pending", authenticateToken, tradePendingRateLimiter, async (req, res) => {
     if (isForexWeekend()) {
       return res.status(403).json({
         error: "Forex market is closed on weekends. Trading resumes Monday 00:00 UTC.",
@@ -2820,7 +2852,8 @@ app.get("/api/trades/pending", authenticateToken, async (req, res) => {
   }
 });
 
-app.delete("/api/trades/:tradeId", authenticateToken, async (req, res) => {
+// Rate-limit pending-order cancellation per authenticated user.
+app.delete("/api/trades/:tradeId", authenticateToken, tradeDeleteRateLimiter, async (req, res) => {
   try {
     const [result] = await db.execute(
       "UPDATE trades SET status = 'CANCELLED', exit_time = NOW() WHERE trade_id = ? AND user_id = ? AND status = 'PENDING'",
@@ -3095,6 +3128,7 @@ async function processLivePrices() {
 app.post(
   "/api/trade/execute",
   authenticateToken,
+  tradeExecuteRateLimiter,
   async (req, res) => {
     if (isForexWeekend()) {
       return res.status(403).json({
@@ -3657,7 +3691,8 @@ async function sendWithdrawalEmail(
   }
 }
 
-app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, res) => {
+// Rate-limit wallet withdrawal requests per authenticated user.
+app.post("/api/user/wallet/withdrawals/request", authenticateToken, walletWithdrawalRateLimiter, async (req, res) => {
   const { amount_cents, method, details } = req.body;
   let connection;
   try {
@@ -3744,6 +3779,7 @@ app.post("/api/user/wallet/withdrawals/request", authenticateToken, async (req, 
 app.post(
   "/api/user/wallet/account-payout/request",
   authenticateToken,
+  accountPayoutRateLimiter,
   async (req, res) => {
     const accountId = Number(req.body?.account_id);
     if (!Number.isInteger(accountId) || accountId <= 0) {
