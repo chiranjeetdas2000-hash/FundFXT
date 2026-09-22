@@ -1,271 +1,261 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FundFXT | Terms & Conditions</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background: #f8fafc; color: #0f172a; line-height: 1.8; }
-        a { text-decoration: none; color: inherit; }
-
-        /* ===== NAVBAR ===== */
-        .navbar {
-            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
-            background: rgba(11, 14, 20, 0.98); backdrop-filter: blur(10px);
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 30px; border-bottom: 1px solid #2a3444;
-        }
-        .logo { font-size: 24px; font-weight: 800; color: #fff; }
-        .logo span { color: #00b56a; }
-        .nav-links { display: flex; gap: 30px; }
-        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: 0.3s; }
-        .nav-links a:hover { color: #00b56a; }
-        .nav-btns { display: flex; gap: 12px; }
-        .btn-outline { padding: 8px 18px; border-radius: 6px; color: #fff; border: 2px solid #4b5563; font-weight: 500; }
-        .btn-outline:hover { border-color: #00b56a; color: #00b56a; }
-        .btn-solid { padding: 8px 18px; border-radius: 6px; background: #00b56a; color: #fff; font-weight: 600; }
-
-        /* ===== PAGE HEADER ===== */
-        .page-header {
-            background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
-            color: #fff; padding: 140px 20px 60px; text-align: center;
-        }
-        .page-header h1 { font-size: 56px; margin-bottom: 15px; background: linear-gradient(90deg, #fff, #00b56a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .page-header p { font-size: 18px; max-width: 800px; margin: 0 auto; color: #94a3b8; }
-
-        /* ===== CONTENT CONTAINER ===== */
-        .legal-container { max-width: 900px; margin: 60px auto; padding: 0 20px; }
-
-        /* ===== LEGAL SECTIONS ===== */
-        .legal-section { background: #fff; border-radius: 16px; padding: 40px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
-        .legal-section h2 { font-size: 24px; font-weight: 800; margin-bottom: 20px; color: #0f172a; }
-        .legal-section h3 { font-size: 18px; font-weight: 700; margin-top: 20px; margin-bottom: 10px; color: #00b56a; }
-        .legal-section p { margin-bottom: 15px; color: #475569; }
-        .legal-section ul { margin-left: 20px; margin-bottom: 15px; }
-        .legal-section li { margin-bottom: 10px; color: #475569; }
-
-        /* Last Updated Badge */
-        .updated-badge { display: inline-block; padding: 6px 12px; background: #d1fae5; color: #065f46; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
-
-        /* ===== FOOTER ===== */
-        .footer { background: #0d1117; color: #94a3b8; padding: 50px 20px 20px; }
-        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; margin-bottom: 40px; }
-        .footer h4 { color: #fff; font-size: 16px; margin-bottom: 15px; }
-        .footer a { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 8px; }
-        .footer a:hover { color: #00b56a; }
-        .footer-bottom { text-align: center; border-top: 1px solid #1a2332; padding-top: 20px; font-size: 13px; }
-
-        @media (max-width: 768px) {
-            .nav-links { display: none; }
-            .page-header h1 { font-size: 36px; }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="FundFXT Terms and Conditions for use of its simulated trading platform during the pre-launch phase.">
+<title>Terms &amp; Conditions | FundFXT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/legal.css">
 </head>
-<body>
-
-    <!-- NAVBAR -->
-    <nav class="navbar">
-        <div class="logo">Fund<span>FXT</span></div>
-        <ul class="nav-links">
-            <a href="home.html">Home</a>
-            <a href="faq.html">FAQ</a>
-            <a href="dashboard.html">Dashboard</a>
-            <a href="contact.html">Contact</a>
-            <a href="terms.html" style="color:#00b56a;">Terms</a>
-        </ul>
-        <div class="nav-btns">
-            <a href="Auth.html" class="btn-outline">Login</a>
-            <a href="Auth.html" class="btn-solid">Get Funded</a>
-        </div>
+<body class="legal-page">
+<header class="legal-nav">
+  <div class="legal-nav-inner">
+    <a class="legal-logo" href="/home.html">Fund<span>FXT</span></a>
+    <nav class="legal-nav-links" aria-label="Legal navigation">
+      <a href="/about.html">About</a>
+      <a href="/challenge-rules.html">Challenge Rules</a>
+      <a href="/payout-rules.html">Payout Rules</a>
+      <a href="/withdrawal-rules.html">Withdrawal Rules</a>
     </nav>
+    <div class="legal-nav-actions">
+      <a class="legal-btn" href="/auth.html">Login</a>
+      <a class="legal-btn primary" href="/buy-challenge.html">Get Funded</a>
+    </div>
+  </div>
+</header>
 
-    <!-- PAGE HEADER -->
-    <section class="page-header">
-        <h1>Terms & Conditions</h1>
-        <p>These terms govern your use of FundFXT. By accessing our platform, you agree to comply with all policies, rules, and requirements outlined below.</p>
-    </section>
+<main>
+  <section class="page-header">
+    <div class="eyebrow">Legal</div>
+    <h1>Terms &amp; Conditions</h1>
+    <p>Terms governing access to and use of the FundFXT simulated trading platform during its pre-launch phase.</p>
+  </section>
 
-    <!-- MAIN CONTENT -->
-    <div class="legal-container">
-
-        <!-- Section 1: Agreement -->
-        <div class="legal-section">
-            <span class="updated-badge">Last Updated: August 30, 2026</span>
-            <h2>1. Acceptance of Terms</h2>
-            <p>By accessing or using the FundFXT platform, you agree to be bound by these Terms & Conditions. If you do not agree to these terms, you must not use our services. These terms apply to all users, including traders, affiliates, and visitors.</p>
-        </div>
-
-        <!-- Section 2: Eligibility -->
-        <div class="legal-section">
-            <h2>2. Eligibility</h2>
-            <p>You must be at least 18 years old to use FundFXT. By registering, you confirm that you meet this requirement and that you are legally capable of entering into a binding agreement. You agree to provide accurate, current, and complete information during registration.</p>
-        </div>
-
-        <!-- Section 3: User Accounts -->
-        <div class="legal-section">
-            <h2>3. User Accounts</h2>
-            <ul>
-                <li>You are responsible for maintaining the confidentiality of your login credentials.</li>
-                <li>You agree to notify us immediately of any unauthorized use of your account.</li>
-                <li>You are limited to one active account per model (Direct Funded or 2-Step Challenge).</li>
-                <li>We reserve the right to suspend or terminate accounts that violate our policies.</li>
-            </ul>
-        </div>
-
-        <!-- Section 4: Direct Funded Model -->
-        <div class="legal-section">
-            <h2>4. Direct Funded Model Rules</h2>
-            <h3>Account Parameters</h3>
-            <ul>
-                <li>Account Size: $5,000</li>
-                <li>Entry Fee: $10 (subject to coupon discounts)</li>
-                <li>Max Withdrawal: $100 (one-time, then account closes)</li>
-            </ul>
-            <h3>Trading Rules</h3>
-            <ul>
-                <li>Daily Drawdown: 2% ($100) based on balance</li>
-                <li>Max Floating Drawdown: 5% ($250)</li>
-                <li>Max Trades per Day: 3</li>
-                <li>Max Lot Size: 1.00</li>
-                <li>Minimum Trading Days: 10</li>
-                <li>News Trading: Not Allowed</li>
-                <li>Max Open Position: 1</li>
-                <li>Consistency Score: 35%</li>
-            </ul>
-            <p><strong>Payout:</strong> Trading period of 30 days. Payout request available 7 days after the cycle ends. The account is closed after the single payout.</p>
-        </div>
-
-        <!-- Section 5: 2-Step Challenge Model -->
-        <div class="legal-section">
-            <h2>5. 2-Step Challenge Model Rules</h2>
-            <h3>Account Parameters</h3>
-            <ul>
-                <li>Account Size: $5,000</li>
-                <li>Entry Fee: $29 (subject to coupon discounts)</li>
-                <li>Scaling Withdrawal: $200 (1st-3rd) → $500 (4th-6th) → $1000 (7th+)</li>
-            </ul>
-            <h3>Challenge Phases</h3>
-            <ul>
-                <li>Step 1 Profit Target: $400</li>
-                <li>Step 2 Profit Target: $250</li>
-            </ul>
-            <h3>Trading Rules (Both Steps)</h3>
-            <ul>
-                <li>Daily Drawdown: $250 based on balance</li>
-                <li>Max Drawdown: $400 based on balance</li>
-                <li>Max Lot Size: 1.00</li>
-                <li>Minimum Trading Days: 5 per step</li>
-                <li>News Trading: Not Allowed</li>
-                <li>Max Open Position: 1</li>
-                <li>Consistency Score: 45% (Challenge Phase)</li>
-            </ul>
-            <p><strong>Payout:</strong> Allowed 7 days after the first trade on your funded account.</p>
-        </div>
-
-        <!-- Section 6: Affiliate Program -->
-        <div class="legal-section">
-            <h2>6. Affiliate Program</h2>
-            <ul>
-                <li>All users can participate; the affiliate section becomes active after 50 verified sales.</li>
-                <li>Commission: $2 per Direct Funded sale, $5 per 2-Step Challenge sale.</li>
-                <li>Minimum Affiliate Payout: $100.</li>
-                <li>Commission is credited only after payment verification.</li>
-                <li>Self-referrals are strictly prohibited and will result in account termination.</li>
-            </ul>
-        </div>
-
-        <!-- Section 7: Payouts & Withdrawals -->
-        <div class="legal-section">
-            <h2>7. Payouts & Withdrawals</h2>
-            <ul>
-                <li>Payouts are processed manually within 2-3 business days.</li>
-                <li>Available withdrawal methods include UPI, Crypto, and Bank Transfer.</li>
-                <li>Direct Funded accounts allow only one payout in a lifetime. Future models may have different caps.</li>
-                <li>Withdrawals are only processed if all trading rules and eligibility criteria are met.</li>
-            </ul>
-        </div>
-
-        <!-- Section 8: Prohibited Conduct -->
-        <div class="legal-section">
-            <h2>8. Prohibited Conduct</h2>
-            <p>You agree not to engage in any of the following activities:</p>
-            <ul>
-                <li>Manipulating the platform, prices, or trading algorithms.</li>
-                <li>Using multiple accounts to bypass rules or gain unfair advantage.</li>
-                <li>Engaging in high-frequency, latency arbitrage, or any other abusive trading strategy.</li>
-                <li>Providing false, misleading, or fraudulent information.</li>
-                <li>Attempting to hack, disrupt, or gain unauthorized access to our systems.</li>
-            </ul>
-            <p>Violation of these terms may result in immediate termination of your account and forfeiture of any pending payouts.</p>
-        </div>
-
-        <!-- Section 9: Risk Disclaimer -->
-        <div class="legal-section">
-            <h2>9. Risk Disclaimer</h2>
-            <p>FundFXT provides a simulated trading environment. You acknowledge that simulated trading carries risks, including the potential loss of your entry fee. We do not provide financial advice, and you are solely responsible for your trading decisions. Past performance in a simulated environment does not guarantee future results.</p>
-        </div>
-
-        <!-- Section 10: Limitation of Liability -->
-        <div class="legal-section">
-            <h2>10. Limitation of Liability</h2>
-            <p>To the maximum extent permitted by law, FundFXT, its directors, employees, and partners shall not be liable for any indirect, incidental, special, consequential, or punitive damages, including without limitation, loss of profits, data, or goodwill, arising out of or relating to your use of the platform.</p>
-        </div>
-
-        <!-- Section 11: Modifications -->
-        <div class="legal-section">
-            <h2>11. Modifications to These Terms</h2>
-            <p>We reserve the right to modify these Terms & Conditions at any time. Updates will be posted on this page with a revised "Last Updated" date. Continued use of the platform after modifications constitutes acceptance of the revised terms.</p>
-        </div>
-
-        <!-- Section 12: Termination -->
-        <div class="legal-section">
-            <h2>12. Termination</h2>
-            <p>We may suspend or terminate your account at any time for breach of these terms, suspected fraudulent activity, or any other reason at our sole discretion. Upon termination, you will no longer be eligible for payouts unless explicitly determined otherwise.</p>
-        </div>
-
-        <!-- Section 13: Governing Law -->
-        <div class="legal-section">
-            <h2>13. Governing Law</h2>
-            <p>These Terms & Conditions shall be governed by and construed in accordance with the laws of the jurisdiction in which FundFXT operates. Any disputes arising from these terms shall be resolved in the appropriate courts of that jurisdiction.</p>
-        </div>
-
-        <!-- Section 14: Contact -->
-        <div class="legal-section">
-            <h2>14. Contact Us</h2>
-            <p>If you have any questions about these Terms & Conditions, please contact us at:</p>
-            <p><strong>Email:</strong> <a href="mailto:support@fundfxt.com" style="color:#00b56a;">support@fundfxt.com</a></p>
-            <p><strong>Telegram:</strong> <a href="https://t.me/fundfxt" target="_blank" style="color:#00b56a;">@fundfxt</a></p>
-            <p><strong>Website:</strong> <a href="https://fund-fxt.vercel.app" style="color:#00b56a;">fund-fxt.vercel.app</a></p>
-        </div>
-
+  <div class="legal-container">
+    <div class="prelaunch-notice reveal">
+      <strong>Pre-launch notice:</strong> FundFXT is currently in pre-launch testing phase. Rules, offerings, pricing, and platform features may evolve as the platform is refined through testing and user feedback.
     </div>
 
-    <!-- FOOTER -->
-    <footer class="footer">
-        <div class="footer-grid">
-            <div>
-                <h4>FundFXT</h4>
-                <p>Building Trust. Backed by Math.</p>
-            </div>
-            <div>
-                <h4>Quick Links</h4>
-                <a href="home.html">Home</a>
-                <a href="Auth.html">Register</a>
-                <a href="dashboard.html">Dashboard</a>
-                <a href="faq.html">FAQ</a>
-            </div>
-            <div>
-                <h4>Legal</h4>
-                <a href="privacy.html">Privacy Policy</a>
-                <a href="terms.html" style="color:#00b56a;">Terms & Conditions</a>
-                <a href="contact.html">Contact</a>
-            </div>
-        </div>
-        <div class="footer-bottom">© 2026 FundFXT. All rights reserved.</div>
-    </footer>
+    <div class="simulated-notice reveal stagger-1">
+      <strong>Simulated trading:</strong> FundFXT is a simulated trading environment. Orders are not sent to real markets, and simulated performance does not represent actual market execution or real-world trading results.
+    </div>
 
+    <section class="legal-section reveal stagger-2">
+      <span class="legal-badge">01 · Acceptance</span>
+      <h2>Acceptance of Terms</h2>
+      <p>By accessing or using FundFXT, you agree to follow these Terms &amp; Conditions and the platform rules referenced by them.</p>
+      <ul>
+        <li>You must be at least 18 years old to use the platform.</li>
+        <li>You confirm that you are permitted to use the platform and its services from your location.</li>
+        <li>You are responsible for reviewing the current platform rules before purchasing or using an account.</li>
+        <li>If you do not agree with these terms, you should not use the platform.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal stagger-3">
+      <span class="legal-badge">02 · Platform</span>
+      <h2>Platform Description</h2>
+      <p>FundFXT provides a simulated trading environment designed for testing trading performance under defined account rules.</p>
+      <ul>
+        <li>Trading activity on FundFXT is simulated.</li>
+        <li>Orders are not executed in real financial markets through the platform.</li>
+        <li>FundFXT does not provide financial, investment, or trading advice.</li>
+        <li>Platform outcomes, account progression, or payout eligibility depend on applicable rules, account activity, review, and other stated conditions.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal stagger-4">
+      <span class="legal-badge">03 · Accounts</span>
+      <h2>Account &amp; Eligibility</h2>
+      <ul>
+        <li>Users must provide accurate and current registration information.</li>
+        <li>Unless a current platform rule states otherwise, a user may maintain one active account per account model.</li>
+        <li>Users are responsible for keeping their login credentials secure and for activity conducted through their account.</li>
+        <li>Accounts may be suspended or terminated where applicable rules or these terms are violated.</li>
+        <li>Users should promptly contact support if they believe their account credentials have been compromised.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">04 · Models</span>
+      <h2>Account Models</h2>
+      <p>FundFXT currently uses two account models. The detailed and authoritative account rules are published separately.</p>
+      <div class="legal-table-wrap">
+        <table>
+          <thead><tr><th>Model</th><th>Structure</th><th>Reference</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Warrior</strong></td><td>Multi-phase evaluation</td><td><a href="/challenge-rules.html">Challenge Rules</a></td></tr>
+            <tr><td><strong>Prototype</strong></td><td>Direct funded</td><td><a href="/challenge-rules.html">Challenge Rules</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Current account sizes, pricing, progression requirements, and other model details are referenced through the <a href="/challenge-rules.html">Challenge Rules</a> page and may evolve during the pre-launch phase.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">05 · Trading</span>
+      <h2>Trading Rules</h2>
+      <p>Trading requirements and account risk rules are maintained on the dedicated <a href="/challenge-rules.html">Challenge Rules</a> page.</p>
+      <ul>
+        <li>The Challenge Rules page is the authoritative reference for current trading requirements.</li>
+        <li>Users are responsible for reviewing the applicable rules before and during account use.</li>
+        <li>No specific drawdown, target, or consistency figures are repeated in these general terms.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">06 · Payouts</span>
+      <h2>Payouts &amp; Withdrawals</h2>
+      <p>Payout and withdrawal requirements are governed by the current <a href="/payout-rules.html">Payout Rules</a> and <a href="/withdrawal-rules.html">Withdrawal Rules</a>.</p>
+      <ul>
+        <li>There are no specific processing timelines stated in these terms.</li>
+        <li>Payout and withdrawal requests are subject to eligibility, review, applicable platform rules, and available liquidity.</li>
+        <li>Processing is handled on a best-effort basis and may involve manual review.</li>
+        <li>FundFXT operates with fixed liquidity. If approved payouts exceed available funds, distributions will be made on a pro-rata basis across eligible traders.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">07 · Affiliate</span>
+      <h2>Affiliate Program</h2>
+      <p>The affiliate program is governed by the current <a href="/affiliate-rules.html">Affiliate Rules</a>.</p>
+      <ul>
+        <li>Affiliate commissions are calculated using the commission formula published in the Affiliate Rules.</li>
+        <li>Commissions are subject to payment verification and the applicable affiliate rules.</li>
+        <li>Affiliate activity must comply with the platform's anti-abuse and self-referral requirements.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">08 · Conduct</span>
+      <h2>Prohibited Conduct</h2>
+      <p>Users must not use the platform in ways that undermine account integrity, platform security, or the fair application of its rules.</p>
+      <ul>
+        <li>Attempting to manipulate the platform, its trading environment, account records, or related systems.</li>
+        <li>Creating or using multiple accounts to bypass applicable rules, restrictions, or account outcomes.</li>
+        <li>Using abusive trading strategies or technical methods intended to exploit platform behavior, including high-frequency or latency-arbitrage activity where prohibited by the applicable rules.</li>
+        <li>Providing false, misleading, or materially inaccurate registration or account information.</li>
+        <li>Attempting to compromise, probe, disrupt, or gain unauthorized access to platform security or systems.</li>
+      </ul>
+      <div class="legal-callout warning">
+        <p><strong>Consequences:</strong> Prohibited conduct may result in account suspension or termination and may affect or result in forfeiture of pending payouts, subject to review of the relevant circumstances.</p>
+      </div>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">09 · Risk</span>
+      <h2>Risk Disclaimer</h2>
+      <ul>
+        <li>FundFXT provides a simulated trading environment only.</li>
+        <li>Users have no real market exposure through the simulated orders placed on the platform.</li>
+        <li>No financial, investment, or trading advice is provided.</li>
+        <li>Users are responsible for their own decisions and use of the platform.</li>
+        <li>Simulated performance does not predict real-world trading results.</li>
+        <li>Payout eligibility is subject to the applicable rules, review, account status, and available liquidity.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">10 · Liability</span>
+      <h2>Limitation of Liability</h2>
+      <p>To the extent permitted by applicable law, FundFXT is not responsible for losses or damages arising from matters outside its reasonable control, interruptions or unavailability of the platform, technical failures, connectivity issues, third-party service interruptions, inaccurate information supplied by a user, or use of the platform contrary to these terms and applicable rules.</p>
+      <p>FundFXT does not make representations about uninterrupted availability, error-free operation, or the suitability of the platform for a particular purpose. Users are responsible for maintaining appropriate access to their devices, internet connection, and account credentials.</p>
+      <p>Nothing in these terms is intended to exclude or limit liability where such exclusion or limitation is not permitted by applicable law.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">11 · Updates</span>
+      <h2>Modifications</h2>
+      <p>FundFXT may update these Terms &amp; Conditions as the platform develops, rules change, or operational requirements are refined.</p>
+      <ul>
+        <li>Updated terms will be published on this page.</li>
+        <li>The updated date shown on the page identifies the current published version.</li>
+        <li>Continued use of the platform after an update indicates acceptance of the updated terms.</li>
+      </ul>
+      <div class="legal-callout success">
+        <p><strong>Pre-launch context:</strong> During pre-launch testing, users should review the published terms and applicable rule pages regularly because platform policies may evolve.</p>
+      </div>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">12 · Termination</span>
+      <h2>Termination</h2>
+      <p>FundFXT may suspend or terminate an account where a user breaches these terms, violates applicable platform rules, engages in prohibited conduct, or where account access otherwise needs to be restricted.</p>
+      <ul>
+        <li>Termination or suspension may affect access to the account and platform features.</li>
+        <li>Pending payouts may be affected following suspension or termination, subject to review and the applicable rules.</li>
+        <li>Account outcomes may be reviewed where there is evidence of rule circumvention, prohibited conduct, or other material violations.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">13 · Contact</span>
+      <h2>Contact FundFXT</h2>
+      <p>For questions about these Terms &amp; Conditions, account access, platform rules, or a specific issue, contact FundFXT support.</p>
+      <div class="support-box">
+        <span class="support-email" id="supportEmail">support.fundfxt@gmail.com</span>
+        <button class="legal-btn copy-support" id="copySupport" type="button">Copy email</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="legal-footer">
+  <div class="legal-footer-inner">
+    <div class="legal-footer-grid">
+      <div><h3>FundFXT</h3><p>Simulated trading platform in pre-launch phase.</p></div>
+      <div><h4>Platform</h4><a href="/buy-challenge.html">Get Funded</a><a href="/dashboard.html">Dashboard</a></div>
+      <div><h4>Rules</h4><a href="/challenge-rules.html">Challenge Rules</a><a href="/payout-rules.html">Payout Rules</a><a href="/withdrawal-rules.html">Withdrawal Rules</a><a href="/affiliate-rules.html">Affiliate Rules</a></div>
+      <div><h4>Legal</h4><a href="/about.html">About</a><a href="/terms.html" aria-current="page">Terms &amp; Conditions</a><a href="/privacy.html">Privacy Policy</a><a href="/refund.html">Refund Policy</a></div>
+    </div>
+    <div class="legal-footer-bottom">© FundFXT · Simulated trading environment</div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const sections = document.querySelectorAll('.reveal,.legal-section');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {threshold:.12});
+    sections.forEach(el => observer.observe(el));
+  } else {
+    sections.forEach(el => el.classList.add('is-visible'));
+  }
+
+  document.querySelectorAll('.accordion-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const item = trigger.closest('.accordion-item');
+      const open = item.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  const copyButton = document.getElementById('copySupport');
+  const email = document.getElementById('supportEmail');
+  copyButton?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(email.textContent.trim());
+      copyButton.textContent = 'Copied';
+      copyButton.classList.add('copied');
+      setTimeout(() => {
+        copyButton.textContent = 'Copy email';
+        copyButton.classList.remove('copied');
+      }, 1600);
+    } catch {
+      copyButton.textContent = 'Select email';
+    }
+  });
+})();
+</script>
 </body>
 </html>
