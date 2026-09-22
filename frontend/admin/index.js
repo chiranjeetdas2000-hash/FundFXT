@@ -83,7 +83,6 @@ async function setAffiliateTransferMode(mode) {
 }
 
 async function loadWalletTransfers(status) {
-    loadAffiliateTransferMode();
     if (status) currentWalletTransferStatus = status;
     
     const tabs = {
@@ -136,7 +135,7 @@ async function loadWalletTransfers(status) {
 
             let actionHtml = '<span class="badge ' + badgeClass + '">' + status + '</span>';
             if (status === 'PENDING') {
-                actionHtml = 
+                actionHtml =
                     '<button class="btn" onclick="approveWalletTransfer(' + t.id + ',' + t.amount_cents + ')">Approve</button> ' +
                     '<button class="btn red" onclick="rejectWalletTransfer(' + t.id + ')">Reject</button>';
             }
@@ -180,7 +179,6 @@ async function rejectWalletTransfer(id) {
         toast(error.message, 'err');
     }
 }
-
 
 let currentPhaseReviewStatus = "PENDING";
 function setPhaseReviewFilter(status){currentPhaseReviewStatus=status;["Pending","Approved","Rejected"].forEach(x=>{const e=$("prTab"+x);if(e)e.className=x.toUpperCase()===status?"btn":"btn secondary";});loadPhaseReviews(status);}
