@@ -1,235 +1,257 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FundFXT | Privacy Policy</title>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Poppins', sans-serif; }
-        body { background: #f8fafc; color: #0f172a; line-height: 1.8; }
-        a { text-decoration: none; color: inherit; }
-
-        /* ===== NAVBAR ===== */
-        .navbar {
-            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
-            background: rgba(11, 14, 20, 0.98); backdrop-filter: blur(10px);
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 15px 30px; border-bottom: 1px solid #2a3444;
-        }
-        .logo { font-size: 24px; font-weight: 800; color: #fff; }
-        .logo span { color: #00b56a; }
-        .nav-links { display: flex; gap: 30px; }
-        .nav-links a { color: #cbd5e1; font-size: 14px; font-weight: 500; transition: 0.3s; }
-        .nav-links a:hover { color: #00b56a; }
-        .nav-btns { display: flex; gap: 12px; }
-        .btn-outline { padding: 8px 18px; border-radius: 6px; color: #fff; border: 2px solid #4b5563; font-weight: 500; }
-        .btn-outline:hover { border-color: #00b56a; color: #00b56a; }
-        .btn-solid { padding: 8px 18px; border-radius: 6px; background: #00b56a; color: #fff; font-weight: 600; }
-
-        /* ===== PAGE HEADER ===== */
-        .page-header {
-            background: linear-gradient(135deg, #0d1117 0%, #1a2332 100%);
-            color: #fff; padding: 140px 20px 60px; text-align: center;
-        }
-        .page-header h1 { font-size: 56px; margin-bottom: 15px; background: linear-gradient(90deg, #fff, #00b56a); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        .page-header p { font-size: 18px; max-width: 800px; margin: 0 auto; color: #94a3b8; }
-
-        /* ===== CONTENT CONTAINER ===== */
-        .legal-container { max-width: 900px; margin: 60px auto; padding: 0 20px; }
-
-        /* ===== LEGAL SECTIONS ===== */
-        .legal-section { background: #fff; border-radius: 16px; padding: 40px; margin-bottom: 30px; box-shadow: 0 10px 30px rgba(0,0,0,0.08); }
-        .legal-section h2 { font-size: 24px; font-weight: 800; margin-bottom: 20px; color: #0f172a; }
-        .legal-section h3 { font-size: 18px; font-weight: 700; margin-top: 20px; margin-bottom: 10px; color: #00b56a; }
-        .legal-section p { margin-bottom: 15px; color: #475569; }
-        .legal-section ul { margin-left: 20px; margin-bottom: 15px; }
-        .legal-section li { margin-bottom: 10px; color: #475569; }
-
-        /* Last Updated Badge */
-        .updated-badge { display: inline-block; padding: 6px 12px; background: #d1fae5; color: #065f46; border-radius: 20px; font-size: 13px; font-weight: 600; margin-bottom: 20px; }
-
-        /* ===== FOOTER ===== */
-        .footer { background: #0d1117; color: #94a3b8; padding: 50px 20px 20px; }
-        .footer-grid { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 40px; margin-bottom: 40px; }
-        .footer h4 { color: #fff; font-size: 16px; margin-bottom: 15px; }
-        .footer a { display: block; color: #94a3b8; font-size: 14px; margin-bottom: 8px; }
-        .footer a:hover { color: #00b56a; }
-        .footer-bottom { text-align: center; border-top: 1px solid #1a2332; padding-top: 20px; font-size: 13px; }
-
-        @media (max-width: 768px) {
-            .nav-links { display: none; }
-            .page-header h1 { font-size: 36px; }
-        }
-    </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="FundFXT Privacy Policy explaining information collection, use, sharing, security, retention, and user rights during the platform's pre-launch phase.">
+<title>Privacy Policy | FundFXT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/legal.css">
 </head>
-<body>
+<body class="legal-page">
 
-    <!-- NAVBAR -->
-    <nav class="navbar">
-        <div class="logo">Fund<span>FXT</span></div>
-        <ul class="nav-links">
-            <a href="home.html">Home</a>
-            <a href="faq.html">FAQ</a>
-            <a href="dashboard.html">Dashboard</a>
-            <a href="contact.html">Contact</a>
-            <a href="privacy.html" style="color:#00b56a;">Privacy</a>
-        </ul>
-        <div class="nav-btns">
-            <a href="Auth.html" class="btn-outline">Login</a>
-            <a href="Auth.html" class="btn-solid">Get Funded</a>
-        </div>
+<header class="legal-nav">
+  <div class="legal-nav-inner">
+    <a class="legal-logo" href="/home.html">Fund<span>FXT</span></a>
+    <nav class="legal-nav-links" aria-label="Legal navigation">
+      <a href="/about.html">About</a>
+      <a href="/challenge-rules.html">Challenge Rules</a>
+      <a href="/payout-rules.html">Payout Rules</a>
+      <a href="/withdrawal-rules.html">Withdrawal Rules</a>
     </nav>
+    <div class="legal-nav-actions">
+      <a class="legal-btn" href="/auth.html">Login</a>
+      <a class="legal-btn primary" href="/buy-challenge.html">Get Funded</a>
+    </div>
+  </div>
+</header>
 
-    <!-- PAGE HEADER -->
-    <section class="page-header">
-        <h1>Privacy Policy</h1>
-        <p>Your privacy is paramount to us. This policy outlines how FundFXT collects, uses, protects, and manages your information when you use our platform.</p>
-    </section>
+<main>
+  <section class="page-header">
+    <div class="eyebrow">Legal</div>
+    <h1>Privacy Policy</h1>
+    <p>How FundFXT collects, uses, shares, protects, and retains information when you use its simulated trading platform.</p>
+  </section>
 
-    <!-- MAIN CONTENT -->
-    <div class="legal-container">
-
-        <!-- Section 1: Introduction -->
-        <div class="legal-section">
-            <span class="updated-badge">Last Updated: August 30, 2026</span>
-            <h2>1. Introduction</h2>
-            <p>FundFXT ("we", "our", "us") operates the website located at <a href="https://fund-fxt.vercel.app" style="color:#00b56a;">fund-fxt.vercel.app</a> and provides simulated trading services. This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you visit our website or use our services. Please read this policy carefully. By accessing or using our services, you agree to the collection and use of information in accordance with this policy.</p>
-        </div>
-
-        <!-- Section 2: Information We Collect -->
-        <div class="legal-section">
-            <h2>2. Information We Collect</h2>
-            <p>We collect several types of information from and about users of our platform, including:</p>
-            <h3>2.1 Personal Data</h3>
-            <ul>
-                <li><strong>Registration Information:</strong> When you register for an account, we collect your full name, email address, phone number, and password (encrypted).</li>
-                <li><strong>Identity Verification Data:</strong> For security purposes and to comply with legal obligations, we may request official identification documents (such as passport, driver's license) and proof of address.</li>
-                <li><strong>Payment Information:</strong> If you make a purchase, we may collect payment details such as your UPI ID, cryptocurrency wallet address, or bank account information.</li>
-            </ul>
-            <h3>2.2 Trading Data</h3>
-            <ul>
-                <li><strong>Account Activity:</strong> We record your trading transactions, including entry/exit prices, timestamps, lot sizes, and calculated profits or losses.</li>
-                <li><strong>Performance Metrics:</strong> We track your consistency score, drawdown utilization, and overall account performance to assess eligibility for payouts.</li>
-            </ul>
-            <h3>2.3 Technical Data</h3>
-            <ul>
-                <li><strong>Usage Data:</strong> We collect information about how you interact with our website, such as pages visited, time spent, and actions taken.</li>
-                <li><strong>Device Information:</strong> We may collect IP addresses, browser types, operating systems, and device identifiers to improve user experience and security.</li>
-            </ul>
-        </div>
-
-        <!-- Section 3: How We Use Your Information -->
-        <div class="legal-section">
-            <h2>3. How We Use Your Information</h2>
-            <p>We use the information we collect for the following purposes:</p>
-            <ul>
-                <li>To create and manage your trading account.</li>
-                <li>To verify your identity and prevent fraudulent activities.</li>
-                <li>To process your transactions, including entry fees and payouts.</li>
-                <li>To calculate your trading performance and determine payout eligibility.</li>
-                <li>To communicate with you regarding your account, support requests, and platform updates.</li>
-                <li>To improve our platform's functionality, user experience, and security.</li>
-                <li>To comply with legal and regulatory requirements.</li>
-            </ul>
-        </div>
-
-        <!-- Section 4: Data Sharing & Disclosure -->
-        <div class="legal-section">
-            <h2>4. Data Sharing & Disclosure</h2>
-            <p>We do not sell, trade, or rent your personal information to third parties. However, we may share your information in the following limited circumstances:</p>
-            <ul>
-                <li><strong>Service Providers:</strong> We may share information with trusted third-party providers who assist us in operating our website (such as payment processors, hosting providers, and analytics services). These providers are contractually obligated to protect your information.</li>
-                <li><strong>Legal Compliance:</strong> We may disclose information if required by law, court order, or to protect our legal rights and the safety of our users.</li>
-                <li><strong>Affiliate Tracking:</strong> If you use a referral link or coupon code, we share limited information (such as your registration date) with the affiliate to verify the sale and process commission.</li>
-            </ul>
-        </div>
-
-        <!-- Section 5: Data Security -->
-        <div class="legal-section">
-            <h2>5. Data Security</h2>
-            <p>We implement robust security measures to protect your information. These include:</p>
-            <ul>
-                <li><strong>Encryption:</strong> All sensitive data (such as passwords and financial information) is encrypted using industry-standard protocols.</li>
-                <li><strong>Secure Database:</strong> Our databases are protected with firewalls and access controls.</li>
-                <li><strong>Regular Audits:</strong> We conduct periodic security reviews to identify and mitigate potential vulnerabilities.</li>
-            </ul>
-            <p>However, no method of transmission over the Internet or method of electronic storage is 100% secure. While we strive to protect your personal information, we cannot guarantee its absolute security.</p>
-        </div>
-
-        <!-- Section 6: Cookies & Tracking Technologies -->
-        <div class="legal-section">
-            <h2>6. Cookies & Tracking Technologies</h2>
-            <p>We may use cookies and similar tracking technologies to collect information and enhance your experience on our platform. Cookies are small files stored on your device that allow us to remember your preferences and login sessions. You can instruct your browser to refuse all cookies or to indicate when a cookie is being sent. However, if you do not accept cookies, some parts of the platform may not function properly.</p>
-        </div>
-
-        <!-- Section 7: Data Retention -->
-        <div class="legal-section">
-            <h2>7. Data Retention</h2>
-            <p>We retain your personal information only for as long as necessary to fulfill the purposes described in this Privacy Policy. Specifically:</p>
-            <ul>
-                <li><strong>Account Data:</strong> Retained while your account is active.</li>
-                <li><strong>Transaction Records:</strong> Retained for a period of at least 7 years to comply with financial regulations.</li>
-                <li><strong>Support Communications:</strong> Retained for up to 2 years to resolve disputes.</li>
-            </ul>
-            <p>Once the retention period expires, we will securely delete or anonymize your information.</p>
-        </div>
-
-        <!-- Section 8: Your Rights -->
-        <div class="legal-section">
-            <h2>8. Your Rights</h2>
-            <p>Depending on your jurisdiction, you may have the following rights regarding your personal data:</p>
-            <ul>
-                <li><strong>Right of Access:</strong> You can request a copy of the information we hold about you.</li>
-                <li><strong>Right to Correction:</strong> You can request correction of inaccurate or incomplete information.</li>
-                <li><strong>Right to Deletion:</strong> You can request deletion of your personal data under certain circumstances.</li>
-                <li><strong>Right to Restriction:</strong> You can request that we limit the processing of your data.</li>
-                <li><strong>Right to Data Portability:</strong> You can request your data in a structured, machine-readable format.</li>
-            </ul>
-            <p>To exercise any of these rights, please contact us at <a href="mailto:support@fundfxt.com" style="color:#00b56a;">support@fundfxt.com</a>.</p>
-        </div>
-
-        <!-- Section 9: Changes to This Policy -->
-        <div class="legal-section">
-            <h2>9. Changes to This Policy</h2>
-            <p>We may update this Privacy Policy from time to time to reflect changes in our practices or legal requirements. When we make changes, we will update the "Last Updated" date at the top of this page. We encourage you to review this policy periodically.</p>
-        </div>
-
-        <!-- Section 10: Contact Us -->
-        <div class="legal-section">
-            <h2>10. Contact Us</h2>
-            <p>If you have any questions or concerns about this Privacy Policy, please contact us using the following channels:</p>
-            <p><strong>Email:</strong> <a href="mailto:support@fundfxt.com" style="color:#00b56a;">support@fundfxt.com</a></p>
-            <p><strong>Telegram:</strong> <a href="https://t.me/fundfxt" target="_blank" style="color:#00b56a;">@fundfxt</a></p>
-            <p><strong>Website:</strong> <a href="https://fund-fxt.vercel.app" style="color:#00b56a;">fund-fxt.vercel.app</a></p>
-        </div>
-
+  <div class="legal-container">
+    <div class="prelaunch-notice reveal">
+      <strong>Pre-launch notice:</strong> FundFXT is currently in pre-launch testing phase. Platform workflows and data practices may evolve as the platform is refined through testing and user feedback.
     </div>
 
-    <!-- FOOTER -->
-    <footer class="footer">
-        <div class="footer-grid">
-            <div>
-                <h4>FundFXT</h4>
-                <p>Building Trust. Backed by Math.</p>
-            </div>
-            <div>
-                <h4>Quick Links</h4>
-                <a href="home.html">Home</a>
-                <a href="Auth.html">Register</a>
-                <a href="dashboard.html">Dashboard</a>
-                <a href="faq.html">FAQ</a>
-            </div>
-            <div>
-                <h4>Legal</h4>
-                <a href="privacy.html" style="color:#00b56a;">Privacy Policy</a>
-                <a href="terms.html">Terms & Conditions</a>
-                <a href="contact.html">Contact</a>
-            </div>
-        </div>
-        <div class="footer-bottom">© 2026 FundFXT. All rights reserved.</div>
-    </footer>
+    <div class="simulated-notice reveal stagger-1">
+      <strong>Simulated trading:</strong> FundFXT provides a simulated trading environment. Orders are not sent to real markets, and simulated trading activity does not represent actual market execution or real-world trading results.
+    </div>
+
+    <section class="legal-section reveal stagger-2">
+      <span class="legal-badge">01 · Introduction</span>
+      <h2>Introduction</h2>
+      <p>FundFXT operates a simulated trading platform. This Privacy Policy explains the types of information that may be collected when you register for, access, or use the platform and how that information may be used.</p>
+      <p>FundFXT is currently in its pre-launch phase. Data practices may be refined as the platform is tested and developed.</p>
+      <p>By using the FundFXT platform, you acknowledge this Privacy Policy and the information practices described here.</p>
+    </section>
+
+    <section class="legal-section reveal stagger-3">
+      <span class="legal-badge">02 · Collection</span>
+      <h2>Information We Collect</h2>
+
+      <h3>2.1 Registration Data</h3>
+      <ul>
+        <li><strong>Legal name:</strong> Information provided when registering or managing an account.</li>
+        <li><strong>Email address:</strong> Used for account access, verification, support, and platform communications.</li>
+        <li><strong>Phone number:</strong> Collected where requested for account or platform operations.</li>
+        <li><strong>Password:</strong> Account passwords are stored in protected form rather than as plain-text passwords.</li>
+      </ul>
+
+      <h3>2.2 Account &amp; Trading Activity</h3>
+      <ul>
+        <li><strong>Simulated trade records:</strong> Information such as orders, entries, exits, volumes, timestamps, and calculated trading results.</li>
+        <li><strong>Performance metrics:</strong> Information used to evaluate simulated account performance.</li>
+        <li><strong>Consistency scores:</strong> Metrics used where applicable under platform rules.</li>
+        <li><strong>Drawdown usage:</strong> Account risk and drawdown information used to apply applicable trading rules.</li>
+      </ul>
+
+      <h3>2.3 Technical Data</h3>
+      <ul>
+        <li><strong>IP address:</strong> May be collected for security, abuse prevention, and platform operations.</li>
+        <li><strong>Browser information:</strong> Browser type and related technical characteristics.</li>
+        <li><strong>Device information:</strong> Technical information about the device or environment used to access the platform.</li>
+        <li><strong>Usage patterns:</strong> Information about how the platform is accessed and used to improve reliability and functionality.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal stagger-4">
+      <span class="legal-badge">03 · Use</span>
+      <h2>How We Use Information</h2>
+      <p>Information collected through the platform may be used for the following purposes:</p>
+      <ul>
+        <li>To provide, operate, and maintain the FundFXT platform.</li>
+        <li>To process purchases, account-related transactions, payouts, and withdrawals.</li>
+        <li>To determine account and payout eligibility under applicable platform rules.</li>
+        <li>To communicate with users about accounts, transactions, support requests, and platform matters.</li>
+        <li>To improve platform security, reliability, performance, and user experience.</li>
+        <li>To comply with applicable legal or other requirements that apply to the platform or a particular request.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">04 · Sharing</span>
+      <h2>Data Sharing</h2>
+      <p>FundFXT does not sell personal information. Information may be shared in limited circumstances necessary to operate the platform or address applicable requirements.</p>
+      <ul>
+        <li><strong>Service providers:</strong> Limited information may be shared with providers that support payments, hosting, infrastructure, communications, or other platform operations.</li>
+        <li><strong>Legal requirements:</strong> Information may be disclosed where required by applicable law or a valid legal process.</li>
+        <li><strong>Affiliate tracking:</strong> Limited information may be used or shared for referral verification, attribution, and commission processing.</li>
+      </ul>
+      <div class="legal-callout success">
+        <p><strong>Data minimization:</strong> Sharing is intended to be limited to information reasonably needed for the relevant service, verification process, or requirement.</p>
+      </div>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">05 · Security</span>
+      <h2>Data Security</h2>
+      <p>FundFXT uses reasonable technical and organizational measures intended to protect information against unauthorized access, misuse, alteration, or loss.</p>
+      <ul>
+        <li>Passwords are stored in protected form rather than plain text.</li>
+        <li>Access controls are used to restrict access to information and platform systems where appropriate.</li>
+        <li>Security practices may be reviewed and refined as the platform develops.</li>
+      </ul>
+      <p>Users are also responsible for protecting their account credentials, using appropriate device security, and promptly reporting suspected unauthorized account access to support.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">06 · Storage</span>
+      <h2>Cookies &amp; Storage</h2>
+      <ul>
+        <li>Cookies may be used to support sessions, preferences, and platform functionality.</li>
+        <li>Local storage may be used to retain user preferences or session-related information in the browser.</li>
+        <li>Users can control or restrict cookies through their browser settings.</li>
+        <li>Some platform features may not function correctly if required cookies or browser storage are disabled.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">07 · Retention</span>
+      <h2>Data Retention</h2>
+      <p>FundFXT keeps information only for as long as reasonably necessary for the purposes described in this Privacy Policy and for related platform operations.</p>
+      <ul>
+        <li><strong>Account data:</strong> Generally retained while an account is active and for as long as reasonably necessary for account-related operations.</li>
+        <li><strong>Transaction records:</strong> Retained as needed for support, dispute resolution, transaction history, and platform operations.</li>
+        <li>Retention periods may vary based on the nature, purpose, and operational need associated with the information.</li>
+      </ul>
+      <p>When information is no longer needed for its relevant purpose, it may be deleted, anonymized, or otherwise handled in accordance with applicable requirements and operational practices.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">08 · Rights</span>
+      <h2>User Rights</h2>
+      <p>Users may contact FundFXT support to request information about their personal data and, where applicable, request:</p>
+      <ul>
+        <li><strong>Access:</strong> A copy or description of personal information held about them.</li>
+        <li><strong>Correction:</strong> Correction of inaccurate or incomplete personal information.</li>
+        <li><strong>Deletion:</strong> Deletion of personal information, subject to applicable requirements and legitimate operational needs.</li>
+      </ul>
+      <p>Requests can be submitted to <strong>support.fundfxt@gmail.com</strong>. Additional information may be requested to verify the account or identity associated with a request.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">09 · Updates</span>
+      <h2>Changes to This Policy</h2>
+      <p>FundFXT may update this Privacy Policy as the platform, its features, or its data practices develop.</p>
+      <ul>
+        <li>Updated versions will be posted on this page.</li>
+        <li>The published page should be reviewed periodically for changes.</li>
+        <li>Continued use of the platform after an update indicates acceptance of the updated policy.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">10 · Contact</span>
+      <h2>Contact FundFXT</h2>
+      <p>For questions about this Privacy Policy or requests concerning your personal information, contact FundFXT support.</p>
+      <div class="support-box">
+        <span class="support-email" id="supportEmail">support.fundfxt@gmail.com</span>
+        <button class="legal-btn copy-support" id="copySupport" type="button">Copy email</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="legal-footer">
+  <div class="legal-footer-inner">
+    <div class="legal-footer-grid">
+      <div>
+        <h3>FundFXT</h3>
+        <p>Simulated trading platform in pre-launch phase.</p>
+      </div>
+      <div>
+        <h4>Platform</h4>
+        <a href="/buy-challenge.html">Get Funded</a>
+        <a href="/dashboard.html">Dashboard</a>
+      </div>
+      <div>
+        <h4>Rules</h4>
+        <a href="/challenge-rules.html">Challenge Rules</a>
+        <a href="/payout-rules.html">Payout Rules</a>
+        <a href="/withdrawal-rules.html">Withdrawal Rules</a>
+        <a href="/affiliate-rules.html">Affiliate Rules</a>
+      </div>
+      <div>
+        <h4>Legal</h4>
+        <a href="/about.html">About</a>
+        <a href="/terms.html">Terms &amp; Conditions</a>
+        <a href="/privacy.html" aria-current="page">Privacy Policy</a>
+        <a href="/refund.html">Refund Policy</a>
+      </div>
+    </div>
+    <div class="legal-footer-bottom">© FundFXT · Simulated trading environment</div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const sections = document.querySelectorAll('.reveal,.legal-section');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {threshold:.12});
+    sections.forEach(el => observer.observe(el));
+  } else {
+    sections.forEach(el => el.classList.add('is-visible'));
+  }
+
+  document.querySelectorAll('.accordion-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const item = trigger.closest('.accordion-item');
+      const open = item.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  const copyButton = document.getElementById('copySupport');
+  const email = document.getElementById('supportEmail');
+  copyButton?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(email.textContent.trim());
+      copyButton.textContent = 'Copied';
+      copyButton.classList.add('copied');
+      setTimeout(() => {
+        copyButton.textContent = 'Copy email';
+        copyButton.classList.remove('copied');
+      }, 1600);
+    } catch {
+      copyButton.textContent = 'Select email';
+    }
+  });
+})();
+</script>
 
 </body>
 </html>
