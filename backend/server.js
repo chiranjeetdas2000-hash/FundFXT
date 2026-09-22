@@ -1224,8 +1224,6 @@ async function processPendingOrders() {
 
     const account = accounts[0];
     const risk = await checkAccountRisk(account);
-  const consistency = await calculateConsistencyScore(accountId);
-
     if (risk.breached || !risk.allowed) {
       continue;
     }
@@ -4298,6 +4296,7 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
   const account = accounts[0];
   const config = await getChallengeConfig(account.challenge_model);
   const risk = await checkAccountRisk(account);
+  const consistency = await calculateConsistencyScore(accountId);
   if (risk.breached) {
     await settleBreachedAccount(account.id, risk.reason);
   }
