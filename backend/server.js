@@ -1224,6 +1224,7 @@ async function processPendingOrders() {
 
     const account = accounts[0];
     const risk = await checkAccountRisk(account);
+  const consistency = await calculateConsistencyScore(accountId);
 
     if (risk.breached || !risk.allowed) {
       continue;
@@ -4338,6 +4339,7 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
       profitTargetCents,
       consistencyBps: risk.consistencyBps,
       consistencyLimitPercent,
+      consistencyScoreBps: consistency.scoreBps,
       dailyDdBasis: risk.dailyDdBasis,
       maxDdBasis: risk.maxDdBasis,
     },
