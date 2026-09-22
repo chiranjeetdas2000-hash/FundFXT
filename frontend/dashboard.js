@@ -231,19 +231,6 @@ function bindAccountActions() {
     });
 }
 
-function renderWithdrawAccounts() {
-    const normalized = accounts.map(normalizeAccount);
-    const funded = normalized.filter((account) => account.status === 'ACTIVE' && account.phase === 'FUNDED');
-
-    $('wAccount').innerHTML = [
-        '<option value="">Select funded account</option>',
-        ...funded.map((account) => {
-            return `<option value="${esc(account.id)}">${esc(account.account_code)} · FUNDED</option>`;
-        })
-    ].join('');
-    renderWithdrawalMethodFields();
-}
-
 async function load() {
     try {
         const profile = await api('/api/user/profile');
@@ -568,8 +555,7 @@ function setWalletWithdrawTab(tab) {
 
 function openWalletWithdrawModal() {
     if (!walletWithdrawModal) return;
-    renderWithdrawAccounts();
-    loadWithdrawalHistory();
+    renderWithdrawalMethodFields();
     setWalletWithdrawTab('new');
     walletWithdrawModal.classList.add('show');
     walletWithdrawModal.setAttribute('aria-hidden', 'false');
@@ -589,7 +575,10 @@ walletWithdrawModal?.addEventListener('click', (event) => {
     if (event.target === walletWithdrawModal) closeWalletWithdrawModal();
 });
 walletWithdrawNewTab?.addEventListener('click', () => setWalletWithdrawTab('new'));
-walletWithdrawHistoryTab?.addEventListener('click', () => setWalletWithdrawTab('history'));
+walletWithdrawHistoryTab?.addEventListener('click', () => {
+    setWalletWithdrawTab('history');
+    loadWithdrawalHistory();
+});
 document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && walletWithdrawModal?.classList.contains('show')) {
         closeWalletWithdrawModal();
@@ -701,8 +690,6 @@ $('wHistoryNext').addEventListener('click', () => { withdrawalHistoryPage++; loa
 
 $('wSubmit').addEventListener('click', async () => {
     try {
-        const fundedAccount = accounts.map(normalizeAccount).find((account) => String(account.id) === String($('wAccount').value) && account.status === 'ACTIVE' && account.phase === 'FUNDED');
-        if (!fundedAccount) throw new Error('Select an active funded account');
         const amountCents = Math.round(Number($('wAmount').value) * 100);
         if (!Number.isInteger(amountCents) || amountCents <= 0) throw new Error('Enter a valid withdrawal amount');
         const method = $('wMethod').value;
