@@ -378,8 +378,8 @@ app.post("/api/register", async (req, res) => {
     );
 
     await db.execute(
-      "INSERT INTO affiliates (user_id, affiliate_code) VALUES (?, ?)",
-      [result.insertId, newAffiliateCode],
+      "INSERT INTO affiliates (user_id, affiliate_code, legal_name) VALUES (?, ?, ?)",
+      [result.insertId, newAffiliateCode, legal_name],
     );
 
     const token = jwt.sign(
