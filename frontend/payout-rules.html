@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="description" content="FundFXT payout rules for funded account transfers and external withdrawals in the simulated trading environment.">
+<title>Payout Rules | FundFXT</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/legal.css">
+</head>
+<body class="legal-page">
+<header class="legal-nav">
+  <div class="legal-nav-inner">
+    <a class="legal-logo" href="/home.html">Fund<span>FXT</span></a>
+    <nav class="legal-nav-links" aria-label="Legal navigation">
+      <a href="/about.html">About</a>
+      <a href="/challenge-rules.html">Challenge Rules</a>
+      <a href="/payout-rules.html" aria-current="page">Payout Rules</a>
+      <a href="/withdrawal-rules.html">Withdrawal Rules</a>
+    </nav>
+    <div class="legal-nav-actions">
+      <a class="legal-btn" href="/auth.html">Login</a>
+      <a class="legal-btn primary" href="/buy-challenge.html">Get Funded</a>
+    </div>
+  </div>
+</header>
+
+<main>
+  <section class="page-header">
+    <div class="eyebrow">Authoritative Rules</div>
+    <h1>Payout Rules</h1>
+    <p>How eligible simulated trading profits move from a funded account to the FundFXT Wallet and then to an external withdrawal method.</p>
+  </section>
+
+  <div class="legal-container">
+    <div class="prelaunch-notice reveal">
+      <strong>Pre-launch notice:</strong> FundFXT is currently in pre-launch phase. This is a simulated trading environment. Services, rules, and offerings may change without notice as we refine our platform.
+    </div>
+
+    <div class="simulated-notice reveal stagger-1">
+      <strong>Simulated trading:</strong> All trading on FundFXT is simulated. No real financial markets are accessed. Challenge and payout rules simulate real prop firm conditions.
+    </div>
+
+    <section class="legal-section reveal stagger-2">
+      <span class="legal-badge">01 · Payout flow</span>
+      <h2>Two-Phase Payout Model</h2>
+      <p>FundFXT separates the payout process into two stages: an eligible funded-account profit transfer into the FundFXT Wallet, followed by a wallet withdrawal request to an external method.</p>
+      <div class="legal-table-wrap">
+        <table>
+          <thead><tr><th>Phase</th><th>Flow</th><th>Status</th></tr></thead>
+          <tbody>
+            <tr><td><strong>Phase 1 (B.3)</strong></td><td>Funded Account → FundFXT Wallet</td><td>On account approval</td></tr>
+            <tr><td><strong>Phase 2 (B.2)</strong></td><td>FundFXT Wallet → External</td><td>On wallet request</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="legal-section reveal stagger-3">
+      <span class="legal-badge">02 · B.3</span>
+      <h2>Phase 1: Account Payout</h2>
+      <h3>Warrior withdrawal tiers</h3>
+      <p>Warrior funded accounts use a tiered maximum amount based on the number of approved account withdrawals.</p>
+      <div class="legal-table-wrap">
+        <table>
+          <thead><tr><th>Tier</th><th>Withdrawals</th><th>Max Amount</th></tr></thead>
+          <tbody>
+            <tr><td>1</td><td>1–3</td><td>$200</td></tr>
+            <tr><td>2</td><td>4–7</td><td>$500</td></tr>
+            <tr><td>3</td><td>8–12</td><td>$700</td></tr>
+            <tr><td>4</td><td>13+</td><td>$1000</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Prototype payout</h3>
+      <p>Prototype provides a <strong>$100 one-time</strong> payout. After approval, the account status changes to <strong>PASSED</strong>.</p>
+
+      <h3>Account payout requirements</h3>
+      <ul>
+        <li>No open trades at the time of the request.</li>
+        <li>All applicable account rules must be met.</li>
+        <li>At least $100 of realized profit is required for the funded-account transfer.</li>
+        <li>A 7-day cooldown applies per account from the last approved account payout.</li>
+      </ul>
+    </section>
+
+    <section class="legal-section reveal stagger-4">
+      <span class="legal-badge">03 · B.2</span>
+      <h2>Phase 2: External Withdrawal</h2>
+      <p>After eligible funds are available in the FundFXT Wallet, a user can request an external withdrawal through an available method.</p>
+
+      <div class="legal-callout warning">
+        <p><strong>Wallet rule:</strong> A 14-day cooldown applies from the last APPROVED wallet withdrawal, and only one pending wallet withdrawal may exist at a time.</p>
+      </div>
+
+      <h3>Minimum withdrawal amounts</h3>
+      <div class="legal-table-wrap">
+        <table>
+          <thead><tr><th>Method</th><th>Minimum</th></tr></thead>
+          <tbody>
+            <tr><td>UPI</td><td>$10</td></tr>
+            <tr><td>Crypto</td><td>$25</td></tr>
+            <tr><td>Bank</td><td>$100</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Manual review</h3>
+      <p>External withdrawal requests are subject to manual admin review. The review may verify the request details, account history, eligibility, and applicable platform rules before a decision is recorded.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">04 · Liquidity</span>
+      <h2>Fixed Liquidity Disclosure</h2>
+      <div class="legal-callout warning">
+        <p><strong>FundFXT operates with fixed liquidity. If total approved payouts exceed available liquidity, distributions will be made on a pro-rata basis across all eligible traders.</strong></p>
+      </div>
+      <p>Payout availability is therefore subject to available liquidity and the operational conditions of the platform.</p>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">05 · Processing</span>
+      <h2>Payout Processing</h2>
+      <ul>
+        <li>Processing is handled on a best-effort basis.</li>
+        <li>No specific payout processing timeline is stated.</li>
+        <li>All payout activity is subject to available liquidity.</li>
+        <li>Manual admin review applies to all payout and withdrawal requests.</li>
+      </ul>
+      <div class="legal-callout success">
+        <p><strong>Review principle:</strong> Eligibility is assessed against the applicable account, wallet, and payout rules in effect for the platform.</p>
+      </div>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">06 · FAQ</span>
+      <h2>Common Questions</h2>
+      <div class="accordion">
+        <div class="accordion-item">
+          <button class="accordion-trigger" type="button" aria-expanded="false">How long does a payout take?<i aria-hidden="true">⌄</i></button>
+          <div class="accordion-panel"><div class="accordion-panel-inner"><p>Processing is best-effort and no specific timeline is stated. Requests are subject to manual review and available liquidity.</p></div></div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-trigger" type="button" aria-expanded="false">What if my withdrawal is rejected?<i aria-hidden="true">⌄</i></button>
+          <div class="accordion-panel"><div class="accordion-panel-inner"><p>A rejected external withdrawal does not represent an approved payout. Where applicable, the wallet amount is handled according to the platform's withdrawal processing flow, and a new request remains subject to the active eligibility and cooldown rules.</p></div></div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-trigger" type="button" aria-expanded="false">Can I have multiple pending withdrawals?<i aria-hidden="true">⌄</i></button>
+          <div class="accordion-panel"><div class="accordion-panel-inner"><p>No. The wallet withdrawal flow permits one pending withdrawal at a time. A new wallet request can be made after the existing request is resolved and the applicable rules allow it.</p></div></div>
+        </div>
+        <div class="accordion-item">
+          <button class="accordion-trigger" type="button" aria-expanded="false">What is the minimum I can withdraw?<i aria-hidden="true">⌄</i></button>
+          <div class="accordion-panel"><div class="accordion-panel-inner"><p>The minimum depends on the method: $10 for UPI, $25 for Crypto, and $100 for Bank withdrawals.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="legal-section reveal">
+      <span class="legal-badge">07 · Support</span>
+      <h2>Questions or Clarification?</h2>
+      <p>For questions about payout eligibility, wallet transfers, or withdrawal requests, contact FundFXT support.</p>
+      <div class="support-box">
+        <span class="support-email" id="supportEmail">support.fundfxt@gmail.com</span>
+        <button class="legal-btn copy-support" id="copySupport" type="button">Copy email</button>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="legal-footer">
+  <div class="legal-footer-inner">
+    <div class="legal-footer-grid">
+      <div><h3>FundFXT</h3><p>Simulated trading platform in pre-launch phase.</p></div>
+      <div><h4>Platform</h4><a href="/buy-challenge.html">Get Funded</a><a href="/dashboard.html">Dashboard</a></div>
+      <div><h4>Rules</h4><a href="/challenge-rules.html">Challenge Rules</a><a href="/payout-rules.html">Payout Rules</a><a href="/withdrawal-rules.html">Withdrawal Rules</a><a href="/affiliate-rules.html">Affiliate Rules</a></div>
+      <div><h4>Legal</h4><a href="/about.html">About</a><a href="/terms.html">Terms &amp; Conditions</a><a href="/privacy.html">Privacy Policy</a><a href="/refund.html">Refund Policy</a></div>
+    </div>
+    <div class="legal-footer-bottom">© FundFXT · Simulated trading environment</div>
+  </div>
+</footer>
+
+<script>
+(() => {
+  const sections = document.querySelectorAll('.reveal,.legal-section');
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(entries => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('is-visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {threshold:.12});
+    sections.forEach(el => observer.observe(el));
+  } else {
+    sections.forEach(el => el.classList.add('is-visible'));
+  }
+
+  document.querySelectorAll('.accordion-trigger').forEach(trigger => {
+    trigger.addEventListener('click', () => {
+      const item = trigger.closest('.accordion-item');
+      const open = item.classList.toggle('is-open');
+      trigger.setAttribute('aria-expanded', String(open));
+    });
+  });
+
+  const copyButton = document.getElementById('copySupport');
+  const email = document.getElementById('supportEmail');
+  copyButton?.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(email.textContent.trim());
+      copyButton.textContent = 'Copied';
+      copyButton.classList.add('copied');
+      setTimeout(() => {
+        copyButton.textContent = 'Copy email';
+        copyButton.classList.remove('copied');
+      }, 1600);
+    } catch {
+      copyButton.textContent = 'Select email';
+    }
+  });
+})();
+</script>
+</body>
+</html>
