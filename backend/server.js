@@ -3242,45 +3242,6 @@ app.post(
 
     let entry = serverPrice;
 
-    if (
-      Number.isFinite(Number(client_price))
-      && Number(client_price) > 0
-    ) {
-      const requestedPrice = Number(
-        client_price,
-      );
-      const instrument = instruments[symbol];
-
-      let slippageUnit = instrument.pip;
-
-      if (/JPY$/i.test(symbol)) {
-        slippageUnit = 0.01;
-      } else if (/^XAUUSD$/i.test(symbol)) {
-        slippageUnit = 0.1;
-      }
-
-      const maxSlippagePips = 2;
-      const maxSlippage =
-        slippageUnit * maxSlippagePips;
-      const difference =
-        Math.abs(
-          requestedPrice - serverPrice,
-        );
-
-      if (difference <= maxSlippage) {
-        entry = requestedPrice;
-      } else {
-        return res.status(409).json({
-          error: "PRICE_MOVED",
-          message:
-            "Price moved too much since you clicked. Please try again.",
-          client_price: requestedPrice,
-          server_price: serverPrice,
-          max_slippage_pips: maxSlippagePips,
-        });
-      }
-    }
-
     const tradeId =
       "TR-"
       + Date.now()
