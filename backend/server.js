@@ -4320,8 +4320,7 @@ app.get("/api/accounts/:id/summary", authenticateToken, async (req, res) => {
     return res.status(404).json({ error: "Account not found" });
 
   const account = accounts[0];
-  const config = await getChallengeConfig(account.challenge_model);
-  const risk = await checkAccountRisk(account);
+    const risk = await checkAccountRisk(account);
   const consistency = await calculateConsistencyScore(accountId);
   if (risk.breached) {
     await settleBreachedAccount(account.id, risk.reason);
