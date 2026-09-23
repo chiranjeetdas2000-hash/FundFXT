@@ -3541,7 +3541,7 @@ app.post(
 app.get("/api/orders", authenticateToken, async (req, res) => {
   try {
     const [orders] = await db.execute(
-      `SELECT request_id, model, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at
+      `SELECT request_ref, id, model, original_amount_cents, discount_amount_cents, final_amount_cents, currency, status, created_at
              FROM payment_requests
              WHERE user_id = ?
              ORDER BY created_at DESC`,
