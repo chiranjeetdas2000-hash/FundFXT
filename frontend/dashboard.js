@@ -26,6 +26,18 @@ const esc = (value) => {
     });
 };
 
+function displayPhase(account) {
+    return account.phase || account.profile?.phase || '—';
+}
+
+function phaseKey(account) {
+    const raw = String(account.phase || account.profile?.phase || '').toUpperCase();
+    if (raw === 'PHASE_1') return 'phase-1';
+    if (raw === 'PHASE_2') return 'phase-2';
+    if (raw === 'FUNDED') return 'funded';
+    return 'unknown';
+}
+
 async function api(path, options = {}) {
     const response = await fetch(API + path, {
         ...options,
@@ -170,7 +182,10 @@ function render() {
             return `
                 <article class="panel account tilt-card" data-tilt>
                     <h2>${esc(account.account_code)}</h2>
-                    <span class="pill">${esc(account.status || 'ACTIVE')}</span>
+                    <div class="account-badges">
+                        <span class="pill">${esc(account.status || 'ACTIVE')}</span>
+                        <span class="pill phase ${phaseKey(account)}">${esc(displayPhase(account))}</span>
+                    </div>
                     <div class="account-values">
                         <div>
                             <span>Balance</span>
