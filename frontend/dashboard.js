@@ -250,7 +250,7 @@ async function loadOrders() {
         $('orderRows').innerHTML = (data.orders || []).map((order) => {
             return `
                 <tr>
-                    <td>${esc(order.order_ref)}</td>
+                    <td>${esc(order.request_ref || order.id)}</td>
                     <td>${esc(order.model)}</td>
                     <td>${money(order.original_amount_cents)}</td>
                     <td>${money(order.discount_amount_cents)}</td>
