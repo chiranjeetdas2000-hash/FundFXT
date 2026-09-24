@@ -4134,6 +4134,27 @@ app.post(
           return res.status(400).json({ error: "Prototype allows only one withdrawal" });
         }
         amountToApproveCents = Math.min(10000, profitCents);
+      } else if (modelKey === "prime") {
+        tierMaxCents = Math.floor(
+          Number(account.initial_balance_cents || 0) * 500 / 10000
+        );
+        const [priorRows] = await connection.execute(
+          "SELECT id FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED' LIMIT 1",
+          [account.id],
+        );
+        if (priorRows.length) {
+          await connection.rollback();
+          return res.status(400).json({ error: "Prime allows only one payout" });
+        }
+        if (profitCents < tierMaxCents) {
+          await connection.rollback();
+          return res.status(400).json({
+            error: "Prime payout requires at least 5% profit on initial balance",
+            required_profit_cents: tierMaxCents,
+            current_profit_cents: profitCents,
+          });
+        }
+        amountToApproveCents = tierMaxCents;
       } else if (modelKey === "warrior") {
         const [countRows] = await connection.execute(
           "SELECT COUNT(*) AS approved_count FROM withdrawal_request WHERE account_id = ? AND kind = 'TRADER_PROFIT' AND status = 'APPROVED'",
@@ -4189,6 +4210,7 @@ app.post(
         amount_to_approve: amountToApproveCents,
         extra_remaining: Math.max(0, profitCents - amountToApproveCents),
         is_prototype_one_time: modelKey === "prototype",
+        is_prime_one_time: modelKey === "prime",
         rules_status: {
           open_trades: openTradeCount === 0,
           daily_dd_ok: Number(risk.currentDailyLoss || 0) < Number(risk.dailyLossLimit || 0),
@@ -4294,8 +4316,10 @@ app.post(
       const newDayStartBal = Math.max(0, Number(account.day_start_balance_cents || 0) - DD_REDUCTION);
       const newDayStartEq = Math.max(0, Number(account.day_start_equity_cents || 0) - DD_REDUCTION);
       const newEqHWM = Math.max(Number(account.initial_balance_cents || 0), oldEquityHwm - HWM_REDUCTION);
-      const isPrototype = parseChallengeModel(account.challenge_model)?.model_key === "prototype";
-      const newStatus = isPrototype ? "PASSED" : "ACTIVE";
+      const fundedModelKey = parseChallengeModel(account.challenge_model)?.model_key;
+      const isOneTimePayoutModel =
+        fundedModelKey === "prototype" || fundedModelKey === "prime";
+      const newStatus = isOneTimePayoutModel ? "PASSED" : "ACTIVE";
 
       await connection.execute(
         "UPDATE accounts SET balance_cents = ?, equity_cents = ?, balance_hwm_cents = ?, equity_hwm_cents = ?, day_start_balance_cents = ?, day_start_equity_cents = ?, status = ?, force_hwm_reset = 1, updated_at = NOW() WHERE id = ?",
