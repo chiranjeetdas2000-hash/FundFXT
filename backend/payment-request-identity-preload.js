@@ -81,6 +81,8 @@ function installPaymentRequestIdentity(app) {
     two_step: "warrior_5k",
     prototype_5k: "prototype_5k",
     warrior_5k: "warrior_5k",
+    prime_10k: "prime_10k",
+    prime: "prime_10k",
   };
 
   async function calculatePrice(connection, model, affiliateCode) {
