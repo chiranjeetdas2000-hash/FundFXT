@@ -117,43 +117,27 @@ $('logout').addEventListener('click', () => {
 let accounts = [];
 
 function normalizeAccount(account) {
-    const profile = account.account_profile || {};
-    const rules = profile.rules || {};
-    const initial = Number(account.initial_balance_cents ?? account.account_size_cents ?? 0);
-    const balance = Number(account.balance_cents ?? initial);
-    const equity = Number(account.equity_cents ?? balance);
-    const size = initial || Number(account.account_size_cents || 0);
-    const model = String(account.challenge_model || profile.model || '').toLowerCase();
-
-    const target = Number(
-        rules.profitTargetCents
-        ?? account.profit_target_cents
-        ?? account.target_profit_cents
-        ?? (size && model.includes('5k') && String(account.phase || profile.phase || '').toUpperCase() !== 'FUNDED' ? size * 0.08 : 0)
-    );
-
-    const daily = Number(
-        rules.dailyDrawdownCents
-        ?? account.daily_drawdown_cents
-        ?? (size && model.includes('5k') ? size * 0.05 : 0)
-    );
-
-    const max = Number(
-        rules.maxDrawdownCents
-        ?? account.max_drawdown_cents
-        ?? (size && model.includes('5k') ? size * 0.08 : 0)
-    );
+    const initial = Number(account.initial_balance_cents || 0);
+    const balance = Number(account.balance_cents || initial);
+    const equity = Number(account.equity_cents || balance);
+    const profit_cents = Number(account.profit_cents || 0);
+    const profit_pct = Number(account.profit_pct || 0);
+    const target_cents = Number(account.target_cents || 0);
+    const target_progress_pct = Number(account.target_progress_pct || 0);
+    const model_key = account.model_key || '';
+    const rules = account.rules || {};
 
     return {
         ...account,
-        profile,
-        rules,
         initial,
         balance,
         equity,
-        target,
-        daily,
-        max
+        profit_cents,
+        profit_pct,
+        target_cents,
+        target_progress_pct,
+        model_key,
+        rules,
     };
 }
 
@@ -169,23 +153,18 @@ function render() {
 
     $('accounts').innerHTML = normalized.length
         ? normalized.map((account) => {
-            const progress = account.target
-                ? Math.max(
-                    0,
-                    Math.min(
-                        100,
-                        ((account.balance - account.initial) / account.target) * 100
-                    )
-                )
-                : 0;
+            const progress = Math.max(0, Math.min(100, account.target_progress_pct));
 
             return `
-                <article class="panel account tilt-card" data-tilt>
-                    <h2>${esc(account.account_code)}</h2>
+                <article class="panel account-card tilt-card" data-tilt>
                     <div class="account-badges">
-                        <span class="pill">${esc(account.status || 'ACTIVE')}</span>
-                        <span class="pill phase ${phaseKey(account)}">${esc(displayPhase(account))}</span>
+                        <span class="badge model-badge">${esc(account.model_key ? account.model_key.toUpperCase() : '—')}</span>
+                        <span class="badge phase-badge">${esc(displayPhase(account))}</span>
+                        <span class="badge status-badge">${esc(account.status || 'ACTIVE')}</span>
                     </div>
+
+                    <div class="account-code">${esc(account.account_code)}</div>
+
                     <div class="account-values">
                         <div>
                             <span>Balance</span>
@@ -195,21 +174,28 @@ function render() {
                             <span>Equity</span>
                             <b>${money(account.equity)}</b>
                         </div>
-                        <div>
-                            <span>Model</span>
-                            <b>${esc(account.challenge_model || account.profile.model || 'Trading')}</b>
+                    </div>
+
+                    <div class="account-progress">
+                        <div class="progress-row">
+                            <div class="progress-label">Progress</div>
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width:${progress}%"></div>
+                            </div>
+                            <div class="progress-value">${progress.toFixed(1)}%</div>
                         </div>
-                        <div>
-                            <span>Target</span>
-                            <b>${account.target ? money(account.target) : '—'}</b>
+
+                        <div class="pl-row">
+                            <div class="pl-label">P/L</div>
+                            <div class="pl-value ${account.profit_cents >= 0 ? 'positive' : 'negative'}">
+                                ${account.profit_cents >= 0 ? '+' : ''}${money(account.profit_cents)}
+                            </div>
                         </div>
                     </div>
-                    <div class="progress-label">
-                        Profit target progress ${account.target ? progress.toFixed(1) + '%' : '—'}
-                    </div>
-                    <div class="actions">
-                        <button class="btn" type="button" data-account-overview="${encodeURIComponent(account.account_code)}">Overview</button>
+
+                    <div class="account-actions">
                         <button class="btn" type="button" data-account-terminal="${encodeURIComponent(account.account_code)}">Terminal</button>
+                        <button class="btn" type="button" data-account-overview="${encodeURIComponent(account.account_code)}">Overview</button>
                     </div>
                 </article>
             `;
@@ -220,7 +206,7 @@ function render() {
         return `
             <article class="rule-card tilt-card" data-tilt>
                 <b>${esc(account.account_code)}</b>
-                <p>Profit target: ${account.target ? money(account.target) : '—'} · Daily DD: ${account.daily ? money(account.daily) : '—'} · Max DD: ${account.max ? money(account.max) : '—'}</p>
+                <p>Profit target: ${account.target_cents ? money(account.target_cents) : '—'} · Daily DD: ${account.rules.daily_dd_bps != null ? account.rules.daily_dd_bps / 100 + '%' : '—'} · Max DD: ${account.rules.max_dd_bps != null ? account.rules.max_dd_bps / 100 + '%' : '—'}</p>
                 <button class="btn rule-button" type="button" data-account-overview="${encodeURIComponent(account.account_code)}">Open full rules</button>
             </article>
         `;
