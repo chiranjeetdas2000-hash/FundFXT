@@ -618,13 +618,90 @@ app.get("/api/get-user-by-email", async (req, res) => {
 
 // ========== ACCOUNTS ==========
 // Rate-limit account list requests per authenticated user.
+function extractModelKey(challengeModel) {
+  const s = String(challengeModel || '').toLowerCase().trim();
+  if (!s) return null;
+  const prefix = s.split('_')[0];
+  return prefix || null;
+}
+
 app.get("/api/accounts", authenticateToken, accountsRateLimiter, async (req, res) => {
   try {
     const [accounts] = await db.execute(
       "SELECT * FROM accounts WHERE user_id = ?",
       [req.userId],
     );
-    res.json({ accounts });
+
+    if (!accounts.length) {
+      return res.json({ accounts: [] });
+    }
+
+    const seen = new Set();
+    const rulesMap = new Map();
+
+    for (const acc of accounts) {
+      const modelKey = extractModelKey(acc.challenge_model);
+      const phase = acc.phase;
+      if (!modelKey || !phase) continue;
+
+      const key = modelKey + '::' + phase;
+      if (seen.has(key)) continue;
+      seen.add(key);
+
+      const [rows] = await db.execute(
+        "SELECT profit_target_bps, daily_dd_bps, max_dd_bps, " +
+        "consistency_bps, daily_dd_basis, max_dd_basis " +
+        "FROM challenge_phase_rules " +
+        "WHERE model_key = ? AND phase = ? AND is_active = 1 " +
+        "LIMIT 1",
+        [modelKey, phase]
+      );
+      rulesMap.set(key, rows[0] || null);
+    }
+
+    const enriched = accounts.map(acc => {
+      const modelKey = extractModelKey(acc.challenge_model);
+      const phase = acc.phase;
+      const key = modelKey + '::' + phase;
+      const rules = rulesMap.get(key) || {};
+
+      const initial = Number(acc.initial_balance_cents || 0);
+      const balance = Number(acc.balance_cents || 0);
+      const equity = Number(acc.equity_cents || 0);
+
+      const profit_cents = balance - initial;
+      const profit_pct = initial > 0
+        ? (profit_cents / initial) * 100
+        : 0;
+
+      const profit_target_bps = rules.profit_target_bps;
+      const target_cents = (profit_target_bps != null && initial > 0)
+        ? Math.round(initial * Number(profit_target_bps) / 10000)
+        : 0;
+
+      const target_progress_pct = (target_cents > 0)
+        ? Math.min(100, Math.max(0, (profit_cents / target_cents) * 100))
+        : 0;
+
+      return {
+        ...acc,
+        model_key: modelKey,
+        profit_cents,
+        profit_pct,
+        target_cents,
+        target_progress_pct,
+        rules: {
+          profit_target_bps: rules.profit_target_bps || null,
+          daily_dd_bps: rules.daily_dd_bps || null,
+          max_dd_bps: rules.max_dd_bps || null,
+          consistency_bps: rules.consistency_bps || null,
+          daily_dd_basis: rules.daily_dd_basis || null,
+          max_dd_basis: rules.max_dd_basis || null,
+        }
+      };
+    });
+
+    res.json({ accounts: enriched });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
