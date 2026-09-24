@@ -716,10 +716,16 @@ async function ensurePrimeChallengeConfig() {
     ] of primeSizes) {
       await db.execute(
         "INSERT INTO challenge_sizes " +
-        "(model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps, is_active, sort_order) " +
-        "VALUES ('prime', ?, ?, ?, ?, ?, 1, ?) " +
-        "ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), starting_balance_cents = VALUES(starting_balance_cents), price_cents = VALUES(price_cents), affiliate_discount_bps = VALUES(affiliate_discount_bps), is_active = 1, sort_order = VALUES(sort_order)",
-        [sizeKey, displayName, startingBalanceCents, priceCents, affiliateDiscountBps, sortOrder],
+        "(model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps, is_active) " +
+        "VALUES ('prime', ?, ?, ?, ?, ?, 1) " +
+        "ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), starting_balance_cents = VALUES(starting_balance_cents), price_cents = VALUES(price_cents), affiliate_discount_bps = VALUES(affiliate_discount_bps), is_active = 1",
+        [
+          sizeKey,
+          displayName,
+          startingBalanceCents,
+          priceCents,
+          affiliateDiscountBps,
+        ],
       );
     }
 
