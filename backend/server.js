@@ -800,6 +800,10 @@ async function getModelWithDefaultSize(model_key) {
 async function calculateServerPrice(model, affiliateCode) {
   const parsed = parseChallengeModel(model);
 
+  if (parsed?.model_key === "prime") {
+    throw new Error("Prime 10K is giveaway-only and cannot be purchased");
+  }
+
   let priceCents;
   let affiliateDiscountBps;
   let resolvedModel;
