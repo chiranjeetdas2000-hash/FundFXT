@@ -68,6 +68,7 @@ const db = mysql.createPool({
   try {
     await db.query("SELECT 1");
     console.log("✅ Database connected");
+    await ensurePrimeChallengeConfig();
   } catch (err) {
     console.error("❌ DB error:", err.message);
   }
@@ -635,6 +636,8 @@ const MODEL_MAP = {
   two_step: "warrior_5k",
   prototype_5k: "prototype_5k",
   warrior_5k: "warrior_5k",
+  prime_10k: "prime_10k",
+  prime: "prime_10k",
 };
 
 async function getChallengeConfig(modelKey) {
@@ -655,6 +658,8 @@ function parseChallengeModel(input) {
     warrior_10k: { model_key: "warrior", size_key: "10k" },
     warrior_15k: { model_key: "warrior", size_key: "15k" },
     warrior_25k: { model_key: "warrior", size_key: "25k" },
+    prime_10k: { model_key: "prime", size_key: "10k" },
+    prime: { model_key: "prime", size_key: "10k" },
     direct: { model_key: "prototype", size_key: "5k" },
     two_step: { model_key: "warrior", size_key: "5k" },
     prototype: { model_key: "prototype", size_key: "5k" },
@@ -662,6 +667,110 @@ function parseChallengeModel(input) {
   };
 
   return mapping[normalized] || null;
+}
+
+
+async function ensurePrimeChallengeConfig() {
+  // Prime is a giveaway-only 10K model. Keep its phase rules in the same
+  // canonical challenge_phase_rules table used by checkAccountRisk().
+  try {
+    const phaseColumns = [
+      ["daily_dd_basis", "VARCHAR(32) NOT NULL DEFAULT 'BALANCE'"],
+      ["max_dd_basis", "VARCHAR(64) NOT NULL DEFAULT 'BALANCE'"],
+      ["news_trading_allowed", "TINYINT NOT NULL DEFAULT 0"],
+      ["max_daily_target_contribution_bps", "INT NOT NULL DEFAULT 0"],
+      ["phase_time_limit_days", "INT NOT NULL DEFAULT 0"],
+      ["weekend_holding_allowed", "TINYINT NOT NULL DEFAULT 1"],
+    ];
+
+    for (const [column, definition] of phaseColumns) {
+      const [rows] = await db.execute(
+        "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'challenge_phase_rules' AND COLUMN_NAME = ? LIMIT 1",
+        [column],
+      );
+      if (!rows.length) {
+        await db.execute(
+          "ALTER TABLE challenge_phase_rules ADD COLUMN " + column + " " + definition,
+        );
+      }
+    }
+
+    const [sizeRows] = await db.execute(
+      "SELECT id FROM challenge_sizes WHERE model_key = 'prime' AND size_key = '10k' LIMIT 1",
+    );
+    if (!sizeRows.length) {
+      await db.execute(
+        "INSERT INTO challenge_sizes (model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps, is_active) VALUES ('prime', '10k', 'Prime 10K', 1000000, 0, 0, 1)",
+      );
+    } else {
+      await db.execute(
+        "UPDATE challenge_sizes SET display_name = 'Prime 10K', starting_balance_cents = 1000000, price_cents = 0, affiliate_discount_bps = 0, is_active = 1 WHERE model_key = 'prime' AND size_key = '10k'",
+      );
+    }
+
+    const rules = [
+      ["PHASE_1", 500, 500, 1000, 2500, 2, 1, 0.01, 1.00, 100, 15, 0, 1, 3500, 15],
+      ["PHASE_2", 400, 500, 1000, 2500, 2, 1, 0.01, 1.00, 100, 15, 0, 1, 3500, 15],
+      ["PHASE_3", 300, 400, 800, 2500, 2, 1, 0.01, 1.00, 100, 15, 0, 1, 3500, 15],
+      ["FUNDED", 0, 400, 800, 2500, 2, 1, 0.01, 1.00, 100, 0, 0, 1, 0, 0],
+    ];
+
+    for (const rule of rules) {
+      const [
+        phase, profitTargetBps, dailyDdBps, maxDdBps, consistencyBps,
+        maxTradesPerDay, maxOpenPositions, minLot, maxLot, leverage,
+        minTradingDays, weekendHoldingAllowed, newsTradingAllowed,
+        maxDailyTargetContributionBps, phaseTimeLimitDays,
+      ] = rule;
+
+      const [existing] = await db.execute(
+        "SELECT id FROM challenge_phase_rules WHERE model_key = 'prime' AND phase = ? LIMIT 1",
+        [phase],
+      );
+
+      if (existing.length) {
+        await db.execute(
+          `UPDATE challenge_phase_rules
+           SET profit_target_bps = ?, daily_dd_bps = ?, max_dd_bps = ?,
+               consistency_bps = ?, max_trades_per_day = ?,
+               max_open_positions = ?, min_lot = ?, max_lot = ?, leverage = ?,
+               min_trading_days = ?, daily_dd_basis = 'BALANCE',
+               max_dd_basis = 'TRAILING_BALANCE_HWM',
+               weekend_holding_allowed = ?, news_trading_allowed = ?,
+               max_daily_target_contribution_bps = ?, phase_time_limit_days = ?,
+               is_active = 1
+           WHERE id = ?`,
+          [
+            profitTargetBps, dailyDdBps, maxDdBps, consistencyBps,
+            maxTradesPerDay, maxOpenPositions, minLot, maxLot, leverage,
+            minTradingDays, weekendHoldingAllowed, newsTradingAllowed,
+            maxDailyTargetContributionBps, phaseTimeLimitDays, existing[0].id,
+          ],
+        );
+      } else {
+        await db.execute(
+          `INSERT INTO challenge_phase_rules
+           (model_key, phase, profit_target_bps, daily_dd_bps, max_dd_bps,
+            consistency_bps, max_trades_per_day, max_open_positions, min_lot,
+            max_lot, leverage, min_trading_days, daily_dd_basis, max_dd_basis,
+            weekend_holding_allowed, news_trading_allowed,
+            max_daily_target_contribution_bps, phase_time_limit_days, is_active)
+           VALUES ('prime', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'BALANCE',
+                   'TRAILING_BALANCE_HWM', ?, ?, ?, ?, 1)`,
+          [
+            phase, profitTargetBps, dailyDdBps, maxDdBps, consistencyBps,
+            maxTradesPerDay, maxOpenPositions, minLot, maxLot, leverage,
+            minTradingDays, weekendHoldingAllowed, newsTradingAllowed,
+            maxDailyTargetContributionBps, phaseTimeLimitDays,
+          ],
+        );
+      }
+    }
+
+    console.log("✅ Prime challenge configuration ensured");
+  } catch (error) {
+    console.error("❌ Prime challenge configuration failed:", error.message);
+  }
 }
 
 async function getChallengeSize(model_key, size_key) {
@@ -1161,6 +1270,11 @@ async function refreshBiQuotePrices() {
     global.priceCache[q.symbol] = q;
   }
   // Quotes remain available when the market is closed, but the trade engine must not mutate positions on weekends.
+  if (typeof closeWeekendPrimePositions === "function") {
+    closeWeekendPrimePositions().catch((e) =>
+      console.error("Prime weekend-close engine:", e.message),
+    );
+  }
   if (!isForexWeekend() && typeof processLivePrices === "function") {
     processLivePrices().catch((e) =>
       console.error("BiQuote trade engine:", e.message),
@@ -1740,6 +1854,13 @@ async function checkAccountRisk(account) {
   } else if (currentMaxDrawdown >= maxDrawdownLimit) {
     breached = true;
     reason = "MAX_DRAWDOWN_BREACH";
+  } else if (
+    Number(config.phase_time_limit_days || 0) > 0
+    && account.created_at
+    && (Date.now() - new Date(account.created_at).getTime()) >= Number(config.phase_time_limit_days) * 24 * 60 * 60 * 1000
+  ) {
+    breached = true;
+    reason = "PHASE_TIME_LIMIT_BREACH";
   }
 
   const [tradeCountRow] = await db.execute(
@@ -1785,6 +1906,11 @@ async function checkAccountRisk(account) {
     leverage,
     profitTargetBps,
     consistencyBps,
+    minTradingDays: Math.max(0, Number(config.min_trading_days || 0)),
+    weekendHoldingAllowed: config.weekend_holding_allowed == null ? 1 : Number(config.weekend_holding_allowed),
+    newsTradingAllowed: config.news_trading_allowed == null ? 0 : Number(config.news_trading_allowed),
+    maxDailyTargetContributionBps: Math.max(0, Number(config.max_daily_target_contribution_bps || 0)),
+    phaseTimeLimitDays: Math.max(0, Number(config.phase_time_limit_days || 0)),
   };
 }
 
@@ -1961,6 +2087,42 @@ async function evaluateProfitTargetLocked(connection, account) {
     return { passed: false, reviewId: null };
   }
 
+  const minTradingDays = Math.max(0, Number(phaseConfig.min_trading_days || 0));
+  if (minTradingDays > 0) {
+    const [tradingDayRows] = await connection.execute(
+      "SELECT COUNT(DISTINCT trading_day) AS count FROM trades WHERE account_id = ? AND status = 'CLOSED' AND trading_day IS NOT NULL",
+      [currentAccount.id],
+    );
+    const tradingDays = Number(tradingDayRows[0]?.count || 0);
+    if (tradingDays < minTradingDays) {
+      console.log("[TARGET] Minimum trading days not reached:", currentAccount.account_code, tradingDays, "/", minTradingDays);
+      return { passed: false, reviewId: null };
+    }
+  }
+
+  const consistencyBps = phaseConfig.consistency_bps == null ? 0 : Number(phaseConfig.consistency_bps);
+  if (consistencyBps > 0) {
+    const consistency = await calculateConsistencyScore(currentAccount.id);
+    if (consistency.totalProfitCents > 0 && consistency.scoreBps > consistencyBps) {
+      console.log("[TARGET] Consistency rule not reached:", currentAccount.account_code, consistency.scoreBps, ">", consistencyBps);
+      return { passed: false, reviewId: null };
+    }
+  }
+
+  const maxDailyContributionBps = Math.max(0, Number(phaseConfig.max_daily_target_contribution_bps || 0));
+  if (maxDailyContributionBps > 0 && targetCents > 0) {
+    const dailyCapCents = Math.floor(targetCents * maxDailyContributionBps / 10000);
+    const [dailyRows] = await connection.execute(
+      "SELECT MAX(daily_pnl) AS highest_day_cents FROM (SELECT trading_day, SUM(realized_profit_cents) AS daily_pnl FROM trades WHERE account_id = ? AND status = 'CLOSED' AND realized_profit_cents > 0 AND trading_day IS NOT NULL GROUP BY trading_day) d",
+      [currentAccount.id],
+    );
+    const highestDayCents = Number(dailyRows[0]?.highest_day_cents || 0);
+    if (highestDayCents > dailyCapCents) {
+      console.log("[TARGET] Daily target contribution cap not reached:", currentAccount.account_code, highestDayCents, ">", dailyCapCents);
+      return { passed: false, reviewId: null };
+    }
+  }
+
   console.log("[TARGET] Profit target reached:", currentAccount.account_code, "phase=", phase, "profit_cents=", currentProfitCents, "target_cents=", targetCents);
 
   const [openTrades] = await connection.execute(
@@ -2004,7 +2166,10 @@ async function evaluateProfitTargetLocked(connection, account) {
 
   const finalAccount = finalRows[0];
   const finalProfitCents = Number(finalAccount.realized_pnl_cents || 0);
-  const toPhase = phase === "PHASE_1" ? "PHASE_2" : phase === "PHASE_2" ? "FUNDED" : null;
+  const toPhase =
+    parsed.model_key === "prime"
+      ? (phase === "PHASE_1" ? "PHASE_2" : phase === "PHASE_2" ? "PHASE_3" : phase === "PHASE_3" ? "FUNDED" : null)
+      : (phase === "PHASE_1" ? "PHASE_2" : phase === "PHASE_2" ? "FUNDED" : null);
   if (!toPhase) {
     console.warn("[TARGET] No next phase mapping for:", phase);
     return { passed: false, reviewId: null };
@@ -2055,7 +2220,11 @@ async function createPhaseAccount(connection, { sourceAccount, phase }) {
   }
 
   const nextPhase = String(phase || "").toUpperCase();
-  if (!["PHASE_2", "FUNDED"].includes(nextPhase)) {
+  const allowedNextPhases =
+    parsed.model_key === "prime"
+      ? ["PHASE_2", "PHASE_3", "FUNDED"]
+      : ["PHASE_2", "FUNDED"];
+  if (!allowedNextPhases.includes(nextPhase)) {
     throw new Error(`Invalid next phase: ${nextPhase}`);
   }
 
@@ -3119,6 +3288,139 @@ async function processLivePrices() {
         try { await connection.rollback(); } catch {}
       }
       console.error("[TP/SL SETTLE] Failed:", trade.trade_id, error.message);
+    } finally {
+      if (connection) connection.release();
+    }
+  }
+}
+
+async function closeWeekendPrimePositions() {
+  const now = new Date();
+  const day = now.getUTCDay();
+  const hour = now.getUTCHours();
+
+  // Friday 21:00 UTC through Sunday 23:59 UTC.
+  const inWeekendCloseWindow =
+    (day === 5 && hour >= 21) ||
+    day === 6 ||
+    day === 0;
+
+  if (!inWeekendCloseWindow) return;
+
+  let accounts = [];
+  try {
+    const [rows] = await db.execute(
+      `SELECT a.*
+       FROM accounts a
+       JOIN challenge_phase_rules r
+         ON r.model_key = 'prime'
+        AND r.phase = a.phase
+        AND r.is_active = 1
+       WHERE a.challenge_model = 'prime_10k'
+         AND a.status = 'ACTIVE'
+         AND COALESCE(r.weekend_holding_allowed, 1) = 0
+       ORDER BY a.id ASC`,
+    );
+    accounts = rows;
+  } catch (error) {
+    console.error("[PRIME WEEKEND CLOSE] Account query failed:", error.message);
+    return;
+  }
+
+  for (const account of accounts) {
+    let connection;
+    try {
+      connection = await db.getConnection();
+      await connection.beginTransaction();
+
+      const [lockedAccounts] = await connection.execute(
+        `SELECT a.*
+         FROM accounts a
+         JOIN challenge_phase_rules r
+           ON r.model_key = 'prime'
+          AND r.phase = a.phase
+          AND r.is_active = 1
+         WHERE a.id = ?
+           AND a.challenge_model = 'prime_10k'
+           AND a.status = 'ACTIVE'
+           AND COALESCE(r.weekend_holding_allowed, 1) = 0
+         FOR UPDATE`,
+        [account.id],
+      );
+      if (!lockedAccounts.length) {
+        await connection.rollback();
+        continue;
+      }
+
+      const lockedAccount = lockedAccounts[0];
+      const [openTrades] = await connection.execute(
+        "SELECT * FROM trades WHERE account_id = ? AND status = 'OPEN' FOR UPDATE",
+        [lockedAccount.id],
+      );
+
+      let closedCount = 0;
+      let realizedCents = 0;
+
+      for (const trade of openTrades) {
+        const quote = global.priceCache?.[trade.symbol];
+        if (!quote) {
+          throw new Error(`Price not available for ${trade.symbol}.`);
+        }
+
+        const exitPrice =
+          trade.side === "BUY" ? Number(quote.bid) : Number(quote.ask);
+
+        if (!Number.isFinite(exitPrice) || exitPrice <= 0) {
+          throw new Error(`Exit price unavailable for ${trade.symbol}.`);
+        }
+
+        const settlement = await settleClosedTrade(connection, {
+          trade,
+          exitPrice,
+          closeReason: "WEEKEND_CLOSE",
+          account: lockedAccount,
+        });
+
+        realizedCents += settlement.realizedCents;
+        closedCount += 1;
+      }
+
+      if (closedCount > 0) {
+        const targetResult = await evaluateProfitTargetLocked(connection, lockedAccount);
+        await connection.commit();
+
+        await createNotification(
+          lockedAccount.user_id,
+          "WEEKEND_CLOSE",
+          "Prime positions closed for the weekend",
+          `Prime 10K positions were automatically closed at the Friday 21:00 UTC weekend cutoff. ${closedCount} position(s) closed; realized P/L: ${(realizedCents / 100).toFixed(2)}.`,
+          null,
+        );
+
+        if (targetResult.passed && targetResult.reviewId) {
+          notifyTargetPassed(
+            targetResult.reviewId,
+            lockedAccount.id,
+            lockedAccount.user_id,
+          ).catch((err) => console.error("Prime weekend target notification failed:", err));
+        }
+
+        console.log(
+          "[PRIME WEEKEND CLOSE]",
+          lockedAccount.account_code,
+          "closed=",
+          closedCount,
+          "realized_cents=",
+          realizedCents,
+        );
+      } else {
+        await connection.commit();
+      }
+    } catch (error) {
+      if (connection) {
+        try { await connection.rollback(); } catch {}
+      }
+      console.error("[PRIME WEEKEND CLOSE] Failed:", account.account_code, error.message);
     } finally {
       if (connection) connection.release();
     }
