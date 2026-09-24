@@ -449,107 +449,151 @@ h2 {
     gap: 13px;
 }
 
-.account {
+.account-card {
     min-height: 245px;
-    padding: 18px;
+    padding: 20px;
+    overflow: hidden;
 }
 
-.account::after {
+.account-card::after {
+    position: absolute;
     top: -105px;
     right: -105px;
-    bottom: auto;
     width: 190px;
     height: 190px;
+    content: '';
     background: rgba(0, 181, 106, 0.08);
     filter: none;
+    pointer-events: none;
 }
 
-.account:hover::after {
+.account-card:hover::after {
     transform: scale(1.35);
-}
-
-.account h2 {
-    letter-spacing: 0.2px;
-}
-
-.pill {
-    display: inline-flex;
-    align-items: center;
-    margin: 10px 0;
-    padding: 5px 9px;
-    color: #7ce6b7;
-    background: rgba(0, 181, 106, 0.08);
-    border: 1px solid rgba(0, 181, 106, 0.25);
-    border-radius: 999px;
-    font-size: 9px;
-    font-weight: 700;
-    box-shadow: 0 0 18px rgba(0, 181, 106, 0.06);
 }
 
 .account-badges {
     display: flex;
-    gap: 8px;
+    gap: 7px;
     flex-wrap: wrap;
-    margin-top: 10px;
-    margin-bottom: 12px;
+    margin-bottom: 16px;
 }
 
-.pill.phase {
-    background: rgba(148,163,184,.10);
-    color: #94a3b8;
-    border: 1px solid rgba(148,163,184,.18);
+.account-card .badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 24px;
+    padding: 4px 9px;
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: .35px;
 }
 
-.pill.phase.phase-1 {
-    background: rgba(250,204,21,.10);
+.account-card .model-badge {
+    color: #7ce6b7;
+    background: rgba(0, 181, 106, 0.09);
+    border-color: rgba(0, 181, 106, 0.24);
+}
+
+.account-card .phase-badge {
     color: #fbbf24;
-    border-color: rgba(250,204,21,.22);
+    background: rgba(250, 204, 21, 0.09);
+    border-color: rgba(250, 204, 21, 0.22);
 }
 
-.pill.phase.phase-2 {
-    background: rgba(251,146,60,.10);
-    color: #fb923c;
-    border-color: rgba(251,146,60,.22);
+.account-card .status-badge {
+    color: #00e59a;
+    background: rgba(0, 229, 154, 0.09);
+    border-color: rgba(0, 229, 154, 0.22);
 }
 
-.pill.phase.funded {
-    background: rgba(0,181,106,.14);
-    color: #67e8b0;
-    border-color: rgba(0,181,106,.28);
+.account-code {
+    color: var(--text);
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: .25px;
+    word-break: break-all;
 }
 
-.account-values {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 11px;
-    padding-top: 13px;
+.account-card .account-values {
+    margin-top: 18px;
+    padding-top: 15px;
     border-top: 1px solid rgba(255, 255, 255, 0.07);
 }
 
-.account-values span {
-    display: block;
-    color: var(--muted);
-    font-size: 9px;
+.account-card .account-values b {
+    font-size: 14px;
 }
 
-.account-values b {
-    display: block;
-    margin-top: 4px;
+.account-progress {
+    margin-top: 18px;
+}
+
+.progress-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 10px;
+}
+
+.progress-label,
+.progress-value,
+.pl-label {
+    color: var(--muted);
+    font-size: 9px;
+    font-weight: 700;
+}
+
+.progress-bar {
+    height: 7px;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.07);
+    border-radius: 999px;
+}
+
+.progress-fill {
+    height: 100%;
+    min-width: 0;
+    background: var(--green);
+    border-radius: inherit;
+    box-shadow: 0 0 16px rgba(0, 181, 106, 0.28);
+    transition: width 300ms ease;
+}
+
+.progress-value {
+    min-width: 42px;
     color: var(--text);
-    font-size: 13px;
+    text-align: right;
 }
 
-.progress-label {
-    margin-top: 13px;
-    color: var(--muted);
-    font-size: 9px;
+.pl-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 12px;
 }
 
-.actions {
+.pl-value {
+    font-size: 14px;
+    font-weight: 800;
+}
+
+.pl-value.positive {
+    color: var(--green);
+}
+
+.pl-value.negative {
+    color: var(--red);
+}
+
+.account-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 8px;
-    margin-top: 14px;
+    margin-top: 18px;
 }
 
 .btn {
@@ -914,7 +958,7 @@ h2 {
         white-space: nowrap;
     }
 
-    .actions {
+    .account-actions {
         grid-template-columns: 1fr;
     }
 
