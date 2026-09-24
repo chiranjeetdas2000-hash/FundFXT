@@ -63,6 +63,8 @@ function installDatabaseControl(app) {
       warrior_10k: { model_key: "warrior", size_key: "10k" },
       warrior_15k: { model_key: "warrior", size_key: "15k" },
       warrior_25k: { model_key: "warrior", size_key: "25k" },
+      prime_10k: { model_key: "prime", size_key: "10k" },
+      prime: { model_key: "prime", size_key: "10k" },
       prototype_5k: { model_key: "prototype", size_key: "5k" },
       prototype: { model_key: "prototype", size_key: "5k" },
       warrior: { model_key: "warrior", size_key: "5k" },
