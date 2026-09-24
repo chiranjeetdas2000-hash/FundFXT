@@ -49,18 +49,19 @@ async function api(path,opt= {}) {
         }
     });
 
-    if (r.status === 401 || r.status === 403) {
-        localStorage.removeItem('fundfxt_token');
-        window.location.href = '/auth.html?expired=1';
-        throw Error('Session expired. Redirecting to login...');
-    }
-
     let d= {};
     try {
         d=await r.json()
     }
     catch {
     }
+
+    if (r.status === 401) {
+        localStorage.removeItem('fundfxt_token');
+        window.location.href = '/auth.html?expired=1';
+        throw Error('Session expired. Redirecting to login...');
+    }
+
     if(!r.ok)throw Error(d.error||d.message||`Request failed (${r.status})`);
     return d
 }
