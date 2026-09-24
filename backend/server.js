@@ -675,8 +675,8 @@ function parseChallengeModel(input) {
 
 
 async function ensurePrimeChallengeConfig() {
-  // Prime is a giveaway-only 10K model. Keep its phase rules in the same
-  // canonical challenge_phase_rules table used by checkAccountRisk().
+  // Prime challenge sizes and phase rules are kept in the same
+  // canonical tables used by pricing and checkAccountRisk().
   try {
     const phaseColumns = [
       ["daily_dd_basis", "VARCHAR(32) NOT NULL DEFAULT 'BALANCE'"],
@@ -700,14 +700,20 @@ async function ensurePrimeChallengeConfig() {
     }
 
     const primeSizes = [
-      ["5k", "Prime 5K", 500000, 1500, 2000, 90],
-      ["10k", "Prime 10K", 1000000, 2500, 2000, 91],
-      ["15k", "Prime 15K", 1500000, 3500, 2000, 92],
-      ["20k", "Prime 20K", 2000000, 4500, 2000, 93],
-      ["25k", "Prime 25K", 2500000, 5500, 2000, 94],
+      ["5k", "Prime 5K", 500000, 1500, 2000],
+      ["10k", "Prime 10K", 1000000, 2500, 2000],
+      ["15k", "Prime 15K", 1500000, 3500, 2000],
+      ["20k", "Prime 20K", 2000000, 4500, 2000],
+      ["25k", "Prime 25K", 2500000, 5500, 2000],
     ];
 
-    for (const [sizeKey, displayName, startingBalanceCents, priceCents, affiliateDiscountBps, sortOrder] of primeSizes) {
+    for (const [
+      sizeKey,
+      displayName,
+      startingBalanceCents,
+      priceCents,
+      affiliateDiscountBps,
+    ] of primeSizes) {
       await db.execute(
         "INSERT INTO challenge_sizes " +
         "(model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps, is_active, sort_order) " +
