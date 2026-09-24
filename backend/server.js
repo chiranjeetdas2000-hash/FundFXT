@@ -1868,7 +1868,7 @@ async function checkAccountRisk(account) {
   }
 
   const [tradeCountRow] = await db.execute(
-    "SELECT COUNT(*) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
+    "SELECT COUNT(DISTINCT entry_time) AS count FROM trades WHERE account_id = ? AND trading_day = CURDATE()",
     [account.id],
   );
   const tradesToday = Number(tradeCountRow[0].count || 0);
