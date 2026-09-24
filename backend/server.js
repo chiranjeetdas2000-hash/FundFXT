@@ -699,16 +699,21 @@ async function ensurePrimeChallengeConfig() {
       }
     }
 
-    const [sizeRows] = await db.execute(
-      "SELECT id FROM challenge_sizes WHERE model_key = 'prime' AND size_key = '10k' LIMIT 1",
-    );
-    if (!sizeRows.length) {
+    const primeSizes = [
+      ["5k", "Prime 5K", 500000, 1500, 2000, 90],
+      ["10k", "Prime 10K", 1000000, 2500, 2000, 91],
+      ["15k", "Prime 15K", 1500000, 3500, 2000, 92],
+      ["20k", "Prime 20K", 2000000, 4500, 2000, 93],
+      ["25k", "Prime 25K", 2500000, 5500, 2000, 94],
+    ];
+
+    for (const [sizeKey, displayName, startingBalanceCents, priceCents, affiliateDiscountBps, sortOrder] of primeSizes) {
       await db.execute(
-        "INSERT INTO challenge_sizes (model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps, is_active) VALUES ('prime', '10k', 'Prime 10K', 1000000, 0, 0, 1)",
-      );
-    } else {
-      await db.execute(
-        "UPDATE challenge_sizes SET display_name = 'Prime 10K', starting_balance_cents = 1000000, price_cents = 0, affiliate_discount_bps = 0, is_active = 1 WHERE model_key = 'prime' AND size_key = '10k'",
+        "INSERT INTO challenge_sizes " +
+        "(model_key, size_key, display_name, starting_balance_cents, price_cents, affiliate_discount_bps, is_active, sort_order) " +
+        "VALUES ('prime', ?, ?, ?, ?, ?, 1, ?) " +
+        "ON DUPLICATE KEY UPDATE display_name = VALUES(display_name), starting_balance_cents = VALUES(starting_balance_cents), price_cents = VALUES(price_cents), affiliate_discount_bps = VALUES(affiliate_discount_bps), is_active = 1, sort_order = VALUES(sort_order)",
+        [sizeKey, displayName, startingBalanceCents, priceCents, affiliateDiscountBps, sortOrder],
       );
     }
 
@@ -803,10 +808,6 @@ async function getModelWithDefaultSize(model_key) {
 
 async function calculateServerPrice(model, affiliateCode) {
   const parsed = parseChallengeModel(model);
-
-  if (parsed?.model_key === "prime") {
-    throw new Error("Prime 10K is giveaway-only and cannot be purchased");
-  }
 
   let priceCents;
   let affiliateDiscountBps;
