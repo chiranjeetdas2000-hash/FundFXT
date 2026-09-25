@@ -325,23 +325,29 @@ async function ensureAffiliateSalesLedger() {
   }
 }
 
-// ========== USER ID GENERATOR ==========
-function generateUserId() {
+// ========== TRADER ID GENERATOR ==========
+function generateTraderId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const r = () => chars.charAt(Math.floor(Math.random() * chars.length));
-  return r() + r() + '#' + r() + r();
+  const pos = Math.floor(Math.random() * 5); // 0-4
+  let id = '';
+  for (let i = 0; i < 5; i++) {
+    id += (i === pos) ? '#' : r();
+  }
+  return id;
 }
 
-async function getUniqueUserId() {
-  let id, exists = true;
-  let attempts = 0;
+async function getUniqueTraderId() {
+  let id, exists = true, attempts = 0;
   while (exists && attempts < 20) {
-    id = generateUserId();
-    const [rows] = await db.execute("SELECT id FROM users WHERE id = ? LIMIT 1", [id]);
+    id = generateTraderId();
+    const [rows] = await db.execute(
+      "SELECT id FROM users WHERE trader_id = ? LIMIT 1", [id]
+    );
     exists = rows.length > 0;
     attempts++;
   }
-  if (exists) throw new Error('Unable to generate unique user ID');
+  if (exists) throw new Error('Unable to generate unique trader_id');
   return id;
 }
 
@@ -349,7 +355,6 @@ async function getUniqueUserId() {
 // Rate-limit account registration attempts per IP.
 app.post("/api/register", registerRateLimiter, async (req, res) => {
   const {
-    trader_id,
     email,
     phone,
     password,
@@ -358,22 +363,22 @@ app.post("/api/register", registerRateLimiter, async (req, res) => {
     referred_by_code,
   } = req.body;
   try {
+    const traderId = await getUniqueTraderId();
+
     const [existing] = await db.execute(
-      "SELECT * FROM users WHERE trader_id = ? OR email = ?",
-      [trader_id, email],
+      "SELECT id FROM users WHERE email = ? LIMIT 1",
+      [email],
     );
     if (existing.length)
       return res.status(400).json({ error: "User already exists" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const userId = await getUniqueUserId();
 
-    await db.execute(
-      `INSERT INTO users (id, trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code, kyc_status, status) 
-             VALUES (?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, 'NOT_SUBMITTED', 'ACTIVE')`,
+    const [result] = await db.execute(
+      `INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code, kyc_status, status) 
+             VALUES (?, ?, ?, ?, ?, ?, 1, NULL, ?, 'NOT_SUBMITTED', 'ACTIVE')`,
       [
-        userId,
-        trader_id,
+        traderId,
         email,
         phone,
         hashed,
@@ -383,6 +388,7 @@ app.post("/api/register", registerRateLimiter, async (req, res) => {
       ],
     );
 
+    const userId = result.insertId;
     const token = jwt.sign(
       { userId },
       process.env.JWT_SECRET || "secret",
@@ -392,7 +398,7 @@ app.post("/api/register", registerRateLimiter, async (req, res) => {
       success: true,
       token,
       account_code: null,
-      affiliate_code: newAffiliateCode,
+      affiliate_code: null,
     });
   } catch (error) {
     console.error(error);
@@ -551,8 +557,9 @@ app.get("/api/user/profile", authenticateToken, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     const user = rows[0];
     res.json({
-      id: String(user.id),
-      user_id: String(user.id),
+      id: user.trader_id,
+      trader_id: user.trader_id,
+      user_id: user.trader_id,
       legal_name: user.legal_name,
       email: user.email,
       phone: user.phone,
@@ -647,7 +654,7 @@ function extractModelKey(challengeModel) {
 app.get("/api/accounts", authenticateToken, accountsRateLimiter, async (req, res) => {
   try {
     const [accounts] = await db.execute(
-      "SELECT * FROM accounts WHERE user_id = ?",
+      "SELECT a.*, u.trader_id FROM accounts a JOIN users u ON u.id = a.user_id WHERE a.user_id = ?",
       [req.userId],
     );
 
@@ -704,7 +711,8 @@ app.get("/api/accounts", authenticateToken, accountsRateLimiter, async (req, res
 
       return {
         ...acc,
-        user_id: String(acc.user_id),
+        user_id: acc.trader_id,
+        trader_id: acc.trader_id,
         model_key: modelKey,
         profit_cents,
         profit_pct,
@@ -1585,15 +1593,21 @@ app.get("/api/trade/get", authenticateToken, async (req, res) => {
       "SELECT * FROM trades WHERE account_id = ? ORDER BY COALESCE(entry_time, created_at) DESC, id DESC",
       [accounts[0].id],
     );
+    const [[userRow]] = await db.query(
+      "SELECT trader_id FROM users WHERE id = ? LIMIT 1",
+      [req.userId],
+    );
+    const traderId = userRow?.trader_id || null;
 
     res.json({
       success: true,
-      user_id: String(req.userId),
+      user_id: traderId,
+      trader_id: traderId,
       account_code: accounts[0].account_code,
       account_id: accounts[0].id,
       trades: trades.map((trade) => ({
         ...trade,
-        ...(trade.user_id != null ? { user_id: String(trade.user_id) } : {}),
+        ...(trade.user_id != null ? { user_id: traderId } : {}),
       }))
     });
   } catch (e) {
@@ -5319,7 +5333,7 @@ async function ensureAffiliateSchema() {
 app.get("/api/affiliate/stats", authenticateToken, async (req, res) => {
   try {
     const [users] = await db.execute(
-      "SELECT affiliate_code FROM users WHERE id = ? LIMIT 1",
+      "SELECT trader_id, affiliate_code FROM users WHERE id = ? LIMIT 1",
       [req.userId]
     );
     if (!users.length) return res.status(404).json({ error: "User not found" });
@@ -5369,6 +5383,8 @@ app.get("/api/affiliate/stats", authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
+      id: users[0].trader_id,
+      trader_id: users[0].trader_id,
       affiliate_code: affiliateCode,
       total_referrals: Number(refRows[0]?.n || 0),
       total_sales: affiliate.total_sales || 0,
@@ -5386,7 +5402,7 @@ app.get("/api/affiliate/stats", authenticateToken, async (req, res) => {
 app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
   try {
     const [users] = await db.execute(
-      "SELECT id, affiliate_code FROM users WHERE id = ? LIMIT 1",
+      "SELECT trader_id, affiliate_code FROM users WHERE id = ? LIMIT 1",
       [req.userId]
     );
     if (!users.length) return res.status(404).json({ error: "User not found" });
@@ -5462,6 +5478,8 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
+      id: users[0].trader_id,
+      trader_id: users[0].trader_id,
       affiliate_code: affiliateCode,
       total_referrals: Number(refRows[0]?.n || 0),
       verified_sales: commissions.length,
@@ -5480,6 +5498,10 @@ app.get("/api/affiliate/dashboard", authenticateToken, async (req, res) => {
 app.get("/api/affiliate/wallet", authenticateToken, async (req, res) => {
   try {
     await ensureAffiliateSalesLedger();
+    const [[userRow]] = await db.query(
+      "SELECT trader_id FROM users WHERE id = ? LIMIT 1",
+      [req.userId],
+    );
     const [affiliates] = await db.execute("SELECT * FROM affiliates WHERE user_id = ? LIMIT 1", [req.userId]);
     if (!affiliates.length) return res.status(404).json({ error: "Affiliate account not found" });
     const affiliate = affiliates[0];
@@ -5519,6 +5541,8 @@ app.get("/api/affiliate/wallet", authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
+      id: userRow?.trader_id || null,
+      trader_id: userRow?.trader_id || null,
       affiliate_code: affiliate.affiliate_code,
       wallet_balance_cents: Number(affiliate.wallet_balance_cents || 0),
       total_earnings_cents: Number(statsRow?.total_earnings_cents || 0),
@@ -6585,10 +6609,14 @@ app.post(
 app.get("/api/affiliate/payouts", authenticateToken, async (req, res) => {
   try {
     const [payouts] = await db.execute(
-      "SELECT * FROM withdrawal_request WHERE user_id = ? AND kind = 'AFFILIATE' ORDER BY created_at DESC",
+      "SELECT wr.*, u.trader_id FROM withdrawal_request wr JOIN users u ON u.id = wr.user_id WHERE wr.user_id = ? AND wr.kind = 'AFFILIATE' ORDER BY wr.created_at DESC",
       [req.userId],
     );
-    res.json({ success: true, payouts });
+    const userFacingPayouts = payouts.map(({ user_id, ...payout }) => ({
+      ...payout,
+      trader_id: payout.trader_id,
+    }));
+    res.json({ success: true, payouts: userFacingPayouts });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
