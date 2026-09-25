@@ -54,6 +54,22 @@
                 <a class="btn primary hero-action" href="/buy-challenge.html">＋ Get Funded</a>
             </div>
 
+            <div class="panel">
+                <span class="eyebrow">Affiliate</span>
+                <h2>Your Affiliate Code</h2>
+                <div class="form">
+                    <div id="dashboardAffiliateCodeView">
+                        <input id="dashboardAffiliateCode" type="text" readonly aria-label="Your affiliate code">
+                        <button class="btn" id="dashboardAffiliateCopy" type="button">Copy</button>
+                    </div>
+                    <div id="dashboardAffiliateCodeSet">
+                        <input id="dashboardAffiliateCodeInput" type="text" minlength="3" maxlength="6" placeholder="@your#code (3-6 chars, must contain @ and #)" autocomplete="off">
+                        <button class="btn primary" id="dashboardAffiliateSave" type="button">Set Affiliate Code</button>
+                    </div>
+                    <div id="dashboardAffiliateMsg" class="message" role="status" aria-live="polite"></div>
+                </div>
+            </div>
+
             <div class="home-grid">
                 <div class="panel stat tilt-card" data-tilt>
                     <span>Total accounts</span>
