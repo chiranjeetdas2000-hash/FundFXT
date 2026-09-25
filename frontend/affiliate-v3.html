@@ -416,6 +416,9 @@
             <span class="eyebrow">Affiliate center</span>
             <h1>Grow your network.<br>Track your rewards.</h1>
 
+            <div class="code-label">Trader ID</div>
+            <div id="traderId" class="msg">Loading…</div>
+
             <div class="code-label">Your Code</div>
             <div class="code-row">
                 <div id="code" class="code">Loading…</div>
@@ -562,6 +565,9 @@ async function load() {
     try {
         // Prefer rich dashboard data; fall back to basic stats
         const d = await api('/api/affiliate/dashboard').catch(() => api('/api/affiliate/stats'));
+
+        const traderId = d.trader_id || d.id || d.user_id || '';
+        if (traderId) $('traderId').textContent = traderId;
 
         const code = d.affiliate_code || 'Unavailable';
         $('code').textContent = code;
