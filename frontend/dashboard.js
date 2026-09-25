@@ -247,35 +247,19 @@ async function load() {
 }
 
 function initDashboardAffiliateCode(profile) {
-    const code = profile.trader_id || profile.id || profile.user_id || '';
-    const savedCode = profile.affiliate_code;
+    const savedCode = String(profile.affiliate_code || '').trim();
 
-    const view = $('dashboardAffiliateCodeView');
-    const set = $('dashboardAffiliateCodeSet');
-    const field = $('dashboardAffiliateCode');
+    const panel = $('dashboardAffiliateCodePanel');
     const input = $('dashboardAffiliateCodeInput');
-    const copy = $('dashboardAffiliateCopy');
     const save = $('dashboardAffiliateSave');
     const msg = $('dashboardAffiliateMsg');
 
     if (savedCode) {
-        view.style.display = 'grid';
-        set.style.display = 'none';
-        field.value = savedCode;
-        copy.onclick = async () => {
-            try {
-                await navigator.clipboard.writeText(savedCode);
-                copy.textContent = 'Copied';
-                setTimeout(() => copy.textContent = 'Copy', 1500);
-            } catch (error) {
-                msg.textContent = 'Unable to copy affiliate code.';
-            }
-        };
+        panel.style.display = 'none';
         return;
     }
 
-    view.style.display = 'none';
-    set.style.display = 'grid';
+    panel.style.display = 'block';
 
     save.onclick = async () => {
         const affiliateCode = String(input.value || '').trim();
@@ -306,20 +290,12 @@ function initDashboardAffiliateCode(profile) {
 
             if (!data.success) throw new Error(data.error || 'Unable to set affiliate code');
 
-            msg.textContent = 'Affiliate code saved successfully.';
-            field.value = data.affiliate_code || affiliateCode;
-            view.style.display = 'grid';
-            set.style.display = 'none';
+            panel.style.display = 'none';
         } catch (error) {
             msg.textContent = error.message || 'Unable to set affiliate code.';
             save.disabled = false;
         }
     };
-
-    // Keep the user-facing trader ID available from the profile response.
-    if (code) {
-        document.body.dataset.traderId = code;
-    }
 }
 
 async function loadOrders() {
