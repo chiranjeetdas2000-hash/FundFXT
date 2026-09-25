@@ -300,7 +300,7 @@ async function sendWalletTransferEmail(
 async function ensureAffiliateSalesLedger() {
   try {
     await db.execute("INSERT INTO affiliates (user_id, affiliate_code, legal_name, total_sales, total_earnings_cents, pending_earnings_cents, status) SELECT u.id, u.affiliate_code, COALESCE(u.legal_name, u.email), 0, 0, 0, 'Active' FROM users u LEFT JOIN affiliates a ON a.user_id = u.id WHERE u.affiliate_code IS NOT NULL AND u.affiliate_code <> '' AND a.id IS NULL");
-    await db.execute("CREATE TABLE IF NOT EXISTS affiliate_sales (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, affiliate_id BIGINT NOT NULL, order_id BIGINT NOT NULL, request_id VARCHAR(100) NOT NULL, affiliate_code VARCHAR(100) NULL, model VARCHAR(100) NULL, original_amount_cents BIGINT NOT NULL DEFAULT 0, discount_amount_cents BIGINT NOT NULL DEFAULT 0, final_amount_cents BIGINT NOT NULL DEFAULT 0, commission_rate_bps INT NOT NULL DEFAULT 2000, fixed_bonus_cents BIGINT NOT NULL DEFAULT 100, commission_amount_cents BIGINT NOT NULL DEFAULT 0, status VARCHAR(30) NOT NULL DEFAULT 'PENDING', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_affiliate_sales_order (affiliate_id, order_id), KEY idx_affiliate_sales_affiliate (affiliate_id, created_at))");
+    await db.execute("CREATE TABLE IF NOT EXISTS affiliate_sales (id BIGINT NOT NULL AUTO_INCREMENT PRIMARY KEY, affiliate_id BIGINT NOT NULL, order_id BIGINT NOT NULL, request_id VARCHAR(100) NOT NULL, affiliate_code VARCHAR(100) NULL, model VARCHAR(100) NULL, original_amount_cents BIGINT NOT NULL DEFAULT 0, discount_amount_cents BIGINT NOT NULL DEFAULT 0, final_amount_cents BIGINT NOT NULL DEFAULT 0, commission_rate_bps INT NOT NULL DEFAULT 1000, fixed_bonus_cents BIGINT NOT NULL DEFAULT 100, commission_amount_cents BIGINT NOT NULL DEFAULT 0, status VARCHAR(30) NOT NULL DEFAULT 'PENDING', created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uq_affiliate_sales_order (affiliate_id, order_id), KEY idx_affiliate_sales_affiliate (affiliate_id, created_at))");
     await db.execute("INSERT IGNORE INTO affiliate_sales (affiliate_id, order_id, request_id, affiliate_code, model, original_amount_cents, discount_amount_cents, final_amount_cents, commission_rate_bps, fixed_bonus_cents, commission_amount_cents, status, created_at) SELECT a.id, po.id, po.request_id, po.affiliate_code, po.model, COALESCE(po.original_amount_cents,0), COALESCE(po.discount_amount_cents,0), COALESCE(po.final_amount_cents,0), 2000, 100, FLOOR(COALESCE(po.final_amount_cents,0) * 0.20 + 100), po.status, COALESCE(po.created_at, NOW()) FROM payment_requests po JOIN affiliates a ON a.affiliate_code = po.affiliate_code WHERE po.affiliate_code IS NOT NULL AND TRIM(po.affiliate_code) <> '' AND po.status IN ('PAYMENT_DONE')");
     await db.execute("UPDATE affiliate_sales s JOIN payment_requests po ON po.id = s.order_id SET s.status = po.status WHERE po.status IN ('PAYMENT_DONE')");
     await db.execute("INSERT INTO affiliate_commissions (affiliate_id, order_id, referred_user_id, model, commission_amount_cents, status) SELECT s.affiliate_id, s.order_id, po.user_id, s.model, s.commission_amount_cents, 'PENDING' FROM affiliate_sales s JOIN payment_requests po ON po.id = s.order_id LEFT JOIN affiliate_commissions ac ON ac.order_id = s.order_id WHERE ac.id IS NULL");
@@ -907,7 +907,7 @@ async function calculateServerPrice(model, affiliateCode) {
     const size = await getChallengeSize(parsed.model_key, parsed.size_key);
     if (size) {
       priceCents = Number(size.price_cents || 0);
-      affiliateDiscountBps = Number(size.affiliate_discount_bps || 0);
+      affiliateDiscountBps = Math.min(Number(size.affiliate_discount_bps || 0), 2000);
       resolvedModel = parsed.model_key + "_" + parsed.size_key;
       config = size;
     }
@@ -917,7 +917,7 @@ async function calculateServerPrice(model, affiliateCode) {
     const mappedModel = MODEL_MAP[model] || model;
     config = await getChallengeConfig(mappedModel);
     priceCents = Number(config.price_cents || 0);
-    affiliateDiscountBps = Number(config.affiliate_discount_bps || 0);
+    affiliateDiscountBps = Math.min(Number(config.affiliate_discount_bps || 0), 2000);
     resolvedModel = mappedModel;
   }
 
@@ -1123,10 +1123,10 @@ app.post(
         );
         if (affiliateRows.length > 0) {
           const affiliate = affiliateRows[0];
-          const commissionRateBps = 2000; // 20%
-          const fixedBonusCents = 100; // $1.00
+          const commissionRateBps = 1000; // 10%
+          const fixedBonusCents = 0; // Bonus handled separately per-affiliate
           const commissionCents = Math.floor(
-            order.final_amount_cents * commissionRateBps / 10000 + fixedBonusCents,
+            order.final_amount_cents * Math.min(commissionRateBps, 1000) / 10000 + fixedBonusCents,
           );
           const [existingComm] = await connection.execute(
             "SELECT id FROM affiliate_commissions WHERE order_id = ? LIMIT 1",
