@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="FundFXT challenge and trading rules for the Prime, Warrior, and Prototype simulated models.">
+<meta name="description" content="FundFXT challenge and trading rules for the Prime and Warrior simulated models.">
 <title>Challenge Rules | FundFXT</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -31,7 +31,7 @@
   <section class="page-header">
     <div class="eyebrow">Authoritative Rules</div>
     <h1>Challenge Rules</h1>
-    <p>Current trading conditions for FundFXT's Prime, Warrior, and Prototype simulated account models.</p>
+    <p>Current trading conditions for FundFXT's Prime and Warrior simulated account models.</p>
   </section>
 
   <div class="legal-container">
@@ -52,8 +52,7 @@
           <tbody>
             <tr><td><strong>Prime</strong></td><td>Multi-phase: PHASE_1 → PHASE_2 → PHASE_3 → FUNDED</td><td>Progresses through the phases when applicable rules are met.</td></tr>
             <tr><td><strong>Warrior</strong></td><td>Multi-phase: PHASE_1 → PHASE_2 → FUNDED</td><td>Progresses through the phases when applicable rules are met.</td></tr>
-            <tr><td><strong>Prototype</strong></td><td>Single-phase FUNDED direct</td><td>Funded from day 1 under the Prototype rules.</td></tr>
-          </tbody>
+</tbody>
         </table>
       </div>
     </section>
@@ -65,8 +64,7 @@
         <table>
           <thead><tr><th>Model</th><th>Size</th><th>Price</th></tr></thead>
           <tbody>
-            <tr><td>Prototype</td><td>$5K</td><td>$10</td></tr>
-            <tr><td>Prime</td><td>$5K</td><td>$15</td></tr>
+<tr><td>Prime</td><td>$5K</td><td>$15</td></tr>
             <tr><td>Prime</td><td>$10K</td><td>$25</td></tr>
             <tr><td>Prime</td><td>$15K</td><td>$35</td></tr>
             <tr><td>Prime</td><td>$20K</td><td>$45</td></tr>
@@ -142,41 +140,20 @@
       </div>
     </section>
 
-    <section class="legal-section reveal stagger-5">
-      <span class="legal-badge">05 · Prototype</span>
-      <h2>Prototype Model Rules</h2>
-      <div class="legal-table-wrap">
-        <table>
-          <thead><tr><th>Rule</th><th>Prototype</th></tr></thead>
-          <tbody>
-            <tr><td>Account size</td><td>$5K</td></tr>
-            <tr><td>Daily drawdown</td><td>2% of the opening balance of the day</td></tr>
-            <tr><td>Maximum drawdown</td><td>4%, based on TRAILING_EQUITY_HWM</td></tr>
-            <tr><td>Profit target</td><td>None — funded from day 1</td></tr>
-            <tr><td>Consistency</td><td>30%</td></tr>
-            <tr><td>Maximum trades per day</td><td>3</td></tr>
-            <tr><td>Maximum open positions</td><td>1</td></tr>
-            <tr><td>Leverage</td><td>100</td></tr>
-            <tr><td>Payout</td><td>$100 one-time, then account PASSED</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+    
 
     <section class="legal-section reveal">
-      <span class="legal-badge">06 · Risk mechanics</span>
+      <span class="legal-badge">05 · Risk mechanics</span>
       <h2>How Drawdown Is Measured</h2>
       <h3>Warrior — trailing balance HWM</h3>
       <p>The Warrior maximum drawdown uses the account's trailing balance high-water mark. As the relevant account balance high-water mark increases, the drawdown threshold trails that high-water mark.</p>
-      <h3>Prototype — trailing equity HWM</h3>
-      <p>The Prototype maximum drawdown uses a trailing equity high-water mark. The applicable threshold therefore follows the highest recorded equity level under the model's risk calculation.</p>
-      <div class="legal-callout warning">
+<div class="legal-callout warning">
         <p><strong>Risk reminder:</strong> Daily drawdown is measured from the opening balance of the day. Maximum drawdown and daily drawdown are separate limits.</p>
       </div>
     </section>
 
     <section class="legal-section reveal">
-      <span class="legal-badge">07 · Breaches</span>
+      <span class="legal-badge">06 · Breaches</span>
       <h2>Breach Consequences</h2>
       <p>If an account reaches an applicable drawdown or other rule boundary, the account may be settled and closed according to the applicable model and platform state.</p>
       <ul>
@@ -187,7 +164,7 @@
     </section>
 
     <section class="legal-section reveal">
-      <span class="legal-badge">08 · FAQ</span>
+      <span class="legal-badge">07 · FAQ</span>
       <h2>Common Questions</h2>
       <div class="accordion">
         <div class="accordion-item">
@@ -200,7 +177,7 @@
         </div>
         <div class="accordion-item">
           <button class="accordion-trigger" type="button" aria-expanded="false">What is consistency?<i aria-hidden="true">⌄</i></button>
-          <div class="accordion-panel"><div class="accordion-panel-inner"><p>Consistency limits how much the highest profitable trading day can contribute to overall profit. For Warrior the limit is 55%; for Prototype it is 30%.</p></div></div>
+          <div class="accordion-panel"><div class="accordion-panel-inner"><p>Consistency limits how much the highest profitable trading day can contribute to overall profit. For Warrior the limit is 55%.</p></div></div>
         </div>
         <div class="accordion-item">
           <button class="accordion-trigger" type="button" aria-expanded="false">What are the Prime challenge phases?<i aria-hidden="true">⌄</i></button>
@@ -210,7 +187,7 @@
     </section>
 
     <section class="legal-section reveal">
-      <span class="legal-badge">09 · Support</span>
+      <span class="legal-badge">08 · Support</span>
       <h2>Questions or Clarification?</h2>
       <p>For questions about the rules or your account, contact FundFXT support.</p>
       <div class="support-box">
