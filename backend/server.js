@@ -347,20 +347,23 @@ function generateAffiliateCode() {
   return chars.join("");
 }
 
-async function getUniqueAffiliateCode() {
-  let code = generateAffiliateCode();
-  let [existing] = await db.execute(
-    "SELECT id FROM users WHERE affiliate_code = ?",
-    [code],
-  );
-  while (existing.length > 0) {
-    code = generateAffiliateCode();
-    [existing] = await db.execute(
-      "SELECT id FROM users WHERE affiliate_code = ?",
-      [code],
-    );
+function generateUserId() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  const r = () => chars.charAt(Math.floor(Math.random() * chars.length));
+  return r() + r() + '#' + r() + r();
+}
+
+async function getUniqueUserId() {
+  let id, exists = true;
+  let attempts = 0;
+  while (exists && attempts < 20) {
+    id = generateUserId();
+    const [rows] = await db.execute("SELECT id FROM users WHERE id = ? LIMIT 1", [id]);
+    exists = rows.length > 0;
+    attempts++;
   }
-  return code;
+  if (exists) throw new Error('Unable to generate unique user ID');
+  return id;
 }
 
 // ========== REGISTER ==========
@@ -384,30 +387,25 @@ app.post("/api/register", registerRateLimiter, async (req, res) => {
       return res.status(400).json({ error: "User already exists" });
 
     const hashed = await bcrypt.hash(password, 10);
-    const newAffiliateCode = await getUniqueAffiliateCode();
+    const userId = await getUniqueUserId();
 
-    const [result] = await db.execute(
-      `INSERT INTO users (trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code, kyc_status, status) 
-             VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?, 'NOT_SUBMITTED', 'ACTIVE')`,
+    await db.execute(
+      `INSERT INTO users (id, trader_id, email, phone, password_hash, legal_name, address, is_verified, affiliate_code, referred_by_code, kyc_status, status) 
+             VALUES (?, ?, ?, ?, ?, ?, ?, 1, NULL, ?, 'NOT_SUBMITTED', 'ACTIVE')`,
       [
+        userId,
         trader_id,
         email,
         phone,
         hashed,
         legal_name,
         address,
-        newAffiliateCode,
         referred_by_code || null,
       ],
     );
 
-    await db.execute(
-      "INSERT INTO affiliates (user_id, affiliate_code, legal_name) VALUES (?, ?, ?)",
-      [result.insertId, newAffiliateCode, legal_name],
-    );
-
     const token = jwt.sign(
-      { userId: result.insertId },
+      { userId },
       process.env.JWT_SECRET || "secret",
       { expiresIn: "7d" },
     );
@@ -574,6 +572,8 @@ app.get("/api/user/profile", authenticateToken, async (req, res) => {
     if (!rows.length) return res.status(404).json({ error: "User not found" });
     const user = rows[0];
     res.json({
+      id: String(user.id),
+      user_id: String(user.id),
       legal_name: user.legal_name,
       email: user.email,
       phone: user.phone,
@@ -586,6 +586,43 @@ app.get("/api/user/profile", authenticateToken, async (req, res) => {
     res
       .status(500)
       .json({ error: "Column missing in database. Please run ALTER TABLE." });
+  }
+});
+
+// ========== SET AFFILIATE CODE ==========
+app.post("/api/user/set-affiliate-code", authenticateToken, async (req, res) => {
+  try {
+    const affiliateCode = String(req.body?.affiliate_code ?? "").trim();
+
+    if (affiliateCode.length < 3 || affiliateCode.length > 6) {
+      return res.status(400).json({ success: false, error: "Affiliate code must be 3-6 characters" });
+    }
+
+    if ((affiliateCode.match(/@/g) || []).length !== 1 || (affiliateCode.match(/#/g) || []).length !== 1) {
+      return res.status(400).json({ success: false, error: "Affiliate code must contain exactly one @ and one #" });
+    }
+
+    if (!/^[A-Za-z0-9@#]+$/.test(affiliateCode)) {
+      return res.status(400).json({ success: false, error: "Affiliate code contains invalid characters" });
+    }
+
+    const [existing] = await db.execute(
+      "SELECT id FROM users WHERE BINARY affiliate_code = BINARY ? AND id <> ? LIMIT 1",
+      [affiliateCode, req.userId],
+    );
+    if (existing.length) {
+      return res.status(409).json({ success: false, error: "Affiliate code is already in use" });
+    }
+
+    await db.execute(
+      "UPDATE users SET affiliate_code = ? WHERE id = ?",
+      [affiliateCode, req.userId],
+    );
+
+    res.json({ success: true, affiliate_code: affiliateCode });
+  } catch (error) {
+    console.error("Set affiliate code error:", error.message);
+    res.status(500).json({ success: false, error: "Unable to set affiliate code" });
   }
 });
 
@@ -685,6 +722,7 @@ app.get("/api/accounts", authenticateToken, accountsRateLimiter, async (req, res
 
       return {
         ...acc,
+        user_id: String(acc.user_id),
         model_key: modelKey,
         profit_cents,
         profit_pct,
@@ -1568,9 +1606,13 @@ app.get("/api/trade/get", authenticateToken, async (req, res) => {
 
     res.json({
       success: true,
+      user_id: String(req.userId),
       account_code: accounts[0].account_code,
       account_id: accounts[0].id,
-      trades
+      trades: trades.map((trade) => ({
+        ...trade,
+        ...(trade.user_id != null ? { user_id: String(trade.user_id) } : {}),
+      }))
     });
   } catch (e) {
     console.error("Trade fetch error:", e.message);
