@@ -237,11 +237,88 @@ async function load() {
         const profile = await api('/api/user/profile');
         $('topName').textContent = profile.legal_name || 'Trader';
         $('heroName').textContent = profile.legal_name || 'Trader';
+        initDashboardAffiliateCode(profile);
         accounts = (await api('/api/accounts')).accounts || [];
         render();
         loadAffiliate();
     } catch (error) {
         $('accounts').innerHTML = '<div class="empty">Unable to load dashboard.</div>';
+    }
+}
+
+function initDashboardAffiliateCode(profile) {
+    const code = profile.trader_id || profile.id || profile.user_id || '';
+    const savedCode = profile.affiliate_code;
+
+    const view = $('dashboardAffiliateCodeView');
+    const set = $('dashboardAffiliateCodeSet');
+    const field = $('dashboardAffiliateCode');
+    const input = $('dashboardAffiliateCodeInput');
+    const copy = $('dashboardAffiliateCopy');
+    const save = $('dashboardAffiliateSave');
+    const msg = $('dashboardAffiliateMsg');
+
+    if (savedCode) {
+        view.style.display = 'grid';
+        set.style.display = 'none';
+        field.value = savedCode;
+        copy.onclick = async () => {
+            try {
+                await navigator.clipboard.writeText(savedCode);
+                copy.textContent = 'Copied';
+                setTimeout(() => copy.textContent = 'Copy', 1500);
+            } catch (error) {
+                msg.textContent = 'Unable to copy affiliate code.';
+            }
+        };
+        return;
+    }
+
+    view.style.display = 'none';
+    set.style.display = 'grid';
+
+    save.onclick = async () => {
+        const affiliateCode = String(input.value || '').trim();
+
+        if (affiliateCode.length < 3 || affiliateCode.length > 6) {
+            msg.textContent = 'Affiliate code must be 3-6 characters.';
+            return;
+        }
+
+        if ((affiliateCode.match(/@/g) || []).length !== 1 || (affiliateCode.match(/#/g) || []).length !== 1) {
+            msg.textContent = 'Affiliate code must contain exactly one @ and one #.';
+            return;
+        }
+
+        if (!/^[A-Za-z0-9@#]+$/.test(affiliateCode)) {
+            msg.textContent = 'Affiliate code contains invalid characters.';
+            return;
+        }
+
+        save.disabled = true;
+        msg.textContent = 'Saving…';
+
+        try {
+            const data = await api('/api/user/set-affiliate-code', {
+                method: 'POST',
+                body: JSON.stringify({ affiliate_code: affiliateCode })
+            });
+
+            if (!data.success) throw new Error(data.error || 'Unable to set affiliate code');
+
+            msg.textContent = 'Affiliate code saved successfully.';
+            field.value = data.affiliate_code || affiliateCode;
+            view.style.display = 'grid';
+            set.style.display = 'none';
+        } catch (error) {
+            msg.textContent = error.message || 'Unable to set affiliate code.';
+            save.disabled = false;
+        }
+    };
+
+    // Keep the user-facing trader ID available from the profile response.
+    if (code) {
+        document.body.dataset.traderId = code;
     }
 }
 
