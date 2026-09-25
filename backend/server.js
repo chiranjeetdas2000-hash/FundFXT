@@ -325,28 +325,7 @@ async function ensureAffiliateSalesLedger() {
   }
 }
 
-// ========== AFFILIATE CODE GENERATOR ==========
-function generateAffiliateCode() {
-  const upperChars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-  const lowerChars = "abcdefghijklmnopqrstuvwxyz";
-  const numChars = "0123456789";
-  const symbols = ["@", "#"];
-  let chars = [];
-  for (let i = 0; i < 3; i++)
-    chars.push(upperChars[Math.floor(Math.random() * upperChars.length)]);
-  for (let i = 0; i < 2; i++)
-    chars.push(lowerChars[Math.floor(Math.random() * lowerChars.length)]);
-  for (let i = 0; i < 3; i++)
-    chars.push(numChars[Math.floor(Math.random() * numChars.length)]);
-  chars.push("@");
-  chars.push("#");
-  for (let i = chars.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [chars[i], chars[j]] = [chars[j], chars[i]];
-  }
-  return chars.join("");
-}
-
+// ========== USER ID GENERATOR ==========
 function generateUserId() {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
   const r = () => chars.charAt(Math.floor(Math.random() * chars.length));
@@ -622,6 +601,9 @@ app.post("/api/user/set-affiliate-code", authenticateToken, async (req, res) => 
     res.json({ success: true, affiliate_code: affiliateCode });
   } catch (error) {
     console.error("Set affiliate code error:", error.message);
+    if (error?.code === "ER_DUP_ENTRY") {
+      return res.status(409).json({ success: false, error: "Affiliate code is already in use" });
+    }
     res.status(500).json({ success: false, error: "Unable to set affiliate code" });
   }
 });
