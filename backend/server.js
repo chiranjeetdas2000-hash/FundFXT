@@ -4801,7 +4801,7 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
 
   try {
     const [accounts] = await db.execute(
-      "SELECT id, account_code, initial_balance_cents, balance_cents FROM accounts WHERE id = ? AND user_id = ?",
+      "SELECT id, account_code, initial_balance_cents, balance_cents, created_at FROM accounts WHERE id = ? AND user_id = ?",
       [accountId, req.userId],
     );
     if (!accounts.length)
@@ -4838,6 +4838,26 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
         status: transfer.status,
       })),
     ];
+
+    const accountCreatedEntry = {
+      id: 'virtual-account-created',
+      type: 'ACCOUNT',
+      timestamp: account.created_at,
+      amount_cents: 0,
+      balance_after_cents: 0,
+      description: 'Account Created'
+    };
+
+    const initialDepositEntry = {
+      id: 'virtual-initial-deposit',
+      type: 'DEPOSIT',
+      timestamp: account.created_at,
+      amount_cents: Number(account.initial_balance_cents || 0),
+      balance_after_cents: Number(account.initial_balance_cents || 0),
+      description: 'Initial Balance Credited'
+    };
+
+    events.unshift(accountCreatedEntry, initialDepositEntry);
 
     events.sort((a, b) => {
       const timeDiff = new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime();
