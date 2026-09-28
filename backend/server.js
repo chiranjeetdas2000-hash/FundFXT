@@ -4876,6 +4876,8 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
       }
     }
 
+    events.reverse();
+
     const total = events.length;
     const start = (page - 1) * limit;
     const entries = events.slice(start, start + limit);
