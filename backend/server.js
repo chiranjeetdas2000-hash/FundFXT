@@ -4845,7 +4845,7 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
       timestamp: account.created_at,
       amount_cents: 0,
       balance_after_cents: 0,
-      description: 'Account Created'
+      description: 'Created'
     };
 
     const initialDepositEntry = {
@@ -4854,7 +4854,7 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
       timestamp: account.created_at,
       amount_cents: Number(account.initial_balance_cents || 0),
       balance_after_cents: Number(account.initial_balance_cents || 0),
-      description: 'Initial Balance Credited'
+      description: 'Initial Balance'
     };
 
     events.unshift(accountCreatedEntry, initialDepositEntry);
@@ -4868,6 +4868,11 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
     for (const event of events) {
       runningBalance += event.amount_cents;
       event.balance_after_cents = runningBalance;
+
+      if (String(event.id).startsWith('virtual-')) {
+        continue;
+      }
+
       if (event.type === "TRADE") {
         event.description =
           (event.symbol || "Trade") + " " + (event.side || "") + " " + event.volume.toFixed(2) + " — " + (event.amount_cents >= 0 ? "Profit" : "Loss");
