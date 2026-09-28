@@ -4864,17 +4864,18 @@ app.get("/api/accounts/:id/passbook", authenticateToken, async (req, res) => {
       return timeDiff || String(a.id).localeCompare(String(b.id));
     });
 
-    let runningBalance = Number(account.initial_balance_cents || 0);
+    let runningBalance = 0;
     for (const event of events) {
       runningBalance += event.amount_cents;
       event.balance_after_cents = runningBalance;
-      event.description =
-        event.type === "TRADE"
-          ? (event.symbol || "Trade") + " " + (event.side || "") + " " + event.volume.toFixed(2) + " — " + (event.amount_cents >= 0 ? "Profit" : "Loss")
-          : "Transfer to FundFXT Wallet — " + (event.request_ref || "—");
+      if (event.type === "TRADE") {
+        event.description =
+          (event.symbol || "Trade") + " " + (event.side || "") + " " + event.volume.toFixed(2) + " — " + (event.amount_cents >= 0 ? "Profit" : "Loss");
+      } else if (event.type === "TRANSFER") {
+        event.description = "Transfer to FundFXT Wallet — " + (event.request_ref || "—");
+      }
     }
 
-    events.reverse();
     const total = events.length;
     const start = (page - 1) * limit;
     const entries = events.slice(start, start + limit);
