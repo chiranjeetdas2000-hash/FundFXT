@@ -11,7 +11,7 @@
 
     const compact = () =>
         matchMedia(
-            '(max-width:1100px),(max-aspect-ratio:1/1)',
+            '(max-width:800px)',
         ).matches;
 
     function sync() {
