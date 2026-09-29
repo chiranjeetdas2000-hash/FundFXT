@@ -488,9 +488,12 @@ async function loadTrades(force = false) {
 
     T.tradeLoadPromise = (async () => {
         try {
+            // Cache-bust trade refreshes so SL/TP changes are reflected immediately.
             const d = await api(
                 '/api/trade/get?account_id='
-                + encodeURIComponent(T.account.id),
+                + encodeURIComponent(T.account.id)
+                + '&_t='
+                + Date.now(),
             );
 
             T.trades = Array.isArray(d.trades)
