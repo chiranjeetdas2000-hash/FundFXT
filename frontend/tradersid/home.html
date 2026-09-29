@@ -3,218 +3,208 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Trader ID — Your permanent trader identity. One TID, lifetime record, verified forever, portable across firms.">
+  <meta name="description" content="Trader ID — Your permanent trader identity. One verified identity for your trading journey.">
   <title>Trader ID — Your Permanent Trader Identity</title>
   <link rel="stylesheet" href="/tradersid/css/tid.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 </head>
 <body>
   <header class="tid-header">
-    <div class="tid-container tid-header-inner">
-      <a class="tid-logo" href="/tradersid/home.html" aria-label="Trader ID home">
+    <div class="container tid-header-inner">
+      <a href="/tradersid/home.html" class="tid-logo">
         <span class="tid-logo-mark">TID</span>
-        <span class="tid-logo-text">Trader ID</span>
+        <span>Trader ID</span>
       </a>
-
-      <nav class="tid-nav" aria-label="Primary navigation">
-        <a class="tid-nav-link" href="/tradersid/home.html">Home</a>
-        <a class="tid-nav-link" href="#about">About</a>
-        <a class="tid-nav-link" href="#verify">Verify</a>
-        <a class="tid-nav-link" href="/tradersid/login.html">Login</a>
+      <nav class="tid-nav">
+        <a href="/tradersid/home.html">Home</a>
+        <a href="#what-is">About</a>
+        <a href="/tradersid/verify.html">Verify</a>
+        <a href="/tradersid/login.html">Login</a>
       </nav>
-
-      <a class="tid-btn" href="/tradersid/signup.html">Sign Up</a>
-      <button class="tid-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" aria-controls="tid-primary-nav">
-        <span class="tid-menu-icon"></span>
-      </button>
+      <a href="/tradersid/signup.html" class="btn btn-primary btn-sm">Sign Up</a>
     </div>
   </header>
 
   <main>
-    <section class="tid-hero" aria-labelledby="hero-title">
-      <div class="tid-container tid-hero-inner">
-        <div class="tid-hero-content">
-          <span class="tid-badge">TRADER IDENTITY</span>
-          <h1 id="hero-title">Your Permanent Trader Identity</h1>
-          <p>One TID. Lifetime record. Verified forever. Portable across all firms.</p>
-          <div class="tid-hero-actions">
-            <a class="tid-btn" href="/tradersid/signup.html">Get Your TID — Free</a>
-            <a class="tid-btn-outline" href="#how-it-works">See How It Works</a>
+    <section class="hero">
+      <div class="container hero-inner">
+        <div class="hero-content">
+          <span class="hero-eyebrow">🔒 TRADER IDENTITY</span>
+          <h1 class="hero-title">Your Permanent Trader Identity</h1>
+          <p class="hero-subtitle">One verified identity for your trading journey — built to preserve your record, credentials and reputation.</p>
+          <div class="hero-actions">
+            <a href="/tradersid/signup.html" class="btn btn-white">Get Your TID — Free</a>
+            <a href="#how-it-works" class="btn btn-outline-white">See How It Works →</a>
           </div>
+          <p class="hero-trust">Free · Verified · No credit card required</p>
         </div>
-
-        <div class="tid-hero-card" aria-label="Trader ID card preview">
-          <div>
-            <strong>TID-A6HG74P</strong>
-            <span class="tid-badge tid-badge-blue">VERIFIED</span>
-            <span>TID</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="tid-container" id="about" aria-labelledby="about-title">
-      <div class="tid-card">
-        <h2 id="about-title">What Is Trader ID?</h2>
-        <p>A portable identity layer for traders — designed to keep verified identity, trading history and professional reputation connected to one permanent TID.</p>
-      </div>
-
-      <div class="tid-hero-actions">
-        <article class="tid-card">
-          <span class="tid-badge">01</span>
-          <h3>Verified Identity</h3>
-          <p>KYC-verified identity with a tamper-resistant record built for trusted verification.</p>
-        </article>
-        <article class="tid-card">
-          <span class="tid-badge">02</span>
-          <h3>Lifetime Record</h3>
-          <p>Keep a continuous trading record instead of starting from zero when your firm changes.</p>
-        </article>
-        <article class="tid-card">
-          <span class="tid-badge">03</span>
-          <h3>Portable Profile</h3>
-          <p>Share one professional trader profile with firms whenever you choose.</p>
-        </article>
-      </div>
-    </section>
-
-    <section class="tid-container" id="how-it-works" aria-labelledby="how-title">
-      <div class="tid-card">
-        <h2 id="how-title">How It Works</h2>
-        <div class="tid-hero-actions">
-          <article class="tid-card">
-            <span class="tid-badge">STEP 1</span>
-            <h3>Sign up free</h3>
-            <p>Create your Trader ID account at no cost.</p>
-          </article>
-          <article class="tid-card">
-            <span class="tid-badge">STEP 2</span>
-            <h3>Verify identity</h3>
-            <p>Complete identity verification through the TID verification process.</p>
-          </article>
-          <article class="tid-card">
-            <span class="tid-badge">STEP 3</span>
-            <h3>Get your TID</h3>
-            <p>Receive your permanent Trader ID and build your profile.</p>
-          </article>
-          <article class="tid-card">
-            <span class="tid-badge">STEP 4</span>
-            <h3>Share with firms</h3>
-            <p>Present your verified profile wherever a firm needs your trading identity.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <section class="tid-container" id="verify" aria-labelledby="profile-title">
-      <div class="tid-card">
-        <span class="tid-badge">PUBLIC PROFILE PREVIEW</span>
-        <h2 id="profile-title">A Trader Profile Built for Trust</h2>
-        <p>Your public profile can present a clear, verifiable snapshot of your trader identity.</p>
-
-        <div class="tid-card">
-          <span class="tid-logo">
-            <span class="tid-logo-mark">TID</span>
-            <span class="tid-logo-text">TID-A6HG74P</span>
-          </span>
-          <p><span class="tid-badge tid-badge-blue">VERIFIED</span></p>
-          <p>Trader profile · Verified identity</p>
-          <div class="tid-hero-actions">
-            <div class="tid-card">
-              <strong>Lifetime Record</strong>
-              <span>12 accounts</span>
-            </div>
-            <div class="tid-card">
-              <strong>Verified Trades</strong>
-              <span>1,248</span>
-            </div>
-            <div class="tid-card">
-              <strong>Rank</strong>
-              <span>Top 12%</span>
+        <div class="hero-visual">
+          <div class="tid-card-3d">
+            <div class="tid-card-monogram">TID</div>
+            <div>
+              <div class="tid-card-number">TID-A6HG74P</div>
+              <div class="tid-card-badge">✓ VERIFIED</div>
             </div>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="tid-container" aria-labelledby="faq-title">
-      <div class="tid-card">
-        <h2 id="faq-title">Frequently Asked Questions</h2>
+    <section class="section" id="what-is">
+      <div class="container">
+        <div class="section-header centered">
+          <span class="eyebrow">THE IDENTITY LAYER</span>
+          <h2 class="section-title">Everything a Trader Needs</h2>
+          <p class="section-subtitle">Your identity, verification and trading record — connected in one permanent profile.</p>
+        </div>
+        <div class="card-grid">
+          <div class="feature-card">
+            <div class="feature-icon blue">🛡️</div>
+            <div class="feature-eyebrow">01 · VERIFIED</div>
+            <h3 class="feature-title">Verified Identity</h3>
+            <p class="feature-text">Your identity is verified once and represented through a permanent Trader ID.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon green">📊</div>
+            <div class="feature-eyebrow">02 · RECORD</div>
+            <h3 class="feature-title">Trading Record</h3>
+            <p class="feature-text">Build a continuous record of your trading activity, milestones and credentials.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon gold">🌍</div>
+            <div class="feature-eyebrow">03 · PORTABLE</div>
+            <h3 class="feature-title">Portable Reputation</h3>
+            <p class="feature-text">Share your public Trader ID wherever you trade, apply or connect.</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <article class="tid-card">
-          <h3>What is Trader ID?</h3>
-          <p>Trader ID is a permanent identity and profile designed to connect a trader's verified identity with a portable professional record.</p>
-        </article>
+    <section class="section" id="how-it-works" style="background: var(--bg-light);">
+      <div class="container">
+        <div class="section-header centered">
+          <span class="eyebrow">HOW IT WORKS</span>
+          <h2 class="section-title">Four Simple Steps</h2>
+          <p class="section-subtitle">From signup to shareable profile in minutes.</p>
+        </div>
+        <div class="step-grid">
+          <div class="step-card">
+            <div class="step-number">01</div>
+            <h3 class="step-title">Create</h3>
+            <p class="step-text">Create your permanent Trader ID account for free.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">02</div>
+            <h3 class="step-title">Verify</h3>
+            <p class="step-text">Complete the required identity verification.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">03</div>
+            <h3 class="step-title">Build</h3>
+            <p class="step-text">Connect your verified trading journey and credentials.</p>
+          </div>
+          <div class="step-card">
+            <div class="step-number">04</div>
+            <h3 class="step-title">Share</h3>
+            <p class="step-text">Share your public profile anywhere.</p>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <article class="tid-card">
-          <h3>Is it free?</h3>
-          <p>Creating your Trader ID starts free. Verification and future services may have their own terms where applicable.</p>
-        </article>
+    <section class="section" style="background: var(--navy-900); color: white;">
+      <div class="container">
+        <div class="section-header centered">
+          <span class="eyebrow" style="background: rgba(184, 147, 90, 0.15); border-color: rgba(184, 147, 90, 0.4); color: var(--gold-bright);">PUBLIC PROFILE</span>
+          <h2 class="section-title" style="color: white;">Your Public Profile</h2>
+          <p class="section-subtitle" style="color: rgba(255,255,255,0.7);">A single link that lets anyone verify who you are and understand your trading record.</p>
+        </div>
+        <div style="max-width: 560px; margin: 0 auto; background: white; color: var(--text-primary); border-radius: 20px; padding: 32px; box-shadow: 0 40px 80px rgba(0,0,0,0.3);">
+          <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 24px;">
+            <div style="width: 64px; height: 64px; background: var(--navy-800); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700; font-size: 20px;">JD</div>
+            <div>
+              <div style="font-size: 18px; font-weight: 700; color: var(--text-primary);">Jeet Das</div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-muted); letter-spacing: 1px;">TID-A6HG74P</div>
+              <div style="display: inline-block; margin-top: 6px; padding: 3px 8px; background: rgba(16,185,129,0.1); color: var(--success); border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: 1px;">✓ VERIFIED TRADER</div>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; padding-top: 24px; border-top: 1px solid var(--border);">
+            <div><div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Trades</div><div style="font-size: 20px; font-weight: 700;">428</div></div>
+            <div><div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Days</div><div style="font-size: 20px; font-weight: 700;">186</div></div>
+            <div><div style="font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">Credentials</div><div style="font-size: 20px; font-weight: 700;">7</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
 
-        <article class="tid-card">
-          <h3>How do I verify?</h3>
-          <p>Sign up, follow the identity-verification flow, and provide the information required for KYC review.</p>
-        </article>
-
-        <article class="tid-card">
-          <h3>Can I share my profile?</h3>
-          <p>Yes. Your public profile is designed to be shared with firms and other parties you choose.</p>
-        </article>
-
-        <article class="tid-card">
-          <h3>Is my data safe?</h3>
-          <p>TID is designed around controlled access and verification. Review the privacy and data policies for the applicable details.</p>
-        </article>
+    <section class="section">
+      <div class="container">
+        <div class="section-header centered">
+          <span class="eyebrow">FAQ</span>
+          <h2 class="section-title">Common Questions</h2>
+        </div>
+        <div class="faq-list">
+          <details class="faq-item">
+            <summary class="faq-question">What is Trader ID? <span>+</span></summary>
+            <div class="faq-answer">Trader ID is a permanent, verified identity for traders. It preserves your trading record, credentials and reputation across firms.</div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">How does verification work? <span>+</span></summary>
+            <div class="faq-answer">You complete a KYC verification once. After that, your Trader ID carries a verified badge that firms can trust.</div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">Is my Trader ID permanent? <span>+</span></summary>
+            <div class="faq-answer">Yes. Your Trader ID stays with you for life, regardless of which firm you trade with.</div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">What information is public? <span>+</span></summary>
+            <div class="faq-answer">Only what you choose to share. Your email, phone and personal details are never public.</div>
+          </details>
+          <details class="faq-item">
+            <summary class="faq-question">Can I share my Trader ID? <span>+</span></summary>
+            <div class="faq-answer">Yes. You can share a public link with any firm, community or platform.</div>
+          </details>
+        </div>
       </div>
     </section>
   </main>
 
   <footer class="tid-footer">
-    <div class="tid-container">
-      <div class="tid-footer-grid">
-        <div>
-          <a class="tid-logo" href="/tradersid/home.html" aria-label="Trader ID home">
+    <div class="container">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <a href="/tradersid/home.html" class="tid-logo" style="color: white; margin-bottom: 16px;">
             <span class="tid-logo-mark">TID</span>
-            <span class="tid-logo-text">Trader ID</span>
+            <span>Trader ID</span>
           </a>
-          <p>Your permanent, portable trader identity.</p>
+          <p style="color: rgba(255,255,255,0.6); font-size: 14px; line-height: 1.6;">Your permanent trader identity.</p>
         </div>
-
-        <div>
+        <div class="footer-col">
           <h4>Product</h4>
           <a href="/tradersid/home.html">Home</a>
-          <a href="#about">About</a>
-          <a href="#verify">Verify</a>
+          <a href="#what-is">About</a>
+          <a href="/tradersid/verify.html">Verify</a>
           <a href="/tradersid/signup.html">Sign Up</a>
         </div>
-
-        <div>
+        <div class="footer-col">
           <h4>Legal</h4>
           <a href="/tradersid/legal/terms.html">Terms</a>
           <a href="/tradersid/legal/privacy.html">Privacy</a>
-          <a href="/tradersid/legal/refund.html">Refund</a>
+          <a href="/tradersid/legal/verification-policy.html">Verification Policy</a>
+          <a href="/tradersid/legal/data-policy.html">Data Policy</a>
         </div>
-
-        <div>
+        <div class="footer-col">
           <h4>Social</h4>
-          <a href="#" aria-label="Trader ID on Twitter">Twitter</a>
-          <a href="#" aria-label="Trader ID on Discord">Discord</a>
-          <a href="mailto:hello@traderid.com">Email</a>
+          <a href="#">X</a>
+          <a href="#">LinkedIn</a>
+          <a href="#">Community</a>
         </div>
       </div>
-
-      <div class="tid-footer-bottom">Trader ID · A separate brand. Not affiliated with FundFXT.</div>
+      <div class="footer-bottom">
+        <span>© 2026 Trader ID. All rights reserved.</span>
+        <span>Trader ID · A separate brand. Not affiliated with FundFXT.</span>
+      </div>
     </div>
   </footer>
-
-  <script>
-    const menuToggle = document.querySelector('.tid-menu-toggle');
-    const nav = document.querySelector('.tid-nav');
-
-    menuToggle?.addEventListener('click', () => {
-      const isOpen = nav.classList.toggle('is-open');
-      menuToggle.setAttribute('aria-expanded', String(isOpen));
-      menuToggle.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
-    });
-  </script>
 </body>
 </html>
