@@ -9,14 +9,6 @@
     {
       "source": "/index.html",
       "destination": "/home.html"
-    },
-    {
-      "source": "/dashboard.html",
-      "destination": "/dashboard.html"
-    },
-    {
-      "source": "/tradersid/:path*",
-      "destination": "/tradersid/:path*"
     }
   ]
 }
