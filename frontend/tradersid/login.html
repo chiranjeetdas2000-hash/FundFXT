@@ -22,6 +22,20 @@
         <a href="/tradersid/login.html" aria-current="page">Login</a>
       </nav>
       <a href="/tradersid/signup.html" class="btn btn-primary btn-sm">Sign Up</a>
+      <button class="tid-menu-toggle" id="tidMenuToggle" aria-label="Open menu" aria-expanded="false">
+        <span class="tid-menu-icon">
+          <span></span>
+          <span></span>
+          <span></span>
+        </span>
+      </button>
+
+      <nav class="tid-mobile-nav" id="tidMobileNav" hidden>
+        <a href="/tradersid/home.html">Home</a>
+        <a href="/tradersid/home.html#what-is">About</a>
+        <a href="/tradersid/verify.html">Verify</a>
+        <a href="/tradersid/login.html">Login</a>
+      </nav>
     </div>
   </header>
 
@@ -241,5 +255,38 @@
       });
     })();
   </script>
+  <script>
+(function() {
+  const toggle = document.getElementById('tidMenuToggle');
+  const nav = document.getElementById('tidMobileNav');
+  if (!toggle || !nav) return;
+  
+  toggle.addEventListener('click', () => {
+    const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!isOpen));
+    if (isOpen) {
+      nav.setAttribute('hidden', '');
+    } else {
+      nav.removeAttribute('hidden');
+    }
+  });
+  
+  // Close on link click
+  nav.querySelectorAll('a').forEach(a => {
+    a.addEventListener('click', () => {
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('hidden', '');
+    });
+  });
+  
+  // Close on escape
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('hidden', '');
+    }
+  });
+})();
+</script>
 </body>
 </html>
