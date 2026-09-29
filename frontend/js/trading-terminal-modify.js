@@ -173,13 +173,27 @@
                     notify("Trade modified successfully.", true);
                     if (typeof window.loadTrades === "function") {
                         await window.loadTrades();
+                        // Force the open-position view to refresh after SL/TP changes.
+                        if (typeof window.loadOpenPositions === "function") {
+                            await window.loadOpenPositions();
+                        }
                     }
                     else {
                         location.reload();
                     }
                 }
                 catch (error) {
-                    notify(error.message);
+                    // Surface modification failures in the browser console for debugging.
+                    console.error("[Modify SL/TP]", error);
+                    if (
+                        error.message.includes("429") ||
+                        error.message.includes("Too many")
+                    ) {
+                        notify("Too many modifications. Please wait a minute and try again.");
+                    }
+                    else {
+                        notify(error.message);
+                    }
                 }
                 finally {
                     setButtonLoading(
