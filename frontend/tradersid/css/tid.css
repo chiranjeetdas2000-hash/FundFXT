@@ -1,20 +1,27 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;500;600;700&display=swap');
 
 :root {
-  --tid-navy: #0A2540;
-  --tid-navy-dark: #071A2D;
-  --tid-navy-soft: #163A5C;
-  --tid-gold: #D4AF37;
-  --tid-gold-hover: #C19A2E;
-  --tid-silver: #C0C0C0;
-  --tid-light: #F5F7FA;
+  --tid-primary: #0F1B2D;
+  --tid-secondary: #1E3A5F;
+  --tid-gold: #B8935A;
+  --tid-gold-hover: #C9A45F;
+  --tid-light: #F8F9FB;
   --tid-white: #FFFFFF;
-  --tid-text: #0A2540;
-  --tid-muted: #667085;
-  --tid-border: #E5E9F0;
-  --tid-shadow: 0 8px 24px rgba(10, 37, 64, 0.06);
-  --tid-shadow-hover: 0 12px 32px rgba(10, 37, 64, 0.08);
-  --tid-radius: 16px;
+  --tid-text: #0F1B2D;
+  --tid-muted: #64748B;
+  --tid-muted-light: #94A3B8;
+  --tid-border: #E8EBF0;
+  --tid-success: #10B981;
+  --tid-error: #EF4444;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 64px;
+  --tid-shadow: 0 8px 24px rgba(15, 27, 45, 0.06);
+  --tid-radius: 14px;
   --tid-transition: 0.2s ease;
 }
 
@@ -65,21 +72,21 @@ h2,
 h3,
 h4 {
   font-family: 'Inter', sans-serif;
-  color: var(--tid-navy);
+  color: var(--tid-primary);
 }
 
 h1 {
-  font-size: clamp(28px, 5vw, 48px);
+  font-size: clamp(28px, 5vw, 52px);
   line-height: 1.08;
 }
 
 h2 {
-  font-size: clamp(22px, 3.5vw, 36px);
+  font-size: clamp(22px, 3vw, 32px);
   line-height: 1.15;
 }
 
 h3 {
-  font-size: clamp(18px, 2.5vw, 24px);
+  font-size: clamp(18px, 2vw, 22px);
   line-height: 1.2;
 }
 
@@ -94,13 +101,13 @@ h3 {
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: var(--tid-white);
-  border-bottom: 1px solid rgba(10, 37, 64, 0.08);
-  box-shadow: 0 4px 18px rgba(10, 37, 64, 0.07);
+  background: #FFFFFF;
+  border-bottom: 1px solid #E8EBF0;
+  padding: 16px 0;
 }
 
 .tid-header-inner {
-  min-height: 72px;
+  min-height: 48px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -111,24 +118,27 @@ h3 {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  color: var(--tid-navy);
+  color: #0F1B2D;
   font-family: 'Inter', sans-serif;
   font-weight: 800;
+  font-size: 18px;
   letter-spacing: -0.02em;
+  text-decoration: none;
+  white-space: nowrap;
 }
 
 .tid-logo-mark {
-  width: 38px;
-  height: 38px;
+  width: 32px;
+  height: 32px;
   display: grid;
   place-items: center;
-  flex: 0 0 38px;
-  border-radius: 50%;
-  background: var(--tid-gold);
-  color: var(--tid-navy);
-  font-size: 13px;
+  flex: 0 0 32px;
+  border-radius: 8px;
+  background: #0F1B2D;
+  color: #FFFFFF;
+  font-size: 12px;
   font-weight: 800;
-  box-shadow: 0 5px 14px rgba(212, 175, 55, 0.25);
+  letter-spacing: 0.5px;
 }
 
 .tid-logo-text {
@@ -142,7 +152,7 @@ h3 {
 }
 
 .tid-nav-link {
-  color: var(--tid-navy);
+  color: var(--tid-primary);
   font-family: 'Inter', sans-serif;
   font-size: 13px;
   font-weight: 600;
@@ -151,7 +161,7 @@ h3 {
 
 .tid-nav-link:hover,
 .tid-nav-link:focus-visible {
-  color: var(--tid-gold);
+  color: #B8935A;
 }
 
 .tid-menu-toggle {
@@ -163,7 +173,7 @@ h3 {
   border: 1px solid var(--tid-border);
   border-radius: 10px;
   background: var(--tid-white);
-  color: var(--tid-navy);
+  color: var(--tid-primary);
   cursor: pointer;
 }
 
@@ -199,9 +209,9 @@ h3 {
 .tid-hero {
   position: relative;
   overflow: hidden;
-  background: linear-gradient(135deg, var(--tid-navy) 0%, var(--tid-navy-dark) 100%);
-  color: var(--tid-white);
-  padding: 48px 0;
+  background: linear-gradient(135deg, #0F1B2D 0%, #1E3A5F 100%);
+  color: #FFFFFF;
+  padding: 64px 0;
 }
 
 .tid-hero::after {
@@ -212,7 +222,7 @@ h3 {
   right: -140px;
   top: -120px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(212, 175, 55, 0.18), transparent 68%);
+  background: radial-gradient(circle, rgba(184, 147, 90, 0.10), transparent 68%);
   pointer-events: none;
 }
 
@@ -230,15 +240,20 @@ h3 {
 }
 
 .tid-hero h1 {
-  margin: 18px 0;
-  color: var(--tid-white);
-  letter-spacing: -0.04em;
+  margin: 0 0 20px;
+  color: #FFFFFF;
+  font-size: clamp(28px, 5vw, 52px);
+  font-weight: 800;
+  line-height: 1.1;
+  letter-spacing: -0.03em;
 }
 
 .tid-hero p {
-  max-width: 620px;
-  margin: 0 0 28px;
-  color: rgba(255, 255, 255, 0.78);
+  max-width: 520px;
+  margin: 0 0 32px;
+  color: #B8C5D6;
+  font-size: clamp(15px, 1.6vw, 17px);
+  line-height: 1.6;
 }
 
 .tid-hero-actions {
@@ -252,7 +267,7 @@ h3 {
   width: 100%;
   max-width: 380px;
   margin: 0 auto;
-  background: linear-gradient(135deg, #F5F7FA 0%, #E0E7EC 100%);
+  background: linear-gradient(135deg, #F8F9FB 0%, #E0E7EC 100%);
   border: 1px solid rgba(212, 175, 55, 0.5);
   border-radius: 16px;
   box-shadow: 0 20px 60px rgba(10, 37, 64, 0.15), 0 0 0 1px rgba(212, 175, 55, 0.2);
@@ -262,7 +277,7 @@ h3 {
   padding: 24px;
   position: relative;
   overflow: hidden;
-  color: var(--tid-navy);
+  color: var(--tid-primary);
 }
 
 .tid-hero-card::before {
@@ -301,7 +316,7 @@ h3 {
 
 .tid-hero-card > div > span:last-child {
   margin-top: 6px;
-  color: var(--tid-navy);
+  color: var(--tid-primary);
   font-family: 'Inter', sans-serif;
   font-size: 11px;
   font-weight: 700;
@@ -310,32 +325,22 @@ h3 {
 
 .tid-btn,
 .tid-btn-outline {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  padding: 14px 28px;
-  border-radius: 10px;
-  font-family: 'Inter', sans-serif;
-  font-size: 15px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--tid-transition);
-  text-decoration: none;
-  white-space: nowrap;
+  border: 1px solid #E8EBF0;
+  background: transparent;
+  color: #0F1B2D;
 }
 
 .tid-btn {
   border: none;
-  background: var(--tid-gold);
-  color: var(--tid-navy);
+  background: #0F1B2D;
+  color: #FFFFFF;
 }
 
 .tid-btn:hover,
 .tid-btn:focus-visible {
-  background: var(--tid-gold-hover);
-  transform: translateY(-2px);
-  box-shadow: 0 8px 20px rgba(212, 175, 55, 0.3);
+  background: #1E3A5F;
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(15, 27, 45, 0.15);
 }
 
 .tid-btn-outline {
@@ -346,8 +351,8 @@ h3 {
 
 .tid-btn-outline:hover,
 .tid-btn-outline:focus-visible {
-  background: rgba(212, 175, 55, 0.10);
-  transform: translateY(-2px);
+  background: #F8F9FB;
+  border-color: #0F1B2D;
 }
 
 .tid-card {
@@ -355,23 +360,24 @@ h3 {
   height: 100%;
   display: flex;
   flex-direction: column;
-  padding: 28px 24px;
-  border: 1px solid var(--tid-border);
-  border-radius: var(--tid-radius);
-  background: var(--tid-white);
-  box-shadow: var(--tid-shadow);
-  transition: transform var(--tid-transition), box-shadow var(--tid-transition);
+  gap: 10px;
+  padding: 24px 22px;
+  border: 1px solid #E8EBF0;
+  border-radius: 14px;
+  background: #FFFFFF;
+  transition: border-color 0.2s, box-shadow 0.2s;
 }
 
 .tid-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--tid-shadow-hover);
+  border-color: #C9A45F;
+  box-shadow: 0 8px 24px rgba(15, 27, 45, 0.06);
+  transform: none;
 }
 
 .tid-card h2,
 .tid-card h3 {
   margin-top: 0;
-  color: var(--tid-navy);
+  color: var(--tid-primary);
 }
 
 .tid-card p {
@@ -394,7 +400,7 @@ h3 {
 }
 
 .tid-form label {
-  color: var(--tid-navy);
+  color: var(--tid-primary);
   font-family: 'Inter', sans-serif;
   font-size: 14px;
   font-weight: 600;
@@ -410,7 +416,7 @@ h3 {
   border-radius: 10px;
   outline: none;
   background: var(--tid-white);
-  color: var(--tid-navy);
+  color: var(--tid-primary);
   transition: border-color var(--tid-transition), box-shadow var(--tid-transition);
 }
 
@@ -421,7 +427,7 @@ h3 {
 
 .tid-form input::placeholder,
 .tid-form textarea::placeholder {
-  color: #98A2B3;
+  color: #94A3B8;
 }
 
 .tid-form input:focus,
@@ -445,22 +451,22 @@ h3 {
   padding: 5px 10px;
   border-radius: 999px;
   background: var(--tid-gold);
-  color: var(--tid-navy);
+  color: var(--tid-primary);
   font-family: 'Inter', sans-serif;
   font-size: 12px;
   font-weight: 700;
 }
 
 .tid-badge-blue {
-  background: var(--tid-navy-soft);
+  background: var(--tid-secondary);
   color: var(--tid-white);
 }
 
 .tid-footer {
-  margin-top: 64px;
+  margin-top: 48px;
   padding: 48px 0 24px;
-  background: var(--tid-navy);
-  color: var(--tid-white);
+  background: #0F1B2D;
+  color: #FFFFFF;
 }
 
 .tid-footer-grid {
@@ -493,7 +499,7 @@ h3 {
 
 .tid-footer a:hover,
 .tid-footer a:focus-visible {
-  color: var(--tid-gold);
+  color: #C9A45F;
 }
 
 .tid-footer-bottom {
@@ -562,10 +568,6 @@ h3 {
 }
 
 @media (max-width: 640px) {
-  .tid-card {
-    padding: 24px 20px;
-  }
-
   .tid-hero-actions {
     gap: 14px;
   }
@@ -733,6 +735,161 @@ main > .tid-container > .tid-hero-actions,
     gap: 16px;
   }
 
+  .step-grid {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+}
+
+/* Premium section spacing and typography */
+.section {
+  padding: 48px 0;
+}
+
+.section-title {
+  font-size: clamp(22px, 3vw, 32px);
+  font-weight: 700;
+  color: #0F1B2D;
+  margin: 0 0 24px;
+  letter-spacing: -0.02em;
+}
+
+.section-subtitle {
+  font-size: clamp(14px, 1.5vw, 16px);
+  color: #64748B;
+  margin: 0 0 32px;
+  max-width: 640px;
+}
+
+.card-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0F1B2D;
+  margin: 0 0 6px;
+  letter-spacing: -0.01em;
+}
+
+.card-text {
+  font-size: 14px;
+  line-height: 1.6;
+  color: #64748B;
+  margin: 0;
+}
+
+.step-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #F8F9FB;
+  border: 1px solid #E8EBF0;
+  border-radius: 6px;
+  color: #0F1B2D;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  width: fit-content;
+}
+
+.tid-hero-label {
+  display: inline-block;
+  padding: 6px 12px;
+  background: rgba(184, 147, 90, 0.15);
+  border: 1px solid rgba(184, 147, 90, 0.4);
+  border-radius: 20px;
+  color: #C9A45F;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  width: fit-content;
+}
+
+.tid-hero-subtitle {
+  font-size: clamp(15px, 1.6vw, 17px);
+  line-height: 1.6;
+  color: #B8C5D6;
+  margin: 0 0 32px;
+  max-width: 520px;
+}
+
+.tid-badge {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  min-height: 28px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #B8935A;
+  color: #FFFFFF;
+  font-family: 'Inter', sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.tid-badge-blue {
+  background: #1E3A5F;
+  color: #FFFFFF;
+}
+
+/* Existing TID home-page card groups: consistent premium grid spacing */
+main > .tid-container > .tid-hero-actions,
+#about > .tid-hero-actions,
+#verify .tid-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+#how-it-works .tid-hero-actions {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  width: 100%;
+}
+
+.step-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+
+@media (max-width: 1024px) {
+  main > .tid-container > .tid-hero-actions,
+  #about > .tid-hero-actions,
+  #verify .tid-hero-actions,
+  .card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  #how-it-works .tid-hero-actions,
+  .step-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .section {
+    padding: 32px 0;
+  }
+}
+
+@media (max-width: 640px) {
+  main > .tid-container > .tid-hero-actions,
+  #about > .tid-hero-actions,
+  #verify .tid-hero-actions,
+  #how-it-works .tid-hero-actions,
+  .card-grid,
   .step-grid {
     grid-template-columns: 1fr;
     gap: 14px;
