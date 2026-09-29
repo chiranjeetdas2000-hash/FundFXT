@@ -7,7 +7,8 @@
 --green:#00b56a;
 --red:#ff4d5e;
 --header:64px;
---rail:360px
+--rail:360px;
+--market-watch-columns:1.15fr .75fr .95fr .95fr .6fr
 }
 
 * {
@@ -330,9 +331,17 @@ border-color:#32785d;
 box-shadow:0 0 0 3px #00b56a12
 }
 
+.quote-head > span:first-child {
+text-align:left
+}
+
+.quote-head > span:not(:first-child) {
+text-align:right
+}
+
 .quote-head {
 display:grid;
-grid-template-columns:1.15fr .75fr .95fr .95fr .6fr;
+grid-template-columns:var(--market-watch-columns);
 gap:5px;
 padding:10px 8px 6px;
 color:#566571;
@@ -349,7 +358,7 @@ scrollbar-width:thin
 .quote {
 width:100%;
 display:grid;
-grid-template-columns:1.15fr .75fr .95fr .95fr .6fr;
+grid-template-columns:var(--market-watch-columns);
 gap:5px;
 align-items:center;
 padding:11px 8px;
