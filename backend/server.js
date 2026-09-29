@@ -2750,10 +2750,17 @@ app.patch("/api/trades/:tradeId", authenticateToken, tradeModifyRateLimiter, asy
         return res.status(400).json({ error: "Invalid Take Profit for this direction" });
       }
 
-      await db.execute(
-        "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ?",
+      // Prevent a race from updating a position after it has been closed.
+      const [updateResult] = await db.execute(
+        "UPDATE trades SET stop_loss = ?, take_profit = ? WHERE trade_id = ? AND status = 'OPEN'",
         [nextStopLoss, nextTakeProfit, req.params.tradeId],
       );
+
+      if (updateResult.affectedRows === 0) {
+        return res.status(409).json({
+          error: "Position is no longer open. Refresh to see current status.",
+        });
+      }
 
       return res.json({
         success: true,
