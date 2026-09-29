@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trader ID — Create your permanent trader identity.">
+  <title>Create your Trader ID — Trader ID</title>
+  <link rel="stylesheet" href="/tradersid/css/tid.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-page-body">
+<header class="tid-header auth-header">
+<div class="container tid-header-inner">
+
+      <a href="/tradersid/home.html" class="tid-logo">
+        <span class="tid-logo-mark">TID</span>
+        <span>Trader ID</span>
+      </a>
+      <nav class="tid-nav">
+        <a href="/tradersid/home.html">Home</a>
+        <a href="/tradersid/home.html#what-is">About</a>
+        <a href="/tradersid/verify.html">Verify</a>
+        <a href="/tradersid/login.html" aria-current="page">Login</a>
+      </nav>
+      <a href="/tradersid/login.html" class="btn btn-primary btn-sm">Sign In</a>
+      <button class="tid-menu-toggle" id="tidMenuToggle" aria-label="Open menu" aria-expanded="false">
+        <span class="tid-menu-icon"><span></span><span></span><span></span></span>
+      </button>
+
+      <nav class="tid-mobile-nav" id="tidMobileNav" hidden>
+        <a href="/tradersid/home.html">Home</a>
+        <a href="/tradersid/home.html#what-is">About</a>
+        <a href="/tradersid/verify.html">Verify</a>
+        <a href="/tradersid/login.html">Login</a>
+      </nav>
+    </div>
+</header>
+
+  <main class="auth-page">
+    <section class="auth-visual" aria-label="Trader ID identity">
+      <div class="auth-visual-card" aria-hidden="true">
+        <div class="tid-card-monogram">TID</div>
+        <div>
+          <div class="tid-card-number">TID-A6HG74P</div>
+          <div class="tid-card-badge">✓ VERIFIED</div>
+        </div>
+      </div>
+      <p class="auth-visual-tagline">YOUR IDENTITY. YOUR RECORD. YOUR REPUTATION.</p>
+    </section>
+
+    <section class="auth-form-panel">
+      <div class="auth-form">
+        <div class="auth-progress" aria-label="Signup progress">
+          <div class="auth-progress-step">
+            <span class="auth-progress-num active">01</span>
+            <span class="auth-progress-line active"></span>
+          </div>
+          <div class="auth-progress-step">
+            <span class="auth-progress-num">02</span>
+            <span class="auth-progress-line"></span>
+          </div>
+          <div class="auth-progress-step">
+            <span class="auth-progress-num">03</span>
+          </div>
+        </div>
+
+        <h1 class="auth-form-title">Create your Trader ID</h1>
+        <p class="auth-form-subtitle">Your permanent trader identity starts here.</p>
+
+        <form id="signupForm" action="/api/tid/signup" method="post" novalidate>
+          <div class="form-group">
+            <label class="form-label" for="fullName">Full name</label>
+            <input class="form-input" id="fullName" name="full_name" type="text" autocomplete="name" placeholder="John Doe" required aria-describedby="fullNameError">
+            <div class="form-error" id="fullNameError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
+          </div>
+
+          <div class="form-group">
+            <label class="form-label" for="email">Email</label>
+            <input class="form-input" id="email" name="email" type="email" autocomplete="email" placeholder="name@email.com" required aria-describedby="emailError">
+            <div class="form-error" id="emailError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
+          </div>
+
+          <div class="form-group">
+            <div class="form-label-row">
+              <label class="form-label" for="password">Password</label>
+              <button class="form-input-toggle" id="passwordToggle" type="button" aria-controls="password" aria-label="Show password">Show</button>
+            </div>
+            <div class="form-input-wrap">
+              <input class="form-input" id="password" name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required aria-describedby="passwordError passwordHelper">
+            </div>
+            <div class="form-error" id="passwordError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
+            <p class="form-helper" id="passwordHelper">Use at least 8 characters with a mix of letters and numbers</p>
+          </div>
+
+          <div class="form-checkbox-row">
+            <input type="checkbox" id="terms" name="terms" required>
+            <label for="terms">I agree to the <a href="/tradersid/legal/terms.html">Terms of Service</a> and <a href="/tradersid/legal/privacy.html">Privacy Policy</a></label>
+          </div>
+          <div class="form-error" id="termsError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
+
+          <button class="btn btn-primary auth-submit" id="createAccountButton" type="submit">Create Account</button>
+
+          <div class="form-server-error" id="serverError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
+
+          <p class="auth-signup">Already have a TID? <a class="form-link" href="/tradersid/login.html">Sign in</a></p>
+        </form>
+
+        <p class="form-trust">🔒 Your information is protected</p>
+        <p class="auth-legal">
+          <a href="/tradersid/legal/privacy.html">Privacy</a><span>·</span><a href="/tradersid/legal/terms.html">Terms</a>
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="tid-footer auth-footer">
+    <div class="container">
+      <div class="footer-bottom">
+        <span>© 2026 Trader ID. All rights reserved.</span>
+        <span>Trader ID · A separate brand.</span>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+  (() => {
+    const form = document.getElementById('signupForm');
+    const fullName = document.getElementById('fullName');
+    const email = document.getElementById('email');
+    const password = document.getElementById('password');
+    const terms = document.getElementById('terms');
+    const button = document.getElementById('createAccountButton');
+    const passwordToggle = document.getElementById('passwordToggle');
+
+    const errors = {
+      fullName: document.getElementById('fullNameError'),
+      email: document.getElementById('emailError'),
+      password: document.getElementById('passwordError'),
+      terms: document.getElementById('termsError')
+    };
+    const serverError = document.getElementById('serverError');
+
+    const showError = (input, box, message, invalid = true) => {
+      box.querySelector('span:last-child').textContent = message;
+      box.hidden = !message;
+      if (input) {
+        input.classList.toggle('error', invalid && Boolean(message));
+        input.setAttribute('aria-invalid', message && invalid ? 'true' : 'false');
+      }
+    };
+
+    const clearServerError = () => {
+      serverError.querySelector('span:last-child').textContent = '';
+      serverError.hidden = true;
+    };
+
+    const validate = () => {
+      let valid = true;
+      const nameValue = fullName.value.trim();
+      const emailValue = email.value.trim();
+      const passwordValue = password.value;
+
+      if (nameValue.length < 2) {
+        showError(fullName, errors.fullName, 'Enter your full name (at least 2 characters).');
+        valid = false;
+      } else showError(fullName, errors.fullName, '');
+
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
+        showError(email, errors.email, 'Enter a valid email address.');
+        valid = false;
+      } else showError(email, errors.email, '');
+
+      if (passwordValue.length < 8 || !/[A-Za-z]/.test(passwordValue) || !/[0-9]/.test(passwordValue)) {
+        showError(password, errors.password, 'Use at least 8 characters with at least 1 letter and 1 number.');
+        valid = false;
+      } else showError(password, errors.password, '');
+
+      if (!terms.checked) {
+        showError(terms, errors.terms, 'You must agree to the Terms of Service and Privacy Policy.');
+        valid = false;
+      } else showError(terms, errors.terms, '');
+
+      return valid;
+    };
+
+    passwordToggle.addEventListener('click', () => {
+      const visible = password.type === 'text';
+      password.type = visible ? 'password' : 'text';
+      passwordToggle.textContent = visible ? 'Show' : 'Hide';
+      passwordToggle.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
+    });
+
+    [fullName, email, password].forEach(input => input.addEventListener('input', () => {
+      const box = errors[input.id === 'fullName' ? 'fullName' : input.id];
+      if (box) showError(input, box, '');
+      clearServerError();
+    }));
+    terms.addEventListener('change', () => showError(terms, errors.terms, ''));
+
+    form.addEventListener('submit', async event => {
+      event.preventDefault();
+      clearServerError();
+      if (!validate()) return;
+
+      button.disabled = true;
+      button.textContent = 'Creating Account…';
+
+      try {
+        const response = await fetch('/api/tid/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            full_name: fullName.value.trim(),
+            email: email.value.trim(),
+            password: password.value
+          })
+        });
+
+        let data = {};
+        try { data = await response.json(); } catch (_) {}
+
+        if (!response.ok) {
+          const message = data.message || data.error || 'Unable to create your account. Please try again.';
+          const lower = message.toLowerCase();
+          if (lower.includes('email') || lower.includes('already') || lower.includes('exist')) {
+            showError(email, errors.email, message);
+          } else if (lower.includes('password')) {
+            showError(password, errors.password, message);
+          } else if (lower.includes('name')) {
+            showError(fullName, errors.fullName, message);
+          } else {
+            serverError.querySelector('span:last-child').textContent = message;
+            serverError.hidden = false;
+          }
+          return;
+        }
+
+        if (!data.token || !data.user) {
+          serverError.querySelector('span:last-child').textContent = 'Account created, but the server response was incomplete. Please try again.';
+          serverError.hidden = false;
+          return;
+        }
+
+        localStorage.setItem('tid_token', data.token);
+        localStorage.setItem('tid_user', JSON.stringify(data.user));
+        window.location.href = '/tradersid/verify-email.html';
+      } catch (_) {
+        serverError.querySelector('span:last-child').textContent = 'Unable to connect. Please try again.';
+        serverError.hidden = false;
+      } finally {
+        button.disabled = false;
+        button.textContent = 'Create Account';
+      }
+    });
+  })();
+
+  (function() {
+    const toggle = document.getElementById('tidMenuToggle');
+    const nav = document.getElementById('tidMobileNav');
+    if (!toggle || !nav) return;
+    toggle.addEventListener('click', () => {
+      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
+      toggle.setAttribute('aria-expanded', String(!isOpen));
+      if (isOpen) nav.setAttribute('hidden', '');
+      else nav.removeAttribute('hidden');
+    });
+    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
+      toggle.setAttribute('aria-expanded', 'false');
+      nav.setAttribute('hidden', '');
+    }));
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        toggle.setAttribute('aria-expanded', 'false');
+        nav.setAttribute('hidden', '');
+      }
+    });
+  })();
+  </script>
+</body>
+</html>
