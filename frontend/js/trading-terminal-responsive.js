@@ -11,7 +11,7 @@
 
     const compact = () =>
         matchMedia(
-            '(max-width:800px)',
+            '(max-width:750px)',
         ).matches;
 
     function sync() {
