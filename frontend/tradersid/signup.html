@@ -100,8 +100,8 @@
 
           <button class="btn btn-primary auth-submit" id="createAccountButton" type="submit">Create Account</button>
 
-          <div class="form-server-error" id="serverError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
-          <div class="form-server-error" id="successMessage" role="status" hidden style="border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.06);color:#059669;"><span aria-hidden="true">✓</span><span></span></div>
+          <div class="form-server-error" id="serverError" role="alert" hidden style="display:none;"><span aria-hidden="true">⚠</span><span></span></div>
+          <div class="form-server-error" id="successMessage" role="status" hidden style="display:none;border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.06);color:#059669;"><span aria-hidden="true">✓</span><span></span></div>
 
           <p class="auth-signup">Already have a TID? <a class="form-link" href="/tradersid/login.html">Sign in</a></p>
         </form>
@@ -141,11 +141,12 @@
     };
     const serverError = document.getElementById('serverError');
     const successMessage = document.getElementById('successMessage');
-    const touched = new Set();
+    const touched = {};
 
     const showError = (input, box, message) => {
       box.querySelector('span:last-child').textContent = message;
       box.hidden = !message;
+      box.style.display = message ? 'flex' : 'none';
       if (input) {
         input.classList.toggle('error', Boolean(message));
         input.setAttribute('aria-invalid', message ? 'true' : 'false');
@@ -155,6 +156,13 @@
     const clearServerError = () => {
       serverError.querySelector('span:last-child').textContent = '';
       serverError.hidden = true;
+      serverError.style.display = 'none';
+    };
+
+    const showServerMessage = (box, message) => {
+      box.querySelector('span:last-child').textContent = message;
+      box.hidden = false;
+      box.style.display = 'flex';
     };
 
     const validateField = (field, show = true) => {
@@ -188,7 +196,7 @@
       let valid = true;
 
       fields.forEach(field => {
-        touched.add(field);
+        touched[field.id] = true;
         if (!validateField(field, true)) valid = false;
       });
 
@@ -202,13 +210,17 @@
       });
       field.addEventListener('input', () => {
         clearServerError();
-        if (touched.has(field)) validateField(field, true);
+        if (touched[field.id]) validateField(field, true);
       });
     });
 
+    terms.addEventListener('blur', () => {
+      touched[terms.id] = true;
+      validateField(terms, true);
+    });
     terms.addEventListener('change', () => {
       clearServerError();
-      if (touched.has(terms)) validateField(terms, true);
+      if (touched[terms.id]) validateField(terms, true);
     });
 
     passwordToggle.addEventListener('click', () => {
@@ -251,15 +263,13 @@
           } else if (lower.includes('name')) {
             showError(fullName, errors.fullName, message);
           } else {
-            serverError.querySelector('span:last-child').textContent = message;
-            serverError.hidden = false;
+            showServerMessage(serverError, message);
           }
           return;
         }
 
         if (!data.token || !data.user) {
-          serverError.querySelector('span:last-child').textContent = 'Account created, but the server response was incomplete. Please try again.';
-          serverError.hidden = false;
+          showServerMessage(serverError, 'Account created, but the server response was incomplete. Please try again.');
           return;
         }
 
@@ -277,13 +287,11 @@
           // Storage failure must not block the successful-account redirect.
         }
 
-        successMessage.querySelector('span:last-child').textContent = 'Welcome to Trader ID! Redirecting to your dashboard…';
-        successMessage.hidden = false;
+        showServerMessage(successMessage, 'Welcome to Trader ID! Redirecting to your dashboard…');
         window.location.replace('/tradersid/dashboard.html');
         return;
       } catch (_) {
-        serverError.querySelector('span:last-child').textContent = 'Unable to connect. Please try again.';
-        serverError.hidden = false;
+        showServerMessage(serverError, 'Unable to connect. Please try again.');
       } finally {
         button.disabled = false;
         button.textContent = 'Create Account';
