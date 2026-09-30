@@ -41,6 +41,18 @@
             "destination": "/frontend/trading.html"
         },
         {
+            "source": "/t",
+            "destination": "/frontend/tradersid/t.html"
+        },
+        {
+            "source": "/t/",
+            "destination": "/frontend/tradersid/t.html"
+        },
+        {
+            "source": "/t/:path*",
+            "destination": "/frontend/tradersid/t.html"
+        },
+        {
             "source": "/tradersid/:path*",
             "destination": "/frontend/tradersid/:path*"
         },
