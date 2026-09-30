@@ -141,13 +141,14 @@
     };
     const serverError = document.getElementById('serverError');
     const successMessage = document.getElementById('successMessage');
+    const touched = new Set();
 
-    const showError = (input, box, message, invalid = true) => {
+    const showError = (input, box, message) => {
       box.querySelector('span:last-child').textContent = message;
       box.hidden = !message;
       if (input) {
-        input.classList.toggle('error', invalid && Boolean(message));
-        input.setAttribute('aria-invalid', message && invalid ? 'true' : 'false');
+        input.classList.toggle('error', Boolean(message));
+        input.setAttribute('aria-invalid', message ? 'true' : 'false');
       }
     };
 
@@ -156,34 +157,59 @@
       serverError.hidden = true;
     };
 
-    const validate = () => {
+    const validateField = (field, show = true) => {
+      let message = '';
+      const value = field === terms ? terms.checked : field.value.trim();
+
+      if (field === fullName && value.length < 2) {
+        message = 'Enter your full name (at least 2 characters).';
+      } else if (field === email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+        message = 'Enter a valid email address.';
+      } else if (field === password && (
+        password.value.length < 8 ||
+        !/[A-Za-z]/.test(password.value) ||
+        !/[0-9]/.test(password.value)
+      )) {
+        message = 'Use at least 8 characters with at least 1 letter and 1 number.';
+      } else if (field === terms && !terms.checked) {
+        message = 'You must agree to the Terms of Service and Privacy Policy.';
+      }
+
+      if (show) {
+        const key = field === fullName ? 'fullName' : field === email ? 'email' : field === password ? 'password' : 'terms';
+        showError(field, errors[key], message);
+      }
+
+      return !message;
+    };
+
+    const validateAll = () => {
+      const fields = [fullName, email, password, terms];
       let valid = true;
-      const nameValue = fullName.value.trim();
-      const emailValue = email.value.trim();
-      const passwordValue = password.value;
 
-      if (nameValue.length < 2) {
-        showError(fullName, errors.fullName, 'Enter your full name (at least 2 characters).');
-        valid = false;
-      } else showError(fullName, errors.fullName, '');
-
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailValue)) {
-        showError(email, errors.email, 'Enter a valid email address.');
-        valid = false;
-      } else showError(email, errors.email, '');
-
-      if (passwordValue.length < 8 || !/[A-Za-z]/.test(passwordValue) || !/[0-9]/.test(passwordValue)) {
-        showError(password, errors.password, 'Use at least 8 characters with at least 1 letter and 1 number.');
-        valid = false;
-      } else showError(password, errors.password, '');
-
-      if (!terms.checked) {
-        showError(terms, errors.terms, 'You must agree to the Terms of Service and Privacy Policy.');
-        valid = false;
-      } else showError(terms, errors.terms, '');
+      fields.forEach(field => {
+        touched.add(field);
+        if (!validateField(field, true)) valid = false;
+      });
 
       return valid;
     };
+
+    [fullName, email, password].forEach(field => {
+      field.addEventListener('blur', () => {
+        touched.add(field);
+        validateField(field, true);
+      });
+      field.addEventListener('input', () => {
+        clearServerError();
+        if (touched.has(field)) validateField(field, true);
+      });
+    });
+
+    terms.addEventListener('change', () => {
+      clearServerError();
+      if (touched.has(terms)) validateField(terms, true);
+    });
 
     passwordToggle.addEventListener('click', () => {
       const visible = password.type === 'text';
@@ -192,17 +218,10 @@
       passwordToggle.setAttribute('aria-label', visible ? 'Show password' : 'Hide password');
     });
 
-    [fullName, email, password].forEach(input => input.addEventListener('input', () => {
-      const box = errors[input.id === 'fullName' ? 'fullName' : input.id];
-      if (box) showError(input, box, '');
-      clearServerError();
-    }));
-    terms.addEventListener('change', () => showError(terms, errors.terms, ''));
-
     form.addEventListener('submit', async event => {
       event.preventDefault();
       clearServerError();
-      if (!validate()) return;
+      if (!validateAll()) return;
 
       button.disabled = true;
       button.textContent = 'Creating Account…';
@@ -224,6 +243,7 @@
         if (!response.ok) {
           const message = data.message || data.error || 'Unable to create your account. Please try again.';
           const lower = message.toLowerCase();
+
           if (lower.includes('email') || lower.includes('already') || lower.includes('exist')) {
             showError(email, errors.email, message);
           } else if (lower.includes('password')) {
@@ -243,9 +263,16 @@
           return;
         }
 
+        const tidUser = {
+          tid: data.user.tid,
+          email: data.user.email,
+          full_name: data.user.full_name,
+          pak: data.user.pak
+        };
+
         try {
           localStorage.setItem('tid_token', data.token);
-          localStorage.setItem('tid_user', JSON.stringify(data.user));
+          localStorage.setItem('tid_user', JSON.stringify(tidUser));
         } catch (_) {
           // Storage failure must not block the successful-account redirect.
         }
@@ -260,28 +287,6 @@
       } finally {
         button.disabled = false;
         button.textContent = 'Create Account';
-      }
-    });
-  })();
-
-  (function() {
-    const toggle = document.getElementById('tidMenuToggle');
-    const nav = document.getElementById('tidMobileNav');
-    if (!toggle || !nav) return;
-    toggle.addEventListener('click', () => {
-      const isOpen = toggle.getAttribute('aria-expanded') === 'true';
-      toggle.setAttribute('aria-expanded', String(!isOpen));
-      if (isOpen) nav.setAttribute('hidden', '');
-      else nav.removeAttribute('hidden');
-    });
-    nav.querySelectorAll('a').forEach(a => a.addEventListener('click', () => {
-      toggle.setAttribute('aria-expanded', 'false');
-      nav.setAttribute('hidden', '');
-    }));
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        toggle.setAttribute('aria-expanded', 'false');
-        nav.setAttribute('hidden', '');
       }
     });
   })();
