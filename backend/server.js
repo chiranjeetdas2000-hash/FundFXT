@@ -3743,6 +3743,9 @@ app.post(
     });
   },
 );
+const tidRoutes = require('./tid-routes');
+app.use('/api/tid', tidRoutes);
+
 // ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
 let server;
