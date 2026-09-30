@@ -8,6 +8,9 @@
 <link rel="stylesheet" href="index.css">
 <style>
 .db-page{padding:28px}.db-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.db-top h1{margin:4px 0}.db-top p{margin:0;color:var(--muted)}.db-actions,.db-toolbar{display:flex;gap:8px;flex-wrap:wrap}.db-grid{display:grid;grid-template-columns:280px 1fr;gap:16px}.db-card{background:var(--card,#fff);border:1px solid var(--border,#ddd);border-radius:14px;padding:16px}.db-input{padding:9px 11px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;color:inherit;font:inherit}.db-search{width:100%;margin-top:10px}.db-list{margin-top:10px;max-height:65vh;overflow:auto}.db-table-btn{display:block;width:100%;padding:10px;text-align:left;background:transparent;color:inherit;border:0;border-bottom:1px solid var(--border,#ddd);cursor:pointer}.db-table-btn:hover,.db-table-btn.active{background:rgba(0,181,106,.08);box-shadow:inset 3px 0 var(--green,#00b56a)}.db-table-btn small{color:var(--muted)}.db-scroll{overflow:auto;max-height:58vh;margin-top:12px}.db-table{width:100%;border-collapse:collapse;font-size:11px}.db-table th,.db-table td{padding:8px;border-bottom:1px solid var(--border,#ddd);text-align:left;vertical-align:top;white-space:nowrap}.db-table th{position:sticky;top:0;background:var(--card,#fff);z-index:1}.db-cell{white-space:pre-wrap!important;word-break:break-word;max-width:280px}.db-empty{padding:28px;text-align:center;color:var(--muted)}.db-danger{color:#c62828}.db-schema{margin-top:16px}.db-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;z-index:99}.db-modal.open{display:flex}.db-modal-box{width:min(900px,100%);max-height:90vh;overflow:auto;background:var(--card,#fff);border-radius:14px;padding:18px}.db-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.db-field label{display:block;font-size:10px;margin-bottom:4px}.db-field input{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border,#ddd);border-radius:7px;background:transparent;color:inherit}@media(max-width:850px){.db-page{padding:16px}.db-top{flex-direction:column}.db-grid{grid-template-columns:1fr}.db-list{max-height:250px}.db-fields{grid-template-columns:1fr}}
+
+.db-sql{margin-top:16px}.db-sql h2{margin:0 0 6px;font-size:18px}.db-sql-warning{padding:10px 12px;margin:10px 0;border:1px solid rgba(198,40,40,.28);border-radius:9px;background:rgba(198,40,40,.06);color:#c62828;font-size:12px;line-height:1.45}.db-sql textarea{width:100%;min-height:150px;box-sizing:border-box;padding:12px;border:1px solid var(--border,#ddd);border-radius:9px;background:transparent;color:inherit;font:12px/1.55 Consolas,Monaco,monospace;resize:vertical}.db-sql-templates{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.db-sql-template{padding:7px 9px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;color:inherit;font:10px/1.2 Consolas,Monaco,monospace;cursor:pointer}.db-sql-template:hover{background:rgba(0,181,106,.08)}.db-sql-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.db-sql-status{margin-top:10px;font-size:11px;color:var(--muted)}.db-sql-result{margin-top:14px}.db-sql-result .db-scroll{max-height:50vh}.db-sql-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--muted)}.db-sql-pre{white-space:pre-wrap;word-break:break-word;font:11px/1.45 Consolas,Monaco,monospace;color:#c62828}@media(max-width:850px){.db-sql textarea{min-height:180px}.db-sql-actions button{flex:1;min-width:110px}.db-sql-template{width:100%;text-align:left}.db-sql-result .db-scroll{max-height:55vh}}
+
 </style>
 </head>
 <body>
@@ -19,6 +22,28 @@
     <section class="db-card"><div id="tableHeader"><b>Select a table</b><p style="font-size:11px;color:var(--muted)">Choose a table to inspect live records.</p></div><div id="recordArea"></div></section>
   </div>
 </div>
+  <section class="db-card db-sql" id="sqlRunner">
+    <h2>SQL RUNNER <span style="font-size:10px;color:#c62828;font-weight:700;">(DEV ONLY)</span></h2>
+    <div class="db-sql-warning"><b>⚠ DEV TOOL:</b> Destructive queries cannot be undone. Only use this runner for controlled development/admin work.</div>
+    <textarea id="sqlInput" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Enter SQL query…"></textarea>
+    <div style="margin-top:10px;font-size:11px;font-weight:600;">Quick templates:</div>
+    <div class="db-sql-templates">
+      <button class="db-sql-template" onclick="sqlTemplate('SELECT * FROM tid_users LIMIT 50')">SELECT * FROM tid_users LIMIT 50</button>
+      <button class="db-sql-template" onclick="sqlTemplate('SELECT * FROM tid_profiles LIMIT 50')">SELECT * FROM tid_profiles LIMIT 50</button>
+      <button class="db-sql-template" onclick="sqlTemplate('SELECT * FROM tid_email_verifications LIMIT 50')">SELECT * FROM tid_email_verifications LIMIT 50</button>
+      <button class="db-sql-template" onclick="sqlTemplate('DESCRIBE tid_users')">DESCRIBE tid_users</button>
+      <button class="db-sql-template" onclick="sqlTemplate('SHOW TABLES')">SHOW TABLES</button>
+    </div>
+    <div class="db-sql-actions">
+      <button class="btn" onclick="runSql()">Run Query</button>
+      <button class="btn secondary" onclick="clearSql()">Clear</button>
+      <button class="btn secondary" id="sqlExport" onclick="exportSqlCsv()" disabled>Export CSV</button>
+      <button class="btn secondary" id="sqlCopy" onclick="copySqlResult()" disabled>Copy Result</button>
+    </div>
+    <div id="sqlStatus" class="db-sql-status"></div>
+    <div id="sqlResult" class="db-sql-result"></div>
+  </section>
+
 <div id="schemaModal" class="db-modal"><div class="db-modal-box"><div class="db-top"><div><h2 id="schemaTitle">Schema</h2><p>Live column and index metadata.</p></div><button class="icon-btn" onclick="closeModal('schemaModal')">×</button></div><div class="db-scroll"><table class="db-table"><thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Key</th><th>Default</th><th>Extra</th></tr></thead><tbody id="schemaBody"></tbody></table></div></div></div>
 <script>
 const API='https://fundfxt.onrender.com';const token=localStorage.getItem('fundfxt_admin_token');if(!token)location.href='login.html';let tables=[],selected='',columns=[],rows=[],page=1,totalPages=1;
@@ -35,6 +60,45 @@ async function loadSchemaModal(){try{const d=await api(`/api/admin/database/tabl
 function closeModal(id){$(id).classList.remove('open')}
 function addRow(){if(!selected)return;const raw=prompt('Enter the new record as JSON, for example {"name":"Test"}:');if(raw===null)return;let data;try{data=JSON.parse(raw)}catch{return showError(new Error('Invalid JSON'))}api(`/api/admin/database/tables/${encodeURIComponent(selected)}/rows`,{method:'POST',body:JSON.stringify({data})}).then(()=>{clearMessage();loadTables();loadRows()}).catch(showError)}
 async function deleteRow(i){const pk=columns.find(c=>c.COLUMN_KEY==='PRI');if(!pk)return showError(new Error('Delete requires a table with one primary key.'));const id=rows[i][pk.COLUMN_NAME];if(!confirm(`Delete ${selected} record ${pk.COLUMN_NAME}=${id}? This cannot be undone.`))return;try{await api(`/api/admin/database/tables/${encodeURIComponent(selected)}/rows/${encodeURIComponent(id)}`,{method:'DELETE'});loadTables();loadRows()}catch(e){showError(e)}}
+let sqlResultData=null,sqlResultColumns=[];
+function sqlTemplate(query){$('sqlInput').value=query;$('sqlInput').focus()}
+function clearSql(){ $('sqlInput').value=''; $('sqlStatus').textContent=''; $('sqlResult').innerHTML=''; sqlResultData=null; sqlResultColumns=[]; $('sqlExport').disabled=true; $('sqlCopy').disabled=true; }
+function sqlType(sql){const m=String(sql).trim().match(/^(SELECT|INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|TRUNCATE|DESCRIBE|DESC|SHOW|EXPLAIN|WITH)\\b/i);if(!m)return 'UNKNOWN';const t=m[1].toUpperCase();return t==='DESCRIBE'||t==='DESC'||t==='SHOW'||t==='EXPLAIN'||t==='WITH'?'SELECT':t}
+function sqlDestructive(sql){return /\\b(DROP|DELETE|UPDATE|ALTER|TRUNCATE)\\b/i.test(String(sql))}
+function renderSqlResult(d){
+  sqlResultData=d.rows||[];sqlResultColumns=d.columns||[];
+  const cols=sqlResultColumns.length?sqlResultColumns:Object.keys(sqlResultData[0]||{});
+  const head=cols.map(c=>'<th>'+esc(c)+'</th>').join('');
+  const body=sqlResultData.map(r=>'<tr>'+cols.map(c=>'<td class="db-cell">'+esc(typeof r[c]==='object'?JSON.stringify(r[c]):r[c])+'</td>').join('')+'</tr>').join('');
+  $('sqlResult').innerHTML='<div class="db-sql-meta"><span>Rows: '+Number(d.row_count||0).toLocaleString()+'</span><span>Time: '+Number(d.execution_ms||0)+'ms</span></div>'+
+    (cols.length?'<div class="db-scroll"><table class="db-table"><thead><tr>'+head+'</tr></thead><tbody>'+ (body||'<tr><td colspan="'+cols.length+'" class="db-empty">No rows returned.</td></tr>')+'</tbody></table></div>':'<div class="db-card" style="padding:12px;font-size:12px;">Query executed successfully. Affected rows: '+Number(d.rows_affected||0)+'</div>');
+  $('sqlExport').disabled=!(sqlResultData.length&&cols.length);$('sqlCopy').disabled=!(sqlResultData.length&&cols.length);
+}
+async function runSql(){
+  clearMessage();
+  const sql=$('sqlInput').value.trim();
+  if(!sql)return showError(new Error('Enter a SQL query.'));
+  if(sql.length>5000)return showError(new Error('Query is limited to 5000 characters.'));
+  if(sql.split(';').filter(part=>part.trim()).length>1)return showError(new Error('Multiple SQL statements are not allowed. Use one statement per call.'));
+  if(sqlDestructive(sql)&&!confirm('This query may modify or destroy data. Destructive queries cannot be undone. Continue?'))return;
+  $('sqlStatus').textContent='Running…';$('sqlExport').disabled=true;$('sqlCopy').disabled=true;
+  try{
+    const d=await api('/api/admin/sql/run',{method:'POST',body:JSON.stringify({sql})});
+    renderSqlResult(d);$('sqlStatus').textContent='Query completed.';
+  }catch(e){$('sqlStatus').textContent='';$('sqlResult').innerHTML='<div class="db-sql-pre">'+esc(e.message||e)+'</div>'}
+}
+function sqlCsvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
+function exportSqlCsv(){
+  if(!sqlResultData.length||!sqlResultColumns.length)return;
+  const csv=[sqlResultColumns.map(sqlCsvCell).join(','),...sqlResultData.map(r=>sqlResultColumns.map(c=>sqlCsvCell(typeof r[c]==='object'?JSON.stringify(r[c]):r[c])).join(','))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='sql-result.csv';a.click();URL.revokeObjectURL(url);
+}
+async function copySqlResult(){
+  if(!sqlResultData.length||!sqlResultColumns.length)return;
+  const text=[sqlResultColumns.join('\t'),...sqlResultData.map(r=>sqlResultColumns.map(c=>typeof r[c]==='object'?JSON.stringify(r[c]):String(r[c]??'')).join('\t'))].join('\n');
+  try{await navigator.clipboard.writeText(text);$('sqlStatus').textContent='Result copied to clipboard.'}catch(e){$('sqlStatus').textContent='Copy failed. Clipboard permission was denied.'}
+}
+
 loadTables();
 </script>
 </body>
