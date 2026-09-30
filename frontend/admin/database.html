@@ -269,13 +269,14 @@ function renderSqlResult(d){
 async function runSql(){
   clearMessage();
   const sql=$('sqlInput').value.trim();
+  const cleanedSql=sql.replace(/;+\s*$/,'').trim();
   if(!sql)return showError(new Error('Enter a SQL query.'));
   if(sql.length>5000)return showError(new Error('Query is limited to 5000 characters.'));
   if(sql.split(';').filter(part=>part.trim()).length>1)return showError(new Error('Multiple SQL statements are not allowed. Use one statement per call.'));
   if(sqlDestructive(sql)&&!confirm('This query may modify or destroy data. Destructive queries cannot be undone. Continue?'))return;
   $('sqlStatus').textContent='Running…';$('sqlExport').disabled=true;$('sqlCopy').disabled=true;
   try{
-    const d=await api('/api/admin/sql/query',{method:'POST',body:JSON.stringify({sql})});
+    const d=await api('/api/admin/sql/query',{method:'POST',body:JSON.stringify({sql:cleanedSql})});
     renderSqlResult(d);$('sqlStatus').textContent='Query completed.';
   }catch(e){$('sqlStatus').textContent='';$('sqlResult').innerHTML='<div class="db-sql-pre">'+esc(e.message||e)+'</div>'}
 }
