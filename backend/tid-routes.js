@@ -592,10 +592,21 @@ router.get("/pak/:public_access_key", async (req, res) => {
     const verification = await fetchLatestVerification(user.id);
     await logAccess(req, user.id, user.tid, "PAK_VERIFY");
 
+    const trader = {
+      tid: user.tid || null,
+      name: user.full_name || user.name || profile?.full_name || profile?.display_name || null,
+      rank: profile?.rank || profile?.tier_name || null,
+      trust_score: profile?.trust_score ?? profile?.trader_score ?? null,
+      pass_rate: profile?.pass_rate ?? null,
+      payouts: profile?.payouts ?? profile?.total_payouts ?? null,
+      tier: profile?.tier || profile?.payout_tier || null,
+      verified_badges: profile?.verified_badges ?? null,
+      member_since: profile?.member_since || user.created_at || null,
+    };
     return res.json({
       success: true,
       verified: true,
-      profile: publicProfile(user, profile, verification),
+      trader,
     });
   } catch (error) {
     console.error("TID PAK verification error:", error);
