@@ -383,7 +383,12 @@ async function createAndSendOtp(user) {
     verified: 0,
   };
 
-  await insertFlexible(db, "tid_email_verifications", values);
+  await Promise.race([
+    insertFlexible(db, "tid_email_verifications", values),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("OTP database insert timed out")), 5000),
+    ),
+  ]);
 
   try {
     await sendEmail(
