@@ -98,6 +98,8 @@
       </form>
 
       <p class="form-trust">🔒 Your verification code is private and expires after 10 minutes</p>
+        <p class="skip-verification-note">If you'd rather verify your email later, you can skip this step.</p>
+        <p class="skip-verification-link"><a class="form-link" href="/tradersid/dashboard.html">Skipping → Dashboard</a></p>
       <p class="auth-legal">
         <a href="/tradersid/legal/privacy.html">Privacy</a><span>·</span><a href="/tradersid/legal/terms.html">Terms</a>
       </p>
@@ -272,7 +274,7 @@
       }
       showToast('Email verified successfully.');
       window.setTimeout(() => {
-        window.location.href = '/tradersid/verify-identity.html';
+        window.location.href = '/tradersid/dashboard.html';
       }, 350);
     } catch (_) {
       setServerError('Unable to connect. Please try again.');
