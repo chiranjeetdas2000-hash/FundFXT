@@ -517,7 +517,7 @@ function requireJsonBody(req, res, next) {
 
 // ---------- PUBLIC ----------
 
-router.get("/api/tid/:tid", async (req, res) => {
+router.get("/:tid", async (req, res) => {
   try {
     const tid = cleanString(req.params.tid, 32).toUpperCase();
     const user = await fetchTidUserByTid(tid);
@@ -537,7 +537,7 @@ router.get("/api/tid/:tid", async (req, res) => {
   }
 });
 
-router.get("/api/tid/pak/:public_access_key", async (req, res) => {
+router.get("/pak/:public_access_key", async (req, res) => {
   try {
     const pak = cleanString(req.params.public_access_key, 64);
     const userColumns = await getColumns("tid_users");
@@ -574,7 +574,7 @@ router.get("/api/tid/pak/:public_access_key", async (req, res) => {
 
 // ---------- AUTH ----------
 
-router.post("/api/tid/signup", authRateLimiter, requireJsonBody, async (req, res) => {
+router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
   const fullName = cleanString(req.body?.full_name, 120);
   const email = normalizeEmail(req.body?.email);
   const password = String(req.body?.password || "");
@@ -717,7 +717,7 @@ router.post("/api/tid/signup", authRateLimiter, requireJsonBody, async (req, res
   }
 });
 
-router.post("/api/tid/login", loginRateLimiter, requireJsonBody, async (req, res) => {
+router.post("/login", loginRateLimiter, requireJsonBody, async (req, res) => {
   const email = normalizeEmail(req.body?.email);
   const password = String(req.body?.password || "");
 
@@ -755,7 +755,7 @@ router.post("/api/tid/login", loginRateLimiter, requireJsonBody, async (req, res
 
 // ---------- AUTHENTICATED PROFILE ----------
 
-router.get("/api/tid/me", authenticateTid, async (req, res) => {
+router.get("/me", authenticateTid, async (req, res) => {
   try {
     const user = await fetchTidUserById(req.tidUser.tidUserId);
     if (!user) return jsonError(res, 404, "Trader ID account not found");
@@ -785,7 +785,7 @@ router.get("/api/tid/me", authenticateTid, async (req, res) => {
   }
 });
 
-router.patch("/api/tid/me/profile", authenticateTid, requireJsonBody, async (req, res) => {
+router.patch("/me/profile", authenticateTid, requireJsonBody, async (req, res) => {
   try {
     const allowed = [
       "full_name",
@@ -854,7 +854,7 @@ router.patch("/api/tid/me/profile", authenticateTid, requireJsonBody, async (req
   }
 });
 
-router.get("/api/tid/me/stats", authenticateTid, async (req, res) => {
+router.get("/me/stats", authenticateTid, async (req, res) => {
   try {
     const userId = req.tidUser.tidUserId;
     const counts = {};
@@ -910,7 +910,7 @@ router.get("/api/tid/me/stats", authenticateTid, async (req, res) => {
 // ---------- EMAIL VERIFICATION ----------
 
 router.post(
-  "/api/tid/verify-email/send",
+  "/verify-email/send",
   otpRateLimiter,
   authenticateTid,
   async (req, res) => {
@@ -936,7 +936,7 @@ router.post(
 );
 
 router.post(
-  "/api/tid/verify-email/resend",
+  "/verify-email/resend",
   otpRateLimiter,
   authenticateTid,
   async (req, res) => {
@@ -962,7 +962,7 @@ router.post(
 );
 
 router.post(
-  "/api/tid/verify-email/confirm",
+  "/verify-email/confirm",
   otpRateLimiter,
   authenticateTid,
   requireJsonBody,
@@ -992,7 +992,7 @@ router.post(
 
 // ---------- IDENTITY VERIFICATION / VERIFF ----------
 
-router.post("/api/tid/verify-identity/initiate", authenticateTid, async (req, res) => {
+router.post("/verify-identity/initiate", authenticateTid, async (req, res) => {
   try {
     const columns = await getColumns("tid_verifications");
     const userColumn = pickExisting(columns, ["tid_user_id", "user_id"]);
@@ -1059,7 +1059,7 @@ router.post("/api/tid/verify-identity/initiate", authenticateTid, async (req, re
 });
 
 router.post(
-  "/api/tid/verify-identity/webhook",
+  "/verify-identity/webhook",
   webhookRateLimiter,
   async (req, res) => {
     try {
@@ -1142,7 +1142,7 @@ router.post(
   },
 );
 
-router.get("/api/tid/verify-identity/status", authenticateTid, async (req, res) => {
+router.get("/verify-identity/status", authenticateTid, async (req, res) => {
   try {
     const verification = await fetchLatestVerification(req.tidUser.tidUserId);
     return res.json({
@@ -1171,7 +1171,7 @@ function getRazorpayClient() {
   });
 }
 
-router.post("/api/tid/cards/order", authenticateTid, requireJsonBody, async (req, res) => {
+router.post("/cards/order", authenticateTid, requireJsonBody, async (req, res) => {
   try {
     const amount = Number(req.body?.amount);
     const currency = cleanString(req.body?.currency || "INR", 8).toUpperCase();
@@ -1236,7 +1236,7 @@ router.post("/api/tid/cards/order", authenticateTid, requireJsonBody, async (req
   }
 });
 
-router.get("/api/tid/cards/orders", authenticateTid, async (req, res) => {
+router.get("/cards/orders", authenticateTid, async (req, res) => {
   try {
     const columns = await getColumns("tid_card_orders");
     const userColumn = pickExisting(columns, ["tid_user_id", "user_id"]);
@@ -1257,7 +1257,7 @@ router.get("/api/tid/cards/orders", authenticateTid, async (req, res) => {
 });
 
 router.post(
-  "/api/tid/cards/webhook",
+  "/cards/webhook",
   webhookRateLimiter,
   async (req, res) => {
     try {
@@ -1346,7 +1346,7 @@ router.post(
 
 // ---------- HEALTH / STARTUP ----------
 
-router.get("/api/tid/health", async (req, res) => {
+router.get("/health", async (req, res) => {
   try {
     await db.query("SELECT 1");
     return res.json({
