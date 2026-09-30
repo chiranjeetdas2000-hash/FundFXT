@@ -37,9 +37,13 @@ const loginRateLimiter = createRateLimiter({
   windowMs: 15 * 60 * 1000,
   limit: 10,
 });
-const otpRateLimiter = createRateLimiter({
-  windowMs: 10 * 60 * 1000,
+const otpSendRateLimiter = createRateLimiter({
+  windowMs: 15 * 60 * 1000,
   limit: 5,
+});
+const otpConfirmRateLimiter = createRateLimiter({
+  windowMs: 10 * 60 * 1000,
+  limit: 10,
 });
 const webhookRateLimiter = createRateLimiter({
   windowMs: 60 * 1000,
@@ -321,6 +325,11 @@ async function fetchLatestVerification(userId) {
 }
 
 async function sendEmail(to, subject, html) {
+  const configuredFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const from = configuredFrom && configuredFrom.includes("<")
+    ? configuredFrom
+    : "Trader ID <" + configuredFrom + ">";
+
   if (process.env.RESEND_API_KEY) {
     const response = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -329,7 +338,7 @@ async function sendEmail(to, subject, html) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+        from,
         to: [to],
         subject,
         html,
@@ -356,7 +365,7 @@ async function sendEmail(to, subject, html) {
   });
 
   await transporter.sendMail({
-    from: process.env.EMAIL_FROM || process.env.EMAIL_USER,
+    from,
     to,
     subject,
     html,
@@ -395,16 +404,32 @@ async function createAndSendOtp(user) {
 
   await sendEmail(
     user.email,
-    "Verify your Trader ID email",
-    "<!doctype html><html><body style=\"font-family:Arial,sans-serif;color:#0F1B2D\">" +
-      "<h2>Verify your Trader ID</h2>" +
-      "<p>Your verification code is:</p>" +
-      "<p style=\"font-size:30px;font-weight:700;letter-spacing:8px\">" +
-      escapeHtml(otp) +
-      "</p>" +
-      "<p>This code expires in " +
-      EMAIL_OTP_EXPIRY_MINUTES +
-      " minutes.</p></body></html>",
+    "Verify your Trader ID",
+    "<!doctype html>" +
+      "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>" +
+      "<body style=\"margin:0;padding:0;background:#F8F9FB;font-family:Inter,Arial,sans-serif;color:#0F1B2D\">" +
+      "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F8F9FB;padding:32px 16px\"><tr><td align=\"center\">" +
+      "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:560px;background:#FFFFFF;border:1px solid #E8EBF0;border-radius:14px;overflow:hidden\">" +
+      "<tr><td style=\"padding:22px 28px;border-bottom:1px solid #E8EBF0\">" +
+      "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr>" +
+      "<td style=\"width:40px;height:40px;background:#0F1B2D;color:#FFFFFF;border-radius:8px;text-align:center;vertical-align:middle;font-weight:800;font-size:13px;letter-spacing:.5px\">TID</td>" +
+      "<td style=\"padding-left:12px;font-size:18px;font-weight:700;color:#0F1B2D\">Trader ID</td>" +
+      "</tr></table></td></tr>" +
+      "<tr><td style=\"padding:36px 28px 30px\">" +
+      "<p style=\"margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#B8935A\">Email verification</p>" +
+      "<h1 style=\"margin:0 0 18px;font-size:28px;line-height:1.2;color:#0F1B2D\">Verify your email</h1>" +
+      "<p style=\"margin:0 0 22px;font-size:15px;line-height:1.7;color:#64748B\">Hi ${escapeHtml(user.full_name || user.name || "Trader")},</p>" +
+      "<p style=\"margin:0 0 14px;font-size:15px;line-height:1.7;color:#64748B\">Your verification code is:</p>" +
+      "<div style=\"margin:0 0 22px;padding:18px 20px;background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;text-align:center\">" +
+      "<span style=\"font-family:'JetBrains Mono',Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:9px;color:#0F1B2D\">${escapeHtml(otp)}</span>" +
+      "</div>" +
+      "<p style=\"margin:0 0 8px;font-size:14px;line-height:1.7;color:#64748B\">This code expires in ${EMAIL_OTP_EXPIRY_MINUTES} minutes.</p>" +
+      "<p style=\"margin:0;font-size:14px;line-height:1.7;color:#64748B\">If you didn't request this, please ignore this email.</p>" +
+      "</td></tr>" +
+      "<tr><td style=\"padding:20px 28px;border-top:1px solid #E8EBF0;background:#F8F9FB\">" +
+      "<p style=\"margin:0 0 5px;font-size:12px;color:#64748B\">Trader ID · A separate brand</p>" +
+      "<p style=\"margin:0;font-size:12px;color:#94A3B8\">© 2026 · traderpassport.in</p>" +
+      "</td></tr></table></td></tr></table></body></html>",
   );
 
   return expiresAt;
@@ -911,7 +936,7 @@ router.get("/me/stats", authenticateTid, async (req, res) => {
 
 router.post(
   "/verify-email/send",
-  otpRateLimiter,
+  otpSendRateLimiter,
   authenticateTid,
   async (req, res) => {
     try {
@@ -937,7 +962,7 @@ router.post(
 
 router.post(
   "/verify-email/resend",
-  otpRateLimiter,
+  otpSendRateLimiter,
   authenticateTid,
   async (req, res) => {
     try {
@@ -963,7 +988,7 @@ router.post(
 
 router.post(
   "/verify-email/confirm",
-  otpRateLimiter,
+  otpConfirmRateLimiter,
   authenticateTid,
   requireJsonBody,
   async (req, res) => {
