@@ -51,7 +51,6 @@ const webhookRateLimiter = createRateLimiter({
 });
 
 const EMAIL_OTP_EXPIRY_MINUTES = 10;
-const TID_LENGTH = 7;
 const PAK_LENGTH = 8;
 
 function jsonError(res, status, error, extra = {}) {
@@ -97,31 +96,30 @@ function generatePak() {
   );
 }
 
-function sequenceToTid(sequenceValue) {
-  let value = BigInt(sequenceValue);
-  let output = "";
-  while (value > 0n) {
-    const digit = Number(value % 36n);
-    output = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"[digit] + output;
-    value = value / 36n;
+function generateTid() {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 7; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  return "TID-" + output.padStart(TID_LENGTH, "0").slice(-TID_LENGTH);
+  return 'TID-' + code;
 }
 
-async function nextTid(connection) {
-  const [result] = await connection.execute(
-    "UPDATE tid_sequence SET last_number = LAST_INSERT_ID(last_number + 1) WHERE id = 1",
-  );
-
-  if (result.affectedRows !== 1) {
-    throw new Error("tid_sequence seed row id=1 not found");
+async function getUniqueTid(connection) {
+  let tid, exists = true, attempts = 0;
+  while (exists && attempts < 20) {
+    tid = generateTid();
+    const [rows] = await connection.execute(
+      'SELECT id FROM tid_users WHERE tid = ? LIMIT 1',
+      [tid]
+    );
+    exists = rows.length > 0;
+    attempts++;
   }
-
-  const [[row]] = await connection.query(
-    "SELECT LAST_INSERT_ID() AS sequence_value",
-  );
-  return sequenceToTid(row.sequence_value);
+  if (exists) throw new Error('Unable to generate unique TID');
+  return tid;
 }
+
 async function getColumns(table) {
   const [rows] = await db.query("SHOW COLUMNS FROM " + mysql.escapeId(table));
   return rows.map((row) => row.Field);
@@ -622,7 +620,7 @@ router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
       return jsonError(res, 409, "An account with this email already exists");
     }
 
-    const tid = await nextTid(connection);
+    const tid = await getUniqueTid(connection);
     let pak = generatePak();
 
     const userColumns = await getColumnsWithConnection(connection, "tid_users");
