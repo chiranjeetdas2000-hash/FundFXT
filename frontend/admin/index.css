@@ -53,6 +53,15 @@ button {
   display: flex;
   flex-direction: column;
 }
+.sidebar-inner {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
 .brand {
   display: flex;
   align-items: center;
@@ -572,9 +581,19 @@ select:focus {
     transition: transform 0.25s;
     width: 270px;
     box-shadow: 20px 0 60px rgba(0, 0, 0, 0.5);
+    overflow: hidden;
+    overscroll-behavior: contain;
   }
   .sidebar.open {
     transform: none;
+  }
+  .sidebar-inner {
+    overflow-y: auto;
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    padding-bottom: 80px;
   }
   .main {
     margin-left: 0;
