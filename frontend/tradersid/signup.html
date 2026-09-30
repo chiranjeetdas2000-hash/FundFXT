@@ -101,6 +101,7 @@
           <button class="btn btn-primary auth-submit" id="createAccountButton" type="submit">Create Account</button>
 
           <div class="form-server-error" id="serverError" role="alert" hidden style="display:none;"><span aria-hidden="true">⚠</span><span></span></div>
+          <a class="form-link" id="signInAfterError" href="/tradersid/login.html" hidden style="display:none;margin-top:8px;">Sign In</a>
           <div class="form-server-error" id="successMessage" role="status" hidden style="display:none;border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.06);color:#059669;"><span aria-hidden="true">✓</span><span></span></div>
 
           <p class="auth-signup">Already have a TID? <a class="form-link" href="/tradersid/login.html">Sign in</a></p>
@@ -141,6 +142,7 @@
     };
     const serverError = document.getElementById('serverError');
     const successMessage = document.getElementById('successMessage');
+    const signInAfterError = document.getElementById('signInAfterError');
     const touched = {};
 
     const showError = (input, box, message) => {
@@ -159,6 +161,8 @@
       serverError.querySelector('span:last-child').textContent = '';
       serverError.hidden = true;
       serverError.style.display = 'none';
+      signInAfterError.hidden = true;
+      signInAfterError.style.display = 'none';
     };
 
     const showServerMessage = (box, message) => {
@@ -238,23 +242,39 @@
       if (!validateAll()) return;
 
       button.disabled = true;
-      button.textContent = 'Creating Account…';
+      button.textContent = 'Creating Account... (may take up to 60 seconds)';
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 90000);
 
       try {
-        const response = await fetch('https://fundfxt.onrender.com/api/tid/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            full_name: fullName.value.trim(),
-            email: email.value.trim(),
-            password: password.value
-          })
-        });
+        let response;
+        try {
+          response = await fetch('https://fundfxt.onrender.com/api/tid/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              full_name: fullName.value.trim(),
+              email: email.value.trim(),
+              password: password.value
+            }),
+            signal: controller.signal
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
 
         let data = {};
         try { data = await response.json(); } catch (_) {}
 
         if (!response.ok) {
+          if (response.status === 409) {
+            showServerMessage(serverError, 'This email is already registered. If you created it recently, please sign in.');
+            signInAfterError.hidden = false;
+            signInAfterError.style.display = 'inline-block';
+            return;
+          }
+
           const message = data.message || data.error || 'Unable to create your account. Please try again.';
           const lower = message.toLowerCase();
 
@@ -292,8 +312,14 @@
         showServerMessage(successMessage, 'Welcome to Trader ID! Redirecting to your dashboard…');
         window.location.replace('/tradersid/dashboard.html');
         return;
-      } catch (_) {
-        showServerMessage(serverError, 'Unable to connect. Please try again.');
+      } catch (error) {
+        if (error && error.name === 'AbortError') {
+          showServerMessage(serverError, 'Server is waking up. Please wait 30 seconds and try again.');
+        } else if (error instanceof TypeError) {
+          showServerMessage(serverError, 'Unable to connect. Server may be waking up. Please wait 30 seconds and try again.');
+        } else {
+          showServerMessage(serverError, 'Unable to create your account. Please try again.');
+        }
       } finally {
         button.disabled = false;
         button.textContent = 'Create Account';
