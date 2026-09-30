@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trader ID — Your trader identity dashboard.">
+  <title>Dashboard — Trader ID</title>
+  <link rel="stylesheet" href="/tradersid/css/tid.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    .dashboard-page{min-height:calc(100vh - 69px);background:#F8F9FB}.dashboard-main{width:min(1120px,calc(100% - 32px));margin:0 auto;padding:32px 0 56px}.dashboard-hero{padding:28px 0 24px}.dashboard-eyebrow{color:#B8935A;font-size:12px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}.dashboard-title{color:#0F1B2D;font-size:30px;line-height:1.2;letter-spacing:-.025em;margin:0}.dashboard-subtitle{color:#64748B;margin:8px 0 0;font-size:14px}.identity-card{background:#0F1B2D;border:1px solid #1E3A5F;border-radius:18px;padding:24px;color:#fff;box-shadow:0 16px 40px rgba(15,27,45,.12)}.identity-label{color:#B8935A;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase}.identity-tid{margin:8px 0 18px;color:#fff;font-family:'JetBrains Mono',monospace;font-size:25px;font-weight:700;word-break:break-word}.identity-meta{display:grid;gap:12px}.identity-meta-item{min-width:0;padding:13px 14px;border:1px solid rgba(255,255,255,.1);border-radius:10px;background:rgba(255,255,255,.04)}.identity-meta-label{display:block;color:rgba(255,255,255,.55);font-size:11px;margin-bottom:5px}.identity-meta-value{color:#fff;font-family:'JetBrains Mono',monospace;font-size:13px;word-break:break-all}.copy-btn{float:right;border:1px solid rgba(212,175,55,.4);border-radius:7px;background:rgba(212,175,55,.08);color:#D4AF37;padding:5px 8px;font-size:11px;font-weight:700;cursor:pointer}.status-grid{display:grid;gap:16px;margin-top:20px}.dash-card{background:#fff;border:1px solid #E8EBF0;border-radius:14px;padding:20px;box-shadow:0 4px 16px rgba(15,27,45,.04)}.dash-card h2{margin:0 0 6px;color:#0F1B2D;font-size:16px}.dash-card-sub{color:#64748B;font-size:12px;margin:0 0 18px;line-height:1.5}.status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 0;border-bottom:1px solid #E8EBF0;font-size:13px}.status-row:last-child{border-bottom:0;padding-bottom:0}.status-name{color:#64748B}.status-value{color:#0F1B2D;font-weight:700}.status-pill{display:inline-flex;align-items:center;gap:5px;padding:4px 8px;border-radius:999px;background:#F8F9FB;color:#64748B;font-size:11px;font-weight:700}.status-pill.done{background:rgba(16,185,129,.08);color:#059669}.dash-link{color:#0F1B2D;font-size:12px;font-weight:700;text-decoration:none}.dash-link:hover{color:#B8935A;text-decoration:underline}.progress-track{height:8px;overflow:hidden;margin:14px 0 9px;border-radius:99px;background:#E8EBF0}.progress-fill{width:0;height:100%;border-radius:inherit;background:#B8935A;transition:width .2s ease}.progress-copy{display:flex;justify-content:space-between;color:#64748B;font-size:12px}.action-grid{display:grid;grid-template-columns:1fr;gap:10px;margin-top:20px}.quick-action{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 16px;border:1px solid #E8EBF0;border-radius:12px;background:#fff;color:#0F1B2D;text-decoration:none;font-size:13px;font-weight:600}.quick-action span:last-child{color:#B8935A;font-size:16px}.activity-empty{padding:28px 10px;color:#94A3B8;text-align:center;font-size:13px}.dashboard-error{display:none;margin-top:16px;padding:12px 14px;border:1px solid rgba(239,68,68,.18);border-radius:10px;background:rgba(239,68,68,.05);color:#DC2626;font-size:13px}.dashboard-footer-actions{display:flex;justify-content:center;margin-top:28px}.logout-btn{border:0;background:none;color:#64748B;font:600 13px Inter,sans-serif;cursor:pointer;text-decoration:underline}@media(min-width:641px){.dashboard-main{width:min(1120px,calc(100% - 48px));padding-top:44px}.identity-meta{grid-template-columns:1fr 1fr}.status-grid{grid-template-columns:repeat(3,1fr)}.action-grid{grid-template-columns:repeat(2,1fr)}}@media(min-width:901px){.dashboard-hero{display:flex;align-items:flex-end;justify-content:space-between;gap:24px}.dashboard-title{font-size:36px}}
+  </style>
+</head>
+<body>
+  <header class="tid-header">
+    <div class="container tid-header-inner">
+      <a href="/tradersid/home.html" class="tid-logo"><span class="tid-logo-mark">TID</span><span>Trader ID</span></a>
+      <nav class="tid-nav"><a href="/tradersid/home.html">Home</a><a href="/tradersid/home.html#what-is">About</a><a href="/tradersid/verify.html">Verify</a><a href="/tradersid/dashboard.html" aria-current="page">Dashboard</a></nav>
+      <button class="tid-menu-toggle" id="tidMenuToggle" aria-label="Open menu" aria-expanded="false"><span class="tid-menu-icon"><span></span><span></span><span></span></span></button>
+      <nav class="tid-mobile-nav" id="tidMobileNav" hidden><a href="/tradersid/home.html">Home</a><a href="/tradersid/home.html#what-is">About</a><a href="/tradersid/verify.html">Verify</a><a href="/tradersid/dashboard.html">Dashboard</a></nav>
+    </div>
+  </header>
+
+  <main class="dashboard-page">
+    <div class="dashboard-main">
+      <section class="dashboard-hero">
+        <div><p class="dashboard-eyebrow">Trader Passport</p><h1 class="dashboard-title" id="welcomeTitle">Welcome</h1><p class="dashboard-subtitle">Your identity, verification and profile in one place.</p></div>
+      </section>
+
+      <section class="identity-card" aria-label="Trader identity">
+        <span class="identity-label">Trader ID</span>
+        <div class="identity-tid" id="tidValue">Loading…</div>
+        <div class="identity-meta">
+          <div class="identity-meta-item"><span class="identity-meta-label">Public Access Key</span><button class="copy-btn" type="button" data-copy="pakValue">Copy</button><span class="identity-meta-value" id="pakValue">Loading…</span></div>
+          <div class="identity-meta-item"><span class="identity-meta-label">Account Email</span><span class="identity-meta-value" id="emailValue">Loading…</span></div>
+        </div>
+      </section>
+
+      <div class="dashboard-error" id="dashboardError" role="alert"></div>
+
+      <section class="status-grid" aria-label="Account status">
+        <article class="dash-card">
+          <h2>Verification Status</h2><p class="dash-card-sub">Email and identity verification can be completed when needed.</p>
+          <div class="status-row"><span class="status-name">Email</span><span class="status-pill" id="emailStatus">Not verified</span></div>
+          <div class="status-row"><span class="status-name">KYC</span><span class="status-pill" id="kycStatus">Not verified</span></div>
+          <div style="margin-top:14px;display:flex;justify-content:space-between;gap:10px"><a class="dash-link" href="/tradersid/verify-email.html">Verify Now</a><a class="dash-link" href="/tradersid/verify-identity.html">Start KYC</a></div>
+        </article>
+        <article class="dash-card">
+          <h2>Profile Completion</h2><p class="dash-card-sub">Add key details to make your public Trader Passport more complete.</p>
+          <div class="progress-track"><div class="progress-fill" id="profileProgress"></div></div>
+          <div class="progress-copy"><span id="profileProgressText">0% complete</span><span>100%</span></div>
+          <div style="margin-top:16px"><a class="dash-link" href="/tradersid/profile.html">Complete Profile →</a></div>
+        </article>
+        <article class="dash-card">
+          <h2>Card Status</h2><p class="dash-card-sub">Carry your Trader ID with a physical membership card.</p>
+          <div class="status-row"><span class="status-name">Physical card</span><span class="status-value">Not ordered</span></div>
+          <div style="margin-top:16px"><a class="btn btn-primary btn-sm" href="/tradersid/card.html">Order Card · ₹500</a></div>
+        </article>
+      </section>
+
+      <section style="margin-top:32px"><p class="dashboard-eyebrow">Quick Actions</p><div class="action-grid">
+        <a class="quick-action" href="/tradersid/verify.html"><span>View Public Profile</span><span>→</span></a>
+        <button class="quick-action" type="button" id="shareTraderId"><span>Share Trader ID</span><span>↗</span></button>
+        <a class="quick-action" href="/tradersid/profile.html"><span>Update Profile</span><span>→</span></a>
+        <a class="quick-action" href="/tradersid/card.html"><span>Order Physical Card</span><span>→</span></a>
+      </div></section>
+
+      <section class="dash-card" style="margin-top:32px"><h2>Recent Activity</h2><div class="activity-empty">No activity yet</div></section>
+      <div class="dashboard-footer-actions"><button class="logout-btn" id="logoutButton" type="button">Log out</button></div>
+    </div>
+  </main>
+
+  <script>
+    (() => {
+      const API = 'https://fundfxt.onrender.com';
+      const token = localStorage.getItem('tid_token');
+      const cachedUser = (() => { try { return JSON.parse(localStorage.getItem('tid_user') || '{}'); } catch (_) { return {}; } })();
+      if (!token) { window.location.href = '/tradersid/login.html'; return; }
+      const $ = id => document.getElementById(id);
+      const setStatus = (id, done) => { const el=$(id); el.textContent=done?'Verified':'Not verified'; el.classList.toggle('done',Boolean(done)); };
+      const profileFields=['full_name','display_name','bio','location','country','website','trading_style'];
+
+      async function loadDashboard() {
+        try {
+          const headers={Authorization:'Bearer '+token};
+          const response=await fetch(API+'/api/tid/me',{headers});
+          if(response.status===401){localStorage.removeItem('tid_token');localStorage.removeItem('tid_user');window.location.href='/tradersid/login.html';return;}
+          const data=await response.json();
+          if(!response.ok||!data.success) throw new Error(data.error||'Unable to load account');
+          const user=data.user||cachedUser;
+          $('welcomeTitle').textContent='Welcome, '+(user.full_name||'Trader');
+          $('tidValue').textContent=user.tid||'—';
+          $('pakValue').textContent=user.public_access_key||'—';
+          $('emailValue').textContent=user.email||'—';
+          setStatus('emailStatus',Boolean(user.email_verified));
+          const profile=data.profile||{};
+          const completed=profileFields.filter(key=>String(profile[key]||user[key]||'').trim()).length;
+          const percent=Math.round(completed/profileFields.length*100);
+          $('profileProgress').style.width=percent+'%';
+          $('profileProgressText').textContent=percent+'% complete';
+          try {
+            const kycResponse=await fetch(API+'/api/tid/verify-identity/status',{headers});
+            const kyc=await kycResponse.json();
+            const status=String(kyc.status||'').toUpperCase();
+            setStatus('kycStatus',['APPROVED','SUCCESS','VERIFIED'].includes(status));
+          } catch (_) { setStatus('kycStatus',false); }
+          localStorage.setItem('tid_user',JSON.stringify(user));
+        } catch(error) {
+          $('dashboardError').textContent=error.message||'Unable to load your dashboard.';
+          $('dashboardError').style.display='block';
+          $('welcomeTitle').textContent='Welcome, '+(cachedUser.full_name||'Trader');
+          $('tidValue').textContent=cachedUser.tid||'—';
+          $('pakValue').textContent=cachedUser.public_access_key||'—';
+          $('emailValue').textContent=cachedUser.email||'—';
+          setStatus('emailStatus',Boolean(cachedUser.email_verified));
+        }
+      }
+
+      document.querySelectorAll('[data-copy]').forEach(button=>button.addEventListener('click',async()=>{const value=$(button.dataset.copy).textContent.trim();if(!value||value==='—'||value==='Loading…')return;try{await navigator.clipboard.writeText(value);const original=button.textContent;button.textContent='Copied';setTimeout(()=>button.textContent=original,1200);}catch(_){}}));
+      $('shareTraderId').addEventListener('click',async()=>{const tid=$('tidValue').textContent.trim();const url=window.location.origin+'/tradersid/verify.html?tid='+encodeURIComponent(tid);try{if(navigator.share)await navigator.share({title:'Trader ID',text:'View my Trader ID profile',url});else await navigator.clipboard.writeText(url);}catch(_){}});
+
+      $('logoutButton').addEventListener('click',()=>{localStorage.removeItem('tid_token');localStorage.removeItem('tid_user');window.location.href='/tradersid/login.html';});
+      const toggle=document.getElementById('tidMenuToggle'),nav=document.getElementById('tidMobileNav');
+      toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')==='true';toggle.setAttribute('aria-expanded',String(!open));if(open)nav.setAttribute('hidden','');else nav.removeAttribute('hidden');});
+      nav.querySelectorAll('a').forEach(a=>a.addEventListener('click',()=>{toggle.setAttribute('aria-expanded','false');nav.setAttribute('hidden','');}));
+      loadDashboard();
+    })();
+  </script>
+</body>
+</html>
