@@ -44,7 +44,13 @@ function safe(value,fallback="—"){
   return v||fallback;
 }
 function esc(value){
-  return String(value==null?"":value).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&#92;","\"":"&#39;",""":"&quot;"}[c]||c));
+  return String(value==null?"":value).replace(/[&<>"']/g,c=>{
+    if(c==="&") return "&amp;";
+    if(c==="<") return "&lt;";
+    if(c===">") return "&gt;";
+    if(c===String.fromCharCode(34)) return "&quot;";
+    return "&#39;";
+  });
 }
 function renderCard(t){
   const tid=safe(t.tid,requestedTid);
