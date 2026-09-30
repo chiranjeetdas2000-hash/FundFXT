@@ -67,7 +67,7 @@
         <h1 class="auth-form-title">Create your Trader ID</h1>
         <p class="auth-form-subtitle">Your permanent trader identity starts here.</p>
 
-        <form id="signupForm" action="/api/tid/signup" method="post" novalidate>
+        <form id="signupForm" action="https://fundfxt.onrender.com/api/tid/signup" method="post" novalidate>
           <div class="form-group">
             <label class="form-label" for="fullName">Full name</label>
             <input class="form-input" id="fullName" name="full_name" type="text" autocomplete="name" placeholder="John Doe" required aria-describedby="fullNameError">
@@ -206,7 +206,7 @@
       button.textContent = 'Creating Account…';
 
       try {
-        const response = await fetch('/api/tid/signup', {
+        const response = await fetch('https://fundfxt.onrender.com/api/tid/signup', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
