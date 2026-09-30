@@ -1670,3 +1670,135 @@ button {
   font-weight: 600;
   text-decoration: underline;
 }
+
+
+/* Email verification */
+.otp-input-group {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.otp-input {
+  width: 100%;
+  min-width: 0;
+  height: 54px;
+  padding: 0;
+  border: 1px solid #E8EBF0;
+  border-radius: 10px;
+  background: #FFFFFF;
+  color: #0F1B2D;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 22px;
+  font-weight: 700;
+  text-align: center;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s, background .15s;
+}
+
+.otp-input:focus {
+  border-color: #B8935A;
+  box-shadow: 0 0 0 3px rgba(184, 147, 90, .12);
+}
+
+.otp-input.error {
+  border-color: #DC2626;
+}
+
+.email-display {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 28px;
+  padding: 12px 14px;
+  border: 1px solid #E8EBF0;
+  border-radius: 10px;
+  background: #F8F9FB;
+  color: #0F1B2D;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.email-display a {
+  flex: 0 0 auto;
+  color: #0F1B2D;
+  font-family: Inter, sans-serif;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: underline;
+}
+
+.auth-progress-num.complete {
+  background: #10B981;
+  color: #FFFFFF;
+}
+
+.resend-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 20px;
+  color: #64748B;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.resend-button {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  cursor: pointer;
+}
+
+.resend-button:disabled {
+  cursor: not-allowed;
+  opacity: .55;
+}
+
+.resend-timer {
+  color: #94A3B8;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 12px;
+}
+
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  z-index: 300;
+  width: min(420px, calc(100% - 32px));
+  padding: 13px 16px;
+  transform: translateX(-50%);
+  border: 1px solid #E8EBF0;
+  border-radius: 10px;
+  background: #0F1B2D;
+  color: #FFFFFF;
+  box-shadow: 0 12px 30px rgba(15, 27, 45, .18);
+  font-size: 13px;
+  line-height: 1.45;
+  text-align: center;
+}
+
+.toast[hidden] {
+  display: none;
+}
+
+@media (max-width: 520px) {
+  .otp-input-group {
+    gap: 6px;
+  }
+
+  .otp-input {
+    height: 50px;
+    font-size: 20px;
+  }
+
+  .email-display {
+    font-size: 12px;
+  }
+}
