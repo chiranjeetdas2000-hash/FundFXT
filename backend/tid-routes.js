@@ -639,6 +639,7 @@ router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
     await insertFlexible(connection, "tid_profiles", {
       tid_user_id: userId,
       user_id: userId,
+      tid: tid,
       full_name: fullName,
       display_name: fullName,
       created_at: new Date(),
@@ -812,6 +813,7 @@ router.patch("/me/profile", authenticateTid, requireJsonBody, async (req, res) =
       await insertFlexible(db, "tid_profiles", {
         tid_user_id: req.tidUser.tidUserId,
         user_id: req.tidUser.tidUserId,
+        tid: req.tidUser.tid,
         ...profileValues,
         created_at: new Date(),
       });
