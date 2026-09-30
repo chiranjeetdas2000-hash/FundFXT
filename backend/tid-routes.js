@@ -624,6 +624,7 @@ router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
       password: passwordHash,
       full_name: fullName,
       name: fullName,
+      legal_name: fullName,
       public_access_key: pak,
       pak,
       access_key: pak,
