@@ -139,6 +139,72 @@ function installDatabaseControl(app) {
     return code;
   }
 
+
+  async function ensureSqlAuditTable(){
+    await db.execute(`CREATE TABLE IF NOT EXISTS admin_sql_audit (
+      id BIGINT PRIMARY KEY AUTO_INCREMENT,
+      admin_id INT NOT NULL,
+      query_text TEXT NOT NULL,
+      rows_returned INT DEFAULT 0,
+      execution_ms INT DEFAULT 0,
+      ip_address VARCHAR(45),
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      INDEX idx_admin_date (admin_id, created_at)
+    )`);
+  }
+
+  app.post("/api/admin/sql/query",authenticateDatabaseAdmin,async(req,res)=>{
+    const sql=String(req.body?.sql||"").trim();
+    if(req.adminRole!=="SUPER_ADMIN")return res.status(403).json({success:false,error:"SUPER_ADMIN role required."});
+    if(!sql)return res.status(400).json({success:false,error:"SQL query is required."});
+    if(sql.length>5000)return res.status(400).json({success:false,error:"SQL query exceeds the 5000 character limit."});
+
+    const firstWord=sql.match(/^([A-Za-z]+)/)?.[1]?.toUpperCase()||"";
+    const blocked=/\\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\\b/i;
+    const allowed=["SELECT","SHOW","DESCRIBE","DESC","EXPLAIN"];
+    if(!allowed.includes(firstWord)||blocked.test(sql))return res.status(403).json({success:false,error:"Only read-only queries allowed"});
+
+    if(sql.split(";").filter(part=>part.trim()).length>1)return res.status(403).json({success:false,error:"Only one read-only query is allowed."});
+
+    let finalSql=sql;
+    if(firstWord==="SELECT"&&!/\\bLIMIT\\s+\\d+\\b/i.test(finalSql)){
+      finalSql=finalSql.replace(/;\\s*$/,"")+" LIMIT 1000";
+    }
+
+    const started=Date.now();
+    try{
+      await ensureSqlAuditTable();
+      const [result]=await Promise.race([
+        db.execute(finalSql),
+        new Promise((_,reject)=>setTimeout(()=>reject(Object.assign(new Error("SQL query timed out after 30 seconds"),{code:"SQL_TIMEOUT"})),30000))
+      ]);
+      const executionMs=Date.now()-started;
+      const rows=Array.isArray(result)?result.slice(0,1000):[];
+      const columns=rows.length?Object.keys(rows[0]):(Array.isArray(result?.fields)?result.fields.map(field=>field.name):[]);
+      try{
+        await db.execute(
+          "INSERT INTO admin_sql_audit (admin_id,query_text,rows_returned,execution_ms,ip_address) VALUES (?,?,?,?,?)",
+          [req.adminId,sql,rows.length,executionMs,String(req.headers["x-forwarded-for"]||req.socket?.remoteAddress||"").split(",")[0].trim().slice(0,45)]
+        );
+      }catch(auditError){
+        console.error("SQL audit insert failed:",auditError.message);
+      }
+      return res.json({success:true,columns,rows,row_count:rows.length,execution_ms:executionMs});
+    }catch(error){
+      const executionMs=Date.now()-started;
+      if(error?.code==="SQL_TIMEOUT")return res.status(408).json({success:false,error:error.message,execution_ms:executionMs});
+      try{
+        await db.execute(
+          "INSERT INTO admin_sql_audit (admin_id,query_text,rows_returned,execution_ms,ip_address) VALUES (?,?,?,?,?)",
+          [req.adminId,sql,0,executionMs,String(req.headers["x-forwarded-for"]||req.socket?.remoteAddress||"").split(",")[0].trim().slice(0,45)]
+        );
+      }catch(auditError){
+        console.error("SQL audit insert failed:",auditError.message);
+      }
+      return res.status(400).json({success:false,error:error.message||"SQL execution failed.",execution_ms:executionMs});
+    }
+  });
+
   app.get("/api/admin/database/tables",authenticateDatabaseAdmin,async(req,res)=>{try{const [tables]=await db.execute(`SELECT t.TABLE_NAME AS name,t.TABLE_TYPE AS type,t.ENGINE AS engine,t.TABLE_ROWS AS estimated_rows,t.CREATE_TIME AS created_at,t.UPDATE_TIME AS updated_at,(SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS c WHERE c.TABLE_SCHEMA=t.TABLE_SCHEMA AND c.TABLE_NAME=t.TABLE_NAME) AS column_count FROM INFORMATION_SCHEMA.TABLES t WHERE t.TABLE_SCHEMA=DATABASE() ORDER BY t.TABLE_NAME ASC`);res.json({success:true,database:process.env.DB_NAME,tables})}catch(error){res.status(500).json({error:error.message})}});
 
   app.get("/api/admin/database/tables/:table/schema",authenticateDatabaseAdmin,async(req,res)=>{try{const meta=await getTableMeta(req.params.table);const [indexes]=await db.execute(`SELECT INDEX_NAME,COLUMN_NAME,NON_UNIQUE,SEQ_IN_INDEX FROM INFORMATION_SCHEMA.STATISTICS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=? ORDER BY INDEX_NAME,SEQ_IN_INDEX`,[req.params.table]);res.json({success:true,...meta,indexes})}catch(error){res.status(400).json({error:error.message})}});
