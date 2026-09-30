@@ -390,8 +390,6 @@ async function createAndSendOtp(user) {
     otp_hash: otpHash,
     code_hash: otpHash,
     token_hash: otpHash,
-    otp,
-    code: otp,
     expires_at: expiresAt,
     expires_on: expiresAt,
     created_at: now,
