@@ -101,6 +101,7 @@
           <button class="btn btn-primary auth-submit" id="createAccountButton" type="submit">Create Account</button>
 
           <div class="form-server-error" id="serverError" role="alert" hidden><span aria-hidden="true">⚠</span><span></span></div>
+          <div class="form-server-error" id="successMessage" role="status" hidden style="border-color:rgba(16,185,129,.2);background:rgba(16,185,129,.06);color:#059669;"><span aria-hidden="true">✓</span><span></span></div>
 
           <p class="auth-signup">Already have a TID? <a class="form-link" href="/tradersid/login.html">Sign in</a></p>
         </form>
@@ -139,6 +140,7 @@
       terms: document.getElementById('termsError')
     };
     const serverError = document.getElementById('serverError');
+    const successMessage = document.getElementById('successMessage');
 
     const showError = (input, box, message, invalid = true) => {
       box.querySelector('span:last-child').textContent = message;
@@ -243,7 +245,8 @@
 
         localStorage.setItem('tid_token', data.token);
         localStorage.setItem('tid_user', JSON.stringify(data.user));
-        button.textContent = 'Welcome to Trader ID! Redirecting to your dashboard…';
+        successMessage.querySelector('span:last-child').textContent = 'Welcome to Trader ID! Redirecting to your dashboard…';
+        successMessage.hidden = false;
         window.location.href = '/tradersid/dashboard.html';
       } catch (_) {
         serverError.querySelector('span:last-child').textContent = 'Unable to connect. Please try again.';
