@@ -166,10 +166,19 @@ function installDatabaseControl(app) {
 
     if(sql.split(";").filter(part=>part.trim()).length>1)return res.status(403).json({success:false,error:"Only one read-only query is allowed."});
 
-    let finalSql=sql;
-    if(firstWord==="SELECT"&&!/\\bLIMIT\\s+\\d+\\b/i.test(finalSql)){
-      finalSql=finalSql.replace(/;\\s*$/,"")+" LIMIT 1000";
+    // Normalize trailing semicolons/whitespace before checking or adding LIMIT.
+    let cleanedSql = sql.replace(/[;\\s]+$/g, '').trim();
+
+    // Respect an existing LIMIT, including comma offsets and OFFSET syntax.
+    const hasLimit = /\\bLIMIT\\s+\\d+(\\s*,\\s*\\d+)?(\\s+OFFSET\\s+\\d+)?\\b/i.test(cleanedSql);
+
+    // Add the safety LIMIT only when a SELECT has no LIMIT.
+    if (firstWord === "SELECT" && !hasLimit) {
+      cleanedSql += " LIMIT 1000";
     }
+
+    // Execute the normalized SQL.
+    finalSql = cleanedSql;
 
     const started=Date.now();
     try{
