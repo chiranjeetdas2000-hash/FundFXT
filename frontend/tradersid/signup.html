@@ -205,7 +205,7 @@
 
     [fullName, email, password].forEach(field => {
       field.addEventListener('blur', () => {
-        touched.add(field);
+        touched[field.id] = true;
         validateField(field, true);
       });
       field.addEventListener('input', () => {
