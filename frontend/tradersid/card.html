@@ -1,18 +1,99 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Trader ID — Premium Card Variants</title><link rel="stylesheet" href="card-styles.css"><style>body{min-height:100vh;padding:28px 16px 60px}.page{max-width:820px;margin:auto}.header{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:28px}.eyebrow{font:800 10px "JetBrains Mono",monospace;letter-spacing:.16em;color:#00e59a}.header h1{margin:6px 0;font-size:clamp(25px,6vw,42px)}.header p{margin:0;color:#8995a2;font-size:13px}.tools,.actions{display:flex;gap:8px;flex-wrap:wrap}.btn{border:1px solid #2c3945;background:#111923;color:#fff;border-radius:9px;padding:9px 12px;font:700 11px Inter,sans-serif;cursor:pointer}.btn:hover{border-color:#00e59a}.section{margin-bottom:34px}.hint{font-size:11px;color:#7e8995;margin-top:8px}@media(max-width:600px){body{padding:20px 10px 45px}.header{display:block}.tools{margin-top:16px}}</style></head><body><main class="page"><header class="header"><div><div class="eyebrow">TID / DESIGN SYSTEM</div><h1>Premium Trader Passport</h1><p>Six visual directions using the same credential data.</p></div><div class="tools"><button class="btn" onclick="toggleTheme()">Toggle Light/Dark</button><button class="btn" onclick="copyJson()">Copy card JSON</button></div></header><div id="variants"></div></main><script>
-const DATA={tid:"TID-9AY1B2T",name:"Chiranjeet Das",rank:"Champion",rankColor:"gold",trustScore:78,passRate:"42%",totalPayouts:"$4,240",payoutTier:"Tier 4",verifiedBadges:["KYC","Email"],photo:null,memberSince:"Sep 2026",qrUrl:"https://fundfxt.vercel.app/t/TID-9AY1B2T",challenges:12,passed:5};
-const stat=(k,v)=>'<div class="stat"><b>'+v+'</b><span>'+k+'</span></div>';
-const initials=n=>n.split(" ").map(x=>x[0]).join("").slice(0,2).toUpperCase();
-const qr=v=>"https://api.qrserver.com/v1/create-qr-code/?size=100x100&data="+encodeURIComponent(v.qrUrl);
-const variants=[
-["Variant 1: Centurion Minimal Black","v1",v=>'<div class="v1-top"><div class="monogram" style="color:#d4af37">TID</div><div class="title">TRADER PASSPORT</div></div><div class="name">'+v.name.toUpperCase()+'</div><div class="tid card-mono" style="color:#d4af37">'+v.tid+'</div><div class="v1-bottom"><div class="rank" style="color:#d4af37">★ '+v.rank+'</div><img class="qr" src="'+qr(v)+'" alt="QR"></div>'],
-["Variant 2: Holographic Premium","v2",v=>'<div class="v2-top"><div class="monogram">TID</div><div class="card-mono" style="font-size:10px">'+v.tid+'</div><img class="qr" src="'+qr(v)+'" alt="QR"></div><div class="v2-main"><div class="photo">'+initials(v.name)+'</div><div><div class="name">'+v.name+'</div><div class="rank">'+v.rank+' · VERIFIED</div><div>'+v.verifiedBadges.map(x=>'<span class="badge">✓ '+x+'</span>').join(" ")+'</div></div></div><div class="stats">'+stat("Pass Rate",v.passRate)+stat("Payouts",v.totalPayouts)+stat("Tier",v.payoutTier)+'</div>'],
-["Variant 3: Trading Terminal","v3",v=>'<div class="v3-top"><span>TRADER ID</span><span class="ticker">● LIVE / FXT-01</span></div><div class="v3-mid"><div><div class="big-tid">'+v.tid+'</div><div style="font-size:10px;color:#8392a4;margin-top:8px">'+v.name.toUpperCase()+' · '+v.rank.toUpperCase()+'</div></div><svg class="chart" viewBox="0 0 180 65" preserveAspectRatio="none"><polyline points="0,54 18,43 32,48 48,22 63,35 80,16 98,30 116,11 136,28 151,17 180,5" fill="none" stroke="#00e59a" stroke-width="2"/></svg></div><div class="stats">'+stat("Challenges",v.challenges)+stat("Pass Rate",v.passRate)+stat("Payouts",v.totalPayouts)+stat("Trust",v.trustScore)+'</div>'],
-["Variant 4: Sports Card","v4",v=>'<div class="photo">'+initials(v.name)+'</div><div class="v4-content"><div class="rank">'+v.rank+'</div><div class="name">'+v.name+'</div><div class="grid">'+stat("Challenges",v.challenges)+stat("Passed",v.passed)+stat("Pass Rate",v.passRate)+stat("Payouts",v.totalPayouts)+stat("Tier",v.payoutTier)+stat("Trust",v.trustScore)+'</div><div class="foot"><span>'+v.tid+'</span><img class="qr" src="'+qr(v)+'" alt="QR"></div></div>'],
-["Variant 5: Passport Cover","v5",v=>'<div class="emblem">◉↗</div><div class="passport-title">TRADER PASSPORT</div><div class="tid">'+v.tid+'</div><div class="authority">FUNDFXT AUTHORITY · '+v.rank.toUpperCase()+' · '+v.memberSince.toUpperCase()+'</div>'],
-["Variant 6: Neon Gradient Glass","v6",v=>'<div class="v6-top"><div class="monogram">TID</div><span class="badge">✓ VERIFIED</span></div><div class="v6-center"><div><div class="name">'+v.name+'</div><div class="rank">'+v.rank+' · '+v.payoutTier+'</div></div></div><div class="bottom"><div><div class="score">'+v.tid+'</div><div class="score"><span>TRUST </span>'+v.trustScore+'/100</div></div><img class="qr" src="'+qr(v)+'" alt="QR"></div>']
-];
-function render(){document.getElementById("variants").innerHTML=variants.map((x,i)=>'<section class="section"><div class="card-label">'+x[0]+'</div><div class="card-stage"><div class="tid-card '+x[1]+'" id="card-'+(i+1)+'">'+x[2](DATA)+'</div></div><div class="actions"><button class="btn" onclick="downloadPng('+(i+1)+')">Download as PNG</button></div><div class="hint">'+["Credit-card proportion · deep matte finish","Silver holographic credential · reflective shimmer","Terminal-inspired · live market treatment","Athlete/trading collectible · stat-forward","Official document · gold foil treatment","Glassmorphism · neon gradient finish"][i]+'</div></section>').join("")}
-async function downloadPng(n){if(!window.html2canvas){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";await new Promise((ok,no)=>{s.onload=ok;s.onerror=no});document.head.appendChild(s)}const canvas=await html2canvas(document.getElementById("card-"+n),{scale:3,useCORS:true,backgroundColor:null});const a=document.createElement("a");a.download="trader-id-variant-"+n+".png";a.href=canvas.toDataURL("image/png");a.click()}
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Trader ID — Premium Holographic Card</title>
+<link rel="stylesheet" href="card-styles.css">
+<style>
+body{min-height:100vh;padding:28px 16px 60px}
+.page{max-width:820px;margin:auto}
+.header{display:flex;align-items:end;justify-content:space-between;gap:18px;margin-bottom:28px}
+.eyebrow{font:800 10px "JetBrains Mono",monospace;letter-spacing:.16em;color:#00e59a}
+.header h1{margin:6px 0;font-size:clamp(25px,6vw,42px)}
+.header p{margin:0;color:#8995a2;font-size:13px}
+.tools,.actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{border:1px solid #2c3945;background:#111923;color:#fff;border-radius:9px;padding:9px 12px;font:700 11px Inter,sans-serif;cursor:pointer}
+.btn:hover{border-color:#00e59a}
+.section{margin-bottom:34px}
+.card-label{margin:0 0 12px;color:#9ca7b3;font-size:12px;font-weight:800;letter-spacing:.12em;text-transform:uppercase}
+.hint{font-size:11px;color:#7e8995;margin-top:8px}
+@media(max-width:600px){body{padding:20px 10px 45px}.header{display:block}.tools{margin-top:16px}}
+</style>
+</head>
+<body>
+<main class="page">
+<header class="header">
+<div>
+<div class="eyebrow">TID / DESIGN SYSTEM</div>
+<h1>TRADER ID — PREMIUM HOLOGRAPHIC CARD</h1>
+<p>Premium identity credential with holographic security treatment.</p>
+</div>
+<div class="tools">
+<button class="btn" onclick="toggleTheme()">Toggle Light/Dark</button>
+<button class="btn" onclick="copyJson()">Copy card JSON</button>
+</div>
+</header>
+<section class="section">
+<div class="card-label">TRADER ID — PREMIUM HOLOGRAPHIC CARD</div>
+<div class="card-stage">
+<div class="card-holo-premium" id="card-1">
+<svg class="card-watermark" viewBox="0 0 600 400" preserveAspectRatio="none" aria-hidden="true">
+<defs>
+<pattern id="tidPattern" x="0" y="0" width="120" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)">
+<text x="0" y="40" font-family="Inter,sans-serif" font-weight="900" font-size="24" fill="#d4af37" fill-opacity=".05" letter-spacing="2">TID</text>
+</pattern>
+</defs>
+<rect width="100%" height="100%" fill="url(#tidPattern)"/>
+</svg>
+<div class="card-holo-sweep" aria-hidden="true"></div>
+<div class="card-top">
+<div class="card-brand"><div class="card-brand-mark">FX</div><div class="card-brand-text">TRADER ID</div></div>
+<div class="card-qr" aria-label="Trader ID QR"></div>
+</div>
+<div class="card-mid">
+<div class="card-tid">TID-9AY1B2T</div>
+<div class="card-name-row">
+<div class="card-monogram">CD</div>
+<div class="card-identity">
+<div class="card-name">Chiranjeet Das</div>
+<div class="card-rank">★ CHAMPION · VERIFIED</div>
+<div class="card-badges"><span class="badge-verified">✓ KYC Verified</span><span class="badge-verified">✓ Email Verified</span></div>
+</div>
+</div>
+</div>
+<div class="card-holo-strip"><div class="card-holo-strip-inner">
+<span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span><span>FX TID</span>
+</div></div>
+<div class="card-stats">
+<div class="stat-box"><div class="stat-value">42%</div><div class="stat-label">Pass Rate</div></div>
+<div class="stat-box"><div class="stat-value">$4,240</div><div class="stat-label">Payouts</div></div>
+<div class="stat-box"><div class="stat-value">Tier 4</div><div class="stat-label">Payout Tier</div></div>
+</div>
+</div>
+</div>
+<div class="actions"><button class="btn" onclick="downloadPng()">Download as PNG</button></div>
+<div class="hint">Credit-card proportion · watermark security pattern · animated holographic thread.</div>
+</section>
+</main>
+<script>
+const DATA={tid:"TID-9AY1B2T",name:"Chiranjeet Das",rank:"Champion",rankColor:"gold",trustScore:78,passRate:"42%",totalPayouts:"$4,240",payoutTier:"Tier 4",verifiedBadges:["KYC","Email"],photo:null,memberSince:"Sep 2026",qrUrl:"https://fundfxt.vercel.app/t/TID-9AY1B2T"};
+function qrSvg(text){
+const size=21,cell=4,pad=4;let seed=0;for(const ch of text)seed=(seed*31+ch.charCodeAt(0))>>>0;
+let cells="";
+const finder=(ox,oy)=>{for(let y=0;y<7;y++)for(let x=0;x<7;x++){const edge=x===0||x===6||y===0||y===6,core=x>=2&&x<=4&&y>=2&&y<=4;if(edge||core)cells+=`<rect x="${(ox+x)*cell}" y="${(oy+y)*cell}" width="${cell}" height="${cell}"/>`}};
+finder(0,0);finder(14,0);finder(0,14);
+for(let y=0;y<size;y++)for(let x=0;x<size;x++){if((x<7&&y<7)||(x>=14&&y<7)||(x<7&&y>=14))continue;seed=(seed*1664525+1013904223)>>>0;if(seed%3===0)cells+=`<rect x="${x*cell}" y="${y*cell}" width="${cell}" height="${cell}"/>`}
+return `<svg viewBox="0 0 ${size*cell} ${size*cell}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="QR code"><rect width="100%" height="100%" fill="#fff"/><g fill="#0f1b2d">${cells}</g></svg>`;
+}
+document.querySelector(".card-qr").innerHTML=qrSvg(DATA.qrUrl);
+async function downloadPng(){
+if(!window.html2canvas){const s=document.createElement("script");s.src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js";await new Promise((ok,no)=>{s.onload=ok;s.onerror=no});document.head.appendChild(s)}
+const canvas=await html2canvas(document.getElementById("card-1"),{scale:3,useCORS:true,backgroundColor:null});
+const a=document.createElement("a");a.download="trader-id-premium-holographic.png";a.href=canvas.toDataURL("image/png");a.click()
+}
 function copyJson(){navigator.clipboard.writeText(JSON.stringify(DATA,null,2)).then(()=>alert("Card JSON copied."))}
-function toggleTheme(){document.body.classList.toggle("light")}render();
-</script></body></html>
+function toggleTheme(){document.body.classList.toggle("light")}
+</script>
+</body>
+</html>
