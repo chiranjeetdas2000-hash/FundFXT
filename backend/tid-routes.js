@@ -336,12 +336,24 @@ async function sendEmail(to, subject, html, timeoutMs) {
     },
   });
 
-  await transporter.sendMail({
+  const sendMailPromise = transporter.sendMail({
     from,
     to,
     subject,
     html,
   });
+
+  if (!timeoutMs) {
+    await sendMailPromise;
+    return;
+  }
+
+  await Promise.race([
+    sendMailPromise,
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Email send timed out")), timeoutMs),
+    ),
+  ]);
 }
 
 async function createAndSendOtp(user) {
@@ -686,14 +698,26 @@ router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
     };
     const token = signTidToken(user);
 
-    try {
-      await createAndSendOtp(user);
-    } catch (emailError) {
-      console.warn("Signup OTP email failed:", emailError.message);
-    }
+    const responsePayload = {
+      success: true,
+      token,
+      user: {
+        id: userId,
+        tid,
+        email,
+        full_name: fullName,
+      },
+    };
 
-    try {
-      await sendEmail(
+    // Return the signup response immediately. Email work must never block signup.
+    res.status(201).json(responsePayload);
+
+    setImmediate(() => {
+      createAndSendOtp(user).catch((error) => {
+        console.warn("Signup OTP email failed:", error.message);
+      });
+
+      sendEmail(
         email,
         "Welcome to Trader ID",
         "<!doctype html><html><body style=\"font-family:Arial,sans-serif;color:#0F1B2D\">" +
@@ -703,23 +727,16 @@ router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
           escapeHtml(tid) +
           "</strong>.</p><p>Complete email and identity verification to build your Trader Passport.</p></body></html>",
         5000,
-      );
-    } catch (emailError) {
-      console.warn("Welcome email failed:", emailError.message);
-    }
+      ).catch((error) => {
+        console.warn("Welcome email failed:", error.message);
+      });
 
-    await logAccess(req, userId, tid, "SIGNUP");
-
-    return res.status(201).json({
-      success: true,
-      token,
-      user: {
-        id: userId,
-        tid,
-        email,
-        full_name: fullName,
-      },
+      logAccess(req, userId, tid, "SIGNUP").catch((error) => {
+        console.warn("TID signup access log failed:", error.message);
+      });
     });
+
+    return;
   } catch (error) {
     try {
       await connection.rollback();
