@@ -98,7 +98,9 @@
           </div>
           <div class="form-error" id="termsError" role="alert" hidden><span class="field-warning" aria-hidden="true" hidden>⚠</span><span></span></div>
 
+          <p class="form-helper" id="signupColdStartNote" style="margin:0 0 8px;">⏱ First signup may take up to 60 seconds (server startup).</p>
           <button class="btn btn-primary auth-submit" id="createAccountButton" type="submit">Create Account</button>
+          <p class="form-helper" id="signupWaitNote" hidden style="margin:8px 0 0;">Server is starting up. This happens once every 15 minutes.</p>
 
           <div class="form-server-error" id="serverError" role="alert" hidden style="display:none;"><span aria-hidden="true">⚠</span><span></span></div>
           <a class="form-link" id="signInAfterError" href="/tradersid/login.html" hidden style="display:none;margin-top:8px;">Sign In</a>
@@ -143,7 +145,11 @@
     const serverError = document.getElementById('serverError');
     const successMessage = document.getElementById('successMessage');
     const signInAfterError = document.getElementById('signInAfterError');
+    const signupColdStartNote = document.getElementById('signupColdStartNote');
+    const signupWaitNote = document.getElementById('signupWaitNote');
     const touched = {};
+    let countdownInterval = null;
+    let retryInterval = null;
 
     const showError = (input, box, message) => {
       box.querySelector('span:last-child').textContent = message;
@@ -163,6 +169,38 @@
       serverError.style.display = 'none';
       signInAfterError.hidden = true;
       signInAfterError.style.display = 'none';
+    };
+
+    const clearCountdown = () => {
+      if (countdownInterval) {
+        clearInterval(countdownInterval);
+        countdownInterval = null;
+      }
+    };
+
+    const clearRetryCountdown = () => {
+      if (retryInterval) {
+        clearInterval(retryInterval);
+        retryInterval = null;
+      }
+    };
+
+    const startRetryCountdown = () => {
+      clearRetryCountdown();
+      let secondsLeft = 30;
+      button.disabled = true;
+      button.textContent = 'Server is starting. Please wait 30 seconds...';
+
+      retryInterval = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft > 0) {
+          button.textContent = `Retry available in ${secondsLeft}s`;
+        } else {
+          clearRetryCountdown();
+          button.disabled = false;
+          button.textContent = 'Retry Now';
+        }
+      }, 1000);
     };
 
     const showServerMessage = (box, message) => {
@@ -242,10 +280,20 @@
       if (!validateAll()) return;
 
       button.disabled = true;
-      button.textContent = 'Creating Account... (may take up to 60 seconds)';
+      signupColdStartNote.hidden = true;
+      signupWaitNote.hidden = false;
+
+      let secondsLeft = 60;
+      button.textContent = `Creating Account... (waiting: ${secondsLeft}s)`;
+      countdownInterval = setInterval(() => {
+        secondsLeft--;
+        if (secondsLeft > 0) {
+          button.textContent = `Creating Account... (waiting: ${secondsLeft}s)`;
+        }
+      }, 1000);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 90000);
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
       try {
         let response;
@@ -269,6 +317,8 @@
 
         if (!response.ok) {
           if (response.status === 409) {
+            clearCountdown();
+            signupWaitNote.hidden = true;
             showServerMessage(serverError, 'This email is already registered. If you created it recently, please sign in.');
             signInAfterError.hidden = false;
             signInAfterError.style.display = 'inline-block';
@@ -287,11 +337,16 @@
           } else {
             showServerMessage(serverError, message);
           }
+          clearCountdown();
+          signupWaitNote.hidden = true;
           return;
         }
 
         if (!data.token || !data.user) {
+          clearCountdown();
+          signupWaitNote.hidden = true;
           showServerMessage(serverError, 'Account created, but the server response was incomplete. Please try again.');
+          startRetryCountdown();
           return;
         }
 
@@ -309,20 +364,30 @@
           // Storage failure must not block the successful-account redirect.
         }
 
+        clearCountdown();
+        signupWaitNote.hidden = true;
         showServerMessage(successMessage, 'Welcome to Trader ID! Redirecting to your dashboard…');
         window.location.replace('/tradersid/dashboard.html');
         return;
       } catch (error) {
+        clearCountdown();
+        signupWaitNote.hidden = true;
         if (error && error.name === 'AbortError') {
-          showServerMessage(serverError, 'Server is waking up. Please wait 30 seconds and try again.');
+          showServerMessage(serverError, 'Server is not responding. Please try again in 30 seconds.');
+          startRetryCountdown();
         } else if (error instanceof TypeError) {
           showServerMessage(serverError, 'Unable to connect. Server may be waking up. Please wait 30 seconds and try again.');
+          startRetryCountdown();
         } else {
           showServerMessage(serverError, 'Unable to create your account. Please try again.');
+          button.disabled = false;
+          button.textContent = 'Create Account';
         }
       } finally {
-        button.disabled = false;
-        button.textContent = 'Create Account';
+        if (!retryInterval && button.disabled) {
+          button.disabled = false;
+          button.textContent = 'Create Account';
+        }
       }
     });
   })();
