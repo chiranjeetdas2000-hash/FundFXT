@@ -243,7 +243,8 @@
 
         localStorage.setItem('tid_token', data.token);
         localStorage.setItem('tid_user', JSON.stringify(data.user));
-        window.location.href = '/tradersid/verify-email.html';
+        button.textContent = 'Welcome to Trader ID! Redirecting to your dashboard…';
+        window.location.href = '/tradersid/dashboard.html';
       } catch (_) {
         serverError.querySelector('span:last-child').textContent = 'Unable to connect. Please try again.';
         serverError.hidden = false;
