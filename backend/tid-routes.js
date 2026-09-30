@@ -380,7 +380,7 @@ async function createAndSendOtp(user) {
       "<tr><td style=\"padding:36px 28px 30px\">" +
       "<p style=\"margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#B8935A\">Email verification</p>" +
       "<h1 style=\"margin:0 0 18px;font-size:28px;line-height:1.2;color:#0F1B2D\">Verify your email</h1>" +
-      "<p style=\"margin:0 0 22px;font-size:15px;line-height:1.7;color:#64748B\">Hi ${escapeHtml(user.full_name || user.name || "Trader")},</p>" +
+      "<p style=\"margin:0 0 22px;font-size:15px;line-height:1.7;color:#64748B\">Hi ${escapeHtml(user.full_name || user.name || 'Trader')},</p>" +
       "<p style=\"margin:0 0 14px;font-size:15px;line-height:1.7;color:#64748B\">Your verification code is:</p>" +
       "<div style=\"margin:0 0 22px;padding:18px 20px;background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;text-align:center\">" +
       "<span style=\"font-family:'JetBrains Mono',Consolas,monospace;font-size:32px;font-weight:700;letter-spacing:9px;color:#0F1B2D\">${escapeHtml(otp)}</span>" +
