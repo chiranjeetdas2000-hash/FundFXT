@@ -109,55 +109,19 @@ function sequenceToTid(sequenceValue) {
 }
 
 async function nextTid(connection) {
-  const candidates = [
-    { key: "next_value", update: "next_value = LAST_INSERT_ID(next_value + 1)" },
-    { key: "current_value", update: "current_value = LAST_INSERT_ID(current_value + 1)" },
-    { key: "sequence_value", update: "sequence_value = LAST_INSERT_ID(sequence_value + 1)" },
-    { key: "last_value", update: "last_value = LAST_INSERT_ID(last_value + 1)" },
-  ];
+  const [result] = await connection.execute(
+    "UPDATE tid_sequence SET last_number = LAST_INSERT_ID(last_number + 1) WHERE id = 1",
+  );
 
-  for (const candidate of candidates) {
-    try {
-      const [result] = await connection.execute(
-        "UPDATE tid_sequence SET " + candidate.update + " ORDER BY id ASC LIMIT 1",
-      );
-      if (result.affectedRows === 1) {
-        const [[row]] = await connection.query(
-          "SELECT LAST_INSERT_ID() AS sequence_value",
-        );
-        return sequenceToTid(row.sequence_value);
-      }
-    } catch (error) {
-      if (!/unknown column|doesn't exist|no such column/i.test(error.message)) {
-        throw error;
-      }
-    }
+  if (result.affectedRows !== 1) {
+    throw new Error("tid_sequence seed row id=1 not found");
   }
 
-  try {
-    const [rows] = await connection.query("SELECT * FROM tid_sequence ORDER BY id ASC LIMIT 1 FOR UPDATE");
-    if (!rows.length) {
-      throw new Error("tid_sequence has no seed row");
-    }
-
-    const row = rows[0];
-    const key = Object.keys(row).find((name) =>
-      /^(next|current|sequence|last).*value$/i.test(name),
-    );
-    if (!key) throw new Error("No supported sequence value column found in tid_sequence");
-
-    const current = BigInt(row[key] || 0);
-    const next = current + 1n;
-    await connection.execute(
-      "UPDATE tid_sequence SET " + mysql.escapeId(key) + " = ? WHERE id = ?",
-      [next.toString(), row.id],
-    );
-    return sequenceToTid(next);
-  } catch (error) {
-    throw new Error("Unable to allocate TID from tid_sequence: " + error.message);
-  }
+  const [[row]] = await connection.query(
+    "SELECT LAST_INSERT_ID() AS sequence_value",
+  );
+  return sequenceToTid(row.sequence_value);
 }
-
 async function getColumns(table) {
   const [rows] = await db.query("SHOW COLUMNS FROM " + mysql.escapeId(table));
   return rows.map((row) => row.Field);
