@@ -232,13 +232,13 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .bottom-nav-inner{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;max-width:520px;margin:0 auto}
 .bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:0;background:transparent;cursor:pointer;font-family:inherit;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.02em;position:relative;border-radius:10px;transition:color .18s}
 .bnav-item svg{width:22px;height:22px;padding:7px;box-sizing:content-box;border-radius:50%;display:block;stroke-width:1.9;transition:background .18s,color .18s,stroke-width .18s,box-shadow .18s,transform .18s;transform-origin:center;position:relative;z-index:1}
-.bnav-item.active svg{background:linear-gradient(135deg,var(--green),var(--green-bright));color:#fff;stroke-width:2.2;box-shadow:0 6px 14px rgba(0,181,106,.32);transform:scale(1.5)}
+.bnav-item.active svg{background:linear-gradient(135deg,var(--green),var(--green-bright));color:#fff;stroke-width:2.2;box-shadow:0 6px 14px rgba(0,181,106,.32);transform:translateY(-5px) scale(1.5)}
 .bnav-item.active::before{display:none}
 .bnav-fab{padding:6px 2px}
 .bnav-fab .bnav-fab-icon{display:block;padding:0;margin:0;background:transparent;border:0;border-radius:0;color:inherit;box-shadow:none;width:auto;height:auto;line-height:1}
 .bnav-fab .bnav-fab-icon svg{width:22px;height:22px;padding:7px;box-sizing:content-box;border-radius:50%;display:block;stroke-width:1.9;transition:background .18s,color .18s,stroke-width .18s,box-shadow .18s}
 .bnav-fab span{color:inherit}
-.bnav-fab.active .bnav-fab-icon svg{background:linear-gradient(135deg,var(--green),var(--green-bright));color:#fff;stroke-width:2.2;box-shadow:0 6px 14px rgba(0,181,106,.32);transform:scale(1.5);transform-origin:center}
+.bnav-fab.active .bnav-fab-icon svg{background:linear-gradient(135deg,var(--green),var(--green-bright));color:#fff;stroke-width:2.2;box-shadow:0 6px 14px rgba(0,181,106,.32);transform:translateY(-5px) scale(1.5);transform-origin:center}
 .bnav-fab.active::before{display:none}
 @media(max-width:900px){
   .bottom-nav{display:block}
