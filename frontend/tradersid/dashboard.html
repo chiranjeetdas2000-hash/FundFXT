@@ -81,16 +81,23 @@
       const profileFields=['full_name','display_name','bio','location','country','website','trading_style'];
 
       async function loadDashboard() {
+        if(cachedUser&&cachedUser.tid){
+          $('welcomeTitle').textContent='Welcome, '+(cachedUser.full_name||'Trader');
+          $('tidValue').textContent=cachedUser.tid||'—';
+          $('pakValue').textContent=cachedUser.public_access_key||cachedUser.pak||'—';
+          $('emailValue').textContent=cachedUser.email||'—';
+          setStatus('emailStatus',Boolean(cachedUser.email_verified));
+        }
         try {
           const headers={Authorization:'Bearer '+token};
           const response=await fetch(API+'/api/tid/me',{headers});
-          if(response.status===401){localStorage.removeItem('tid_token');localStorage.removeItem('tid_user');window.location.href='/tradersid/login.html';return;}
+          if(response.status===401||response.status===403){localStorage.removeItem('tid_token');localStorage.removeItem('tid_user');window.location.href='/tradersid/login.html';return;}
           const data=await response.json();
           if(!response.ok||!data.success) throw new Error(data.error||'Unable to load account');
           const user=data.user||cachedUser;
           $('welcomeTitle').textContent='Welcome, '+(user.full_name||'Trader');
           $('tidValue').textContent=user.tid||'—';
-          $('pakValue').textContent=user.public_access_key||'—';
+          $('pakValue').textContent=user.public_access_key||user.pak||'—';
           $('emailValue').textContent=user.email||'—';
           setStatus('emailStatus',Boolean(user.email_verified));
           const profile=data.profile||{};
@@ -110,7 +117,7 @@
           $('dashboardError').style.display='block';
           $('welcomeTitle').textContent='Welcome, '+(cachedUser.full_name||'Trader');
           $('tidValue').textContent=cachedUser.tid||'—';
-          $('pakValue').textContent=cachedUser.public_access_key||'—';
+          $('pakValue').textContent=cachedUser.public_access_key||cachedUser.pak||'—';
           $('emailValue').textContent=cachedUser.email||'—';
           setStatus('emailStatus',Boolean(cachedUser.email_verified));
         }
