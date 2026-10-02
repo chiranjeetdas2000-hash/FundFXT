@@ -229,8 +229,9 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 /* BOTTOM NAV (mobile) */
 .bottom-nav{display:none;position:fixed;bottom:0;left:0;right:0;background:rgba(255,255,255,.98);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border);box-shadow:0 -8px 28px rgba(15,27,45,.08);z-index:100;padding:8px 8px calc(8px + env(safe-area-inset-bottom))}
-.bottom-nav-inner{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;max-width:520px;margin:0 auto}
-.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:0;background:transparent;cursor:pointer;font-family:inherit;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.02em;position:relative;border-radius:10px;transition:color .18s}
+.bottom-nav-inner{display:flex;gap:2px;max-width:520px;margin:0 auto;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;padding:0 2px}
+.bottom-nav-inner::-webkit-scrollbar{display:none}
+.bnav-item{display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 2px;border:0;background:transparent;cursor:pointer;font-family:inherit;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.02em;position:relative;border-radius:10px;transition:color .18s;flex:1 0 64px;min-width:64px}
 .bnav-item svg{width:22px;height:22px;padding:7px;box-sizing:content-box;border-radius:50%;display:block;stroke-width:1.9;transition:background .18s,color .18s,stroke-width .18s,box-shadow .18s,transform .18s;transform-origin:center;position:relative;z-index:1}
 .bnav-item.active svg{background:linear-gradient(135deg,var(--green),var(--green-bright));color:#fff;stroke-width:2.2;box-shadow:0 6px 14px rgba(0,181,106,.32);transform:translateY(-5px) scale(1.5)}
 .bnav-item.active::before{display:none}
@@ -284,6 +285,10 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
       <span>Cards</span>
     </button>
+    <button class="side-link" data-section="kyc">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span>KYC</span>
+    </button>
   </nav>
   <div class="sidebar-foot">
     <button class="side-link" id="logoutBtn">
@@ -315,6 +320,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     <button class="side-link" data-section="access"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span>Access Keys</span></button>
     <button class="side-link" data-section="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></button>
     <button class="side-link" data-section="cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span>Cards</span></button>
+    <button class="side-link" data-section="kyc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>KYC</span></button>
     <div style="height:1px;background:rgba(255,255,255,.08);margin:10px 12px"></div>
     <button class="side-link" id="logoutBtnMobile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Logout</span></button>
   </nav>
@@ -631,6 +637,69 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   </div>
 </section>
 
+  <!-- ============ KYC ============ -->
+  <section class="section" id="sec-kyc">
+    <div class="page-head">
+      <div class="page-eyebrow">Identity Verification</div>
+      <h1 class="page-title">KYC Verification</h1>
+      <p class="page-sub">Verify your identity once to earn a verified badge on your Trader ID card and boost your Trust Score.</p>
+    </div>
+
+    <div class="card" style="margin-bottom:20px">
+      <div class="card-head">
+        <div>
+          <div class="card-title">Verification Status</div>
+          <div class="card-sub">Your current KYC status on Trader ID</div>
+        </div>
+        <span class="card-badge" id="kycStatusBadge">NOT VERIFIED</span>
+      </div>
+      <div class="empty">
+        <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
+        <div class="empty-title">Not verified yet</div>
+        <div class="empty-text">Start verification to unlock your KYC badge and boost your Trust Score by up to 15 points.</div>
+        <button class="btn btn-green" id="startKycBtn" style="margin-top:16px">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+          Start Verification
+        </button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">Why Verify?</div>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:16px">
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,181,106,.10);display:grid;place-items:center;color:var(--green);flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--navy-900);margin-bottom:4px">Verified badge on your card</div>
+            <div style="font-size:12.5px;color:var(--muted);line-height:1.55">A "KYC Verified" mark appears on your Trader ID card and public profile.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,181,106,.10);display:grid;place-items:center;color:var(--green);flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--navy-900);margin-bottom:4px">Trust Score boost</div>
+            <div style="font-size:12.5px;color:var(--muted);line-height:1.55">Verified badges add up to 15 points to your Trust Score — making you stand out to firms.</div>
+          </div>
+        </div>
+        <div style="display:flex;gap:12px;align-items:flex-start">
+          <div style="width:36px;height:36px;border-radius:10px;background:rgba(0,181,106,.10);display:grid;place-items:center;color:var(--green);flex-shrink:0">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+          </div>
+          <div>
+            <div style="font-size:13.5px;font-weight:700;color:var(--navy-900);margin-bottom:4px">Firm-ready credibility</div>
+            <div style="font-size:12.5px;color:var(--muted);line-height:1.55">Prop firms and brokers trust KYC-verified traders more. Faster onboarding, smoother approvals.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
 </div>
 </main>
 
@@ -657,6 +726,10 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     <button class="bnav-item" data-section="cards">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg>
       <span>Cards</span>
+    </button>
+    <button class="bnav-item" data-section="kyc">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+      <span>KYC</span>
     </button>
   </div>
 </nav>
@@ -873,6 +946,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   });
 
   // ---- Placeholder buttons ----
+  var startKycBtn = $('startKycBtn');
+  if (startKycBtn) startKycBtn.addEventListener('click', function(){ toast('KYC verification is coming soon'); });
   $('addAccountBtn').addEventListener('click', function(){ toast('Account upload coming soon'); });
   $('generateKeyBtn').addEventListener('click', function(){
     var n = $('keyName').value.trim();
