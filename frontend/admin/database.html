@@ -272,10 +272,14 @@ async function runSql(){
   const cleanedSql=sql.replace(/;+\s*$/,'').trim();
   if(!sql)return showError(new Error('Enter a SQL query.'));
   if(sql.length>5000)return showError(new Error('Query is limited to 5000 characters.'));
-  if(sqlDestructive(sql)&&!confirm('This query may modify or destroy data. Destructive queries cannot be undone. Continue?'))return;
+  const writeOps=/^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|REPLACE)\b/i.test(cleanedSql);
+  if(writeOps){ if(!confirm('This is a WRITE query and will modify your database. Continue?'))return; }
+  else if(sqlDestructive(sql)&&!confirm('This query may modify or destroy data. Destructive queries cannot be undone. Continue?'))return;
   $('sqlStatus').textContent='Running…';$('sqlExport').disabled=true;$('sqlCopy').disabled=true;
   try{
-    const d=await api('/api/admin/sql/query',{method:'POST',body:JSON.stringify({sql:cleanedSql})});
+    const payload={sql:cleanedSql};
+    if(writeOps)payload.allow_write=true;
+    const d=await api('/api/admin/sql/query',{method:'POST',body:JSON.stringify(payload)});
     renderSqlResult(d);$('sqlStatus').textContent='Query completed.';
   }catch(e){$('sqlStatus').textContent='';$('sqlResult').innerHTML='<div class="db-sql-pre">'+esc(e.message||e)+'</div>'}
 }
