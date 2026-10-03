@@ -162,9 +162,14 @@ function installDatabaseControl(app) {
     const firstWord=sql.match(/^([A-Za-z]+)/)?.[1]?.toUpperCase()||"";
     const blocked=/\\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\\b/i;
     const allowed=["SELECT","SHOW","DESCRIBE","DESC","EXPLAIN"];
-    if(!allowed.includes(firstWord)||blocked.test(sql))return res.status(403).json({success:false,error:"Only read-only queries allowed"});
+    const writeOps=["INSERT","UPDATE","DELETE","CREATE","ALTER","DROP","TRUNCATE","REPLACE"];
+    const forbidden=new RegExp("GRANT|REVOKE|SHUTDOWN|KILL|LOAD[ ]+DATA|INTO[ ]+OUTFILE|INTO[ ]+DUMPFILE","i");
+    const isWrite=writeOps.includes(firstWord);
+    if(!allowed.includes(firstWord)&&!isWrite)return res.status(403).json({success:false,error:"Query type not allowed."});
+    if(forbidden.test(sql))return res.status(403).json({success:false,error:"This query pattern is not allowed."});
+    if(isWrite&&req.body&&req.body.allow_write!==true)return res.status(403).json({success:false,error:"Write queries require allow_write:true."});
 
-    if(sql.split(";").filter(part=>part.trim()).length>1)return res.status(403).json({success:false,error:"Only one read-only query is allowed."});
+    if(sql.split(";").filter(function(part){return part.trim()}).length>1)return res.status(403).json({success:false,error:"Only one statement at a time."});
 
     // Execute exactly the single read-only statement supplied by the admin.
     const finalSql = sql;
