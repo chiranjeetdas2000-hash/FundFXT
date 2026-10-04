@@ -249,6 +249,42 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   .mobile-backdrop{display:none}
   .main{padding-bottom:110px}
 }
+
+/* MODAL */
+.modal-backdrop{position:fixed;inset:0;background:rgba(10,20,36,.55);z-index:500;display:none;align-items:flex-end;justify-content:center;backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.modal-backdrop.open{display:flex}
+.modal-card{background:#fff;border-radius:20px 20px 0 0;width:100%;max-width:540px;max-height:92vh;overflow-y:auto;box-shadow:0 -20px 60px rgba(0,0,0,.32);animation:modalUp .24s ease}
+@keyframes modalUp{from{transform:translateY(30px);opacity:0}to{transform:translateY(0);opacity:1}}
+.modal-head{position:sticky;top:0;background:#fff;padding:20px 22px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;z-index:2;border-radius:20px 20px 0 0}
+.modal-title{font-size:17px;font-weight:800;color:var(--navy-900)}
+.modal-close{background:none;border:0;font-size:26px;line-height:1;color:var(--muted);cursor:pointer;padding:2px 8px;border-radius:8px}
+.modal-close:hover{background:#F1F5F9;color:var(--navy-900)}
+.modal-body{padding:20px 22px 26px}
+.form-select{width:100%;padding:12px 36px 12px 14px;border:1.5px solid var(--border);border-radius:10px;background:#FBFCFD;font-family:inherit;font-size:14px;color:var(--navy-900);outline:none;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right 12px center;background-size:16px;transition:border-color .18s,background-color .18s,box-shadow .18s}
+.form-select:focus{border-color:var(--blue);background-color:#fff;box-shadow:0 0 0 4px var(--blue-soft)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:22px;padding-top:18px;border-top:1px solid var(--border)}
+.form-file{padding:11px;border:1.5px dashed var(--border-strong);border-radius:10px;background:#FBFCFD;width:100%;font-size:13px;color:var(--muted);cursor:pointer;font-family:inherit}
+.form-file:hover{border-color:var(--blue);background:#fff}
+.modal-error{margin-top:14px;padding:11px 13px;border:1px solid rgba(220,38,38,.22);background:rgba(220,38,38,.06);color:var(--red);border-radius:10px;font-size:13px;display:none}
+.modal-error.show{display:block}
+
+/* ACCOUNTS LIST */
+.accounts-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap}
+.accounts-count{font-size:12.5px;color:var(--muted);font-weight:600}
+.acct-card{background:#fff;border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:12px;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s}
+.acct-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.acct-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:10px}
+.acct-firm{font-size:15.5px;font-weight:800;color:var(--navy-900);margin:0;letter-spacing:-.01em}
+.acct-size{font-size:12px;color:var(--muted);margin-top:3px;font-family:'JetBrains Mono',monospace;font-weight:600}
+.acct-badge{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:99px;font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.acct-badge.none{background:#F1F5F9;color:#64748B}
+.acct-badge.pending{background:rgba(212,175,55,.15);color:#8B6914}
+.acct-badge.verified{background:var(--green-soft);color:#067a4a}
+.acct-badge.rejected{background:var(--red-soft);color:var(--red)}
+.acct-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;font-size:11px;color:var(--muted);margin:12px 0;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border)}
+.acct-meta-item b{display:block;font-family:'JetBrains Mono',monospace;font-size:14px;color:var(--navy-900);font-weight:700;margin-bottom:2px}
+.acct-actions{display:flex;gap:8px;justify-content:flex-end}
+.acct-actions .btn{padding:8px 14px;font-size:12px;min-height:0}
 </style>
 </head>
 <body>
@@ -467,17 +503,14 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     <h1 class="page-title">Your Accounts</h1>
     <p class="page-sub">Every challenge and funded account you've registered — with its individual performance, status, and trade history. This is your private record, shareable via Access Keys.</p>
   </div>
-  <div id="accountsList">
-    <div class="empty">
-      <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13H3z"/><path d="M3 7l3-4h12l3 4"/></svg></div>
-      <div class="empty-title">No accounts yet</div>
-      <div class="empty-text">Add your first challenge or funded account to start building your verified track record.</div>
-      <button class="btn btn-primary" style="margin-top:16px" id="addAccountBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Add Account
-      </button>
-    </div>
+  <div class="accounts-toolbar">
+    <div class="accounts-count" id="accountsCount">Loading…</div>
+    <button class="btn btn-primary" id="addAccountBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add Account
+    </button>
   </div>
+  <div id="accountsList"></div>
 </section>
 
 <!-- ============ ACCESS KEYS ============ -->
@@ -704,6 +737,57 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
 </div>
 </main>
+
+<!-- ============ ADD ACCOUNT MODAL ============ -->
+<div class="modal-backdrop" id="accountModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Add Trading Account</div>
+      <button class="modal-close" type="button" id="accountModalClose" aria-label="Close">&times;</button>
+    </div>
+    <form class="modal-body" id="accountForm">
+      <div class="form-row">
+        <label class="form-label" for="acctFirm">Firm Name</label>
+        <input class="form-input" id="acctFirm" type="text" placeholder="e.g. FundedNext, FTMO, Topstep" required maxlength="100" autocomplete="off">
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="acctSize">Account Size</label>
+          <select class="form-select" id="acctSize">
+            <option value="500000">$5,000</option>
+            <option value="1000000" selected>$10,000</option>
+            <option value="2500000">$25,000</option>
+            <option value="5000000">$50,000</option>
+            <option value="10000000">$100,000</option>
+            <option value="20000000">$200,000</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="acctType">Account Type</label>
+          <select class="form-select" id="acctType">
+            <option value="CHALLENGE" selected>Challenge</option>
+            <option value="FUNDED">Funded</option>
+            <option value="LIVE">Live</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="acctStartDate">Start Date (optional)</label>
+        <input class="form-input" id="acctStartDate" type="date">
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="acctFile">Statement / Screenshot (optional)</label>
+        <input class="form-file" id="acctFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
+        <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">PDF, JPG, PNG, WEBP · Max 3 MB. You can also upload later.</div>
+      </div>
+      <div class="modal-error" id="acctError"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="accountCancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="accountSubmit">Create Account</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 <nav class="bottom-nav" aria-label="Mobile navigation">
   <div class="bottom-nav-inner">
@@ -950,7 +1034,181 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   // ---- Placeholder buttons ----
   var startKycBtn = $('startKycBtn');
   if (startKycBtn) startKycBtn.addEventListener('click', function(){ toast('KYC verification is coming soon'); });
-  $('addAccountBtn').addEventListener('click', function(){ toast('Account upload coming soon'); });
+  // ---- Accounts ----
+  var acctModal = $('accountModal');
+  function openAccountModal(){ if(!acctModal) return; acctModal.classList.add('open'); document.body.style.overflow='hidden'; }
+  function closeAccountModal(){ if(!acctModal) return; acctModal.classList.remove('open'); document.body.style.overflow=''; }
+
+  function fmtMoney(cents){
+    var n = Number(cents||0)/100;
+    if(n>=1000000) return '
+  $('generateKeyBtn').addEventListener('click', function(){
+    var n = $('keyName').value.trim();
+    if (!n) { toast('Enter a key name first'); return; }
+    toast('Access key creation coming soon');
+  });
+  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+
+})();
+</script>
+</body>
+</html>+(n/1000000).toFixed(1)+'M';
+    if(n>=1000) return '
+  $('generateKeyBtn').addEventListener('click', function(){
+    var n = $('keyName').value.trim();
+    if (!n) { toast('Enter a key name first'); return; }
+    toast('Access key creation coming soon');
+  });
+  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+
+})();
+</script>
+</body>
+</html>+(n/1000).toFixed(0)+'K';
+    return '
+  $('generateKeyBtn').addEventListener('click', function(){
+    var n = $('keyName').value.trim();
+    if (!n) { toast('Enter a key name first'); return; }
+    toast('Access key creation coming soon');
+  });
+  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+
+})();
+</script>
+</body>
+</html>+n.toFixed(0);
+  }
+  function fmtShortDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('en-IN',{year:'numeric',month:'short',day:'numeric'}); }catch(_){ return '—'; } }
+  function statusClass(s){
+    var u = String(s||'NONE').toUpperCase();
+    if(u==='VERIFIED') return 'verified';
+    if(u==='PENDING') return 'pending';
+    if(u==='REJECTED') return 'rejected';
+    return 'none';
+  }
+  function statusLabel(s){
+    var u = String(s||'NONE').toUpperCase();
+    if(u==='VERIFIED') return 'Verified';
+    if(u==='PENDING') return 'Pending Review';
+    if(u==='REJECTED') return 'Rejected';
+    return 'Not Verified';
+  }
+
+  function renderAccounts(list){
+    var box = $('accountsList');
+    var countEl = $('accountsCount');
+    if(!box) return;
+    if(!list || !list.length){
+      if(countEl) countEl.textContent = '0 accounts';
+      box.innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13H3z"/><path d="M3 7l3-4h12l3 4"/></svg></div><div class="empty-title">No accounts yet</div><div class="empty-text">Add your first challenge or funded account to start building your verified track record.</div></div>';
+      return;
+    }
+    if(countEl) countEl.textContent = list.length + (list.length===1?' account':' accounts');
+    box.innerHTML = list.map(function(a){
+      var cls = statusClass(a.verification_status);
+      var lbl = statusLabel(a.verification_status);
+      return '<div class="acct-card" data-id="'+a.id+'">'
+        +'<div class="acct-head"><div><div class="acct-firm">'+esc(a.firm_name||'—')+'</div><div class="acct-size">'+fmtMoney(a.account_size_cents)+' · '+esc(a.account_type||'')+'</div></div>'
+        +'<span class="acct-badge '+cls+'">'+lbl+'</span></div>'
+        +'<div class="acct-meta">'
+          +'<div class="acct-meta-item"><b>'+(Number(a.total_trades)||0)+'</b>Total Trades</div>'
+          +'<div class="acct-meta-item"><b>'+((Number(a.win_rate_bps)||0)/100).toFixed(0)+'%</b>Win Rate</div>'
+          +'<div class="acct-meta-item"><b>'+fmtShortDate(a.start_date)+'</b>Started</div>'
+        +'</div>'
+        +'<div class="acct-actions">'
+          +'<button class="btn btn-ghost acct-verify" data-id="'+a.id+'">Verify · $2</button>'
+          +'<button class="btn btn-ghost acct-delete" data-id="'+a.id+'">Delete</button>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+
+    box.querySelectorAll('.acct-delete').forEach(function(b){
+      b.addEventListener('click', function(){
+        var id = b.getAttribute('data-id');
+        if(!confirm('Delete this account? This cannot be undone.')) return;
+        fetch(API+'/api/tid/accounts/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+          .then(function(x){ if(!x.ok) throw new Error(x.data.error||'Delete failed'); toast('Account deleted'); loadAccounts(); })
+          .catch(function(e){ toast(e.message||'Delete failed'); });
+      });
+    });
+    box.querySelectorAll('.acct-verify').forEach(function(b){
+      b.addEventListener('click', function(){
+        toast('Verification payment ($2) coming soon');
+      });
+    });
+  }
+
+  function loadAccounts(){
+    var box = $('accountsList');
+    if(!token || !box) return;
+    fetch(API+'/api/tid/accounts',{headers:{Authorization:'Bearer '+token}})
+      .then(function(r){
+        if(r.status===401||r.status===403){ localStorage.removeItem('tid_token'); localStorage.removeItem('tid_user'); window.location.href='/tradersid/login.html'; throw new Error('unauth'); }
+        return r.json();
+      })
+      .then(function(d){ if(!d.success) throw new Error(d.error||'Load failed'); renderAccounts(d.accounts||[]); })
+      .catch(function(e){ if(e.message!=='unauth'){ $('accountsCount').textContent='Unable to load'; } });
+  }
+
+  var addAcctBtn = $('addAccountBtn');
+  if(addAcctBtn) addAcctBtn.addEventListener('click', openAccountModal);
+  var acctClose = $('accountModalClose');
+  if(acctClose) acctClose.addEventListener('click', closeAccountModal);
+  var acctCancel = $('accountCancel');
+  if(acctCancel) acctCancel.addEventListener('click', closeAccountModal);
+  if(acctModal) acctModal.addEventListener('click', function(e){ if(e.target===acctModal) closeAccountModal(); });
+
+  var acctForm = $('accountForm');
+  if(acctForm) acctForm.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var errBox = $('acctError');
+    errBox.classList.remove('show');
+    var firm = $('acctFirm').value.trim();
+    if(firm.length < 2){ errBox.textContent='Enter firm name'; errBox.classList.add('show'); return; }
+    var payload = {
+      firm_name: firm,
+      account_size_cents: Number($('acctSize').value)||0,
+      account_type: $('acctType').value,
+      start_date: $('acctStartDate').value || null,
+    };
+    var submitBtn = $('accountSubmit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Creating…';
+    try {
+      var res = await fetch(API+'/api/tid/accounts',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body: JSON.stringify(payload),
+      });
+      var data = await res.json();
+      if(!res.ok || !data.success) throw new Error(data.error||'Create failed');
+
+      var newId = data.account && data.account.id;
+
+      var fileInput = $('acctFile');
+      if(fileInput && fileInput.files && fileInput.files[0] && newId){
+        try {
+          var fd = new FormData();
+          fd.append('file', fileInput.files[0]);
+          fd.append('file_type', 'STATEMENT');
+          fd.append('account_id', String(newId));
+          await fetch(API+'/api/tid/upload',{method:'POST',headers:{Authorization:'Bearer '+token},body:fd});
+        } catch(_){}
+      }
+
+      closeAccountModal();
+      acctForm.reset();
+      toast('Account added');
+      loadAccounts();
+    } catch(err){
+      errBox.textContent = err.message||'Create failed';
+      errBox.classList.add('show');
+    } finally {
+      submitBtn.disabled = false; submitBtn.textContent = 'Create Account';
+    }
+  });
+
+  loadAccounts();
   $('generateKeyBtn').addEventListener('click', function(){
     var n = $('keyName').value.trim();
     if (!n) { toast('Enter a key name first'); return; }
