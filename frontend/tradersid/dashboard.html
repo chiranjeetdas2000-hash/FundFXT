@@ -701,14 +701,14 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
         </div>
         <span class="card-badge" id="kycStatusBadge">NOT VERIFIED</span>
       </div>
-      <div class="empty">
+      <div class="empty" id="kycEmptyState">
         <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg></div>
-        <div class="empty-title">Not verified yet</div>
-        <div class="empty-text">Start verification to unlock your KYC badge and boost your Trust Score by up to 15 points.</div>
-        <button class="btn btn-green" id="startKycBtn" style="margin-top:16px">
+        <div class="empty-title" id="kycEmptyTitle">Not verified yet</div>
+        <div class="empty-text" id="kycEmptyText">Start verification to unlock your KYC badge and boost your Trust Score by up to 15 points.</div>
+        <a class="btn btn-green" id="startKycBtn" href="/tradersid/verify-identity.html" style="margin-top:16px;text-decoration:none;display:inline-flex">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-          Start Verification
-        </button>
+          <span id="kycBtnText">Start Verification</span>
+        </a>
       </div>
     </div>
 
@@ -1107,8 +1107,53 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   });
 
   // ---- Placeholder buttons ----
-  var startKycBtn = $('startKycBtn');
-  if (startKycBtn) startKycBtn.addEventListener('click', function(){ toast('KYC verification is coming soon'); });
+  // ---- KYC Status (dynamic) ----
+  (function initKycStatus(){
+    var badge = $('kycStatusBadge');
+    var emptyTitle = $('kycEmptyTitle');
+    var emptyText = $('kycEmptyText');
+    var btnText = $('kycBtnText');
+    var startBtn = $('startKycBtn');
+    if(!badge) return;
+
+    function setKyc(status, notes){
+      var u = String(status || 'NONE').toUpperCase();
+      if(u === 'APPROVED'){
+        badge.textContent = 'VERIFIED';
+        badge.style.background = 'rgba(0,181,106,.12)';
+        badge.style.color = '#067a4a';
+        if(emptyTitle) emptyTitle.textContent = 'KYC Verified';
+        if(emptyText) emptyText.textContent = 'Your identity is verified. Verified badge is active on your Trader ID.';
+        if(startBtn){ startBtn.style.display = 'none'; }
+      } else if(u === 'PENDING'){
+        badge.textContent = 'PENDING REVIEW';
+        badge.style.background = 'rgba(212,175,55,.15)';
+        badge.style.color = '#8B6914';
+        if(emptyTitle) emptyTitle.textContent = 'Verification Pending';
+        if(emptyText) emptyText.textContent = 'Your documents are under review. This usually takes 24-72 hours.';
+        if(btnText) btnText.textContent = 'View Submission';
+      } else if(u === 'REJECTED'){
+        badge.textContent = 'REJECTED';
+        badge.style.background = 'rgba(220,38,38,.08)';
+        badge.style.color = '#DC2626';
+        if(emptyTitle) emptyTitle.textContent = 'Verification Rejected';
+        if(emptyText) emptyText.textContent = (notes ? 'Reason: ' + notes + ' ' : '') + 'Please re-submit with correct documents.';
+        if(btnText) btnText.textContent = 'Re-submit KYC';
+      } else {
+        badge.textContent = 'NOT VERIFIED';
+        if(btnText) btnText.textContent = 'Start Verification';
+      }
+    }
+
+    fetch(API + '/api/tid/kyc/status', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) return;
+        if(!d.submitted){ setKyc('NONE'); return; }
+        setKyc(d.kyc.status, d.kyc.admin_notes);
+      })
+      .catch(function(){});
+  })();
     // addAccountBtn wired by external accounts.js
   $('generateKeyBtn').addEventListener('click', function(){
     var n = $('keyName').value.trim();
