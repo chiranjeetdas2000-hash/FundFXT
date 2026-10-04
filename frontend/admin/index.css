@@ -688,3 +688,61 @@ select:focus {
     padding: 10px 8px;
   }
 }
+
+.admin-mode-bar {
+  position: relative;
+  margin-left: var(--sidebar);
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  padding: 11px 20px;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: Poppins, Arial, sans-serif;
+  z-index: 40;
+}
+.admin-mode-label {
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 600;
+  letter-spacing: .05em;
+  margin-right: 6px;
+}
+.admin-mode-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  text-decoration: none;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: .02em;
+  border: 1px solid var(--line);
+  transition: background .18s, color .18s, border-color .18s;
+}
+.admin-mode-btn.active {
+  background: var(--green);
+  color: #06110d;
+  border-color: var(--green);
+}
+.admin-mode-btn:not(.active):hover {
+  border-color: var(--green2);
+  color: var(--green2);
+}
+@media (max-width: 900px) {
+  .admin-mode-bar {
+    margin-left: 0;
+    padding: 10px 14px;
+    gap: 6px;
+  }
+  .admin-mode-label {
+    width: 100%;
+    margin: 0 0 4px 0;
+  }
+  .admin-mode-btn {
+    flex: 1;
+    text-align: center;
+    padding: 9px 12px;
+  }
+}
