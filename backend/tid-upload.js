@@ -38,7 +38,7 @@ const r2 = new S3Client({
 const R2_BUCKET = process.env.R2_BUCKET_NAME || "tid-files";
 const MAX_FILE_SIZE = 3 * 1024 * 1024;
 const ALLOWED_MIME = new Set(["application/pdf","image/jpeg","image/jpg","image/png","image/webp"]);
-const ALLOWED_TYPES = new Set(["STATEMENT","SCREENSHOT","PAYOUT_PROOF","ID_PROOF","ADDRESS_PROOF","SELFIE","AVATAR"]);
+const ALLOWED_TYPES = new Set(["STATEMENT","PURCHASE_RECEIPT","SCREENSHOT","PAYOUT_PROOF","ID_PROOF","ADDRESS_PROOF","SELFIE","AVATAR"]);
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -83,6 +83,25 @@ router.post("/upload", authenticateTid, upload.single("file"), async function (r
     if (!ALLOWED_TYPES.has(fileType)) return res.status(400).json({ error: "Invalid file_type" });
     const accountId = req.body?.account_id ? Number(req.body.account_id) : null;
     const userId = req.tidUser.tidUserId;
+
+    if (accountId) {
+      const [acct] = await db.execute(
+        "SELECT verification_status FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+        [accountId, userId]
+      );
+      if (!acct.length) return res.status(404).json({ error: "Account not found" });
+      if (acct[0].verification_status === "VERIFIED") {
+        return res.status(400).json({ error: "This account is already verified. Uploads are not allowed." });
+      }
+      const [countRows] = await db.execute(
+        "SELECT COUNT(*) AS cnt FROM tid_statements WHERE account_id = ? AND tid_user_id = ?",
+        [accountId, userId]
+      );
+      if (Number(countRows[0].cnt) >= 2) {
+        return res.status(400).json({ error: "Maximum 2 files per account. Delete an existing file first." });
+      }
+    }
+
     const ext = extFromMime(req.file.mimetype);
     const key = buildR2Key(userId, fileType, ext);
 
@@ -166,14 +185,40 @@ router.delete("/file/:id", authenticateTid, async function (req, res) {
 
 router.get("/files", authenticateTid, async function (req, res) {
   try {
-    const [rows] = await db.execute(
-      "SELECT id, account_id, file_type, file_size, mime_type, status, uploaded_at FROM tid_statements WHERE tid_user_id = ? ORDER BY uploaded_at DESC LIMIT 200",
-      [req.tidUser.tidUserId]
-    );
+    const accountId = req.query.account_id ? Number(req.query.account_id) : null;
+    let sql, params;
+    if (Number.isFinite(accountId) && accountId > 0) {
+      sql = "SELECT id, account_id, file_type, file_size, mime_type, status, uploaded_at FROM tid_statements WHERE tid_user_id = ? AND account_id = ? ORDER BY uploaded_at DESC LIMIT 200";
+      params = [req.tidUser.tidUserId, accountId];
+    } else {
+      sql = "SELECT id, account_id, file_type, file_size, mime_type, status, uploaded_at FROM tid_statements WHERE tid_user_id = ? ORDER BY uploaded_at DESC LIMIT 200";
+      params = [req.tidUser.tidUserId];
+    }
+    const [rows] = await db.execute(sql, params);
     return res.json({ success: true, files: rows });
   } catch (error) {
     console.error("TID list files error:", error);
     return res.status(500).json({ error: "Unable to list files" });
+  }
+});
+
+router.get("/files/count", authenticateTid, async function (req, res) {
+  try {
+    const idsParam = String(req.query.account_ids || "").trim();
+    if (!idsParam) return res.json({ success: true, counts: {} });
+    const ids = idsParam.split(",").map(function(x){ return Number(x); }).filter(function(x){ return Number.isFinite(x) && x > 0; });
+    if (!ids.length) return res.json({ success: true, counts: {} });
+    const placeholders = ids.map(function(){ return "?"; }).join(",");
+    const [rows] = await db.execute(
+      "SELECT account_id, COUNT(*) AS cnt FROM tid_statements WHERE tid_user_id = ? AND account_id IN (" + placeholders + ") GROUP BY account_id",
+      [req.tidUser.tidUserId].concat(ids)
+    );
+    const counts = {};
+    rows.forEach(function(r){ counts[r.account_id] = Number(r.cnt); });
+    return res.json({ success: true, counts: counts });
+  } catch (error) {
+    console.error("TID files count error:", error);
+    return res.status(500).json({ error: "Unable to count files" });
   }
 });
 
