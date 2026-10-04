@@ -3746,6 +3746,9 @@ app.post(
 const tidUploadRoutes = require('./tid-upload');
 app.use('/api/tid', tidUploadRoutes);
 
+const tidKycRoutes = require('./tid-kyc');
+app.use('/api/tid', tidKycRoutes);
+
 const tidRoutes = require('./tid-routes');
 app.use('/api/tid', tidRoutes);
 
