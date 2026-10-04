@@ -109,19 +109,33 @@ router.post("/upload", authenticateTid, upload.single("file"), async function (r
 
     const ext = extFromMime(req.file.mimetype);
     const key = buildR2Key(userId, fileType, ext);
+    console.log("[UPLOAD] Key built:", key, "| bucket:", R2_BUCKET, "| endpoint:", process.env.R2_ENDPOINT);
 
-    await r2.send(new PutObjectCommand({
-      Bucket: R2_BUCKET,
-      Key: key,
-      Body: req.file.buffer,
-      ContentType: req.file.mimetype,
-      Metadata: { "uploaded-by": String(userId), "file-type": fileType },
-    }));
+    try {
+      await Promise.race([
+        r2.send(new PutObjectCommand({
+          Bucket: R2_BUCKET,
+          Key: key,
+          Body: req.file.buffer,
+          ContentType: req.file.mimetype,
+          Metadata: { "uploaded-by": String(userId), "file-type": fileType },
+        })),
+        new Promise(function(_, reject){
+          setTimeout(function(){ reject(new Error("R2 timeout 20s")); }, 20000);
+        })
+      ]);
+      console.log("[UPLOAD] R2 OK");
+    } catch (r2Error) {
+      console.error("[UPLOAD] R2 FAIL:", r2Error.name, "|", r2Error.message, "|", r2Error.Code || r2Error.code || "");
+      throw r2Error;
+    }
 
+    console.log("[UPLOAD] DB insert starting");
     const [result] = await db.execute(
       "INSERT INTO tid_statements (tid_user_id, account_id, file_type, r2_key, file_url, file_size, mime_type, status) VALUES (?, ?, ?, ?, ?, ?, ?, 'PENDING')",
       [userId, accountId, fileType, key, "", req.file.size, req.file.mimetype]
     );
+    console.log("[UPLOAD] DB OK, id:", result.insertId);
 
     return res.json({
       success: true,
@@ -131,8 +145,8 @@ router.post("/upload", authenticateTid, upload.single("file"), async function (r
       mime_type: req.file.mimetype,
     });
   } catch (error) {
-    console.error("TID upload error:", error);
-    return res.status(500).json({ error: "Upload failed" });
+    console.error("[UPLOAD] CATCH:", error.name, "|", error.message, "|", error.Code || error.code || "");
+    return res.status(500).json({ error: "Upload failed: " + (error.message || "unknown") });
   }
 });
 
