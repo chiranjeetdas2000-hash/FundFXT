@@ -24,6 +24,16 @@
   var addAcctBtn = $('addAccountBtn');
   var acctForm = $('accountForm');
 
+  var filesModal = $('filesModal');
+  var filesList = $('filesList');
+  var filesUploadInput = $('filesUploadInput');
+  var filesUploadType = $('filesUploadType');
+  var filesUploadBtn = $('filesUploadBtn');
+  var filesUploadProgress = $('filesUploadProgress');
+  var filesError = $('filesError');
+  var filesModalTitle = $('filesModalTitle');
+  var currentFileAccountId = null;
+
   if(!accountsList || !addAcctBtn) return;
 
   function openAccountModal(){
@@ -37,6 +47,23 @@
     document.body.style.overflow = '';
   }
 
+  function openFilesModal(accountId){
+    if(!filesModal) return;
+    currentFileAccountId = accountId;
+    if(filesModalTitle) filesModalTitle.textContent = 'Account Files';
+    if(filesError) filesError.classList.remove('show');
+    if(filesUploadProgress) filesUploadProgress.style.display = 'none';
+    filesModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    loadFiles(accountId);
+  }
+  function closeFilesModal(){
+    if(!filesModal) return;
+    filesModal.classList.remove('open');
+    document.body.style.overflow = '';
+    currentFileAccountId = null;
+  }
+
   function fmtMoney(cents){
     var n = Number(cents || 0) / 100;
     if(n >= 1000000) return '$' + (n / 1000000).toFixed(1) + 'M';
@@ -47,6 +74,12 @@
     if(!s) return '\u2014';
     try { return new Date(s).toLocaleDateString('en-IN', {year:'numeric', month:'short', day:'numeric'}); }
     catch(_) { return '\u2014'; }
+  }
+  function fmtBytes(b){
+    var n = Number(b || 0);
+    if(n < 1024) return n + ' B';
+    if(n < 1024 * 1024) return (n / 1024).toFixed(0) + ' KB';
+    return (n / (1024 * 1024)).toFixed(1) + ' MB';
   }
   function statusClass(s){
     var u = String(s || 'NONE').toUpperCase();
@@ -62,6 +95,18 @@
     if(u === 'REJECTED') return 'Rejected';
     return 'Not Verified';
   }
+  function fileStatusClass(s){
+    var u = String(s || 'PENDING').toUpperCase();
+    if(u === 'APPROVED') return 'verified';
+    if(u === 'REJECTED') return 'rejected';
+    return 'pending';
+  }
+  function fileStatusLabel(s){
+    var u = String(s || 'PENDING').toUpperCase();
+    if(u === 'APPROVED') return 'Approved';
+    if(u === 'REJECTED') return 'Rejected';
+    return 'Pending';
+  }
 
   function renderAccounts(list){
     if(!accountsList) return;
@@ -74,6 +119,9 @@
     accountsList.innerHTML = list.map(function(a){
       var cls = statusClass(a.verification_status);
       var lbl = statusLabel(a.verification_status);
+      var isVerified = String(a.verification_status || '').toUpperCase() === 'VERIFIED';
+      var filesBtn = isVerified ? '' : '<button class="btn btn-ghost acct-files" data-id="' + a.id + '">Files</button>';
+      var verifyBtn = isVerified ? '' : '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Verify \u00b7 $2</button>';
       return '<div class="acct-card" data-id="' + a.id + '">' +
         '<div class="acct-head"><div><div class="acct-firm">' + esc(a.firm_name || '\u2014') + '</div><div class="acct-size">' + fmtMoney(a.account_size_cents) + ' \u00b7 ' + esc(a.account_type || '') + '</div></div>' +
         '<span class="acct-badge ' + cls + '">' + lbl + '</span></div>' +
@@ -83,7 +131,8 @@
           '<div class="acct-meta-item"><b>' + fmtShortDate(a.start_date) + '</b>Started</div>' +
         '</div>' +
         '<div class="acct-actions">' +
-          '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Verify \u00b7 $2</button>' +
+          filesBtn +
+          verifyBtn +
           '<button class="btn btn-ghost acct-delete" data-id="' + a.id + '">Delete</button>' +
         '</div>' +
       '</div>';
@@ -106,6 +155,13 @@
         toast('Verification payment ($2) coming soon');
       });
     }
+    var fileBtns = accountsList.querySelectorAll('.acct-files');
+    for(var k = 0; k < fileBtns.length; k++){
+      fileBtns[k].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        openFilesModal(id);
+      });
+    }
   }
 
   function loadAccounts(){
@@ -124,12 +180,102 @@
       .catch(function(e){ if(e.message !== 'unauth' && accountsCount){ accountsCount.textContent = 'Unable to load'; } });
   }
 
+  function loadFiles(accountId){
+    if(!filesList) return;
+    filesList.innerHTML = '<div class="files-loading">Loading files\u2026</div>';
+    fetch(API + '/api/tid/files?account_id=' + accountId, {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        renderFiles(d.files || []);
+      })
+      .catch(function(e){
+        filesList.innerHTML = '<div class="files-empty">Unable to load files. ' + esc(e.message || '') + '</div>';
+      });
+  }
+
+  function renderFiles(files){
+    if(!filesList) return;
+    if(!files.length){
+      filesList.innerHTML = '<div class="files-empty">No files uploaded yet.<br>Upload your first statement or receipt below.</div>';
+      if(filesUploadBtn) filesUploadBtn.disabled = false;
+      return;
+    }
+    filesList.innerHTML = files.map(function(f){
+      var sc = fileStatusClass(f.status);
+      var sl = fileStatusLabel(f.status);
+      var canDel = String(f.status || '').toUpperCase() !== 'APPROVED';
+      var delBtn = canDel ? '<button class="btn btn-ghost file-del" data-id="' + f.id + '">Delete</button>' : '';
+      return '<div class="file-row">' +
+        '<div class="file-row-info">' +
+          '<div class="file-row-name">' + esc(f.file_type || 'File').replace(/_/g, ' ') + '</div>' +
+          '<div class="file-row-meta">' + fmtBytes(f.file_size) + ' \u00b7 ' + esc(f.mime_type || '') + ' \u00b7 ' + fmtShortDate(f.uploaded_at) + '</div>' +
+          '<div class="file-row-meta file-row-status file-row-status-' + sc + '">' + sl + '</div>' +
+        '</div>' +
+        delBtn +
+      '</div>';
+    }).join('');
+
+    if(filesUploadBtn) filesUploadBtn.disabled = files.length >= 2;
+
+    var dbs = filesList.querySelectorAll('.file-del');
+    for(var i = 0; i < dbs.length; i++){
+      dbs[i].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        if(!confirm('Delete this file?')) return;
+        fetch(API + '/api/tid/file/' + id, {method:'DELETE', headers:{Authorization:'Bearer ' + token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+          .then(function(x){ if(!x.ok) throw new Error(x.data.error || 'Delete failed'); toast('File deleted'); loadFiles(currentFileAccountId); })
+          .catch(function(e){ toast(e.message || 'Delete failed'); });
+      });
+    }
+  }
+
   addAcctBtn.addEventListener('click', openAccountModal);
   var acctClose = $('accountModalClose');
   if(acctClose) acctClose.addEventListener('click', closeAccountModal);
   var acctCancel = $('accountCancel');
   if(acctCancel) acctCancel.addEventListener('click', closeAccountModal);
   if(acctModal) acctModal.addEventListener('click', function(e){ if(e.target === acctModal) closeAccountModal(); });
+
+  var filesClose = $('filesModalClose');
+  if(filesClose) filesClose.addEventListener('click', closeFilesModal);
+  var filesDone = $('filesModalDone');
+  if(filesDone) filesDone.addEventListener('click', closeFilesModal);
+  if(filesModal) filesModal.addEventListener('click', function(e){ if(e.target === filesModal) closeFilesModal(); });
+
+  if(filesUploadBtn) filesUploadBtn.addEventListener('click', function(){
+    if(filesUploadInput) filesUploadInput.click();
+  });
+
+  if(filesUploadInput) filesUploadInput.addEventListener('change', function(){
+    var file = this.files && this.files[0];
+    if(!file) return;
+    if(file.size > 3 * 1024 * 1024){ toast('File too large. Max 3 MB.'); this.value = ''; return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('file_type', filesUploadType ? filesUploadType.value : 'STATEMENT');
+    fd.append('account_id', String(currentFileAccountId));
+    if(filesUploadProgress) filesUploadProgress.style.display = 'block';
+    if(filesUploadBtn) filesUploadBtn.disabled = true;
+    if(filesError) filesError.classList.remove('show');
+
+    fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd})
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok) throw new Error(x.data.error || 'Upload failed');
+        toast('File uploaded');
+        if(filesUploadInput) filesUploadInput.value = '';
+        loadFiles(currentFileAccountId);
+      })
+      .catch(function(e){
+        if(filesError){ filesError.textContent = e.message || 'Upload failed'; filesError.classList.add('show'); }
+      })
+      .then(function(){
+        if(filesUploadProgress) filesUploadProgress.style.display = 'none';
+        if(filesUploadBtn) filesUploadBtn.disabled = false;
+      });
+  });
 
   if(acctForm) acctForm.addEventListener('submit', function(e){
     e.preventDefault();
@@ -155,7 +301,7 @@
 
     fetch(API + '/api/tid/accounts', {
       method: 'POST',
-      headers: {'Content-Type': 'application/json', Authorization: 'Bearer ' + token},
+      headers: {'Content-Type': 'application/json', Authorization:'Bearer ' + token},
       body: JSON.stringify(payload)
     })
       .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
