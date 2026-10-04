@@ -1395,6 +1395,151 @@ router.post(
   },
 );
 
+// ============ ACCOUNTS ============
+
+router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const firm = cleanString(req.body?.firm_name, 100);
+    const sizeCents = Math.max(0, Number(req.body?.account_size_cents) || 0);
+    const type = String(req.body?.account_type || "CHALLENGE").toUpperCase();
+    const startDate = req.body?.start_date ? String(req.body.start_date).slice(0, 10) : null;
+
+    if (!firm || firm.length < 2) return jsonError(res, 400, "Firm name is required");
+    if (!["CHALLENGE", "FUNDED", "LIVE"].includes(type)) return jsonError(res, 400, "Invalid account type");
+
+    const [result] = await db.execute(
+      "INSERT INTO tid_accounts (tid_user_id, firm_name, account_size_cents, account_type, status, verification_status, start_date) VALUES (?, ?, ?, ?, 'PENDING', 'NONE', ?)",
+      [req.tidUser.tidUserId, firm, sizeCents, type, startDate],
+    );
+
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCOUNT_CREATE");
+
+    return res.json({
+      success: true,
+      account: {
+        id: result.insertId,
+        firm_name: firm,
+        account_size_cents: sizeCents,
+        account_type: type,
+        status: "PENDING",
+        verification_status: "NONE",
+        start_date: startDate,
+      },
+    });
+  } catch (error) {
+    console.error("TID account create error:", error);
+    return jsonError(res, 500, "Unable to create account");
+  }
+});
+
+router.get("/accounts", authenticateTid, async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      "SELECT id, firm_name, account_size_cents, account_type, status, verification_status, verification_paid, start_date, end_date, total_trades, total_wins, total_losses, win_rate_bps, profit_bps, biggest_win_cents, biggest_loss_cents, created_at, updated_at FROM tid_accounts WHERE tid_user_id = ? ORDER BY created_at DESC LIMIT 100",
+      [req.tidUser.tidUserId],
+    );
+    return res.json({ success: true, accounts: rows });
+  } catch (error) {
+    console.error("TID accounts list error:", error);
+    return jsonError(res, 500, "Unable to load accounts");
+  }
+});
+
+router.get("/accounts/:id", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [rows] = await db.execute(
+      "SELECT * FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!rows.length) return jsonError(res, 404, "Account not found");
+
+    return res.json({ success: true, account: rows[0] });
+  } catch (error) {
+    console.error("TID account fetch error:", error);
+    return jsonError(res, 500, "Unable to load account");
+  }
+});
+
+router.patch("/accounts/:id", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [rows] = await db.execute(
+      "SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!rows.length) return jsonError(res, 404, "Account not found");
+
+    const fields = [];
+    const values = [];
+
+    if (req.body?.firm_name !== undefined) {
+      const f = cleanString(req.body.firm_name, 100);
+      if (f.length < 2) return jsonError(res, 400, "Firm name too short");
+      fields.push("firm_name = ?");
+      values.push(f);
+    }
+    if (req.body?.account_size_cents !== undefined) {
+      fields.push("account_size_cents = ?");
+      values.push(Math.max(0, Number(req.body.account_size_cents) || 0));
+    }
+    if (req.body?.account_type !== undefined) {
+      const t = String(req.body.account_type).toUpperCase();
+      if (!["CHALLENGE", "FUNDED", "LIVE"].includes(t)) return jsonError(res, 400, "Invalid account type");
+      fields.push("account_type = ?");
+      values.push(t);
+    }
+    if (req.body?.start_date !== undefined) {
+      fields.push("start_date = ?");
+      values.push(req.body.start_date ? String(req.body.start_date).slice(0, 10) : null);
+    }
+
+    if (!fields.length) return jsonError(res, 400, "No fields to update");
+
+    values.push(id, req.tidUser.tidUserId);
+    await db.execute(
+      "UPDATE tid_accounts SET " + fields.join(", ") + " WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      values,
+    );
+
+    return res.json({ success: true, updated: id });
+  } catch (error) {
+    console.error("TID account update error:", error);
+    return jsonError(res, 500, "Unable to update account");
+  }
+});
+
+router.delete("/accounts/:id", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [rows] = await db.execute(
+      "SELECT id, verification_status FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!rows.length) return jsonError(res, 404, "Account not found");
+    if (rows[0].verification_status === "VERIFIED") {
+      return jsonError(res, 403, "Cannot delete a verified account");
+    }
+
+    await db.execute("DELETE FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1", [
+      id,
+      req.tidUser.tidUserId,
+    ]);
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCOUNT_DELETE");
+
+    return res.json({ success: true, deleted: id });
+  } catch (error) {
+    console.error("TID account delete error:", error);
+    return jsonError(res, 500, "Unable to delete account");
+  }
+});
+
 
 router.get("/:tid", async (req, res) => {
   try {
