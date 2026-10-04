@@ -1032,7 +1032,181 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   // ---- Placeholder buttons ----
   var startKycBtn = $('startKycBtn');
   if (startKycBtn) startKycBtn.addEventListener('click', function(){ toast('KYC verification is coming soon'); });
-  $('addAccountBtn').addEventListener('click', function(){ toast('Account upload coming soon'); });
+  // ---- Accounts ----
+  var acctModal = $('accountModal');
+  function openAccountModal(){ if(!acctModal) return; acctModal.classList.add('open'); document.body.style.overflow='hidden'; }
+  function closeAccountModal(){ if(!acctModal) return; acctModal.classList.remove('open'); document.body.style.overflow=''; }
+
+  function fmtMoney(cents){
+    var n = Number(cents||0)/100;
+    if(n>=1000000) return '
+  $('generateKeyBtn').addEventListener('click', function(){
+    var n = $('keyName').value.trim();
+    if (!n) { toast('Enter a key name first'); return; }
+    toast('Access key creation coming soon');
+  });
+  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+
+})();
+</script>
+</body>
+</html>+(n/1000000).toFixed(1)+'M';
+    if(n>=1000) return '
+  $('generateKeyBtn').addEventListener('click', function(){
+    var n = $('keyName').value.trim();
+    if (!n) { toast('Enter a key name first'); return; }
+    toast('Access key creation coming soon');
+  });
+  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+
+})();
+</script>
+</body>
+</html>+(n/1000).toFixed(0)+'K';
+    return '
+  $('generateKeyBtn').addEventListener('click', function(){
+    var n = $('keyName').value.trim();
+    if (!n) { toast('Enter a key name first'); return; }
+    toast('Access key creation coming soon');
+  });
+  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+
+})();
+</script>
+</body>
+</html>+n.toFixed(0);
+  }
+  function fmtShortDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleDateString('en-IN',{year:'numeric',month:'short',day:'numeric'}); }catch(_){ return '—'; } }
+  function statusClass(s){
+    var u = String(s||'NONE').toUpperCase();
+    if(u==='VERIFIED') return 'verified';
+    if(u==='PENDING') return 'pending';
+    if(u==='REJECTED') return 'rejected';
+    return 'none';
+  }
+  function statusLabel(s){
+    var u = String(s||'NONE').toUpperCase();
+    if(u==='VERIFIED') return 'Verified';
+    if(u==='PENDING') return 'Pending Review';
+    if(u==='REJECTED') return 'Rejected';
+    return 'Not Verified';
+  }
+
+  function renderAccounts(list){
+    var box = $('accountsList');
+    var countEl = $('accountsCount');
+    if(!box) return;
+    if(!list || !list.length){
+      if(countEl) countEl.textContent = '0 accounts';
+      box.innerHTML = '<div class="empty"><div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13H3z"/><path d="M3 7l3-4h12l3 4"/></svg></div><div class="empty-title">No accounts yet</div><div class="empty-text">Add your first challenge or funded account to start building your verified track record.</div></div>';
+      return;
+    }
+    if(countEl) countEl.textContent = list.length + (list.length===1?' account':' accounts');
+    box.innerHTML = list.map(function(a){
+      var cls = statusClass(a.verification_status);
+      var lbl = statusLabel(a.verification_status);
+      return '<div class="acct-card" data-id="'+a.id+'">'
+        +'<div class="acct-head"><div><div class="acct-firm">'+esc(a.firm_name||'—')+'</div><div class="acct-size">'+fmtMoney(a.account_size_cents)+' · '+esc(a.account_type||'')+'</div></div>'
+        +'<span class="acct-badge '+cls+'">'+lbl+'</span></div>'
+        +'<div class="acct-meta">'
+          +'<div class="acct-meta-item"><b>'+(Number(a.total_trades)||0)+'</b>Total Trades</div>'
+          +'<div class="acct-meta-item"><b>'+((Number(a.win_rate_bps)||0)/100).toFixed(0)+'%</b>Win Rate</div>'
+          +'<div class="acct-meta-item"><b>'+fmtShortDate(a.start_date)+'</b>Started</div>'
+        +'</div>'
+        +'<div class="acct-actions">'
+          +'<button class="btn btn-ghost acct-verify" data-id="'+a.id+'">Verify · $2</button>'
+          +'<button class="btn btn-ghost acct-delete" data-id="'+a.id+'">Delete</button>'
+        +'</div>'
+      +'</div>';
+    }).join('');
+
+    box.querySelectorAll('.acct-delete').forEach(function(b){
+      b.addEventListener('click', function(){
+        var id = b.getAttribute('data-id');
+        if(!confirm('Delete this account? This cannot be undone.')) return;
+        fetch(API+'/api/tid/accounts/'+id,{method:'DELETE',headers:{Authorization:'Bearer '+token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok,data:d}; }); })
+          .then(function(x){ if(!x.ok) throw new Error(x.data.error||'Delete failed'); toast('Account deleted'); loadAccounts(); })
+          .catch(function(e){ toast(e.message||'Delete failed'); });
+      });
+    });
+    box.querySelectorAll('.acct-verify').forEach(function(b){
+      b.addEventListener('click', function(){
+        toast('Verification payment ($2) coming soon');
+      });
+    });
+  }
+
+  function loadAccounts(){
+    var box = $('accountsList');
+    if(!token || !box) return;
+    fetch(API+'/api/tid/accounts',{headers:{Authorization:'Bearer '+token}})
+      .then(function(r){
+        if(r.status===401||r.status===403){ localStorage.removeItem('tid_token'); localStorage.removeItem('tid_user'); window.location.href='/tradersid/login.html'; throw new Error('unauth'); }
+        return r.json();
+      })
+      .then(function(d){ if(!d.success) throw new Error(d.error||'Load failed'); renderAccounts(d.accounts||[]); })
+      .catch(function(e){ if(e.message!=='unauth'){ $('accountsCount').textContent='Unable to load'; } });
+  }
+
+  var addAcctBtn = $('addAccountBtn');
+  if(addAcctBtn) addAcctBtn.addEventListener('click', openAccountModal);
+  var acctClose = $('accountModalClose');
+  if(acctClose) acctClose.addEventListener('click', closeAccountModal);
+  var acctCancel = $('accountCancel');
+  if(acctCancel) acctCancel.addEventListener('click', closeAccountModal);
+  if(acctModal) acctModal.addEventListener('click', function(e){ if(e.target===acctModal) closeAccountModal(); });
+
+  var acctForm = $('accountForm');
+  if(acctForm) acctForm.addEventListener('submit', async function(e){
+    e.preventDefault();
+    var errBox = $('acctError');
+    errBox.classList.remove('show');
+    var firm = $('acctFirm').value.trim();
+    if(firm.length < 2){ errBox.textContent='Enter firm name'; errBox.classList.add('show'); return; }
+    var payload = {
+      firm_name: firm,
+      account_size_cents: Number($('acctSize').value)||0,
+      account_type: $('acctType').value,
+      start_date: $('acctStartDate').value || null,
+    };
+    var submitBtn = $('accountSubmit');
+    submitBtn.disabled = true; submitBtn.textContent = 'Creating…';
+    try {
+      var res = await fetch(API+'/api/tid/accounts',{
+        method:'POST',
+        headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},
+        body: JSON.stringify(payload),
+      });
+      var data = await res.json();
+      if(!res.ok || !data.success) throw new Error(data.error||'Create failed');
+
+      var newId = data.account && data.account.id;
+
+      var fileInput = $('acctFile');
+      if(fileInput && fileInput.files && fileInput.files[0] && newId){
+        try {
+          var fd = new FormData();
+          fd.append('file', fileInput.files[0]);
+          fd.append('file_type', 'STATEMENT');
+          fd.append('account_id', String(newId));
+          await fetch(API+'/api/tid/upload',{method:'POST',headers:{Authorization:'Bearer '+token},body:fd});
+        } catch(_){}
+      }
+
+      closeAccountModal();
+      acctForm.reset();
+      toast('Account added');
+      loadAccounts();
+    } catch(err){
+      errBox.textContent = err.message||'Create failed';
+      errBox.classList.add('show');
+    } finally {
+      submitBtn.disabled = false; submitBtn.textContent = 'Create Account';
+    }
+  });
+
+  loadAccounts();
   $('generateKeyBtn').addEventListener('click', function(){
     var n = $('keyName').value.trim();
     if (!n) { toast('Enter a key name first'); return; }
