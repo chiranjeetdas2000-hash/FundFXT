@@ -501,17 +501,14 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     <h1 class="page-title">Your Accounts</h1>
     <p class="page-sub">Every challenge and funded account you've registered — with its individual performance, status, and trade history. This is your private record, shareable via Access Keys.</p>
   </div>
-  <div id="accountsList">
-    <div class="empty">
-      <div class="empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13H3z"/><path d="M3 7l3-4h12l3 4"/></svg></div>
-      <div class="empty-title">No accounts yet</div>
-      <div class="empty-text">Add your first challenge or funded account to start building your verified track record.</div>
-      <button class="btn btn-primary" style="margin-top:16px" id="addAccountBtn">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-        Add Account
-      </button>
-    </div>
+  <div class="accounts-toolbar">
+    <div class="accounts-count" id="accountsCount">Loading…</div>
+    <button class="btn btn-primary" id="addAccountBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Add Account
+    </button>
   </div>
+  <div id="accountsList"></div>
 </section>
 
 <!-- ============ ACCESS KEYS ============ -->
