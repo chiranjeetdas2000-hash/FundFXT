@@ -1,0 +1,347 @@
+/* ===== FUNDFXT PENDING ORDER UI / EXECUTION ===== */
+(function () {
+    "use strict";
+    const API = "https://fundfxt.onrender.com";
+    const token = () => localStorage.getItem("fundfxt_token") || "";
+    const n = (v) => {
+        return Number.isFinite(Number(v))
+        ? Number(v)
+        : 0;
+    }    ;
+    const esc = (v) => {
+        return String(v ?? "—").replace(
+        /[&<>"']/g,
+      (m) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      }[m]),
+    );
+  };
+  const fmt = (v, s) => {
+    return Number.isFinite(Number(v))
+      ? Number(v).toFixed(
+          /JPY$/i.test(s)
+            ? 3
+            : /XAU|XAG|BTC|ETH/i.test(s)
+              ? 2
+              : 5,
+        )
+      : "—";
+  };
+
+  async function api(path, opt = {}) {
+    const r = await fetch(
+      API + path,
+      {
+        ...opt,
+        headers: {
+          Authorization: "Bearer " + token(),
+          "Content-Type": "application/json",
+          ...(opt.headers || {}),
+        },
+      },
+    );
+    const d = await r.json().catch(() => ({}));
+    if (!r.ok) throw Error(d.error || d.message || `Request failed (${r.status})`);
+    return d;
+  }
+
+  const feedback = (msg, ok = false) => {
+    const x = document.getElementById("tradeFeedback");
+    if (!x) return;
+    x.textContent = msg;
+    x.className = "trade-feedback show " + (ok ? "ok" : "error");
+    clearTimeout(feedback.t);
+    feedback.t = setTimeout(() => x.className = "trade-feedback", 4500);
+  };
+
+  function state() {
+    try { return typeof T !== "undefined" ? T : null; } catch { return null; }
+  }
+
+  function accountCode() {
+    return state()?.account?.account_code || localStorage.getItem("fundfxt_selected_account") || "";
+  }
+
+  function quote() {
+    const s = state();
+    return s?.prices?.[s.selected] || {};
+  }
+
+  async function placePending(side) {
+    const type = String(document.getElementById("orderType")?.value || "MARKET").toUpperCase();
+    if (type === "MARKET") return false;
+    const s = state();
+    const symbol = s?.selected;
+    const volume = n(document.getElementById("volume")?.value);
+    const entry = n(document.getElementById("entry")?.value);
+    const sl = document.getElementById("sl")?.value.trim() === "" ? null : n(document.getElementById("sl")?.value);
+    const tp = document.getElementById("tp")?.value.trim() === "" ? null : n(document.getElementById("tp")?.value);
+
+    if (!accountCode()) return feedback("No trading account selected."), true;
+    if (!symbol) return feedback("No symbol selected."), true;
+    if (volume < 0.01 || volume > 2 || Math.round(volume * 100) !== volume * 100) return feedback("Lot size must be 0.01 to 2.00."), true;
+    if (entry <= 0) return feedback("Enter a valid pending order entry price."), true;
+
+    const q = quote();
+    const bid = n(q.bid);
+    const ask = n(q.ask);
+    if (type === "BUY_LIMIT" && side === "BUY" && ask > 0 && entry >= ask) {
+      return feedback("BUY LIMIT entry must be below current ask."), true;
+    }
+
+    if (type === "SELL_LIMIT" && side === "SELL" && bid > 0 && entry <= bid) {
+      return feedback("SELL LIMIT entry must be above current bid."), true;
+    }
+
+    if (type === "BUY_STOP" && side === "BUY" && ask > 0 && entry <= ask) {
+      return feedback("BUY STOP entry must be above current ask."), true;
+    }
+
+    if (type === "SELL_STOP" && side === "SELL" && bid > 0 && entry >= bid) {
+      return feedback("SELL STOP entry must be below current bid."), true;
+    }
+
+    const button = side === "BUY"
+      ? document.getElementById("buy")
+      : document.getElementById("sell");
+
+    setButtonLoading(
+      button,
+      true,
+      side === "BUY" ? "Buying..." : "Selling...",
+    );
+
+    try {
+      /* Backend contract: POST /api/trades/pending uses limit_price as the pending entry field. */
+      const d = await api("/api/trades/pending", {
+        method: "POST",
+        body: JSON.stringify({ account_code: accountCode(), symbol, side, volume, order_type: type, limit_price: entry, sl, tp }),
+      });
+      feedback(`${side} ${type} order placed · ${symbol} · ${volume.toFixed(2)} lot${d.trade_id ? " · " + d.trade_id : ""}`, true);
+      showPending();
+    } catch (e) {
+      feedback(e.message);
+    } finally {
+      setButtonLoading(button, false);
+    }
+    return true;
+  }
+
+  function pendingCard(o) {
+    const id = o.trade_id || o.order_id;
+
+    return `
+      <article class="trade-card pending-card">
+        <div class="trade-main">
+          <div>
+            <b class="trade-symbol">${esc(o.symbol)}</b>
+            <small class="trade-id">${esc(id)}</small>
+          </div>
+
+          <b class="trade-side ${String(o.side || "").toLowerCase()}">
+            ${esc(o.side)} · ${esc(o.order_type)}
+          </b>
+        </div>
+
+        <div class="trade-meta">
+          <div>
+            <span>Entry</span>
+            <b>${fmt(o.entry_price, o.symbol)}</b>
+          </div>
+
+          <div>
+            <span>Lot</span>
+            <b>${n(o.volume).toFixed(2)}</b>
+          </div>
+
+          <div>
+            <span>SL</span>
+            <b>${o.stop_loss == null ? "—" : fmt(o.stop_loss, o.symbol)}</b>
+          </div>
+
+          <div>
+            <span>TP</span>
+            <b>${o.take_profit == null ? "—" : fmt(o.take_profit, o.symbol)}</b>
+          </div>
+        </div>
+
+        <div class="trade-actions">
+          <button
+            class="mini close"
+            data-pcancel="${esc(id)}"
+            type="button"
+          >
+            Cancel
+          </button>
+        </div>
+      </article>
+    `;
+  }
+
+  let pendingLoadPromise = null;
+
+  async function showPending() {
+    const s = state();
+
+    if (!s || !accountCode()) {
+      return;
+    }
+
+    if (pendingLoadPromise) {
+      return pendingLoadPromise;
+    }
+
+    pendingLoadPromise = (async () => {
+      try {
+        const d = await api(
+          "/api/trades/pending?account_code="
+          + encodeURIComponent(
+            accountCode(),
+          ),
+        );
+
+        const rows =
+          Array.isArray(d.trades)
+            ? d.trades
+            : [];
+
+        const count =
+          document.getElementById(
+            "pendingCount",
+          );
+
+        if (count) {
+          count.textContent =
+            String(rows.length);
+        }
+
+        if (s.tab !== "PENDING") {
+          return;
+        }
+
+        const box =
+          document.getElementById(
+            "tradeScroll",
+          );
+
+        if (!box) {
+          return;
+        }
+
+        box.innerHTML =
+          rows
+            .map(pendingCard)
+            .join("")
+          || `
+            <div class="empty">
+              <strong>
+                No pending orders
+              </strong>
+
+              <span>
+                Your Limit and Stop orders
+                will appear here.
+              </span>
+            </div>
+          `;
+
+        box
+          .querySelectorAll(
+            "[data-pcancel]",
+          )
+          .forEach(
+            (button) => {
+              button.onclick =
+                async () => {
+                  try {
+                    await api(
+                      "/api/trades/"
+                      + encodeURIComponent(
+                        button.dataset.pcancel,
+                      ),
+                      {
+                        method: "DELETE",
+                      },
+                    );
+
+                    feedback(
+                      "Pending order cancelled.",
+                      true,
+                    );
+
+                    await showPending();
+                  }
+                  catch (error) {
+                    feedback(
+                      error.message,
+                    );
+                  }
+                };
+            },
+          );
+      }
+      catch (error) {
+        if (s.tab !== "PENDING") {
+          return;
+        }
+
+        const box =
+          document.getElementById(
+            "tradeScroll",
+          );
+
+        if (box) {
+          box.innerHTML = `
+            <div class="empty">
+              <strong>
+                Pending orders unavailable
+              </strong>
+
+              <span>
+                ${esc(error.message)}
+              </span>
+            </div>
+          `;
+        }
+      }
+      finally {
+        pendingLoadPromise = null;
+      }
+    })();
+
+    return pendingLoadPromise;
+  }
+
+  window.showPendingOrders = showPending;
+
+  window.executePendingOrder = placePending;
+
+  function install() {
+    const buy = document.getElementById("buy");
+    const sell = document.getElementById("sell");
+    [buy, sell].forEach((btn, idx) => btn?.addEventListener("click", async (e) => {
+      if (String(document.getElementById("orderType")?.value || "MARKET").toUpperCase() === "MARKET") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      await placePending(idx === 0 ? "BUY" : "SELL");
+    }, true));
+
+    document.getElementById("ordersRefresh")?.addEventListener("click", showPending);
+    document.querySelectorAll(".right-tab").forEach((btn) => btn.addEventListener("click", () => {
+      if (btn.dataset.tab === "PENDING") setTimeout(showPending, 0);
+    }, true));
+
+    showPending();
+  }
+
+  const wait = setInterval(() => {
+    if (document.readyState !== "loading" && document.getElementById("buy") && document.getElementById("tradeScroll")) {
+      clearInterval(wait);
+      install();
+    }
+  }, 50);
+})();

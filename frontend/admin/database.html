@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>FundFXT Admin · Database Control</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="index.css">
+<style>
+.admin-sidebar{position:fixed;inset:0 auto 0 0;width:248px;background:rgba(14,20,25,.97);backdrop-filter:blur(18px);border-right:1px solid var(--line,#24313a);z-index:1000;padding:22px 15px;display:flex;flex-direction:column;overflow:hidden!important;overscroll-behavior:contain!important;touch-action:pan-y!important}.admin-brand{display:flex;align-items:center;gap:10px;padding:4px 10px 26px}.admin-brand-mark{width:34px;height:34px;border-radius:11px;background:linear-gradient(145deg,#00b56a,#007e4b);display:grid;place-items:center;font-weight:800}.admin-brand-name{font-size:19px;font-weight:800}.admin-brand-name span{color:var(--green,#00b56a)}.admin-brand small{display:block;color:var(--muted,#8d99a5);font-size:9px;font-weight:600;letter-spacing:1.1px;margin-top:1px}.admin-nav{display:flex;flex-direction:column;gap:5px}.admin-nav-label{font-size:9px;text-transform:uppercase;letter-spacing:1.4px;color:#5f6c76;padding:12px 12px 6px}.admin-nav a{width:100%;border:1px solid transparent;background:transparent;color:#9da8b0;text-align:left;padding:11px 12px;border-radius:11px;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:11px}.admin-nav a:hover,.admin-nav a.active{background:rgba(0,181,106,.08);border-color:rgba(0,181,106,.2);color:#76e5b5}.admin-sidebar-footer{margin-top:auto;border-top:1px solid var(--line,#24313a);padding:15px 8px 0;color:var(--muted,#8d99a5);font-size:10px}.admin-main{margin-left:248px;min-height:100vh}.admin-topbar{display:none}.admin-overlay{display:none}
+.db-page{padding:28px}.db-top{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:18px}.db-top h1{margin:4px 0}.db-top p{margin:0;color:var(--muted)}.db-actions,.db-toolbar{display:flex;gap:8px;flex-wrap:wrap}.db-grid{display:grid;grid-template-columns:280px 1fr;gap:16px}.db-card{background:var(--card,#fff);border:1px solid var(--border,#ddd);border-radius:14px;padding:16px}.db-input{padding:9px 11px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;color:inherit;font:inherit}.db-search{width:100%;margin-top:10px}.db-list{margin-top:10px;max-height:65vh;overflow:auto}.db-table-btn{display:block;width:100%;padding:10px;text-align:left;background:transparent;color:inherit;border:0;border-bottom:1px solid var(--border,#ddd);cursor:pointer}.db-table-btn:hover,.db-table-btn.active{background:rgba(0,181,106,.08);box-shadow:inset 3px 0 var(--green,#00b56a)}.db-table-btn small{color:var(--muted)}.db-scroll{overflow:auto;max-height:58vh;margin-top:12px}.db-table{width:100%;border-collapse:collapse;font-size:11px}.db-table th,.db-table td{padding:8px;border-bottom:1px solid var(--border,#ddd);text-align:left;vertical-align:top;white-space:nowrap}.db-table th{position:sticky;top:0;background:var(--card,#fff);z-index:1}.db-cell{white-space:pre-wrap!important;word-break:break-word;max-width:280px}.db-empty{padding:28px;text-align:center;color:var(--muted)}.db-danger{color:#c62828}.db-schema{margin-top:16px}.db-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);align-items:center;justify-content:center;padding:20px;z-index:99}.db-modal.open{display:flex}.db-modal-box{width:min(900px,100%);max-height:90vh;overflow:auto;background:var(--card,#fff);border-radius:14px;padding:18px}.db-fields{display:grid;grid-template-columns:1fr 1fr;gap:10px}.db-field label{display:block;font-size:10px;margin-bottom:4px}.db-field input{width:100%;box-sizing:border-box;padding:8px;border:1px solid var(--border,#ddd);border-radius:7px;background:transparent;color:inherit}@media(max-width:850px){.db-page{padding:16px}.db-top{flex-direction:column}.db-grid{grid-template-columns:1fr}.db-list{max-height:250px}.db-fields{grid-template-columns:1fr}}
+
+.db-sql{margin-top:16px}.db-sql h2{margin:0 0 6px;font-size:18px}.db-sql-warning{padding:10px 12px;margin:10px 0;border:1px solid rgba(198,40,40,.28);border-radius:9px;background:rgba(198,40,40,.06);color:#c62828;font-size:12px;line-height:1.45}.db-sql textarea{width:100%;min-height:150px;box-sizing:border-box;padding:12px;border:1px solid var(--border,#ddd);border-radius:9px;background:transparent;color:inherit;font:12px/1.55 Consolas,Monaco,monospace;resize:vertical}.db-sql-templates{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}.db-sql-template{padding:7px 9px;border:1px solid var(--border,#ddd);border-radius:8px;background:transparent;color:inherit;font:10px/1.2 Consolas,Monaco,monospace;cursor:pointer}.db-sql-template:hover{background:rgba(0,181,106,.08)}.db-sql-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.db-sql-status{margin-top:10px;font-size:11px;color:var(--muted)}.db-sql-result{margin-top:14px}.db-sql-result .db-scroll{max-height:50vh}.db-sql-meta{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px;font-size:11px;color:var(--muted)}.db-sql-pre{white-space:pre-wrap;word-break:break-word;font:11px/1.45 Consolas,Monaco,monospace;color:#c62828}@media(max-width:850px){.db-sql textarea{min-height:180px}.db-sql-actions button{flex:1;min-width:110px}.db-sql-template{width:100%;text-align:left}.db-sql-result .db-scroll{max-height:55vh}}
+
+html,body{min-height:100%;height:auto;overflow-y:auto;overflow-x:hidden}.admin-main{overflow:visible;max-height:none}
+.admin-sidebar-inner{flex:1;min-height:0;overflow-y:auto!important;overflow-x:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;touch-action:pan-y;padding-bottom:120px}
+body.sidebar-open{overflow:hidden!important;position:fixed;width:100%}
+.jump-to-sql-btn{display:none}
+@media(max-width:768px){
+html,body{overflow-y:auto!important;overflow-x:hidden!important;height:auto!important;min-height:100vh!important}
+.admin-sidebar{position:fixed!important;left:-280px!important;top:0!important;bottom:0!important;width:280px!important;height:100vh!important;max-height:100vh!important;overflow:hidden!important;overscroll-behavior:contain!important;touch-action:pan-y!important;transform:none!important;transition:left .3s!important;z-index:1000!important;padding-bottom:80px!important}
+.admin-sidebar .admin-nav{padding-bottom:80px!important}.admin-sidebar-inner{padding-bottom:120px!important}
+.admin-sidebar.open{left:0!important}
+.admin-main{position:relative!important;margin-left:0!important;width:100%!important;min-height:100vh!important;height:auto!important;max-height:none!important;overflow:visible!important}
+.admin-topbar{position:fixed;display:flex;align-items:center;justify-content:space-between;gap:12px;top:0;left:0;right:0;height:62px;padding:0 14px;background:rgba(7,10,13,.94);backdrop-filter:blur(16px);border-bottom:1px solid var(--line,#24313a);z-index:900}
+.admin-topbar .hamburger{display:block;border:1px solid var(--line,#24313a);background:var(--surface,#0e1419);color:#fff;border-radius:10px;width:40px;height:40px;font-size:20px}
+.admin-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:999}.admin-overlay.show{display:block}
+.db-page{padding:78px 14px 120px!important;min-height:0!important;height:auto!important;max-height:none!important;overflow:visible!important}
+.db-grid{display:block}.db-grid>.db-card{width:100%;margin-bottom:16px}
+.db-sql{display:block!important;width:100%;margin-top:16px}
+.db-list{max-height:45vh}.db-scroll{max-width:100%}
+.jump-to-sql-btn{display:inline-flex!important;position:fixed!important;bottom:20px!important;right:20px!important;padding:12px 18px;background:#10b981;color:#fff;border-radius:24px;font-weight:600;font-size:13px;z-index:1500!important;box-shadow:0 4px 12px rgba(16,185,129,.4);text-decoration:none}
+}
+@media(min-width:769px){.admin-sidebar{left:0}.db-page{padding:28px 30px 45px}.db-grid{grid-template-columns:280px minmax(0,1fr)}}
+/* Database Control dark theme — aligned with admin index.css */
+html,
+body {
+  background:
+    radial-gradient(circle at 85% 0%, rgba(0, 181, 106, 0.08), transparent 30%),
+    var(--bg);
+  color: var(--text);
+}
+
+.db-card {
+  background: rgba(14, 20, 25, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  color: var(--text);
+}
+
+.db-card h2,
+.db-card h3,
+.db-card b {
+  color: var(--text);
+}
+
+.db-card p,
+.db-card small {
+  color: var(--muted);
+}
+
+.db-table-btn,
+.db-table-item {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  color: var(--text);
+}
+
+.db-table-btn:hover,
+.db-table-btn.active,
+.db-table-item:hover {
+  background: rgba(0, 181, 106, 0.08);
+}
+
+.db-input,
+.db-field input,
+input,
+textarea {
+  background: rgba(7, 10, 13, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--text);
+}
+
+.db-input:focus,
+.db-field input:focus,
+input:focus,
+textarea:focus {
+  border-color: var(--green);
+  outline: none;
+}
+
+.db-table th,
+.db-table td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.db-table th {
+  background: var(--surface);
+  color: var(--green2);
+}
+
+.db-modal-box {
+  background: var(--surface);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.db-sql textarea {
+  background: #0a0e12;
+  color: var(--text);
+  border: 1px solid rgba(0, 181, 106, 0.3);
+  font-family: 'Courier New', monospace;
+}
+
+.db-sql-warning {
+  background: rgba(255, 77, 90, 0.12);
+  border: 1px solid rgba(255, 77, 90, 0.35);
+  color: var(--red);
+  border-radius: 10px;
+  padding: 14px 16px;
+}
+
+.btn {
+  background: var(--green);
+  color: var(--bg);
+  border: none;
+  border-radius: 10px;
+  font-weight: 600;
+  padding: 10px 18px;
+  cursor: pointer;
+}
+
+.btn.secondary {
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--text);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.btn:hover {
+  opacity: 0.9;
+  transform: none;
+  filter: none;
+}
+
+.db-sql-template {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--text);
+}
+
+.db-sql-template:hover {
+  background: rgba(0, 181, 106, 0.08);
+}
+
+.db-sql-result table {
+  background: transparent;
+  color: var(--text);
+  border-collapse: collapse;
+}
+
+.db-sql-result th {
+  background: rgba(0, 181, 106, 0.1);
+  color: var(--green2);
+  padding: 10px;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.db-sql-result td {
+  padding: 8px 10px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.db-sql-pre {
+  color: var(--red);
+}
+
+.admin-topbar {
+  background: rgba(7, 10, 13, 0.9);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--text);
+}
+
+.admin-topbar .hamburger {
+  background: var(--surface);
+  border-color: var(--line);
+  color: var(--text);
+}
+
+.jump-to-sql-btn {
+  background: var(--green);
+  color: var(--bg);
+  box-shadow: 0 4px 12px rgba(0, 181, 106, 0.25);
+}
+
+</style>
+</head>
+<body>
+<aside class="admin-sidebar" id="adminSidebar"><div class="admin-sidebar-inner"><div class="admin-brand"><div class="admin-brand-mark">F</div><div><div class="admin-brand-name">Fund<span>FXT</span></div><small>ADMIN CONSOLE</small></div></div><nav class="admin-nav"><div class="admin-nav-label">Workspace</div><a href="index.html">◈&nbsp; Overview</a><a href="index.html">♙&nbsp; Users</a><a href="index.html">▤&nbsp; Payments</a><a href="index.html">↙&nbsp; Withdrawals</a><a href="index.html">↗&nbsp; Affiliates</a><div class="admin-nav-label">Operations</div><a href="index.html">★&nbsp; Certificates</a><a href="index.html">?</a><a class="active" href="database.html">▦&nbsp; Database Control</a><a href="index.html">⚙&nbsp; Settings</a></nav><div class="admin-sidebar-footer">FundFXT Admin · Database Control</div></div></aside>
+<div class="admin-topbar"><button class="hamburger" aria-label="Toggle menu" onclick="toggleAdminMenu()">☰</button><div style="font-weight:800">Fund<span style="color:var(--green,#00b56a)">FXT</span> Admin</div><button class="icon-btn" onclick="location.href='index.html'">↩</button></div><div class="admin-overlay" id="adminOverlay" onclick="closeAdminMenu()"></div>
+<a href="#sqlRunner" class="jump-to-sql-btn" aria-label="Jump to SQL Runner">⬇ SQL</a>
+<main class="admin-main"><div class="db-page">
+  <div class="db-top"><div><div class="eyebrow">Platform Data</div><h1>Database Control</h1><p>Live FundFXT MySQL administration. Access is restricted to authenticated administrators.</p></div><div class="db-actions"><button class="btn secondary" onclick="location.href='index.html'">← Admin Console</button><button class="btn" onclick="loadTables()">↻ Refresh</button></div></div>
+  <div id="message"></div>
+  <div class="db-grid">
+    <section class="db-card"><b>Database Tables</b><input id="tableSearch" class="db-input db-search" placeholder="Search tables…" oninput="renderTables()"><div id="tables" class="db-list"><div class="db-empty">Loading…</div></div></section>
+    <section class="db-card"><div id="tableHeader"><b>Select a table</b><p style="font-size:11px;color:var(--muted)">Choose a table to inspect live records.</p></div><div id="recordArea"></div></section>
+  </div>
+  <section class="db-card db-sql" id="sqlRunner">
+    <h2>SQL RUNNER <span style="font-size:10px;color:#c62828;font-weight:700;">(DEV ONLY)</span></h2>
+    <div class="db-sql-warning"><b>⚠ DEV TOOL:</b> Destructive queries cannot be undone. Only use this runner for controlled development/admin work.</div>
+    <textarea id="sqlInput" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="Enter SQL query…"></textarea>
+    <div style="margin-top:10px;font-size:11px;font-weight:600;">Quick templates:</div>
+    <div class="db-sql-templates">
+      <button class="db-sql-template" onclick="sqlTemplate('SELECT * FROM tid_users LIMIT 50')">SELECT * FROM tid_users LIMIT 50</button>
+      <button class="db-sql-template" onclick="sqlTemplate('SELECT * FROM tid_profiles LIMIT 50')">SELECT * FROM tid_profiles LIMIT 50</button>
+      <button class="db-sql-template" onclick="sqlTemplate('SELECT * FROM tid_email_verifications LIMIT 50')">SELECT * FROM tid_email_verifications LIMIT 50</button>
+      <button class="db-sql-template" onclick="sqlTemplate('DESCRIBE tid_users')">DESCRIBE tid_users</button>
+      <button class="db-sql-template" onclick="sqlTemplate('SHOW TABLES')">SHOW TABLES</button>
+    </div>
+    <div class="db-sql-actions">
+      <button class="btn" onclick="runSql()">Run Query</button>
+      <button class="btn secondary" onclick="clearSql()">Clear</button>
+      <button class="btn secondary" id="sqlExport" onclick="exportSqlCsv()" disabled>Export CSV</button>
+      <button class="btn secondary" id="sqlCopy" onclick="copySqlResult()" disabled>Copy Result</button>
+    </div>
+    <div id="sqlStatus" class="db-sql-status"></div>
+    <div id="sqlResult" class="db-sql-result"></div>
+  </section>
+</div>
+<div id="schemaModal" class="db-modal"><div class="db-modal-box"><div class="db-top"><div><h2 id="schemaTitle">Schema</h2><p>Live column and index metadata.</p></div><button class="icon-btn" onclick="closeModal('schemaModal')">×</button></div><div class="db-scroll"><table class="db-table"><thead><tr><th>Column</th><th>Type</th><th>Nullable</th><th>Key</th><th>Default</th><th>Extra</th></tr></thead><tbody id="schemaBody"></tbody></table></div></div></div>
+<script>
+function toggleAdminMenu() {
+  document.querySelector('.admin-sidebar').classList.toggle('open');
+  document.querySelector('.admin-overlay').classList.toggle('show');
+  document.body.classList.toggle('sidebar-open');
+}
+function closeAdminMenu() {
+  document.querySelector('.admin-sidebar').classList.remove('open');
+  document.querySelector('.admin-overlay').classList.remove('show');
+  document.body.classList.remove('sidebar-open');
+}
+const API='https://fundfxt.onrender.com';const token=localStorage.getItem('fundfxt_admin_token');if(!token)location.href='login.html';let tables=[],selected='',columns=[],rows=[],page=1,totalPages=1;
+const $=id=>document.getElementById(id);const headers={Authorization:'Bearer '+token,'Content-Type':'application/json'};const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function api(path,opt={}){const r=await fetch(API+path,{...opt,headers:{...headers,...(opt.headers||{})}});let d={};try{d=await r.json()}catch{}if(!r.ok)throw Error(d.error||d.message||`Request failed (${r.status})`);return d}
+function showError(e){$('message').innerHTML='<div class="error-box">'+esc(e.message||e)+'</div>'}function clearMessage(){$('message').innerHTML=''}
+async function loadTables(){clearMessage();try{const d=await api('/api/admin/database/tables');tables=d.tables||[];renderTables()}catch(e){showError(e)}}
+function renderTables(){const q=($('tableSearch').value||'').toLowerCase();const list=tables.filter(t=>String(t.name).toLowerCase().includes(q));$('tables').innerHTML=list.length?list.map(t=>`<button class="db-table-btn ${selected===t.name?'active':''}" onclick='selectTable(${JSON.stringify(t.name)})'><b>${esc(t.name)}</b><br><small>${Number(t.estimated_rows||0).toLocaleString()} estimated rows · ${esc(t.column_count||0)} columns</small></button>`).join(''):'<div class="db-empty">No tables found.</div>'}
+async function selectTable(name){selected=name;page=1;renderTables();await Promise.all([loadRows(),loadSchemaInline()])}
+async function loadRows(){if(!selected)return;try{const q=encodeURIComponent($('recordSearch')?.value||'');const d=await api(`/api/admin/database/tables/${encodeURIComponent(selected)}/rows?page=${page}&pageSize=50&search=${q}`);columns=d.columns||[];rows=d.rows||[];totalPages=d.totalPages||1;$('tableHeader').innerHTML=`<b>${esc(selected)}</b><p style="font-size:11px;color:var(--muted)">${Number(d.total||0).toLocaleString()} matching records · page ${d.page} of ${d.totalPages}</p>`;renderRecords(d)}catch(e){showError(e)}}
+function renderRecords(d){const head=columns.map(c=>`<th>${esc(c.COLUMN_NAME)}</th>`).join('');const body=rows.map((r,i)=>'<tr>'+columns.map(c=>`<td class="db-cell">${esc(typeof r[c.COLUMN_NAME]==='object'?JSON.stringify(r[c.COLUMN_NAME]):r[c.COLUMN_NAME])}</td>`).join('')+'<td><button class="btn red" onclick="deleteRow('+i+')">Delete</button></td></tr>').join('');$('recordArea').innerHTML=`<div class="db-toolbar"><input id="recordSearch" class="db-input" style="flex:1;min-width:200px" placeholder="Search records…" value="${esc($('recordSearch')?.value||'')}" onkeydown="if(event.key==='Enter'){page=1;loadRows()}"><button class="btn secondary" onclick="loadSchemaModal()">Schema</button><button class="btn" onclick="addRow()">+ Add Record</button></div><div class="db-scroll"><table class="db-table"><thead><tr>${head}<th>Actions</th></tr></thead><tbody>${body||'<tr><td colspan="99" class="db-empty">No records found.</td></tr>'}</tbody></table></div><div class="db-actions" style="justify-content:space-between;margin-top:12px"><button class="btn secondary" onclick="if(page>1){page--;loadRows()}">← Previous</button><span style="font-size:11px;color:var(--muted);padding:9px">Page ${d.page} / ${d.totalPages}</span><button class="btn secondary" onclick="if(page<totalPages){page++;loadRows()}">Next →</button></div>`}
+async function loadSchemaInline(){try{const d=await api(`/api/admin/database/tables/${encodeURIComponent(selected)}/schema`);columns=d.columns||columns}catch(e){showError(e)}}
+async function loadSchemaModal(){try{const d=await api(`/api/admin/database/tables/${encodeURIComponent(selected)}/schema`);$('schemaTitle').textContent='Schema · '+selected;$('schemaBody').innerHTML=(d.columns||[]).map(c=>`<tr><td>${esc(c.COLUMN_NAME)}</td><td>${esc(c.COLUMN_TYPE)}</td><td>${esc(c.IS_NULLABLE)}</td><td>${esc(c.COLUMN_KEY||'')}</td><td>${esc(c.COLUMN_DEFAULT)}</td><td>${esc(c.EXTRA||'')}</td></tr>`).join('');$('schemaModal').classList.add('open')}catch(e){showError(e)}}
+function closeModal(id){$(id).classList.remove('open')}
+function addRow(){if(!selected)return;const raw=prompt('Enter the new record as JSON, for example {"name":"Test"}:');if(raw===null)return;let data;try{data=JSON.parse(raw)}catch{return showError(new Error('Invalid JSON'))}api(`/api/admin/database/tables/${encodeURIComponent(selected)}/rows`,{method:'POST',body:JSON.stringify({data})}).then(()=>{clearMessage();loadTables();loadRows()}).catch(showError)}
+async function deleteRow(i){const pk=columns.find(c=>c.COLUMN_KEY==='PRI');if(!pk)return showError(new Error('Delete requires a table with one primary key.'));const id=rows[i][pk.COLUMN_NAME];if(!confirm(`Delete ${selected} record ${pk.COLUMN_NAME}=${id}? This cannot be undone.`))return;try{await api(`/api/admin/database/tables/${encodeURIComponent(selected)}/rows/${encodeURIComponent(id)}`,{method:'DELETE'});loadTables();loadRows()}catch(e){showError(e)}}
+let sqlResultData=null,sqlResultColumns=[];
+function sqlTemplate(query){$('sqlInput').value=query;$('sqlInput').focus()}
+function clearSql(){ $('sqlInput').value=''; $('sqlStatus').textContent=''; $('sqlResult').innerHTML=''; sqlResultData=null; sqlResultColumns=[]; $('sqlExport').disabled=true; $('sqlCopy').disabled=true; }
+function sqlType(sql){const m=String(sql).trim().match(/^(SELECT|INSERT|UPDATE|DELETE|REPLACE|CREATE|ALTER|DROP|TRUNCATE|DESCRIBE|DESC|SHOW|EXPLAIN|WITH)\\b/i);if(!m)return 'UNKNOWN';const t=m[1].toUpperCase();return t==='DESCRIBE'||t==='DESC'||t==='SHOW'||t==='EXPLAIN'||t==='WITH'?'SELECT':t}
+function sqlDestructive(sql){return /\\b(DROP|DELETE|UPDATE|ALTER|TRUNCATE)\\b/i.test(String(sql))}
+function renderSqlResult(d){
+  sqlResultData=d.rows||[];sqlResultColumns=d.columns||[];
+  const cols=sqlResultColumns.length?sqlResultColumns:Object.keys(sqlResultData[0]||{});
+  const head=cols.map(c=>'<th>'+esc(c)+'</th>').join('');
+  const body=sqlResultData.map(r=>'<tr>'+cols.map(c=>'<td class="db-cell">'+esc(typeof r[c]==='object'?JSON.stringify(r[c]):r[c])+'</td>').join('')+'</tr>').join('');
+  $('sqlResult').innerHTML='<div class="db-sql-meta"><span>Rows: '+Number(d.row_count||0).toLocaleString()+'</span><span>Time: '+Number(d.execution_ms||0)+'ms</span></div>'+
+    (cols.length?'<div class="db-scroll"><table class="db-table"><thead><tr>'+head+'</tr></thead><tbody>'+ (body||'<tr><td colspan="'+cols.length+'" class="db-empty">No rows returned.</td></tr>')+'</tbody></table></div>':'<div class="db-card" style="padding:12px;font-size:12px;">Query executed successfully. Affected rows: '+Number(d.rows_affected||0)+'</div>');
+  $('sqlExport').disabled=!(sqlResultData.length&&cols.length);$('sqlCopy').disabled=!(sqlResultData.length&&cols.length);
+}
+async function runSql(){
+  clearMessage();
+  const sql=$('sqlInput').value.trim();
+  const cleanedSql=sql.replace(/;+\s*$/,'').trim();
+  if(!sql)return showError(new Error('Enter a SQL query.'));
+  if(sql.length>5000)return showError(new Error('Query is limited to 5000 characters.'));
+  const writeOps=/^\s*(INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|TRUNCATE|REPLACE)\b/i.test(cleanedSql);
+  if(writeOps){ if(!confirm('This is a WRITE query and will modify your database. Continue?'))return; }
+  else if(sqlDestructive(sql)&&!confirm('This query may modify or destroy data. Destructive queries cannot be undone. Continue?'))return;
+  $('sqlStatus').textContent='Running…';$('sqlExport').disabled=true;$('sqlCopy').disabled=true;
+  try{
+    const payload={sql:cleanedSql};
+    if(writeOps)payload.allow_write=true;
+    const d=await api('/api/admin/sql/query',{method:'POST',body:JSON.stringify(payload)});
+    renderSqlResult(d);$('sqlStatus').textContent='Query completed.';
+  }catch(e){$('sqlStatus').textContent='';$('sqlResult').innerHTML='<div class="db-sql-pre">'+esc(e.message||e)+'</div>'}
+}
+function sqlCsvCell(v){const s=String(v??'');return '"'+s.replace(/"/g,'""')+'"'}
+function exportSqlCsv(){
+  if(!sqlResultData.length||!sqlResultColumns.length)return;
+  const csv=[sqlResultColumns.map(sqlCsvCell).join(','),...sqlResultData.map(r=>sqlResultColumns.map(c=>sqlCsvCell(typeof r[c]==='object'?JSON.stringify(r[c]):r[c])).join(','))].join('\n');
+  const blob=new Blob([csv],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='sql-result.csv';a.click();URL.revokeObjectURL(url);
+}
+async function copySqlResult(){
+  if(!sqlResultData.length||!sqlResultColumns.length)return;
+  const text=[sqlResultColumns.join('\t'),...sqlResultData.map(r=>sqlResultColumns.map(c=>typeof r[c]==='object'?JSON.stringify(r[c]):String(r[c]??'')).join('\t'))].join('\n');
+  try{await navigator.clipboard.writeText(text);$('sqlStatus').textContent='Result copied to clipboard.'}catch(e){$('sqlStatus').textContent='Copy failed. Clipboard permission was denied.'}
+}
+
+loadTables();
+</script>
+</body>
+</html>

@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Verify Trader ID</title>
+<link rel="stylesheet" href="/tradersid/card-styles.css">
+</head>
+<body>
+<main class="access-page">
+  <section class="access-card">
+    <div class="access-header">
+      <div class="access-brand"><div class="access-logo">TID</div></div>
+      <h1>Verify Trader ID</h1>
+      <p>Enter the access key to view this trader's public profile.</p>
+    </div>
+    <form class="access-form" id="accessForm">
+      <label for="tidInput">Trader ID</label>
+      <input type="text" id="tidInput" readonly>
+      <label for="accessKeyInput">Access Key</label>
+      <input type="text" id="accessKeyInput" placeholder="PAK-XXXXXXXX" autocomplete="off" autocapitalize="characters" spellcheck="false" required>
+      <button id="verifyBtn" type="submit">Verify &amp; View Profile</button>
+    </form>
+    <div id="accessError" class="error-box" hidden></div>
+  </section>
+
+  <section id="profileResult" class="profile-result" hidden></section>
+</main>
+
+<script>
+const API="https://fundfxt.onrender.com";
+const params=new URLSearchParams(location.search);
+const requestedTid=(params.get("tid")||"").trim().toUpperCase();
+const tidInput=document.getElementById("tidInput");
+const keyInput=document.getElementById("accessKeyInput");
+const form=document.getElementById("accessForm");
+const errorBox=document.getElementById("accessError");
+const result=document.getElementById("profileResult");
+const verifyBtn=document.getElementById("verifyBtn");
+tidInput.value=requestedTid;
+
+function safe(value,fallback="—"){
+  const v=String(value==null?"":value).trim();
+  return v||fallback;
+}
+function esc(value){
+  return String(value==null?"":value).replace(/[&<>"']/g,c=>{
+    if(c==="&") return "&amp;";
+    if(c==="<") return "&lt;";
+    if(c===">") return "&gt;";
+    if(c===String.fromCharCode(34)) return "&quot;";
+    return "&#39;";
+  });
+}
+function renderCard(t){
+  const tid=safe(t.tid,requestedTid);
+  const name=safe(t.name);
+  const rank=safe(t.rank,"Trader");
+  const trust=safe(t.trust_score);
+  const pass=safe(t.pass_rate);
+  const payouts=safe(t.payouts);
+  const tier=safe(t.tier);
+  return '<div class="tid-card v2" id="verifiedCard"><div class="tid-card-content">'+
+    '<svg class="card-watermark" viewBox="0 0 600 400" aria-hidden="true"><defs><pattern id="resultTidPattern" width="120" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)"><text x="0" y="40" font-family="Inter,sans-serif" font-weight="900" font-size="24" fill="#00b56a" fill-opacity=".045">TID</text></pattern></defs><rect width="100%" height="100%" fill="url(#resultTidPattern)"/></svg>'+
+    '<div class="card-holo-sweep"></div>'+
+    '<div class="v2-top"><div class="monogram">TID</div><div class="card-tid">'+esc(tid)+'</div><div class="tid-qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent("https://fundfxt.vercel.app/t/?tid="+tid)+'" alt="Scan to verify Trader ID"></div></div>'+
+    '<div class="v2-main"><div class="card-photo"><div class="card-photo-inner">TID</div></div><div class="identity"><div class="card-name">'+esc(name)+'</div><div class="card-rank">★ '+esc(rank)+' · VERIFIED</div><div class="card-badges"><span class="badge-verified">✓ VERIFIED</span></div><div class="card-trust-score"><span class="trust-label">TRUST</span><span class="trust-value">'+esc(trust)+'</span><span class="trust-max">/100</span></div></div></div>'+
+    '<div class="card-holo-strip"><div class="card-holo-strip-inner"><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span></div></div>'+
+    '<div class="card-stats"><div class="stat"><b>'+esc(pass)+'</b><span>Pass Rate</span></div><div class="stat"><b>'+esc(payouts)+'</b><span>Payouts</span></div><div class="stat"><b>'+esc(tier)+'</b><span>Payout Tier</span></div></div>'+
+    '</div></div>';
+}
+function renderPublic(t){
+  const member=safe(t.member_since);
+  result.innerHTML='<div>'+renderCard(t)+'</div><div class="public-profile"><h2>Public Profile</h2><div class="public-grid">'+
+    '<div class="public-stat"><span>Trader ID</span><b>'+esc(t.tid)+'</b></div>'+
+    '<div class="public-stat"><span>Name</span><b>'+esc(t.name)+'</b></div>'+
+    '<div class="public-stat"><span>Trust Score</span><b>'+esc(t.trust_score)+'/100</b></div>'+
+    '<div class="public-stat"><span>Rank</span><b>'+esc(t.rank)+'</b></div>'+
+    '<div class="public-stat"><span>Pass Rate</span><b>'+esc(t.pass_rate)+'</b></div>'+
+    '<div class="public-stat"><span>Payout Tier</span><b>'+esc(t.tier)+'</b></div>'+
+    '<div class="public-stat"><span>Total Payouts</span><b>'+esc(t.payouts)+'</b></div>'+
+    '<div class="public-stat"><span>Member Since</span><b>'+esc(member)+'</b></div>'+
+    '</div></div>';
+  result.hidden=false;
+}
+form.addEventListener("submit",async e=>{
+  e.preventDefault();
+  errorBox.hidden=true;
+  result.hidden=true;
+  const key=keyInput.value.trim().toUpperCase();
+  if(!requestedTid){errorBox.textContent="Missing Trader ID in QR URL";errorBox.hidden=false;return;}
+  if(!/^PAK-[A-Z0-9]{8}$/.test(key)){errorBox.textContent="Enter a valid access key";errorBox.hidden=false;return;}
+  verifyBtn.disabled=true;
+  verifyBtn.textContent="Verifying…";
+  try{
+    const response=await fetch(API+"/api/tid/pak/"+encodeURIComponent(key),{headers:{"Accept":"application/json"}});
+    const data=await response.json().catch(()=>({}));
+    if(!response.ok||!data.success||!data.trader) throw new Error("Invalid access key");
+    if(String(data.trader.tid||"").toUpperCase()!==requestedTid) throw new Error("Access key does not match this Trader ID");
+    renderPublic(data.trader);
+    document.getElementById("profileResult").scrollIntoView({behavior:"smooth",block:"start"});
+  }catch(error){
+    errorBox.textContent=error.message==="Access key does not match this Trader ID" ? error.message : "Invalid access key";
+    errorBox.hidden=false;
+  }finally{
+    verifyBtn.disabled=false;
+    verifyBtn.textContent="Verify & View Profile";
+  }
+});
+</script>
+</body>
+</html>

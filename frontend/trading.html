@@ -1,0 +1,563 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+    <meta name="theme-color" content="#080b10">
+    <title>FundFXT | Trading Terminal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/css/trading-terminal.css?v=20260919-3">
+    <link rel="stylesheet" href="/css/trading-terminal-fix.css?v=20260918-3">
+    <link rel="stylesheet" href="/css/trading-terminal-modify.css?v=20260918-1">
+    <link rel="stylesheet" href="/css/trading-terminal-search.css?v=20260918-1">
+</head>
+<body>
+    <div class="terminal-shell" id="terminalShell">
+        <header class="terminal-topbar">
+            <div class="brand-block">
+                <a class="brand" href="/dashboard.html">
+                    Fund<span>FXT</span>
+                </a>
+                <span class="terminal-label">
+                    TRADING TERMINAL
+                </span>
+            </div>
+
+            <div class="account-strip">
+                <button
+                    class="account-button"
+                    id="accountMenuBtn"
+                    type="button"
+                    aria-label="Open account overview"
+                >
+                    <span class="account-icon" aria-hidden="true">
+                        <svg
+                            viewBox="0 0 24 24"
+                            width="17"
+                            height="17"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                        >
+                            <circle cx="12" cy="7" r="3.2"></circle>
+                            <path d="M5.5 20c.7-3.7 3-5.6 6.5-5.6s5.8 1.9 6.5 5.6"></path>
+                        </svg>
+                    </span>
+                    <span class="account-meta">
+                        <b id="rightAccount">Loading account…</b>
+                        <small id="accountPhase">—</small>
+                        <span class="account-overview-values">
+                            <span class="account-overview-value">
+                                Balance
+                                <b id="rightBalance">—</b>
+                            </span>
+                            <span class="account-overview-value">
+                                Equity
+                                <b id="rightEquity">—</b>
+                            </span>
+                        </span>
+                    </span>
+                </button>
+
+                <div class="market-status" id="market">
+                    ● OFFLINE
+                </div>
+
+                <button
+                    class="icon-button logout-icon-button"
+                    id="terminalLogoutBtn"
+                    type="button"
+                    aria-label="Logout"
+                    title="Logout"
+                >
+                    <svg
+                        viewBox="0 0 24 24"
+                        width="18"
+                        height="18"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                    >
+                        <path d="M12 3v8"></path>
+                        <path d="M7.05 5.99a8 8 0 1 0 9.9 0"></path>
+                    </svg>
+                </button>
+            </div>
+        </header>
+
+        <main class="terminal-workspace" id="terminalWorkspace">
+            <section class="chart-panel" id="center">
+                <div class="chart-toolbar">
+                    <div class="chart-symbol">
+                        <strong id="selectedSymbol">EURUSD</strong>
+                        <span>LIVE</span>
+                    </div>
+                    <button
+                        class="chart-action"
+                        id="chartFocusBtn"
+                        type="button"
+                    >
+                        ⛶
+                    </button>
+                </div>
+
+                <div class="chart-stage" id="tv">
+                    <button
+                        class="mobile-exec-toggle"
+                        id="mobile-exec-toggle"
+                        type="button"
+                        aria-label="Open trade execution"
+                    >
+                        Trade
+                    </button>
+                    <div class="chart-loading" id="chartLoading">
+                        <span></span>
+                        <b>Loading market chart…</b>
+                    </div>
+                    <div
+                        class="chart-endpoint"
+                        aria-hidden="true"
+                    ></div>
+                </div>
+
+            </section>
+
+            <aside class="right-rail" id="right">
+                <div class="right-tabs">
+                    <button
+                        class="right-section-tab active"
+                        data-section="pairs"
+                        type="button"
+                    >
+                        Pairs
+                    </button>
+                    <button
+                        class="right-section-tab"
+                        data-section="orders"
+                        type="button"
+                    >
+                        Execute
+                    </button>
+                    <button
+                        class="right-section-tab"
+                        data-section="trades"
+                        type="button"
+                    >
+                        Trades
+                    </button>
+                    <button
+                        class="rail-collapse"
+                        id="rightCollapseBtn"
+                        type="button"
+                    >
+                        ›
+                    </button>
+                </div>
+
+                <section class="terminal-section active" id="terminalPairs">
+                    <div class="section-heading">
+                        <div>
+                            <b>Market Watch</b>
+                            <small>Live spreads & quotes</small>
+                        </div>
+                        <button id="addPairBtn" type="button">＋</button>
+                    </div>
+
+                    <div class="pair-search">
+                        <input
+                            id="search"
+                            type="search"
+                            placeholder="Search pair…"
+                        >
+                    </div>
+
+                    <div class="quote-head">
+                        <span>PAIR</span>
+                        <span>SPREAD</span>
+                        <span>ASK</span>
+                        <span>BID</span>
+                        <span>CHG</span>
+                    </div>
+
+                    <div class="watchlist" id="watchlist"></div>
+                </section>
+
+                <section
+                    class="terminal-section"
+                    id="terminalOrders"
+                    hidden
+                >
+                    <div class="section-heading">
+                        <div>
+                            <b>Order Execution</b>
+                            <small id="executionSymbol">EURUSD</small>
+                        </div>
+                    </div>
+
+                    <div class="execution-card">
+                        <label>
+                            Order Type
+                            <select id="orderType">
+                                <option value="MARKET">Market</option>
+                                <option value="BUY_LIMIT">Buy Limit</option>
+                                <option value="SELL_LIMIT">Sell Limit</option>
+                                <option value="BUY_STOP">Buy Stop</option>
+                                <option value="SELL_STOP">Sell Stop</option>
+                            </select>
+                        </label>
+
+                        <label>
+                            Volume
+                            <input
+                                id="volume"
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value="0.10"
+                            >
+                        </label>
+
+                        <div id="pendingFields" hidden>
+                            <label>
+                                Entry Price
+                                <input
+                                    id="entry"
+                                    type="number"
+                                    step="any"
+                                >
+                            </label>
+                        </div>
+
+                        <div class="sl-tp-grid">
+                            <label>
+                                Stop Loss
+                                <input
+                                    id="sl"
+                                    type="number"
+                                    step="any"
+                                >
+                            </label>
+                            <label>
+                                Take Profit
+                                <input
+                                    id="tp"
+                                    type="number"
+                                    step="any"
+                                >
+                            </label>
+                        </div>
+
+                        <div class="execution-actions">
+                            <button
+                                id="sell"
+                                class="sell-btn"
+                                type="button"
+                            >
+                                SELL
+                            </button>
+                            <button
+                                id="buy"
+                                class="buy-btn"
+                                type="button"
+                            >
+                                BUY
+                            </button>
+                        </div>
+
+                        <div id="tradeFeedback" class="trade-feedback"></div>
+                    </div>
+                </section>
+
+                <section
+                    class="terminal-section"
+                    id="terminalTrades"
+                    hidden
+                >
+                    <div class="section-heading">
+                        <div>
+                            <b>Trades</b>
+                            <small>Positions & history</small>
+                        </div>
+                    </div>
+
+                    <div class="trade-tabs">
+                        <button
+                            class="trade-tab active"
+                            data-trade-tab="open"
+                            type="button"
+                        >
+                            Open
+                        </button>
+                        <button
+                            class="trade-tab"
+                            data-trade-tab="pending"
+                            type="button"
+                        >
+                            Pending
+                        </button>
+                        <button
+                            class="trade-tab"
+                            data-trade-tab="history"
+                            type="button"
+                        >
+                            Closed
+                        </button>
+                    </div>
+
+                    <div id="tradeScroll" class="trade-scroll"></div>
+                </section>
+            </aside>
+        </main>
+
+        <!-- ============================================================
+             MOBILE ORDER TICKET
+             The desktop order controls remain unchanged.
+             Mobile uses the same order IDs/classes and existing execution flow.
+             ============================================================ -->
+        <div
+            class="mobile-order-sheet"
+            id="mobileOrderSheet"
+        >
+            <div class="mobile-order-sheet-backdrop"></div>
+
+            <div
+                class="mobile-order-sheet-card"
+                id="mobile-order-wrapper"
+            >
+                <div class="mobile-order-sheet-header">
+                    <b id="mobileOrderSheetSymbol">
+                        EURUSD
+                    </b>
+
+                    <button
+                        class="mobile-order-sheet-close"
+                        type="button"
+                        id="mobileOrderSheetClose"
+                    >
+                        ×
+                    </button>
+                </div>
+
+                <div class="mobile-order-sheet-body">
+                    <label>
+                        Order Type
+                        <select id="orderType">
+                            <option value="MARKET">Market</option>
+                            <option value="BUY_LIMIT">Buy Limit</option>
+                            <option value="SELL_LIMIT">Sell Limit</option>
+                            <option value="BUY_STOP">Buy Stop</option>
+                            <option value="SELL_STOP">Sell Stop</option>
+                        </select>
+                    </label>
+
+                    <label>
+                        Volume
+                        <input
+                            id="mobileVolume"
+                            type="number"
+                            min="0.01"
+                            step="0.01"
+                            value="0.10"
+                        >
+                    </label>
+
+                    <div
+                        id="pendingFields"
+                        hidden
+                    >
+                        <label>
+                            Entry Price
+                            <input
+                                id="entry"
+                                type="number"
+                                step="any"
+                            >
+                        </label>
+                    </div>
+
+                    <label>
+                        Stop Loss
+                        <input
+                            id="mobileSl"
+                            type="number"
+                            step="any"
+                            placeholder="Optional"
+                        >
+                    </label>
+
+                    <label>
+                        Take Profit
+                        <input
+                            id="mobileTp"
+                            type="number"
+                            step="any"
+                            placeholder="Optional"
+                        >
+                    </label>
+
+                    <div
+                        class="mobile-order-sheet-feedback"
+                        id="mobileOrderFeedback"
+                    ></div>
+                </div>
+
+                <div class="mobile-order-sheet-actions">
+                    <button
+                        class="sheet-btn sheet-btn-sell"
+                        type="button"
+                        data-sheet-side="SELL"
+                    >
+                        SELL
+                    </button>
+
+                    <button
+                        class="sheet-btn sheet-btn-buy"
+                        type="button"
+                        data-sheet-side="BUY"
+                    >
+                        BUY
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- ============================================================
+             MOBILE REQUEST LOADER
+             Mobile-only feedback while an API/chart request is active.
+             ============================================================ -->
+        <div
+            id="mobile-loader-overlay"
+            aria-hidden="true"
+        >
+            <div class="mobile-loader-card">
+                <div
+                    class="mobile-spinner"
+                    aria-hidden="true"
+                ></div>
+                <span id="mobile-loader-text">Processing...</span>
+            </div>
+        </div>
+
+        <nav class="mobile-terminal-nav">
+            <button
+                class="mobile-nav-item active"
+                data-mobile-section="pairs"
+                type="button"
+            >
+                <span aria-hidden="true">
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <line x1="8" y1="6" x2="21" y2="6"></line>
+                        <line x1="8" y1="12" x2="21" y2="12"></line>
+                        <line x1="8" y1="18" x2="21" y2="18"></line>
+                        <line x1="3" y1="6" x2="3.01" y2="6"></line>
+                        <line x1="3" y1="12" x2="3.01" y2="12"></line>
+                        <line x1="3" y1="18" x2="3.01" y2="18"></line>
+                    </svg>
+                </span>
+                <b>Pairs</b>
+            </button>
+            <button
+                class="mobile-nav-item"
+                data-mobile-section="chart"
+                type="button"
+            >
+                <span aria-hidden="true">
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <polyline points="3 17 9 11 13 15 21 7"></polyline>
+                        <polyline points="14 7 21 7 21 14"></polyline>
+                    </svg>
+                </span>
+                <b>Chart</b>
+            </button>
+            <button
+                class="mobile-nav-item"
+                data-mobile-section="trades"
+                type="button"
+            >
+                <span aria-hidden="true">
+                    <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                    >
+                        <rect
+                            x="3"
+                            y="4"
+                            width="18"
+                            height="16"
+                            rx="2"
+                        ></rect>
+                        <path d="M3 10h18"></path>
+                        <path d="M8 15h4"></path>
+                    </svg>
+                </span>
+                <b>Trades</b>
+            </button>
+        </nav>
+    </div>
+
+    <script src="/js/trading-terminal.js?v=20260919-1"></script>
+    <script src="/js/trading-terminal-pending.js?v=20260918-5"></script>
+    <script src="/js/trading-terminal-pending-modify.js?v=20260918-1"></script>
+    <script src="/js/trading-terminal-modify.js?v=20260918-1"></script>
+    <script src="/js/trading-terminal-responsive.js?v=20260919-4"></script>
+    <script src="/js/trading-terminal-action-loader.js?v=20260919-1"></script>
+    <script src="/js/trading-terminal-ui-fix.js?v=20260918-5"></script>
+    <script src="/js/trading-terminal-pairs-fix.js?v=20260919-1"></script>
+    <script src="/js/trading-terminal-history-ui.js?v=20260918-1"></script>
+<div id="serverBusyPopup" class="server-busy-popup" hidden>
+    <div class="server-busy-backdrop"></div>
+
+    <div class="server-busy-card">
+        <div class="server-busy-icon">⏳</div>
+
+        <h3 class="server-busy-title">Server is a bit busy</h3>
+
+        <p class="server-busy-message">
+            We are processing a lot of requests right now.
+            Please try again in a few seconds.
+        </p>
+
+        <button
+            class="server-busy-btn"
+            type="button"
+            onclick="hideServerBusyPopup()"
+        >
+            Got it
+        </button>
+    </div>
+</div>
+
+    <script src="/js/server-busy-handler.js" defer></script>
+</body>
+</html>
