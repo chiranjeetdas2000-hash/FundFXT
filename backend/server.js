@@ -3743,11 +3743,11 @@ app.post(
     });
   },
 );
-const tidRoutes = require('./tid-routes');
-app.use('/api/tid', tidRoutes);
-
 const tidUploadRoutes = require('./tid-upload');
 app.use('/api/tid', tidUploadRoutes);
+
+const tidRoutes = require('./tid-routes');
+app.use('/api/tid', tidRoutes);
 
 // ========== WEBSOCKET SERVER ==========
 const PORT = process.env.PORT || 3000;
