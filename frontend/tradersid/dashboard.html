@@ -739,6 +739,57 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 </div>
 </main>
 
+<!-- ============ ADD ACCOUNT MODAL ============ -->
+<div class="modal-backdrop" id="accountModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Add Trading Account</div>
+      <button class="modal-close" type="button" id="accountModalClose" aria-label="Close">&times;</button>
+    </div>
+    <form class="modal-body" id="accountForm">
+      <div class="form-row">
+        <label class="form-label" for="acctFirm">Firm Name</label>
+        <input class="form-input" id="acctFirm" type="text" placeholder="e.g. FundedNext, FTMO, Topstep" required maxlength="100" autocomplete="off">
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="acctSize">Account Size</label>
+          <select class="form-select" id="acctSize">
+            <option value="500000">$5,000</option>
+            <option value="1000000" selected>$10,000</option>
+            <option value="2500000">$25,000</option>
+            <option value="5000000">$50,000</option>
+            <option value="10000000">$100,000</option>
+            <option value="20000000">$200,000</option>
+          </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="acctType">Account Type</label>
+          <select class="form-select" id="acctType">
+            <option value="CHALLENGE" selected>Challenge</option>
+            <option value="FUNDED">Funded</option>
+            <option value="LIVE">Live</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="acctStartDate">Start Date (optional)</label>
+        <input class="form-input" id="acctStartDate" type="date">
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="acctFile">Statement / Screenshot (optional)</label>
+        <input class="form-file" id="acctFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
+        <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">PDF, JPG, PNG, WEBP · Max 3 MB. You can also upload later.</div>
+      </div>
+      <div class="modal-error" id="acctError"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="accountCancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="accountSubmit">Create Account</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <nav class="bottom-nav" aria-label="Mobile navigation">
   <div class="bottom-nav-inner">
     <button class="bnav-item active" data-section="dashboard">
