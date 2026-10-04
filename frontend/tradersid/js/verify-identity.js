@@ -15,6 +15,36 @@
     t._tid = setTimeout(function(){ t.classList.remove('show'); }, 2800);
   }
 
+  var compressedFiles = {};
+
+  function compressImage(file, maxDim, quality){
+    return new Promise(function(resolve, reject){
+      if(!file || !file.type || file.type.indexOf('image/') !== 0) return resolve(file);
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        var w = img.width, h = img.height;
+        if(Math.max(w, h) > maxDim){
+          if(w >= h){ h = Math.round(h * maxDim / w); w = maxDim; }
+          else { w = Math.round(w * maxDim / h); h = maxDim; }
+        }
+        var canvas = document.createElement('canvas');
+        canvas.width = w; canvas.height = h;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(function(blob){
+          if(!blob) return reject(new Error('Compression failed'));
+          var baseName = (file.name || 'image').replace(/\.[^.]+$/, '');
+          var out = new File([blob], baseName + '.jpg', { type: 'image/jpeg', lastModified: Date.now() });
+          resolve(out);
+        }, 'image/jpeg', quality);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+      img.src = url;
+    });
+  }
+
   var ID_TYPES_BY_COUNTRY = {
     India: ['Aadhaar','PAN','Passport','Driving Licence','Voter ID'],
     UK: ['Passport','Driving Licence','BRP'],
@@ -76,19 +106,42 @@
 
   function wireFile(inputEl, textEl, previewEl){
     if(!inputEl) return;
-    inputEl.addEventListener('change', function(){
+    inputEl.addEventListener('change', async function(){
       var f = this.files && this.files[0];
-      if(!f){ if(textEl) textEl.textContent = 'Tap to select file'; if(previewEl) previewEl.classList.remove('show'); return; }
-      if(f.size > 3 * 1024 * 1024){
-        toast('File too large. Max 3 MB.');
-        this.value = '';
+      delete compressedFiles[inputEl.id];
+      if(!f){
         if(textEl) textEl.textContent = 'Tap to select file';
         if(previewEl) previewEl.classList.remove('show');
         return;
       }
+
+      var originalSize = f.size;
+      var isImage = f.type && f.type.indexOf('image/') === 0;
+
+      if(isImage && f.size > 1.5 * 1024 * 1024){
+        if(textEl) textEl.textContent = 'Compressing…';
+        try {
+          var compressed = await compressImage(f, 1600, 0.75);
+          if(compressed && compressed.size > 0){
+            compressedFiles[inputEl.id] = compressed;
+            f = compressed;
+          }
+        } catch(_){}
+      }
+
+      if(f.size > 3 * 1024 * 1024){
+        toast('File still too large (max 3 MB). Try a different photo.');
+        this.value = '';
+        delete compressedFiles[inputEl.id];
+        if(textEl) textEl.textContent = 'Tap to select file';
+        if(previewEl) previewEl.classList.remove('show');
+        return;
+      }
+
       if(textEl) textEl.textContent = f.name.length > 32 ? f.name.slice(0, 30) + '…' : f.name;
       if(previewEl){
-        previewEl.textContent = '✓ ' + f.name + ' · ' + fmtBytes(f.size);
+        var sizeNote = (originalSize !== f.size) ? ' · compressed from ' + fmtBytes(originalSize) : '';
+        previewEl.textContent = '✓ ' + f.name + ' · ' + fmtBytes(f.size) + sizeNote;
         previewEl.classList.add('show');
       }
     });
@@ -188,11 +241,15 @@
     submitBtn.textContent = 'Uploading documents…';
 
     try {
-      var idFileId = await uploadFile(idFileEl.files[0], 'ID_PROOF');
+      var idFile = compressedFiles['kycIdFile'] || idFileEl.files[0];
+      var selfieFile = compressedFiles['kycSelfieFile'] || selfieFileEl.files[0];
+      var addressFile = compressedFiles['kycAddressFile'] || addressFileEl.files[0];
+
+      var idFileId = await uploadFile(idFile, 'ID_PROOF');
       submitBtn.textContent = 'Uploading selfie…';
-      var selfieFileId = await uploadFile(selfieFileEl.files[0], 'SELFIE');
+      var selfieFileId = await uploadFile(selfieFile, 'SELFIE');
       submitBtn.textContent = 'Uploading address proof…';
-      var addressFileId = await uploadFile(addressFileEl.files[0], 'ADDRESS_PROOF');
+      var addressFileId = await uploadFile(addressFile, 'ADDRESS_PROOF');
 
       submitBtn.textContent = 'Submitting…';
 
