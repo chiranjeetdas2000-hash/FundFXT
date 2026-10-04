@@ -77,8 +77,13 @@ function buildR2Key(userId, fileType, ext) {
 }
 
 router.post("/upload", authenticateTid, upload.single("file"), async function (req, res) {
+  console.log("[UPLOAD] Hit — user:", req.tidUser && req.tidUser.tidUserId, "file:", req.file && req.file.originalname, "size:", req.file && req.file.size, "type:", req.body && req.body.file_type);
   try {
-    if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+    if (!req.file) {
+      console.log("[UPLOAD] No file in request");
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+    console.log("[UPLOAD] Starting R2 upload, key building");
     const fileType = String(req.body?.file_type || "").trim().toUpperCase();
     if (!ALLOWED_TYPES.has(fileType)) return res.status(400).json({ error: "Invalid file_type" });
     const accountId = req.body?.account_id ? Number(req.body.account_id) : null;
