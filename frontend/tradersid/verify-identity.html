@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="description" content="Trader ID — Verify your identity">
+<title>KYC Verification — Trader ID</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy-900:#0A1424;--navy-800:#0F1B2D;--navy-700:#1E3A5F;
+  --green:#00b56a;--green-bright:#00e59a;--green-soft:rgba(0,181,106,.10);
+  --gold:#D4AF37;--red:#DC2626;--red-soft:rgba(220,38,38,.08);
+  --bg:#F5F7FA;--card:#FFFFFF;--text:#0F1B2D;--muted:#64748B;--muted-2:#94A3B8;
+  --border:#E8EBF0;--border-strong:#CBD5E1;
+  --radius:14px;--radius-sm:10px;
+  --shadow:0 4px 16px rgba(15,27,45,.06);--shadow-lg:0 20px 48px rgba(15,27,45,.10);
+}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;flex-direction:column}
+.topbar{position:sticky;top:0;z-index:100;height:60px;background:rgba(10,20,36,.95);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:space-between;padding:0 16px;color:#fff}
+.topbar-left{display:flex;align-items:center;gap:10px;text-decoration:none;color:#fff;font-weight:700;font-size:14px}
+.topbar-logo{width:34px;height:34px;display:grid;place-items:center;background:linear-gradient(135deg,var(--navy-700),var(--navy-900));border:1px solid var(--green-bright);border-radius:9px;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--green-bright)}
+.topbar-back{padding:8px 12px;border-radius:9px;color:rgba(255,255,255,.85);font-size:13px;font-weight:700;text-decoration:none;border:1px solid rgba(255,255,255,.18)}
+.topbar-back:hover{background:rgba(255,255,255,.08)}
+main{flex:1;padding:24px 16px 60px;max-width:640px;margin:0 auto;width:100%}
+.page-head{margin-bottom:22px}
+.page-eyebrow{color:var(--green);font-size:11.5px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;margin-bottom:6px}
+.page-title{font-size:clamp(24px,4.5vw,30px);font-weight:800;letter-spacing:-.02em;color:var(--navy-900);margin:0}
+.page-sub{color:var(--muted);font-size:13.5px;margin-top:8px;line-height:1.55}
+.status-card{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:var(--shadow);display:none}
+.status-card.show{display:block}
+.status-card.approved{background:linear-gradient(135deg,rgba(0,181,106,.08),rgba(255,255,255,0) 60%);border-color:rgba(0,181,106,.35)}
+.status-card.pending{background:linear-gradient(135deg,rgba(212,175,55,.10),rgba(255,255,255,0) 60%);border-color:rgba(212,175,55,.35)}
+.status-card.rejected{background:linear-gradient(135deg,rgba(220,38,38,.06),rgba(255,255,255,0) 60%);border-color:rgba(220,38,38,.3)}
+.status-title{font-size:15px;font-weight:800;color:var(--navy-900);margin:0 0 6px}
+.status-text{font-size:13px;color:var(--muted);line-height:1.55;margin:0}
+.step{background:#fff;border:1px solid var(--border);border-radius:var(--radius);padding:20px;margin-bottom:14px;box-shadow:var(--shadow)}
+.step-head{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.step-num{width:28px;height:28px;border-radius:50%;background:var(--navy-900);color:#fff;display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:12px;font-weight:800;flex-shrink:0}
+.step-title{font-size:15px;font-weight:800;color:var(--navy-900)}
+.field{margin-bottom:14px}
+.field:last-child{margin-bottom:0}
+.field-label{display:block;font-size:11.5px;font-weight:700;color:var(--navy-800);letter-spacing:.06em;text-transform:uppercase;margin-bottom:7px}
+.form-select,.form-input{width:100%;padding:12px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:#FBFCFD;font-family:inherit;font-size:14px;color:var(--navy-900);outline:none;transition:border-color .18s,background .18s,box-shadow .18s;appearance:none;-webkit-appearance:none}
+.form-select{background-image:url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394A3B8' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");background-repeat:no-repeat;background-position:right 12px center;background-size:16px;padding-right:36px}
+.form-select:focus,.form-input:focus{border-color:var(--green);background-color:#fff;box-shadow:0 0 0 4px rgba(0,181,106,.12)}
+.file-zone{display:flex;flex-direction:column;gap:8px;padding:16px;border:1.5px dashed var(--border-strong);border-radius:var(--radius-sm);background:#FBFCFD;text-align:center;cursor:pointer;transition:border-color .18s,background .18s}
+.file-zone:hover{border-color:var(--green);background:#fff}
+.file-zone input{display:none}
+.file-zone-icon{font-size:24px;color:var(--green)}
+.file-zone-text{font-size:13px;font-weight:700;color:var(--navy-900)}
+.file-zone-hint{font-size:11.5px;color:var(--muted)}
+.file-preview{display:none;margin-top:10px;padding:10px 12px;background:var(--green-soft);border:1px solid rgba(0,181,106,.3);border-radius:var(--radius-sm);font-size:12.5px;color:#067a4a;font-weight:600}
+.file-preview.show{display:block}
+.btn-submit{width:100%;padding:16px;border:0;border-radius:var(--radius-sm);background:linear-gradient(135deg,var(--green),var(--green-bright));color:#06110d;font-family:inherit;font-size:15px;font-weight:800;cursor:pointer;box-shadow:0 10px 26px rgba(0,181,106,.30);transition:transform .18s,box-shadow .18s;margin-top:8px}
+.btn-submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 14px 32px rgba(0,181,106,.38)}
+.btn-submit:disabled{opacity:.6;cursor:wait;transform:none}
+.error-box{margin-top:14px;padding:12px 14px;border:1px solid rgba(220,38,38,.22);background:var(--red-soft);color:var(--red);border-radius:var(--radius-sm);font-size:13px;display:none}
+.error-box.show{display:block}
+.info-note{margin-top:12px;padding:12px 14px;background:#F8F9FB;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:12px;color:var(--muted);line-height:1.55}
+.info-note b{color:var(--navy-900)}
+.toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(20px);background:var(--navy-900);color:#fff;padding:12px 18px;border-radius:10px;font-size:13px;font-weight:600;box-shadow:var(--shadow-lg);opacity:0;pointer-events:none;transition:opacity .22s,transform .22s;z-index:300;max-width:90vw}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <a href="/tradersid/dashboard.html" class="topbar-left">
+    <span class="topbar-logo">TID</span>
+    <span>Trader ID</span>
+  </a>
+  <a href="/tradersid/dashboard.html" class="topbar-back">← Dashboard</a>
+</header>
+
+<main>
+  <div class="page-head">
+    <div class="page-eyebrow">Identity Verification</div>
+    <h1 class="page-title">KYC Verification</h1>
+    <p class="page-sub">Verify your identity to unlock a verified badge on your Trader ID. All documents are encrypted and used only for verification.</p>
+  </div>
+
+  <div class="status-card" id="kycStatusCard">
+    <h2 class="status-title" id="kycStatusTitle"></h2>
+    <p class="status-text" id="kycStatusText"></p>
+  </div>
+
+  <form id="kycForm">
+
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">1</span>
+        <div class="step-title">Country of Residence</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="kycCountry">Select Country</label>
+        <select class="form-select" id="kycCountry" required>
+          <option value="">Select country…</option>
+          <option value="India">India</option>
+          <option value="UK">United Kingdom</option>
+          <option value="USA">United States</option>
+          <option value="UAE">United Arab Emirates</option>
+          <option value="Singapore">Singapore</option>
+          <option value="Australia">Australia</option>
+          <option value="Canada">Canada</option>
+          <option value="Germany">Germany</option>
+          <option value="France">France</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">2</span>
+        <div class="step-title">Identity Document</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="kycIdType">Document Type</label>
+        <select class="form-select" id="kycIdType" required>
+          <option value="">Select country first…</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Upload Document</label>
+        <label class="file-zone" for="kycIdFile">
+          <span class="file-zone-icon">📄</span>
+          <span class="file-zone-text" id="kycIdText">Tap to select file</span>
+          <span class="file-zone-hint">PDF, JPG, PNG · Max 3 MB</span>
+          <input type="file" id="kycIdFile" accept=".pdf,.jpg,.jpeg,.png,.webp">
+        </label>
+        <div class="file-preview" id="kycIdPreview"></div>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">3</span>
+        <div class="step-title">Selfie with ID</div>
+      </div>
+      <div class="field">
+        <label class="field-label">Take Selfie</label>
+        <label class="file-zone" for="kycSelfieFile">
+          <span class="file-zone-icon">📷</span>
+          <span class="file-zone-text" id="kycSelfieText">Tap to open camera</span>
+          <span class="file-zone-hint">Hold your ID next to your face · Max 3 MB</span>
+          <input type="file" id="kycSelfieFile" accept="image/*" capture="user">
+        </label>
+        <div class="file-preview" id="kycSelfiePreview"></div>
+      </div>
+    </section>
+
+    <section class="step">
+      <div class="step-head">
+        <span class="step-num">4</span>
+        <div class="step-title">Address Proof</div>
+      </div>
+      <div class="field">
+        <label class="field-label" for="kycAddressType">Document Type</label>
+        <select class="form-select" id="kycAddressType" required>
+          <option value="">Select…</option>
+          <option value="Bank Statement">Bank Statement</option>
+          <option value="Utility Bill">Utility Bill</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      <div class="field">
+        <label class="field-label">Upload Document</label>
+        <label class="file-zone" for="kycAddressFile">
+          <span class="file-zone-icon">🏠</span>
+          <span class="file-zone-text" id="kycAddressText">Tap to select file</span>
+          <span class="file-zone-hint">Last 3 months · PDF, JPG, PNG · Max 3 MB</span>
+          <input type="file" id="kycAddressFile" accept=".pdf,.jpg,.jpeg,.png,.webp">
+        </label>
+        <div class="file-preview" id="kycAddressPreview"></div>
+      </div>
+    </section>
+
+    <button type="submit" class="btn-submit" id="kycSubmit">Submit for Review</button>
+
+    <div class="error-box" id="kycError"></div>
+
+    <div class="info-note">
+      <b>What happens next:</b> After submission, our team reviews your documents manually. This usually takes 24-72 hours. You will see the status on your dashboard.
+    </div>
+  </form>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="/tradersid/js/verify-identity.js" defer></script>
+</body>
+</html>
