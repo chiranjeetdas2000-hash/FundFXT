@@ -1566,9 +1566,10 @@ router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
       withdrawalCents = Math.max(0, Math.round(Number(req.body?.total_withdrawal_cents) || 0));
     }
 
+    const vStatus = (intent === "YES") ? "AWAITING_PAYMENT" : "NONE";
     const [result] = await db.execute(
-      "INSERT INTO tid_accounts (tid_user_id, firm_name, account_size_cents, account_type, status, verification_status, start_date, account_category, score_impact_intent, broker_name, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents) VALUES (?, ?, ?, ?, 'PENDING', 'NONE', ?, ?, ?, ?, ?, ?, ?, ?)",
-      [req.tidUser.tidUserId, firm, sizeCents, type, startDate, category, intent, brokerName, brokerAccountId, brokerMode, depositCents, withdrawalCents],
+      "INSERT INTO tid_accounts (tid_user_id, firm_name, account_size_cents, account_type, status, verification_status, start_date, account_category, score_impact_intent, broker_name, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents) VALUES (?, ?, ?, ?, 'PENDING', ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [req.tidUser.tidUserId, firm, sizeCents, type, vStatus, startDate, category, intent, brokerName, brokerAccountId, brokerMode, depositCents, withdrawalCents],
     );
 
     await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCOUNT_CREATE");
