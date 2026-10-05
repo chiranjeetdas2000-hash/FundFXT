@@ -261,6 +261,119 @@ async function fetchTidUserByEmail(email) {
   return rows[0] || null;
 }
 
+async function computeTraderStats(userId) {
+  try {
+    const profile = await fetchProfile(userId);
+    const user = await fetchTidUserById(userId);
+    const verification = await fetchLatestVerification(userId);
+
+    const [accounts] = await db.execute(
+      "SELECT account_type, status, win_rate_bps, profit_bps, account_size_cents FROM tid_accounts WHERE tid_user_id = ?",
+      [userId]
+    );
+
+    const accountsCount = accounts.length;
+    const fundedCount = accounts.filter(a => a.account_type === "FUNDED" || a.account_type === "LIVE" || a.status === "PASSED").length;
+    const passedCount = accounts.filter(a => a.status === "PASSED").length;
+    const failedCount = accounts.filter(a => a.status === "FAILED" || a.status === "BREACHED").length;
+
+    let rank = "ROOKIE";
+    if (fundedCount >= 25) rank = "LEGEND";
+    else if (fundedCount >= 10) rank = "CHAMPION";
+    else if (fundedCount >= 3) rank = "PRO";
+    else if (fundedCount >= 1) rank = "TRADER";
+    else if (accountsCount >= 1) rank = "CHALLENGER";
+
+    const emailVerified = Boolean(user && (user.email_verified || user.is_email_verified));
+    const kycStatus = verification && (verification.status || verification.verification_status);
+    const kycVerified = kycStatus === "APPROVED" || kycStatus === "VERIFIED";
+    const hasAvatar = Boolean(profile && profile.avatar_url);
+    const hasBio = Boolean(profile && profile.bio);
+    const hasCountrySocial = Boolean(profile && (profile.country || profile.twitter || profile.linkedin));
+
+    const accountsPoints = Math.min(accountsCount * 3, 15);
+    const fundedPoints = Math.min(fundedCount * 5, 15);
+
+    const totalWinRateBps = accounts.reduce((s, a) => s + (Number(a.win_rate_bps) || 0), 0);
+    const avgWinRateBps = accountsCount > 0 ? totalWinRateBps / accountsCount : 0;
+    const winRatePoints = Math.min((avgWinRateBps / 100) * 0.2, 20);
+
+    const memberSince = (profile && profile.member_since) || (user && user.created_at) || null;
+    const daysSince = memberSince ? Math.floor((Date.now() - new Date(memberSince).getTime()) / 86400000) : 0;
+    const tenurePoints = Math.min(Math.floor(daysSince / 30), 10);
+
+    const trustScore = Math.round(
+      (emailVerified ? 8 : 0) +
+      (kycVerified ? 17 : 0) +
+      (hasAvatar ? 5 : 0) +
+      (hasBio ? 5 : 0) +
+      (hasCountrySocial ? 5 : 0) +
+      accountsPoints +
+      fundedPoints +
+      winRatePoints +
+      tenurePoints
+    );
+
+    const passRateBps = Number((profile && profile.pass_rate_bps) || 0);
+    const passRateStr = passRateBps > 0 ? (Math.floor(passRateBps / 100) + "%") : "0%";
+
+    const totalProfitCents = accounts.reduce((sum, a) => {
+      const size = Number(a.account_size_cents) || 0;
+      const profitBps = Number(a.profit_bps) || 0;
+      return sum + Math.round((size * profitBps) / 10000);
+    }, 0);
+    const totalProfitStr = "$" + Math.round(totalProfitCents / 100).toLocaleString("en-US");
+
+    const bestWinRateBps = accounts.reduce((max, a) => Math.max(max, Number(a.win_rate_bps) || 0), 0);
+    const bestWinRateStr = Math.floor(bestWinRateBps / 100) + "%";
+
+    const profitUsd = totalProfitCents / 100;
+    let tier = "—";
+    if (profitUsd >= 100000) tier = "Tier 5";
+    else if (profitUsd >= 50000) tier = "Tier 4";
+    else if (profitUsd >= 10000) tier = "Tier 3";
+    else if (profitUsd >= 1000) tier = "Tier 2";
+    else if (profitUsd > 0) tier = "Tier 1";
+
+    return {
+      rank,
+      trust_score: trustScore,
+      pass_rate: passRateStr,
+      pass_rate_bps: passRateBps,
+      total_profit_cents: totalProfitCents,
+      total_profit: totalProfitStr,
+      best_win_rate_bps: bestWinRateBps,
+      best_win_rate: bestWinRateStr,
+      tier,
+      total_challenges: accountsCount,
+      total_passed: passedCount,
+      total_failed: failedCount,
+      funded_count: fundedCount,
+      accounts_count: accountsCount,
+      member_since: memberSince,
+    };
+  } catch (err) {
+    console.error("computeTraderStats error:", err);
+    return {
+      rank: "ROOKIE",
+      trust_score: 0,
+      pass_rate: "0%",
+      pass_rate_bps: 0,
+      total_profit_cents: 0,
+      total_profit: "$0",
+      best_win_rate_bps: 0,
+      best_win_rate: "0%",
+      tier: "—",
+      total_challenges: 0,
+      total_passed: 0,
+      total_failed: 0,
+      funded_count: 0,
+      accounts_count: 0,
+      member_since: null,
+    };
+  }
+}
+
 async function fetchProfile(userId) {
   const [rows] = await db.execute(
     "SELECT * FROM tid_profiles WHERE tid_user_id = ? LIMIT 1",
