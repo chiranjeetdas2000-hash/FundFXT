@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trader ID — Refund Policy. Terms for digital products and physical card orders.">
+  <title>Refund Policy — Trader ID</title>
+  <link rel="stylesheet" href="/tradersid/css/tid.css">
+  <link rel="stylesheet" href="/tradersid/css/legal.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="tid-header">
+  <div class="container tid-header-inner">
+    <a href="/tradersid/home.html" class="tid-logo"><span class="tid-logo-mark">TID</span><span>Trader ID</span></a>
+    <nav class="tid-nav">
+      <a href="/tradersid/home.html">Home</a>
+      <a href="/tradersid/home.html#what-is">About</a>
+      <a href="/tradersid/verify.html">Verify</a>
+      <a href="/tradersid/login.html">Login</a>
+    </nav>
+    <a href="/tradersid/login.html" class="btn btn-primary btn-sm">Sign In</a>
+    <button class="tid-menu-toggle" id="tidMenuToggle" aria-label="Open menu" aria-expanded="false"><span class="tid-menu-icon"><span></span><span></span><span></span></span></button>
+    <nav class="tid-mobile-nav" id="tidMobileNav" hidden>
+      <a href="/tradersid/home.html">Home</a>
+      <a href="/tradersid/home.html#what-is">About</a>
+      <a href="/tradersid/verify.html">Verify</a>
+      <a href="/tradersid/login.html">Login</a>
+    </nav>
+  </div>
+</header>
+
+<section class="legal-hero">
+  <div class="container">
+    <a href="/tradersid/home.html" class="back-link">← Back to Home</a>
+    <div class="page-eyebrow">Legal</div>
+    <h1 class="page-title">Refund Policy</h1>
+    <p class="page-sub">Our policy on refunds and cancellations for paid Traders ID products.</p>
+    <span class="legal-updated">Last updated: 5 October 2026</span>
+  </div>
+</section>
+
+<section class="legal-body">
+  <div class="container">
+    <div class="legal-layout">
+      <aside class="legal-sidebar">
+        <h4>On this page</h4>
+        <nav>
+          <a href="#digital">Digital Products</a>
+          <a href="#physical">Physical Cards</a>
+          <a href="#cancel">Order Cancellation</a>
+          <a href="#failed">Failed Payments</a>
+          <a href="#disputes">Disputes</a>
+          <a href="#chargebacks">Chargebacks</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </aside>
+      <main class="legal-content">
+
+        <h2 id="digital">1. Digital Products — Non-Refundable</h2>
+        <div class="callout">
+          <p><strong>All digital products are non-refundable once delivered.</strong> This includes verified badges, digital card activation, profile features, and any other instantly-issued digital item.</p>
+        </div>
+        <p>Because digital items are made available to you immediately upon successful payment and cannot be "returned", we do not offer refunds for them once they have been issued — except where required by applicable law.</p>
+
+        <h2 id="physical">2. Physical Cards</h2>
+        <p>Physical Trader ID cards are custom-produced and shipped to your address. Once an order has been <strong>dispatched</strong>, it is <strong>non-refundable</strong>. Before dispatch, you may request cancellation (see Section 3).</p>
+        <p>If a physical card arrives damaged or incorrect, contact us within <strong>7 days</strong> of delivery with photographic evidence, and we will arrange a replacement at our discretion.</p>
+
+        <h2 id="cancel">3. Order Cancellation</h2>
+        <ul>
+          <li><strong>Digital products:</strong> Cannot be cancelled once issued.</li>
+          <li><strong>Physical cards:</strong> Can be cancelled only before the order enters production/dispatch. Contact us as early as possible.</li>
+        </ul>
+
+        <h2 id="failed">4. Failed Payments</h2>
+        <p>If your payment fails but an amount is debited from your account, it is typically reversed automatically by your bank or payment provider within 5–10 business days. If not, contact us with your transaction reference and we will assist.</p>
+
+        <h2 id="disputes">5. Disputes</h2>
+        <p>If you believe you were charged incorrectly, contact us first at <a href="mailto:support.fundfxt@gmail.com">support.fundfxt@gmail.com</a> within <strong>7 days</strong> of the charge with your order reference. We will investigate and respond within a reasonable timeframe.</p>
+
+        <h2 id="chargebacks">6. Chargebacks</h2>
+        <p>Initiating a chargeback without first contacting us may result in suspension of your account and Traders ID. We reserve the right to contest chargebacks that we believe are unjustified, and to share relevant transaction records with the payment provider as required.</p>
+
+        <h2 id="contact">7. Contact</h2>
+        <p>For refund and billing questions:</p>
+        <p><strong>Email:</strong> <a href="mailto:support.fundfxt@gmail.com">support.fundfxt@gmail.com</a><br>
+        <strong>Location:</strong> India</p>
+
+        <div class="legal-crosslinks">
+          <h4>Other legal documents</h4>
+          <div class="links">
+            <a href="/tradersid/legal/terms.html">Terms of Service</a>
+            <a href="/tradersid/legal/privacy.html">Privacy Policy</a>
+            <a href="/tradersid/legal/verification-policy.html">Verification Policy</a>
+            <a href="/tradersid/legal/data-policy.html">Data Policy</a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<footer class="tid-footer">
+  <div class="container footer-inner">
+    <span>© 2026 Trader ID · A separate brand. Not affiliated with FundFXT.</span>
+    <div>
+      <a href="/tradersid/legal/privacy.html">Privacy</a>
+      <a href="/tradersid/legal/terms.html">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var toggle=document.getElementById('tidMenuToggle');
+  var nav=document.getElementById('tidMobileNav');
+  if(!toggle||!nav)return;
+  toggle.addEventListener('click',function(){
+    var open=toggle.getAttribute('aria-expanded')==='true';
+    toggle.setAttribute('aria-expanded',String(!open));
+    if(open)nav.setAttribute('hidden','');else nav.removeAttribute('hidden');
+  });
+  nav.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click',function(){toggle.setAttribute('aria-expanded','false');nav.setAttribute('hidden','');});
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){toggle.setAttribute('aria-expanded','false');nav.setAttribute('hidden','');}
+  });
+})();
+</script>
+</body>
+</html>
