@@ -602,6 +602,7 @@ router.get("/pak/:public_access_key", async (req, res) => {
       tier: profile?.tier || profile?.payout_tier || null,
       verified_badges: profile?.verified_badges ?? null,
       member_since: profile?.member_since || user.created_at || null,
+      avatar_url: profile?.avatar_url || null,
     };
     return res.json({
       success: true,
