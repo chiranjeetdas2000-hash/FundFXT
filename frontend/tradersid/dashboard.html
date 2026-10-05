@@ -1186,7 +1186,173 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     if (!n) { toast('Enter a key name first'); return; }
     toast('Access key creation coming soon');
   });
-  $('avatarUploadBtn').addEventListener('click', function(){ toast('Photo upload coming soon'); });
+  // ---- Avatar picker ----
+  var avatarModal = $('avatarModal');
+  var avatarGrid = $('avatarGrid');
+  var avatarCustomInput = $('avatarCustomInput');
+  var avatarError = $('avatarError');
+  var selectedAvatarUrl = null;
+  var customAvatarFile = null;
+
+  function openAvatarModal(){
+    if(!avatarModal) return;
+    avatarError.classList.remove('show');
+    var current = (cachedUser && cachedUser.avatar_url) || null;
+    selectedAvatarUrl = current;
+    customAvatarFile = null;
+    if(avatarGrid){
+      avatarGrid.querySelectorAll('.avatar-option').forEach(function(el){
+        var url = el.getAttribute('data-url');
+        el.classList.toggle('selected', url === current);
+      });
+    }
+    avatarModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeAvatarModal(){
+    if(!avatarModal) return;
+    avatarModal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  function updateAvatarPreview(url){
+    var prev = $('avatarPreview');
+    if(!prev) return;
+    if(url){
+      prev.innerHTML = '<img src="' + url + '" alt="Avatar" style="width:100%;height:100%;border-radius:50%;object-fit:cover">';
+    } else {
+      var name = (cachedUser && (cachedUser.full_name || cachedUser.legal_name)) || 'TID';
+      var parts = String(name).trim().split(/\s+/);
+      var init = (parts[0] ? parts[0][0] : '') + (parts[1] ? parts[1][0] : '');
+      prev.textContent = (init || 'TID').toUpperCase().slice(0,2);
+    }
+  }
+
+  if($('avatarUploadBtn')) $('avatarUploadBtn').addEventListener('click', openAvatarModal);
+  if($('avatarModalClose')) $('avatarModalClose').addEventListener('click', closeAvatarModal);
+  if($('avatarCancel')) $('avatarCancel').addEventListener('click', closeAvatarModal);
+  if(avatarModal) avatarModal.addEventListener('click', function(e){ if(e.target === avatarModal) closeAvatarModal(); });
+
+  if(avatarGrid){
+    avatarGrid.querySelectorAll('.avatar-option').forEach(function(el){
+      el.addEventListener('click', function(){
+        avatarGrid.querySelectorAll('.avatar-option').forEach(function(x){ x.classList.remove('selected'); });
+        el.classList.add('selected');
+        selectedAvatarUrl = el.getAttribute('data-url');
+        customAvatarFile = null;
+        if(avatarCustomInput) avatarCustomInput.value = '';
+      });
+    });
+  }
+
+  if(avatarCustomInput){
+    avatarCustomInput.addEventListener('change', function(){
+      var f = this.files && this.files[0];
+      if(!f) return;
+      if(f.size > 3 * 1024 * 1024){ toast('File too large. Max 3 MB.'); this.value = ''; return; }
+      customAvatarFile = f;
+      // Deselect grid
+      if(avatarGrid) avatarGrid.querySelectorAll('.avatar-option').forEach(function(x){ x.classList.remove('selected'); });
+      selectedAvatarUrl = null;
+      // Preview
+      var prev = $('avatarPreview');
+      if(prev){
+        var reader = new FileReader();
+        reader.onload = function(ev){ prev.innerHTML = '<img src="' + ev.target.result + '" alt="Preview" style="width:100%;height:100%;border-radius:50%;object-fit:cover">'; };
+        reader.readAsDataURL(f);
+      }
+    });
+  }
+
+  function compressAvatar(file){
+    return new Promise(function(resolve, reject){
+      var img = new Image();
+      var url = URL.createObjectURL(file);
+      img.onload = function(){
+        URL.revokeObjectURL(url);
+        var size = 256;
+        var canvas = document.createElement('canvas');
+        canvas.width = size; canvas.height = size;
+        var ctx = canvas.getContext('2d');
+        var w = img.width, h = img.height;
+        var s = Math.min(w, h);
+        var sx = (w - s) / 2, sy = (h - s) / 2;
+        ctx.drawImage(img, sx, sy, s, s, 0, 0, size, size);
+        canvas.toBlob(function(blob){
+          if(!blob) return reject(new Error('Compression failed'));
+          resolve(new File([blob], 'avatar.webp', { type: 'image/webp' }));
+        }, 'image/webp', 0.85);
+      };
+      img.onerror = function(){ URL.revokeObjectURL(url); reject(new Error('Image load failed')); };
+      img.src = url;
+    });
+  }
+
+  var avatarSaveBtn = $('avatarSave');
+  if(avatarSaveBtn) avatarSaveBtn.addEventListener('click', async function(){
+    avatarError.classList.remove('show');
+    if(!selectedAvatarUrl && !customAvatarFile){
+      avatarError.textContent = 'Select an avatar or upload a photo.';
+      avatarError.classList.add('show');
+      return;
+    }
+    avatarSaveBtn.disabled = true; avatarSaveBtn.textContent = 'Saving…';
+    try {
+      var finalUrl = selectedAvatarUrl;
+
+      if(customAvatarFile){
+        var compressed = await compressAvatar(customAvatarFile);
+        var fd = new FormData();
+        fd.append('file', compressed);
+        fd.append('file_type', 'AVATAR');
+        var upRes = await fetch(API + '/api/tid/upload', { method:'POST', headers:{ Authorization:'Bearer ' + token }, body: fd });
+        var upData = await upRes.json();
+        if(!upRes.ok || !upData.success) throw new Error(upData.error || 'Upload failed');
+        // Get presigned URL for the uploaded avatar
+        var urlRes = await fetch(API + '/api/tid/file-url/' + upData.file_id, { headers:{ Authorization:'Bearer ' + token } });
+        var urlData = await urlRes.json();
+        if(!urlRes.ok || !urlData.success) throw new Error(urlData.error || 'URL fetch failed');
+        finalUrl = '/api/tid/file-url/' + upData.file_id;
+        // Store file_id based URL for persistence — reference via file ID
+        finalUrl = 'r2:' + upData.file_id;
+      }
+
+      var pRes = await fetch(API + '/api/tid/me/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization:'Bearer ' + token },
+        body: JSON.stringify({ avatar_url: finalUrl })
+      });
+      var pData = await pRes.json();
+      if(!pRes.ok || !pData.success) throw new Error(pData.error || 'Save failed');
+
+      if(cachedUser) cachedUser.avatar_url = finalUrl;
+      localStorage.setItem('tid_user', JSON.stringify(cachedUser));
+      updateAvatarPreview(selectedAvatarUrl || null);
+      closeAvatarModal();
+      toast('Avatar saved');
+    } catch(err){
+      avatarError.textContent = err.message || 'Save failed';
+      avatarError.classList.add('show');
+    } finally {
+      avatarSaveBtn.disabled = false; avatarSaveBtn.textContent = 'Save Avatar';
+    }
+  });
+
+  // Show current avatar on load if set
+  (function initAvatarPreview(){
+    if(cachedUser && cachedUser.avatar_url){
+      var u = cachedUser.avatar_url;
+      if(u.indexOf('r2:') === 0){
+        // Resolve presigned URL on load
+        fetch(API + '/api/tid/file-url/' + u.slice(3), { headers:{ Authorization:'Bearer ' + token } })
+          .then(function(r){ return r.json(); })
+          .then(function(d){ if(d.success && d.url) updateAvatarPreview(d.url); })
+          .catch(function(){});
+      } else {
+        updateAvatarPreview(u);
+      }
+    }
+  })();
 
 })();
 </script>
