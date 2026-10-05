@@ -848,6 +848,8 @@ router.patch("/me/profile", authenticateTid, requireJsonBody, async (req, res) =
       "phone",
       "timezone",
       "trading_style",
+      "twitter",
+      "linkedin",
     ];
     const body = req.body || {};
     const profileValues = {};
