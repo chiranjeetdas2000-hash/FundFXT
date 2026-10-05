@@ -34,6 +34,48 @@ const r2 = new S3Client({
 });
 const R2_BUCKET = process.env.R2_BUCKET_NAME || "tid-files";
 
+function escapeHtml(v) {
+  return String(v == null ? "" : v).replace(/[&<>"']/g, function (c) {
+    return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c];
+  });
+}
+
+async function sendEmail(to, subject, html, timeoutMs) {
+  const configuredFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER;
+  const from = configuredFrom && configuredFrom.includes("<")
+    ? configuredFrom
+    : "Trader ID <" + configuredFrom + ">";
+
+  if (process.env.RESEND_API_KEY) {
+    const controller = new AbortController();
+    const timeout = timeoutMs ? setTimeout(() => controller.abort(), timeoutMs) : null;
+    try {
+      const response = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: "Bearer " + process.env.RESEND_API_KEY,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ from, to: [to], subject, html }),
+        signal: controller.signal,
+      });
+      if (!response.ok) throw new Error("Resend email failed with HTTP " + response.status);
+      return;
+    } finally {
+      if (timeout) clearTimeout(timeout);
+    }
+  }
+  const nodemailer = require("nodemailer");
+  const transporter = nodemailer.createTransport({
+    service: process.env.EMAIL_SERVICE || "gmail",
+    host: process.env.SMTP_HOST || undefined,
+    port: process.env.SMTP_PORT ? Number(process.env.SMTP_PORT) : undefined,
+    secure: process.env.SMTP_SECURE != null ? String(process.env.SMTP_SECURE).toLowerCase() === "true" : undefined,
+    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS },
+  });
+  await transporter.sendMail({ from, to, subject, html });
+}
+
 function authenticateAdmin(req, res, next) {
   const token = req.headers.authorization?.split(" ")[1];
   if (!token) return res.status(401).json({ error: "No admin token" });
@@ -222,6 +264,132 @@ router.post("/admin/tid/accounts/:id/reject", authenticateAdmin, requireSuperAdm
   } catch (e) {
     console.error("[TID-ADMIN] account reject:", e.message);
     return res.status(500).json({ error: "Unable to reject" });
+  }
+});
+
+// Payment requests queue (all payment-related statuses)
+router.get("/admin/tid/accounts/payment-requests", authenticateAdmin, async function (req, res) {
+  try {
+    const [rows] = await db.execute(
+      "SELECT a.id, a.tid_user_id, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.total_withdrawal_cents, a.verification_status, a.verification_fee_cents, a.payment_ref, a.score_impact_intent, a.created_at, u.tid, u.legal_name, u.email, u.full_name, u.name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.verification_status IN ('AWAITING_PAYMENT','PAID_REQUESTED','LINK_SENT','PAID_PENDING') ORDER BY FIELD(a.verification_status,'PAID_REQUESTED','AWAITING_PAYMENT','LINK_SENT','PAID_PENDING'), a.updated_at DESC LIMIT 200"
+    );
+    return res.json({ success: true, accounts: rows });
+  } catch (e) {
+    console.error("[TID-ADMIN] payment requests:", e.message);
+    return res.status(500).json({ error: "Unable to load payment requests" });
+  }
+});
+
+// Save payment link → status LINK_SENT → email admin with ready-to-forward template
+router.post("/admin/tid/accounts/:id/save-payment-link", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const linkRaw = String(req.body?.payment_link || "").trim();
+    if (!linkRaw || !/^https?:\/\//i.test(linkRaw)) {
+      return res.status(400).json({ error: "Valid payment link required (must start with http)" });
+    }
+    const link = linkRaw.slice(0, 500);
+
+    const [rows] = await db.execute(
+      "SELECT a.id, a.verification_status, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.verification_fee_cents, a.tid_user_id, u.tid, u.email, u.full_name, u.name, u.legal_name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? LIMIT 1",
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Not found" });
+
+    const acc = rows[0];
+    const cur = String(acc.verification_status || "").toUpperCase();
+    if (!["PAID_REQUESTED", "AWAITING_PAYMENT", "LINK_SENT"].includes(cur)) {
+      return res.status(400).json({ error: "Account is not in a payment-request state" });
+    }
+
+    await db.execute(
+      "UPDATE tid_accounts SET verification_status = 'LINK_SENT', payment_ref = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
+      [link, id]
+    );
+
+    res.json({ success: true, status: "LINK_SENT" });
+
+    setImmediate(async () => {
+      try {
+        const feeCents = Number(acc.verification_fee_cents) || 200;
+        const feeStr = "$" + (feeCents / 100).toFixed(0);
+        const userName = acc.full_name || acc.legal_name || acc.name || "Trader";
+        const userEmail = acc.email || "—";
+        const userTid = acc.tid || "—";
+        const accLabel = String(acc.account_category || "").toUpperCase() === "BROKER"
+          ? (acc.broker_name || "Broker") + " · " + (String(acc.broker_account_mode || "").toUpperCase() === "DEMO" ? "Demo" : "Real") + " · ID: " + (acc.broker_account_id || "—")
+          : (acc.firm_name || "Firm") + " · $" + ((Number(acc.account_size_cents) || 0) / 100).toLocaleString("en-US");
+        const safe = (v) => escapeHtml(String(v == null ? "" : v));
+
+        const forwardBody =
+          "Hi " + userName + ",\n\n" +
+          "Here is your Trader ID verification payment link:\n\n" +
+          "Account: " + accLabel + "\n" +
+          "Trader ID: " + userTid + "\n" +
+          "Verification Fee: " + feeStr + "\n\n" +
+          "Pay securely here:\n" + link + "\n\n" +
+          "After payment, please reply with the transaction ID so we can verify and approve your account.\n\n" +
+          "— Traders ID\n" +
+          "support.fundfxt@gmail.com";
+
+        const forwardBodyHtml = forwardBody
+          .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+          .replace(/\n/g, "<br>");
+
+        const html =
+          "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"></head>" +
+          "<body style=\"margin:0;padding:0;background:#F8F9FB;font-family:Inter,Arial,sans-serif;color:#0F1B2D\">" +
+          "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"background:#F8F9FB;padding:32px 16px\"><tr><td align=\"center\">" +
+          "<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" style=\"max-width:600px;background:#FFFFFF;border:1px solid #E8EBF0;border-radius:14px;overflow:hidden\">" +
+          "<tr><td style=\"padding:22px 28px;border-bottom:1px solid #E8EBF0\">" +
+          "<table role=\"presentation\" cellpadding=\"0\" cellspacing=\"0\"><tr>" +
+          "<td style=\"width:40px;height:40px;background:#0F1B2D;color:#FFFFFF;border-radius:8px;text-align:center;vertical-align:middle;font-weight:800;font-size:13px;letter-spacing:.5px\">TID</td>" +
+          "<td style=\"padding-left:12px;font-size:18px;font-weight:700;color:#0F1B2D\">Trader ID · Admin</td>" +
+          "</tr></table></td></tr>" +
+          "<tr><td style=\"padding:30px 28px 8px\">" +
+          "<p style=\"margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#B8935A\">Ready to Forward</p>" +
+          "<h1 style=\"margin:0 0 12px;font-size:22px;line-height:1.3;color:#0F1B2D\">Payment link saved for " + safe(userTid) + "</h1>" +
+          "<p style=\"margin:0 0 20px;font-size:14px;line-height:1.7;color:#64748B\">Copy the message below and forward it to <b>" + safe(userEmail) + "</b> from your Gmail. The link is already attached.</p>" +
+          "</td></tr>" +
+          "<tr><td style=\"padding:0 28px 12px\">" +
+          "<div style=\"border:1px dashed #B8935A;border-radius:10px;padding:18px 20px;background:#FFFDF7;font-size:13.5px;line-height:1.75;color:#0F1B2D;font-family:Consolas,Menlo,monospace;white-space:pre-wrap\">" + forwardBodyHtml + "</div>" +
+          "</td></tr>" +
+          "<tr><td style=\"padding:8px 28px 26px\">" +
+          "<p style=\"margin:0;font-size:12.5px;line-height:1.7;color:#94A3B8\">After the user pays, open the admin panel → Payment Requests → this account → Mark Paid → then Verify with metrics.</p>" +
+          "</td></tr>" +
+          "<tr><td style=\"padding:18px 28px;border-top:1px solid #E8EBF0;background:#F8F9FB\">" +
+          "<p style=\"margin:0 0 5px;font-size:12px;color:#64748B\">Traders ID · Admin Notifications</p>" +
+          "<p style=\"margin:0;font-size:12px;color:#94A3B8\">Automated message · Do not reply</p>" +
+          "</td></tr></table></td></tr></table></body></html>";
+
+        await sendEmail("support.fundfxt@gmail.com", "Ready to Forward · " + userTid + " · " + accLabel, html, 8000);
+      } catch (emailErr) {
+        console.warn("Admin link-saved email failed:", emailErr.message);
+      }
+    });
+  } catch (e) {
+    console.error("[TID-ADMIN] save-payment-link:", e.message);
+    return res.status(500).json({ error: "Unable to save payment link" });
+  }
+});
+
+// Mark account as paid (payment manually verified by admin)
+router.post("/admin/tid/accounts/:id/mark-paid", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const [r] = await db.execute(
+      "UPDATE tid_accounts SET verification_status = 'PAID_PENDING', verification_paid = 1, updated_at = NOW() WHERE id = ? AND verification_status IN ('LINK_SENT','PAID_REQUESTED') LIMIT 1",
+      [id]
+    );
+    if (!r.affectedRows) return res.status(404).json({ error: "Not found or invalid state" });
+    return res.json({ success: true, status: "PAID_PENDING" });
+  } catch (e) {
+    console.error("[TID-ADMIN] mark-paid:", e.message);
+    return res.status(500).json({ error: "Unable to mark paid" });
   }
 });
 
