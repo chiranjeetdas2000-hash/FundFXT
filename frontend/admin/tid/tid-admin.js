@@ -35,6 +35,27 @@
     return data;
   }
 
+  var sidebar = document.getElementById('adminSidebar');
+  var menuToggle = document.getElementById('menuToggle');
+  var sidebarClose = document.getElementById('sidebarClose');
+  var drawerBackdrop = document.getElementById('drawerBackdrop');
+
+  function openDrawer(){
+    if(sidebar) sidebar.classList.add('open');
+    if(drawerBackdrop) drawerBackdrop.classList.add('show');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeDrawer(){
+    if(sidebar) sidebar.classList.remove('open');
+    if(drawerBackdrop) drawerBackdrop.classList.remove('show');
+    document.body.style.overflow = '';
+  }
+  if(menuToggle) menuToggle.addEventListener('click', openDrawer);
+  if(sidebarClose) sidebarClose.addEventListener('click', closeDrawer);
+  if(drawerBackdrop) drawerBackdrop.addEventListener('click', closeDrawer);
+  document.addEventListener('keydown', function(e){ if(e.key === 'Escape') closeDrawer(); });
+  window.closeDrawer = closeDrawer;
+
   window.showView = function(view){
     document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
     var el = document.getElementById('view-' + view);
@@ -45,6 +66,7 @@
     else if(view === 'kyc') loadKycQueue();
     else if(view === 'accounts') loadAccountQueue();
     else if(view === 'users') loadUsers();
+    if(window.closeDrawer) window.closeDrawer();
   };
 
   // ---------- OVERVIEW ----------
