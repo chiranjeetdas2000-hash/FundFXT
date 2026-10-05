@@ -895,6 +895,45 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   </div>
 </nav>
 
+<!-- ============ AVATAR PICKER MODAL ============ -->
+<div class="modal-backdrop" id="avatarModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Choose Avatar</div>
+      <button class="modal-close" type="button" id="avatarModalClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div style="padding:11px 14px;background:#F8F9FB;border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.55;margin-bottom:16px">
+        <b style="color:var(--navy-900)">Ye avatar aapki Trader ID card aur public profile pe dikhega.</b> Pre-made avatar chunein ya apni custom photo upload karein.
+      </div>
+      <div class="avatar-picker-grid" id="avatarGrid">
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-bull.svg"><img src="/tradersid/avatars/avatar-bull.svg" alt="Bull" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-bear.svg"><img src="/tradersid/avatars/avatar-bear.svg" alt="Bear" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-wolf.svg"><img src="/tradersid/avatars/avatar-wolf.svg" alt="Wolf" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-eagle.svg"><img src="/tradersid/avatars/avatar-eagle.svg" alt="Eagle" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-lion.svg"><img src="/tradersid/avatars/avatar-lion.svg" alt="Lion" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-rocket.svg"><img src="/tradersid/avatars/avatar-rocket.svg" alt="Rocket" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-diamond.svg"><img src="/tradersid/avatars/avatar-diamond.svg" alt="Diamond" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-crown.svg"><img src="/tradersid/avatars/avatar-crown.svg" alt="Crown" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-man-1.svg"><img src="/tradersid/avatars/avatar-man-1.svg" alt="Man 1" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-man-2.svg"><img src="/tradersid/avatars/avatar-man-2.svg" alt="Man 2" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-woman-1.svg"><img src="/tradersid/avatars/avatar-woman-1.svg" alt="Woman 1" loading="lazy"></div>
+        <div class="avatar-option" data-url="/tradersid/avatars/avatar-woman-2.svg"><img src="/tradersid/avatars/avatar-woman-2.svg" alt="Woman 2" loading="lazy"></div>
+      </div>
+      <label class="avatar-custom-zone" for="avatarCustomInput">
+        <input type="file" id="avatarCustomInput" accept="image/*">
+        <div class="avatar-custom-text">📷 Upload Custom Photo</div>
+        <div class="avatar-custom-hint">JPG / PNG · Max 3 MB (auto-compressed to 256×256)</div>
+      </label>
+      <div class="modal-error" id="avatarError"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="avatarCancel">Cancel</button>
+        <button class="btn btn-primary" type="button" id="avatarSave">Save Avatar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
