@@ -57,6 +57,18 @@
             "destination": "/frontend/tradersid/:path*"
         },
         {
+            "source": "/admin/tid",
+            "destination": "/frontend/admin/tid/index.html"
+        },
+        {
+            "source": "/admin/tid/",
+            "destination": "/frontend/admin/tid/index.html"
+        },
+        {
+            "source": "/admin/tid/:path*",
+            "destination": "/frontend/admin/tid/:path*"
+        },
+        {
             "source": "/admin/:path*",
             "destination": "/frontend/admin/:path*"
         },
