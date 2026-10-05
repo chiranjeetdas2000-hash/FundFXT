@@ -1118,11 +1118,14 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
     $('pfLinkedin').value = (profile && profile.linkedin) || '';
     $('pfBio').value = (profile && profile.bio) || '';
 
-    // Trader Score ring (0-100) — computed from pass rate + activity
-    var score = Math.min(100, Math.floor(passBps/100) + Math.min(total*3, 30));
+    // Trader Score ring (0-100) — from computed stats (backend)
+    var score = Number(stats.trust_score);
+    if (!Number.isFinite(score)) {
+      score = Math.min(100, Math.floor(passBps/100) + Math.min(total*3, 30));
+    }
     var dash = (score/100) * 289;
     $('scoreBar').setAttribute('stroke-dasharray', dash + ' ' + (289 - dash));
-    $('scoreVal').textContent = score || '—';
+    $('scoreVal').textContent = (score > 0) ? score : '—';
 
     // Win-loss chart update
     if (wlChart && (passed + failed) > 0) {
@@ -1156,7 +1159,7 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
         // Merge pak key for signup compat
         if (!user.public_access_key && user.pak) user.public_access_key = user.pak;
         localStorage.setItem('tid_user', JSON.stringify(user));
-        renderDashboard(user, data.profile || {});
+        renderDashboard(user, data.profile || {}, data.stats || {});
       })
       .catch(function(err){
         if (err && err.message === 'unauth') return;
