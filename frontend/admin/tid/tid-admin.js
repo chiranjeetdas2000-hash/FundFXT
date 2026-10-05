@@ -118,12 +118,14 @@
       html += '</div>';
       html += '<h3 style="margin:16px 0 10px;font-size:13.5px;letter-spacing:.02em">Documents</h3>';
       html += '<div id="kycFiles">Loading…</div>';
+      html += '<div id="kycDuplicates" style="margin-top:16px"></div>';
       html += '<div class="actions-row"><button class="btn" onclick="approveKyc(' + k.id + ')">✓ Approve</button><button class="btn red" onclick="rejectKyc(' + k.id + ')">✕ Reject</button></div>';
       html += '</div>';
       $('kycDetailWrap').innerHTML = html;
       $('kycDetailWrap').classList.remove('hidden');
       $('kycListWrap').classList.add('hidden');
       loadKycFiles(k.id_file_id, k.selfie_file_id, k.address_file_id);
+      loadKycDuplicates(k.id);
     } catch(e){ setError(e.message); }
   };
 
