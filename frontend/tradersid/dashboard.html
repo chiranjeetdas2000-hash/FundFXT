@@ -1054,11 +1054,29 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   initCharts();
 
   // ---- Dashboard load ----
+  function setHeroAvatar(url){
+    var el = $('heroAvatar');
+    if(!el) return;
+    if(url){
+      if(url.indexOf('r2:') === 0){
+        fetch(API + '/api/tid/file-url/' + url.slice(3), { headers: { Authorization: 'Bearer ' + token } })
+          .then(function(r){ return r.json(); })
+          .then(function(d){ if(d.success && d.url) el.innerHTML = '<img src="' + d.url + '" alt="Avatar">'; })
+          .catch(function(){});
+      } else {
+        el.innerHTML = '<img src="' + url + '" alt="Avatar">';
+      }
+    } else {
+      el.textContent = 'TID';
+    }
+  }
+
   function renderDashboard(user, profile){
     var name = (user && (user.full_name || user.legal_name)) || (profile && profile.display_name) || 'Trader';
     $('heroName').textContent = 'Welcome, ' + name;
     $('heroTid').textContent = (user && user.tid) || '—';
     $('heroPak').textContent = (user && (user.public_access_key || user.pak)) || '—';
+    setHeroAvatar((user && user.avatar_url) || (profile && profile.avatar_url));
     var since = (profile && profile.member_since) || (user && user.created_at);
     $('heroSince').textContent = since ? fmtDate(since) : '—';
     var rank = (profile && profile.current_rank) || 'ROOKIE';
@@ -1118,6 +1136,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
       $('heroName').textContent = 'Welcome, ' + (cachedUser.full_name || 'Trader');
       $('heroTid').textContent = cachedUser.tid || '—';
       $('heroPak').textContent = cachedUser.public_access_key || cachedUser.pak || '—';
+      setHeroAvatar(cachedUser.avatar_url || null);
     }
     fetch(API + '/api/tid/me', {headers:{Authorization:'Bearer ' + token}})
       .then(function(res){
