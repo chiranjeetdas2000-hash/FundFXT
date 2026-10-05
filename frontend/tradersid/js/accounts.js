@@ -121,7 +121,9 @@
       var lbl = statusLabel(a.verification_status);
       var isVerified = String(a.verification_status || '').toUpperCase() === 'VERIFIED';
       var filesBtn = isVerified ? '' : '<button class="btn btn-ghost acct-files" data-id="' + a.id + '">Files</button>';
-      var verifyBtn = isVerified ? '' : '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Verify \u00b7 $2</button>';
+      var vStatus = String(a.verification_status || 'NONE').toUpperCase();
+      var canRequest = vStatus === 'NONE' && String(a.score_impact_intent || 'NO').toUpperCase() === 'YES';
+      var verifyBtn = canRequest ? '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Request Verify</button>' : '';
       var isBroker = String(a.account_category || 'PROP_FIRM').toUpperCase() === 'BROKER';
       var intentYes = String(a.score_impact_intent || 'NO').toUpperCase() === 'YES';
       var catLabel = isBroker ? 'Broker' : 'Prop Firm';
@@ -171,7 +173,26 @@
     var verBtns = accountsList.querySelectorAll('.acct-verify');
     for(var j = 0; j < verBtns.length; j++){
       verBtns[j].addEventListener('click', function(){
-        toast('Verification payment ($2) coming soon');
+        var id = this.getAttribute('data-id');
+        var btn = this;
+        if(!confirm('Request verification for this account? Admin will review and may request a $2 fee.')) return;
+        btn.disabled = true;
+        btn.textContent = 'Requesting…';
+        fetch(API + '/api/tid/accounts/' + id + '/request-verification', {
+          method: 'POST',
+          headers: {Authorization:'Bearer ' + token}
+        })
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+          .then(function(x){
+            if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Request failed');
+            toast('Verification requested — admin will review');
+            loadAccounts();
+          })
+          .catch(function(e){
+            toast(e.message || 'Request failed');
+            btn.disabled = false;
+            btn.textContent = 'Request Verify';
+          });
       });
     }
     var fileBtns = accountsList.querySelectorAll('.acct-files');
