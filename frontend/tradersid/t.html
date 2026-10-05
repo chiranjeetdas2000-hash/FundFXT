@@ -82,6 +82,55 @@
   <section id="profileResult" class="profile-result" hidden></section>
 </main>
 
+<section class="how-it-works">
+  <div class="hiw-container">
+    <div class="hiw-eyebrow">HOW IT WORKS</div>
+    <h2 class="hiw-title">Verify any Trader ID in seconds</h2>
+    <p class="hiw-sub">No login required. Just the Trader ID and their access key.</p>
+    <div class="hiw-steps">
+      <div class="hiw-step">
+        <div class="hiw-num">01</div>
+        <div class="hiw-step-title">Get the Trader ID</div>
+        <div class="hiw-step-desc">Scan the QR code on the trader's physical or digital card, or receive their Trader ID directly.</div>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">02</div>
+        <div class="hiw-step-title">Enter the Access Key</div>
+        <div class="hiw-step-desc">Each trader shares their private PAK-XXXXXXXX key with people they trust. Paste it above to unlock.</div>
+      </div>
+      <div class="hiw-step">
+        <div class="hiw-num">03</div>
+        <div class="hiw-step-title">View Verified Profile</div>
+        <div class="hiw-step-desc">Instantly see their KYC status, rank, trust score, pass rate, payout tier, and lifetime record.</div>
+      </div>
+    </div>
+    <div class="hiw-cta">
+      <span class="hiw-cta-text">Want your own Trader ID?</span>
+      <a href="/tradersid/signup.html" class="hiw-cta-link">Claim yours →</a>
+    </div>
+  </div>
+</section>
+
+<style>
+  .how-it-works{background:#0A1424;padding:56px 20px;border-top:1px solid rgba(255,255,255,.06)}
+  .hiw-container{max-width:1040px;margin:0 auto;text-align:center}
+  .hiw-eyebrow{font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.16em;color:#00b56a;margin-bottom:12px;font-weight:600}
+  .hiw-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:8px;letter-spacing:-.02em}
+  .hiw-sub{font-size:14px;color:rgba(255,255,255,.55);margin-bottom:36px}
+  .hiw-steps{display:grid;grid-template-columns:1fr;gap:16px;margin-bottom:36px}
+  .hiw-step{padding:24px 20px;background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.08);border-radius:16px;text-align:left}
+  .hiw-num{font-family:'JetBrains Mono',monospace;font-size:13px;font-weight:700;color:#B8935A;margin-bottom:12px;letter-spacing:.08em}
+  .hiw-step-title{font-size:16px;font-weight:700;color:#fff;margin-bottom:8px}
+  .hiw-step-desc{font-size:13px;line-height:1.6;color:rgba(255,255,255,.6)}
+  .hiw-cta{display:inline-flex;align-items:center;gap:10px;padding:12px 20px;background:rgba(0,181,106,.12);border:1px solid rgba(0,181,106,.3);border-radius:999px}
+  .hiw-cta-text{font-size:13px;color:rgba(255,255,255,.75)}
+  .hiw-cta-link{font-size:13px;font-weight:700;color:#00b56a;text-decoration:none}
+  .hiw-cta-link:hover{text-decoration:underline}
+  @media (min-width:700px){.hiw-steps{grid-template-columns:repeat(3,1fr)}.hiw-title{font-size:32px}}
+</style>
+
+<nav class="bottom-nav" aria-label="Mobile navigation">
+
 <script>
 const API="https://fundfxt.onrender.com";
 const params=new URLSearchParams(location.search);
