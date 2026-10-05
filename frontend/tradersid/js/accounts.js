@@ -163,7 +163,95 @@
         openFilesModal(id);
       });
     }
+    var updBtns = accountsList.querySelectorAll('.acct-update');
+    for(var m = 0; m < updBtns.length; m++){
+      updBtns[m].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        openUpdateModal(id);
+      });
+    }
   }
+
+  var updateModal = $('updateAccountModal');
+  var updateForm = $('updateAccountForm');
+  var updError = $('updError');
+  var currentUpdateId = null;
+
+  function openUpdateModal(accountId){
+    if(!updateModal || !updateForm) return;
+    currentUpdateId = accountId;
+    if(updError) updError.classList.remove('show');
+    fetch(API + '/api/tid/accounts/' + accountId, {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success || !d.account) throw new Error('Load failed');
+        var a = d.account;
+        var s = $('updStatus'); if(s) s.value = a.status || 'PENDING';
+        var t = $('updTrades'); if(t) t.value = Number(a.total_trades) || 0;
+        var w = $('updWins'); if(w) w.value = Number(a.total_wins) || 0;
+        var l = $('updLosses'); if(l) l.value = Number(a.total_losses) || 0;
+        var p = $('updProfit'); if(p) p.value = ((Number(a.profit_bps) || 0) / 100).toFixed(2);
+        var bw = $('updBestWin'); if(bw) bw.value = ((Number(a.biggest_win_cents) || 0) / 100).toFixed(2);
+        var bl = $('updWorstLoss'); if(bl) bl.value = ((Number(a.biggest_loss_cents) || 0) / 100).toFixed(2);
+        updateModal.classList.add('show');
+      })
+      .catch(function(e){ if(updError){ updError.textContent = e.message || 'Load failed'; updError.classList.add('show'); } });
+  }
+
+  function closeUpdateModal(){
+    if(updateModal) updateModal.classList.remove('show');
+    currentUpdateId = null;
+  }
+
+  var updClose = $('updateAccountModalClose');
+  var updCancel = $('updateAccountCancel');
+  if(updClose) updClose.addEventListener('click', closeUpdateModal);
+  if(updCancel) updCancel.addEventListener('click', closeUpdateModal);
+  if(updateModal) updateModal.addEventListener('click', function(e){ if(e.target === updateModal) closeUpdateModal(); });
+
+  if(updateForm) updateForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    if(!currentUpdateId) return;
+    if(updError) updError.classList.remove('show');
+    var status = $('updStatus') ? $('updStatus').value : null;
+    var trades = Number($('updTrades') ? $('updTrades').value : 0) || 0;
+    var wins = Number($('updWins') ? $('updWins').value : 0) || 0;
+    var losses = Number($('updLosses') ? $('updLosses').value : 0) || 0;
+    var profitPct = Number($('updProfit') ? $('updProfit').value : 0) || 0;
+    var bestWin = Number($('updBestWin') ? $('updBestWin').value : 0) || 0;
+    var worstLoss = Number($('updWorstLoss') ? $('updWorstLoss').value : 0) || 0;
+    var winRateBps = trades > 0 ? Math.round((wins / trades) * 10000) : 0;
+    var payload = {
+      status: status,
+      total_trades: trades,
+      total_wins: wins,
+      total_losses: losses,
+      win_rate_bps: winRateBps,
+      profit_bps: Math.round(profitPct * 100),
+      biggest_win_cents: Math.round(bestWin * 100),
+      biggest_loss_cents: Math.round(worstLoss * 100)
+    };
+    var submitBtn = $('updateAccountSubmit');
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Saving...'; }
+    fetch(API + '/api/tid/accounts/' + currentUpdateId, {
+      method: 'PATCH',
+      headers: {'Content-Type': 'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify(payload)
+    })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Update failed');
+        closeUpdateModal();
+        toast('Account updated');
+        loadAccounts();
+        if(typeof loadDashboard === 'function') loadDashboard();
+      })
+      .catch(function(e){
+        if(updError){ updError.textContent = e.message || 'Update failed'; updError.classList.add('show'); }
+      })
+      .then(function(){
+        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Save Update'; }
+      });
 
   function loadAccounts(){
     if(!token || !accountsList) return;
