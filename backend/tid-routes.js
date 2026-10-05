@@ -592,14 +592,16 @@ router.get("/pak/:public_access_key", async (req, res) => {
     const verification = await fetchLatestVerification(user.id);
     await logAccess(req, user.id, user.tid, "PAK_VERIFY");
 
+    const passRateBps = Number(profile?.pass_rate_bps || 0);
+    const passRateStr = passRateBps > 0 ? (Math.floor(passRateBps / 100) + "%") : "0%";
     const trader = {
       tid: user.tid || null,
       name: user.full_name || user.name || profile?.full_name || profile?.display_name || null,
-      rank: profile?.rank || profile?.tier_name || null,
-      trust_score: profile?.trust_score ?? profile?.trader_score ?? null,
-      pass_rate: profile?.pass_rate ?? null,
-      payouts: profile?.payouts ?? profile?.total_payouts ?? null,
-      tier: profile?.tier || profile?.payout_tier || null,
+      rank: profile?.current_rank || "ROOKIE",
+      trust_score: 0,
+      pass_rate: passRateStr,
+      payouts: "$0",
+      tier: "—",
       verified_badges: profile?.verified_badges ?? null,
       member_since: profile?.member_since || user.created_at || null,
       avatar_url: profile?.avatar_url || null,

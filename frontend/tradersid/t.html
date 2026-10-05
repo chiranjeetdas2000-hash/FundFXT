@@ -74,8 +74,14 @@ function renderCard(t){
     '<div class="card-stats"><div class="stat"><b>'+esc(pass)+'</b><span>Pass Rate</span></div><div class="stat"><b>'+esc(payouts)+'</b><span>Payouts</span></div><div class="stat"><b>'+esc(tier)+'</b><span>Payout Tier</span></div></div>'+
     '</div></div>';
 }
+function fmtDate(iso){
+  if(!iso) return "—";
+  try {
+    return new Date(iso).toLocaleDateString("en-IN",{year:"numeric",month:"short",day:"numeric"});
+  } catch(_) { return "—"; }
+}
 function renderPublic(t){
-  const member=safe(t.member_since);
+  const member=fmtDate(t.member_since);
   result.innerHTML='<div>'+renderCard(t)+'</div><div class="public-profile"><h2>Public Profile</h2><div class="public-grid">'+
     '<div class="public-stat"><span>Trader ID</span><b>'+esc(t.tid)+'</b></div>'+
     '<div class="public-stat"><span>Name</span><b>'+esc(t.name)+'</b></div>'+
