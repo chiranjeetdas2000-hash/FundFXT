@@ -769,6 +769,28 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 </div>
 </main>
 
+<footer class="dashboard-footer">
+  <div class="container">
+    <div class="footer-inner">
+      <span>© 2026 Trader ID · A separate brand. Not affiliated with FundFXT.</span>
+      <div>
+        <a href="/tradersid/legal/terms.html">Terms</a>
+        <a href="/tradersid/legal/privacy.html">Privacy</a>
+        <a href="/tradersid/legal/verification-policy.html">Verification Policy</a>
+        <a href="/tradersid/legal/data-policy.html">Data Policy</a>
+        <a href="/tradersid/legal/refund.html">Refund</a>
+      </div>
+    </div>
+  </div>
+</footer>
+<style>
+.dashboard-footer{padding:32px 0;background:var(--bg-light);border-top:1px solid var(--border)}
+.dashboard-footer .footer-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--text-muted)}
+.dashboard-footer .footer-inner a{color:var(--text-secondary);text-decoration:none;margin-left:16px;transition:color .18s}
+.dashboard-footer .footer-inner a:hover{color:var(--green)}
+@media (max-width:768px){.dashboard-footer{padding-bottom:110px}}
+</style>
+
 <!-- ============ ADD ACCOUNT MODAL ============ -->
 <div class="modal-backdrop" id="accountModal">
   <div class="modal-card">
