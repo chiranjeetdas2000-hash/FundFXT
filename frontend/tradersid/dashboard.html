@@ -1082,7 +1082,6 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     $('heroSince').textContent = since ? fmtDate(since) : '—';
     var rank = (profile && profile.current_rank) || 'ROOKIE';
     $('heroRankText').textContent = rank.charAt(0) + rank.slice(1).toLowerCase();
-    $('avatarPreview').textContent = initials(name);
     $('previewName').textContent = name;
     $('previewTid').textContent = (user && user.tid) || 'TID-XXXXXXX';
 
@@ -1138,6 +1137,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
       $('heroTid').textContent = cachedUser.tid || '—';
       $('heroPak').textContent = cachedUser.public_access_key || cachedUser.pak || '—';
       setHeroAvatar(cachedUser.avatar_url || null);
+      updateAvatarPreview(cachedUser.avatar_url || null);
     }
     fetch(API + '/api/tid/me', {headers:{Authorization:'Bearer ' + token}})
       .then(function(res){
