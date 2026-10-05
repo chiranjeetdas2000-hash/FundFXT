@@ -705,16 +705,21 @@ router.get("/pak/:public_access_key", async (req, res) => {
     const verification = await fetchLatestVerification(user.id);
     await logAccess(req, user.id, user.tid, "PAK_VERIFY");
 
-    const passRateBps = Number(profile?.pass_rate_bps || 0);
-    const passRateStr = passRateBps > 0 ? (Math.floor(passRateBps / 100) + "%") : "0%";
+    const stats = await computeTraderStats(user.id);
     const trader = {
       tid: user.tid || null,
       name: user.full_name || user.name || profile?.full_name || profile?.display_name || null,
-      rank: profile?.current_rank || "ROOKIE",
-      trust_score: 0,
-      pass_rate: passRateStr,
-      payouts: "$0",
-      tier: "—",
+      rank: stats.rank,
+      trust_score: stats.trust_score,
+      pass_rate: stats.pass_rate,
+      payouts: stats.total_profit,
+      tier: stats.tier,
+      best_win_rate: stats.best_win_rate,
+      total_challenges: stats.total_challenges,
+      total_passed: stats.total_passed,
+      total_failed: stats.total_failed,
+      funded_count: stats.funded_count,
+      accounts_count: stats.accounts_count,
       verified_badges: profile?.verified_badges ?? null,
       member_since: profile?.member_since || user.created_at || null,
       avatar_url: profile?.avatar_url || null,
