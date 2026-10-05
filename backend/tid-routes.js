@@ -1628,6 +1628,42 @@ router.patch("/accounts/:id", authenticateTid, requireJsonBody, async (req, res)
       fields.push("start_date = ?");
       values.push(req.body.start_date ? String(req.body.start_date).slice(0, 10) : null);
     }
+    if (req.body?.status !== undefined) {
+      const s = String(req.body.status).toUpperCase();
+      if (!["PENDING", "ACTIVE", "PASSED", "FAILED", "BREACHED", "CLOSED"].includes(s)) {
+        return jsonError(res, 400, "Invalid status");
+      }
+      fields.push("status = ?");
+      values.push(s);
+    }
+    if (req.body?.total_trades !== undefined) {
+      fields.push("total_trades = ?");
+      values.push(Math.max(0, Number(req.body.total_trades) || 0));
+    }
+    if (req.body?.total_wins !== undefined) {
+      fields.push("total_wins = ?");
+      values.push(Math.max(0, Number(req.body.total_wins) || 0));
+    }
+    if (req.body?.total_losses !== undefined) {
+      fields.push("total_losses = ?");
+      values.push(Math.max(0, Number(req.body.total_losses) || 0));
+    }
+    if (req.body?.win_rate_bps !== undefined) {
+      fields.push("win_rate_bps = ?");
+      values.push(Math.max(0, Number(req.body.win_rate_bps) || 0));
+    }
+    if (req.body?.profit_bps !== undefined) {
+      fields.push("profit_bps = ?");
+      values.push(Number(req.body.profit_bps) || 0);
+    }
+    if (req.body?.biggest_win_cents !== undefined) {
+      fields.push("biggest_win_cents = ?");
+      values.push(Math.max(0, Number(req.body.biggest_win_cents) || 0));
+    }
+    if (req.body?.biggest_loss_cents !== undefined) {
+      fields.push("biggest_loss_cents = ?");
+      values.push(Math.max(0, Number(req.body.biggest_loss_cents) || 0));
+    }
 
     if (!fields.length) return jsonError(res, 400, "No fields to update");
 
