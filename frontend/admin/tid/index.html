@@ -1,0 +1,195 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+<title>Traders ID — Admin Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet" />
+<style>
+:root{--bg:#070a0d;--surface:#0e1419;--surface2:#111920;--surface3:#151f27;--line:#24313a;--green:#00b56a;--green2:#76e5b5;--red:#ff4d5a;--amber:#ffb020;--blue:#5ca9ff;--text:#f5f8fa;--muted:#8d99a5;--sidebar:248px}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;background:radial-gradient(circle at 85% 0%,rgba(0,181,106,.08),transparent 30%),var(--bg);color:var(--text);font:13px Poppins,Arial,sans-serif}
+button,input,select{font:inherit}
+button{cursor:pointer}
+.admin-mode-bar{background:var(--surface);border-bottom:1px solid var(--line);padding:11px 20px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;z-index:40;position:sticky;top:0}
+.admin-mode-label{font-size:11px;color:var(--muted);font-weight:600;letter-spacing:.05em;margin-right:6px}
+.admin-mode-btn{padding:7px 16px;border-radius:8px;background:transparent;color:var(--text);text-decoration:none;font-weight:700;font-size:12px;border:1px solid var(--line);transition:.18s}
+.admin-mode-btn.active{background:var(--green);color:#06110d;border-color:var(--green)}
+.app{display:flex;min-height:calc(100vh - 46px)}
+.sidebar{width:var(--sidebar);background:rgba(14,20,25,.94);border-right:1px solid var(--line);padding:22px 15px;flex-shrink:0}
+.brand{display:flex;gap:10px;align-items:center;margin-bottom:24px}
+.brand-mark{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,#1E3A5F,#0A1424);border:1px solid var(--green2);display:grid;place-items:center;font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--green2)}
+.brand-name{font-weight:800;letter-spacing:-.01em}
+.brand-name span{color:var(--green)}
+.brand small{color:var(--muted);font-size:9.5px;letter-spacing:.08em;display:block;margin-top:2px}
+.nav-label{font-size:10.5px;color:var(--muted);font-weight:700;letter-spacing:.1em;text-transform:uppercase;margin:18px 4px 8px}
+.nav button{display:flex;align-items:center;gap:11px;width:100%;padding:11px 13px;border:0;border-radius:10px;background:transparent;color:#cbd5e1;font-weight:600;text-align:left;font-size:13px;margin-bottom:3px;transition:.15s}
+.nav button:hover{background:var(--surface2);color:#fff}
+.nav button.active{background:linear-gradient(90deg,rgba(0,229,154,.15),transparent);color:#fff;border-left:3px solid var(--green2);padding-left:10px}
+.nav-icon{width:18px;text-align:center;color:var(--green2);font-weight:700}
+.main{flex:1;padding:26px 28px 60px;min-width:0}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:18px;margin-bottom:22px;flex-wrap:wrap}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--green2);letter-spacing:.16em;text-transform:uppercase;margin-bottom:6px;font-weight:700}
+h1{font-size:clamp(22px,3vw,30px);font-weight:800;letter-spacing:-.02em;margin:0 0 4px}
+.top p{margin:0;color:var(--muted);font-size:12.5px}
+.view{display:none}
+.view.active{display:block}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;margin-bottom:22px}
+.stat{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:18px}
+.stat small{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.stat strong{display:block;font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:800;margin:8px 0;color:#fff}
+.stat .trend{font-size:11px;color:var(--green2)}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;margin-bottom:20px}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.input,.search{background:var(--surface2);border:1px solid var(--line);border-radius:9px;padding:10px 13px;color:#fff;font-size:13px;outline:none;min-width:0}
+.input:focus,.search:focus{border-color:var(--green)}
+.search{flex:1;min-width:200px}
+.btn{padding:10px 16px;border:0;border-radius:9px;background:var(--green);color:#06110d;font-weight:700;font-size:12.5px;cursor:pointer;transition:.15s}
+.btn:hover{background:var(--green2)}
+.btn.secondary{background:var(--surface3);color:var(--text);border:1px solid var(--line)}
+.btn.secondary:hover{border-color:var(--green2);color:var(--green2)}
+.btn.red{background:var(--red);color:#fff}
+.btn.red:hover{background:#ff6a76}
+.btn.amber{background:var(--amber);color:#231a00}
+.btn.amber:hover{background:#ffc94d}
+.btn.sm{padding:6px 12px;font-size:11.5px}
+.table-wrap{overflow-x:auto;margin:0 -6px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th,td{padding:11px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle}
+th{color:var(--muted);font-weight:700;font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;background:var(--surface2)}
+tr:hover td{background:var(--surface2)}
+.badge{display:inline-block;padding:4px 10px;border-radius:99px;font-size:10.5px;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.badge.pending{background:rgba(255,176,32,.15);color:#ffc94d}
+.badge.approved{background:rgba(0,181,106,.15);color:var(--green2)}
+.badge.rejected{background:rgba(255,77,90,.15);color:#ff6a76}
+.badge.none{background:var(--surface3);color:var(--muted)}
+.loading,.empty{padding:26px;text-align:center;color:var(--muted);font-size:12.5px}
+.error-box{margin:12px 0;padding:11px 14px;border:1px solid rgba(255,77,90,.3);background:rgba(255,77,90,.08);color:#ff8790;border-radius:10px;font-size:12.5px;display:none}
+.error-box.show{display:block}
+.detail-card{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:14px}
+.detail-row{display:flex;padding:9px 0;border-bottom:1px solid var(--line);gap:12px;font-size:12.5px}
+.detail-row:last-child{border:0}
+.detail-label{color:var(--muted);min-width:130px;font-weight:600;font-size:11.5px;text-transform:uppercase;letter-spacing:.05em}
+.detail-value{color:#fff;word-break:break-word;flex:1;font-family:'JetBrains Mono',monospace}
+.file-row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:11px 13px;background:var(--surface3);border-radius:9px;margin-bottom:8px;font-size:12.5px}
+.file-row .meta{color:var(--muted);font-size:11px;margin-top:3px;font-family:'JetBrains Mono',monospace}
+.actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
+.hidden{display:none}
+@media(max-width:900px){
+  .app{display:block}
+  .sidebar{width:100%;padding:16px}
+  .main{padding:18px}
+  .admin-mode-bar{padding:10px 14px;gap:6px}
+  .admin-mode-label{width:100%;margin:0 0 4px 0}
+  .admin-mode-btn{flex:1;text-align:center;padding:9px 12px}
+  .detail-label{min-width:100px;font-size:10.5px}
+}
+@media(max-width:520px){
+  .detail-row{flex-direction:column;gap:4px}
+  .detail-label{min-width:0}
+}
+</style>
+</head>
+<body>
+
+<div class="admin-mode-bar">
+  <span class="admin-mode-label">ADMIN MODE</span>
+  <a href="/admin/" class="admin-mode-btn">FUNDFXT</a>
+  <a href="/admin/tid/" class="admin-mode-btn active">Traders ID</a>
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">TID</div>
+      <div>
+        <div class="brand-name">Traders <span>ID</span></div>
+        <small>ADMIN CONSOLE</small>
+      </div>
+    </div>
+    <nav class="nav">
+      <div class="nav-label">Workspace</div>
+      <button data-view="overview" class="active" onclick="showView('overview')"><span class="nav-icon">◈</span>Overview</button>
+      <button data-view="kyc" onclick="showView('kyc')"><span class="nav-icon">🛡</span>KYC Queue</button>
+      <button data-view="accounts" onclick="showView('accounts')"><span class="nav-icon">▤</span>Account Queue</button>
+      <button data-view="users" onclick="showView('users')"><span class="nav-icon">♙</span>Users</button>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <div class="error-box" id="errBox"></div>
+
+    <!-- OVERVIEW -->
+    <section id="view-overview" class="view active">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Control Center</div>
+          <h1>Overview</h1>
+          <p>Live TID operational snapshot.</p>
+        </div>
+        <button class="btn secondary" onclick="loadOverview()">↻ Refresh</button>
+      </div>
+      <div class="stats" id="overviewStats">
+        <div class="stat"><small>Total Users</small><strong id="ovUsers">—</strong><div class="trend">Registered traders</div></div>
+        <div class="stat"><small>KYC Pending</small><strong id="ovKyc">—</strong><div class="trend">Awaiting review</div></div>
+        <div class="stat"><small>Accounts Pending</small><strong id="ovAccounts">—</strong><div class="trend">Awaiting verify</div></div>
+        <div class="stat"><small>Files Pending</small><strong id="ovFiles">—</strong><div class="trend">Statements/receipts</div></div>
+      </div>
+    </section>
+
+    <!-- KYC -->
+    <section id="view-kyc" class="view">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Identity Verification</div>
+          <h1>KYC Queue</h1>
+          <p>Pending identity submissions.</p>
+        </div>
+        <button class="btn secondary" onclick="loadKycQueue()">↻ Refresh</button>
+      </div>
+      <div id="kycDetailWrap" class="hidden"></div>
+      <div id="kycListWrap" class="panel">
+        <div id="kycList"></div>
+      </div>
+    </section>
+
+    <!-- ACCOUNTS -->
+    <section id="view-accounts" class="view">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Trading Accounts</div>
+          <h1>Account Queue</h1>
+          <p>Pending account verifications.</p>
+        </div>
+        <button class="btn secondary" onclick="loadAccountQueue()">↻ Refresh</button>
+      </div>
+      <div id="accountDetailWrap" class="hidden"></div>
+      <div id="accountListWrap" class="panel">
+        <div id="accountList"></div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section id="view-users" class="view">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Directory</div>
+          <h1>Users</h1>
+          <p>All registered TID users.</p>
+        </div>
+        <button class="btn secondary" onclick="loadUsers()">↻ Refresh</button>
+      </div>
+      <div class="panel">
+        <div class="toolbar">
+          <input class="search" id="userSearch" placeholder="Search TID, email, name…" oninput="loadUsers()">
+        </div>
+        <div id="usersList"></div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script src="tid-admin.js" defer></script>
+</body>
+</html>
