@@ -122,13 +122,31 @@
       var isVerified = String(a.verification_status || '').toUpperCase() === 'VERIFIED';
       var filesBtn = isVerified ? '' : '<button class="btn btn-ghost acct-files" data-id="' + a.id + '">Files</button>';
       var verifyBtn = isVerified ? '' : '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Verify \u00b7 $2</button>';
+      var isBroker = String(a.account_category || 'PROP_FIRM').toUpperCase() === 'BROKER';
+      var intentYes = String(a.score_impact_intent || 'NO').toUpperCase() === 'YES';
+      var catLabel = isBroker ? 'Broker' : 'Prop Firm';
+      var intentBadge = intentYes ? '<span style="display:inline-block;margin-left:8px;padding:2px 8px;font-size:10px;font-weight:700;background:rgba(16,185,129,.12);color:#10B981;border-radius:6px;letter-spacing:.04em">SCORE VERIFY</span>' : '';
+      var titleLine, subLine;
+      if(isBroker){
+        titleLine = esc(a.broker_name || '\u2014');
+        var modeTxt = String(a.broker_account_mode || '').toUpperCase() === 'DEMO' ? 'Demo' : 'Real';
+        subLine = modeTxt + ' \u00b7 ID: ' + esc(a.broker_account_id || '\u2014');
+      } else {
+        titleLine = esc(a.firm_name || '\u2014');
+        subLine = fmtMoney(a.account_size_cents) + ' \u00b7 ' + esc(a.account_type || '');
+      }
+      var brokerMoney = isBroker ? (
+        '<div class="acct-meta-item"><b>' + fmtMoney(a.total_deposit_cents) + '</b>Deposited</div>' +
+        '<div class="acct-meta-item"><b>' + fmtMoney(a.total_withdrawal_cents) + '</b>Withdrawn</div>'
+      ) : '';
       return '<div class="acct-card" data-id="' + a.id + '">' +
-        '<div class="acct-head"><div><div class="acct-firm">' + esc(a.firm_name || '\u2014') + '</div><div class="acct-size">' + fmtMoney(a.account_size_cents) + ' \u00b7 ' + esc(a.account_type || '') + '</div></div>' +
+        '<div class="acct-head"><div><div class="acct-firm">' + titleLine + intentBadge + '</div><div class="acct-size">' + catLabel + ' \u00b7 ' + subLine + '</div></div>' +
         '<span class="acct-badge ' + cls + '">' + lbl + '</span></div>' +
         '<div class="acct-meta">' +
           '<div class="acct-meta-item"><b>' + (Number(a.total_trades) || 0) + '</b>Total Trades</div>' +
           '<div class="acct-meta-item"><b>' + ((Number(a.win_rate_bps) || 0) / 100).toFixed(0) + '%</b>Win Rate</div>' +
-          '<div class="acct-meta-item"><b>' + fmtShortDate(a.start_date) + '</b>Started</div>' +
+          brokerMoney +
+          (isBroker ? '' : '<div class="acct-meta-item"><b>' + fmtShortDate(a.start_date) + '</b>Started</div>') +
         '</div>' +
         '<div class="acct-actions">' +
           filesBtn +
