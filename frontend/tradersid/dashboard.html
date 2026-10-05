@@ -1199,13 +1199,25 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
   // ---- Pattern select ----
   document.querySelectorAll('#patternGrid .pattern').forEach(function(p){
-    p.addEventListener('click', function(){
+    p.addEventListener('click', async function(){
       document.querySelectorAll('#patternGrid .pattern').forEach(function(x){ x.classList.remove('selected'); });
       p.classList.add('selected');
       var cls = Array.from(p.classList).filter(function(c){ return c.indexOf('pattern-p')===0; })[0];
       var preview = $('cardPreview');
       preview.className = 'pattern ' + (cls || 'pattern-p1');
-      toast('Pattern selected — saved automatically');
+      var patternValue = p.getAttribute('data-pattern') || 'classic';
+      try {
+        var res = await fetch(API + '/api/tid/me/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+          body: JSON.stringify({ card_pattern: patternValue })
+        });
+        var data = await res.json();
+        if(!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+        toast('Pattern saved');
+      } catch(err) {
+        toast('Save failed — ' + err.message);
+      }
     });
   });
 
