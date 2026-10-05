@@ -1,0 +1,225 @@
+(function(){
+  'use strict';
+  var API = 'https://fundfxt.onrender.com';
+  var token = localStorage.getItem('fundfxt_admin_token');
+  if(!token){ location.href = '/admin/login.html'; return; }
+
+  function $(id){ return document.getElementById(id); }
+  function esc(v){ return String(v==null?'':v).replace(/[&<>"']/g, function(c){ return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c]; }); }
+  function fmtDate(s){ if(!s) return '—'; try{ return new Date(s).toLocaleString('en-IN',{year:'numeric',month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'}); }catch(_){ return '—'; } }
+  function fmtBytes(b){ var n=Number(b||0); if(n<1024) return n+' B'; if(n<1048576) return (n/1024).toFixed(0)+' KB'; return (n/1048576).toFixed(1)+' MB'; }
+
+  function setError(msg){
+    var e = $('errBox'); if(!e) return;
+    if(msg){ e.textContent = msg; e.classList.add('show'); }
+    else { e.textContent = ''; e.classList.remove('show'); }
+  }
+
+  async function api(path, opts){
+    opts = opts || {};
+    var res = await fetch(API + path, {
+      method: opts.method || 'GET',
+      headers: Object.assign({ Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, opts.headers || {}),
+      body: opts.body ? JSON.stringify(opts.body) : undefined
+    });
+    if(res.status === 401 || res.status === 403){
+      if(!opts.noRedirect && path.indexOf('/admin/tid/overview') !== -1){
+        localStorage.removeItem('fundfxt_admin_token');
+        location.href = '/admin/login.html';
+        throw new Error('unauth');
+      }
+    }
+    var data = {};
+    try { data = await res.json(); } catch(_){}
+    if(!res.ok) throw new Error(data.error || ('Request failed (' + res.status + ')'));
+    return data;
+  }
+
+  window.showView = function(view){
+    document.querySelectorAll('.view').forEach(function(v){ v.classList.remove('active'); });
+    var el = document.getElementById('view-' + view);
+    if(el) el.classList.add('active');
+    document.querySelectorAll('.nav button[data-view]').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-view') === view); });
+    setError('');
+    if(view === 'overview') loadOverview();
+    else if(view === 'kyc') loadKycQueue();
+    else if(view === 'accounts') loadAccountQueue();
+    else if(view === 'users') loadUsers();
+  };
+
+  // ---------- OVERVIEW ----------
+  async function loadOverview(){
+    try {
+      var d = await api('/api/admin/tid/overview');
+      $('ovUsers').textContent = d.counts.total_users;
+      $('ovKyc').textContent = d.counts.kyc_pending;
+      $('ovAccounts').textContent = d.counts.accounts_pending;
+      $('ovFiles').textContent = d.counts.files_pending;
+    } catch(e){ setError(e.message); }
+  }
+
+  // ---------- KYC ----------
+  async function loadKycQueue(){
+    $('kycDetailWrap').classList.add('hidden');
+    $('kycListWrap').classList.remove('hidden');
+    var list = $('kycList');
+    list.innerHTML = '<div class="loading">Loading KYC queue…</div>';
+    try {
+      var d = await api('/api/admin/tid/kyc/pending');
+      if(!d.submissions.length){ list.innerHTML = '<div class="empty">No pending KYC submissions.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Name</th><th>Country</th><th>ID Type</th><th>Submitted</th><th>Action</th></tr></thead><tbody>';
+      d.submissions.forEach(function(s){
+        html += '<tr><td>' + s.id + '</td><td><b>' + esc(s.tid||'—') + '</b></td><td>' + esc(s.legal_name||'—') + '</td><td>' + esc(s.country) + '</td><td>' + esc(s.id_type) + '</td><td>' + fmtDate(s.created_at) + '</td><td><button class="btn sm" onclick="openKyc(' + s.id + ')">Review</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  window.openKyc = async function(id){
+    try {
+      var d = await api('/api/admin/tid/kyc/' + id);
+      var k = d.kyc;
+      var html = '<div class="top"><div><div class="eyebrow">KYC Review</div><h1>Submission #' + k.id + '</h1><p>' + esc(k.tid||'—') + ' · ' + esc(k.legal_name||'—') + '</p></div><button class="btn secondary" onclick="loadKycQueue()">← Back</button></div>';
+      html += '<div class="panel">';
+      html += '<div class="detail-card">';
+      html += '<div class="detail-row"><span class="detail-label">TID</span><span class="detail-value">' + esc(k.tid||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Legal Name</span><span class="detail-value">' + esc(k.legal_name||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">' + esc(k.email||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Country</span><span class="detail-value">' + esc(k.country) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">ID Type</span><span class="detail-value">' + esc(k.id_type) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Address Type</span><span class="detail-value">' + esc(k.address_type) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">IP Address</span><span class="detail-value">' + esc(k.ip_address||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Timezone</span><span class="detail-value">' + esc(k.timezone||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Device FP</span><span class="detail-value">' + esc(k.device_fingerprint||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Submitted</span><span class="detail-value">' + fmtDate(k.created_at) + '</span></div>';
+      html += '</div>';
+      html += '<h3 style="margin:16px 0 10px;font-size:13.5px;letter-spacing:.02em">Documents</h3>';
+      html += '<div id="kycFiles">Loading…</div>';
+      html += '<div class="actions-row"><button class="btn" onclick="approveKyc(' + k.id + ')">✓ Approve</button><button class="btn red" onclick="rejectKyc(' + k.id + ')">✕ Reject</button></div>';
+      html += '</div>';
+      $('kycDetailWrap').innerHTML = html;
+      $('kycDetailWrap').classList.remove('hidden');
+      $('kycListWrap').classList.add('hidden');
+      loadKycFiles(k.id_file_id, k.selfie_file_id, k.address_file_id);
+    } catch(e){ setError(e.message); }
+  };
+
+  async function loadKycFiles(idFileId, selfieFileId, addressFileId){
+    var wrap = $('kycFiles'); if(!wrap) return;
+    var files = [
+      { id: idFileId, label: 'Identity Document' },
+      { id: selfieFileId, label: 'Selfie with ID' },
+      { id: addressFileId, label: 'Address Proof' }
+    ];
+    var html = '';
+    for(var i=0;i<files.length;i++){
+      var f = files[i];
+      if(!f.id){ html += '<div class="file-row"><span>'+f.label+'</span><span style="color:var(--muted)">Missing</span></div>'; continue; }
+      html += '<div class="file-row"><div><b>'+f.label+'</b><div class="meta">File #'+f.id+'</div></div><button class="btn sm secondary" onclick="viewFile('+f.id+')">View File</button></div>';
+    }
+    wrap.innerHTML = html;
+  }
+
+  window.viewFile = async function(id){
+    try {
+      var d = await api('/api/admin/tid/files/' + id + '/url');
+      window.open(d.url, '_blank');
+    } catch(e){ setError(e.message); }
+  };
+
+  window.approveKyc = async function(id){
+    if(!confirm('Approve this KYC submission?')) return;
+    try { await api('/api/admin/tid/kyc/' + id + '/approve', { method: 'POST' }); alert('Approved'); loadKycQueue(); }
+    catch(e){ setError(e.message); }
+  };
+
+  window.rejectKyc = async function(id){
+    var reason = prompt('Rejection reason (visible to user):');
+    if(reason === null) return;
+    try { await api('/api/admin/tid/kyc/' + id + '/reject', { method: 'POST', body: { reason: reason } }); alert('Rejected'); loadKycQueue(); }
+    catch(e){ setError(e.message); }
+  };
+
+  // ---------- ACCOUNTS ----------
+  async function loadAccountQueue(){
+    $('accountDetailWrap').classList.add('hidden');
+    $('accountListWrap').classList.remove('hidden');
+    var list = $('accountList');
+    list.innerHTML = '<div class="loading">Loading account queue…</div>';
+    try {
+      var d = await api('/api/admin/tid/accounts/pending');
+      if(!d.accounts.length){ list.innerHTML = '<div class="empty">No pending accounts.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Firm</th><th>Size</th><th>Type</th><th>Files</th><th>Created</th><th>Action</th></tr></thead><tbody>';
+      d.accounts.forEach(function(a){
+        html += '<tr><td>' + a.id + '</td><td><b>' + esc(a.tid||'—') + '</b></td><td>' + esc(a.firm_name) + '</td><td>$' + (Number(a.account_size_cents||0)/100).toLocaleString('en-US') + '</td><td>' + esc(a.account_type) + '</td><td>' + (a.files_count||0) + '</td><td>' + fmtDate(a.created_at) + '</td><td><button class="btn sm" onclick="openAccount(' + a.id + ')">Review</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  window.openAccount = async function(id){
+    try {
+      var d = await api('/api/admin/tid/accounts/' + id);
+      var a = d.account, files = d.files || [];
+      var html = '<div class="top"><div><div class="eyebrow">Account Review</div><h1>' + esc(a.firm_name) + '</h1><p>' + esc(a.tid||'—') + ' · ' + esc(a.legal_name||'—') + '</p></div><button class="btn secondary" onclick="loadAccountQueue()">← Back</button></div>';
+      html += '<div class="panel">';
+      html += '<div class="detail-card">';
+      html += '<div class="detail-row"><span class="detail-label">User</span><span class="detail-value">' + esc(a.tid||'—') + ' · ' + esc(a.legal_name||'—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Firm</span><span class="detail-value">' + esc(a.firm_name) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Size</span><span class="detail-value">$' + (Number(a.account_size_cents||0)/100).toLocaleString('en-US') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Type</span><span class="detail-value">' + esc(a.account_type) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value">' + esc(a.status) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Verification</span><span class="detail-value">' + esc(a.verification_status) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Created</span><span class="detail-value">' + fmtDate(a.created_at) + '</span></div>';
+      html += '</div>';
+      html += '<h3 style="margin:16px 0 10px;font-size:13.5px">Uploaded Files (' + files.length + ')</h3>';
+      if(files.length){
+        files.forEach(function(f){
+          html += '<div class="file-row"><div><b>' + esc(f.file_type) + '</b><div class="meta">' + fmtBytes(f.file_size) + ' · ' + esc(f.mime_type||'') + ' · ' + fmtDate(f.uploaded_at) + '</div></div><button class="btn sm secondary" onclick="viewFile(' + f.id + ')">View</button></div>';
+        });
+      } else {
+        html += '<div class="empty">No files uploaded.</div>';
+      }
+      html += '<div class="actions-row"><button class="btn" onclick="verifyAccount(' + a.id + ')">✓ Verify Account</button><button class="btn red" onclick="rejectAccount(' + a.id + ')">✕ Reject</button></div>';
+      html += '</div>';
+      $('accountDetailWrap').innerHTML = html;
+      $('accountDetailWrap').classList.remove('hidden');
+      $('accountListWrap').classList.add('hidden');
+    } catch(e){ setError(e.message); }
+  };
+
+  window.verifyAccount = async function(id){
+    if(!confirm('Mark this account as VERIFIED? Files will be approved.')) return;
+    try { await api('/api/admin/tid/accounts/' + id + '/verify', { method: 'POST' }); alert('Verified'); loadAccountQueue(); }
+    catch(e){ setError(e.message); }
+  };
+
+  window.rejectAccount = async function(id){
+    var reason = prompt('Rejection reason:');
+    if(reason === null) return;
+    try { await api('/api/admin/tid/accounts/' + id + '/reject', { method: 'POST', body: { reason: reason } }); alert('Rejected'); loadAccountQueue(); }
+    catch(e){ setError(e.message); }
+  };
+
+  // ---------- USERS ----------
+  async function loadUsers(){
+    var list = $('usersList');
+    list.innerHTML = '<div class="loading">Loading users…</div>';
+    try {
+      var search = $('userSearch').value.trim();
+      var d = await api('/api/admin/tid/users' + (search ? '?search=' + encodeURIComponent(search) : ''));
+      if(!d.users.length){ list.innerHTML = '<div class="empty">No users found.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Name</th><th>Email</th><th>Rank</th><th>Verified</th><th>Joined</th></tr></thead><tbody>';
+      d.users.forEach(function(u){
+        html += '<tr><td>' + u.id + '</td><td><b>' + esc(u.tid||'—') + '</b></td><td>' + esc(u.legal_name||'—') + '</td><td>' + esc(u.email||'—') + '</td><td>' + esc(u.current_rank||'ROOKIE') + '</td><td>' + (u.email_verified?'✅':'—') + '</td><td>' + fmtDate(u.created_at) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  // ---------- INIT ----------
+  loadOverview();
+})();
