@@ -1072,24 +1072,25 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
     }
   }
 
-  function renderDashboard(user, profile){
+  function renderDashboard(user, profile, stats){
+    stats = stats || {};
     var name = (user && (user.full_name || user.legal_name)) || (profile && profile.display_name) || 'Trader';
     $('heroName').textContent = 'Welcome, ' + name;
     $('heroTid').textContent = (user && user.tid) || '—';
     $('heroPak').textContent = (user && (user.public_access_key || user.pak)) || '—';
     setHeroAvatar((user && user.avatar_url) || (profile && profile.avatar_url));
     updateAvatarPreview((user && user.avatar_url) || (profile && profile.avatar_url) || null);
-    var since = (profile && profile.member_since) || (user && user.created_at);
+    var since = stats.member_since || (profile && profile.member_since) || (user && user.created_at);
     $('heroSince').textContent = since ? fmtDate(since) : '—';
-    var rank = (profile && profile.current_rank) || 'ROOKIE';
+    var rank = stats.rank || (profile && profile.current_rank) || 'ROOKIE';
     $('heroRankText').textContent = rank.charAt(0) + rank.slice(1).toLowerCase();
     $('previewName').textContent = name;
     $('previewTid').textContent = (user && user.tid) || 'TID-XXXXXXX';
 
-    var total = Number((profile && profile.total_challenges) || 0);
-    var passed = Number((profile && profile.total_passed) || 0);
-    var failed = Number((profile && profile.total_failed) || 0);
-    var passBps = Number((profile && profile.pass_rate_bps) || 0);
+    var total = Number(stats.total_challenges ?? (profile && profile.total_challenges) ?? 0);
+    var passed = Number(stats.total_passed ?? (profile && profile.total_passed) ?? 0);
+    var failed = Number(stats.total_failed ?? (profile && profile.total_failed) ?? 0);
+    var passBps = Number(stats.pass_rate_bps ?? (profile && profile.pass_rate_bps) ?? 0);
     $('stChallenges').textContent = total;
     $('stPassed').textContent = passed;
     $('stFailed').textContent = failed;
