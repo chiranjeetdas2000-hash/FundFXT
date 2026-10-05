@@ -387,21 +387,54 @@
     e.preventDefault();
     var errBox = $('acctError');
     if(errBox) errBox.classList.remove('show');
-    var firmInput = $('acctFirm');
-    var firm = firmInput ? firmInput.value.trim() : '';
-    if(firm.length < 2){
-      if(errBox){ errBox.textContent = 'Enter firm name'; errBox.classList.add('show'); }
-      return;
-    }
-    var sizeEl = $('acctSize');
-    var typeEl = $('acctType');
-    var dateEl = $('acctStartDate');
+
+    var catEl = document.querySelector('input[name="acctCategory"]:checked');
+    var category = catEl ? catEl.value : 'PROP_FIRM';
+    var intentEl = $('acctIntentYes');
+    var intent = (intentEl && intentEl.checked) ? 'YES' : 'NO';
+
     var payload = {
-      firm_name: firm,
-      account_size_cents: Number(sizeEl ? sizeEl.value : 0) || 0,
-      account_type: typeEl ? typeEl.value : 'CHALLENGE',
-      start_date: dateEl && dateEl.value ? dateEl.value : null
+      account_category: category,
+      score_impact_intent: intent
     };
+
+    if(category === 'PROP_FIRM'){
+      var firmInput = $('acctFirm');
+      var firm = firmInput ? firmInput.value.trim() : '';
+      if(firm.length < 2){
+        if(errBox){ errBox.textContent = 'Enter firm name'; errBox.classList.add('show'); }
+        return;
+      }
+      var sizeEl = $('acctSize');
+      var typeEl = $('acctType');
+      var dateEl = $('acctStartDate');
+      payload.firm_name = firm;
+      payload.account_size_cents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
+      payload.start_date = dateEl && dateEl.value ? dateEl.value : null;
+    } else {
+      var bNameEl = $('acctBrokerName');
+      var bName = bNameEl ? bNameEl.value.trim() : '';
+      if(bName.length < 2){
+        if(errBox){ errBox.textContent = 'Enter broker name'; errBox.classList.add('show'); }
+        return;
+      }
+      var bIdEl = $('acctBrokerId');
+      var bId = bIdEl ? bIdEl.value.trim() : '';
+      if(!bId){
+        if(errBox){ errBox.textContent = 'Enter broker account ID'; errBox.classList.add('show'); }
+        return;
+      }
+      var bModeEl = $('acctBrokerMode');
+      var depEl = $('acctDeposit');
+      var wdEl = $('acctWithdrawal');
+      payload.broker_name = bName;
+      payload.broker_account_id = bId;
+      payload.broker_account_mode = bModeEl ? bModeEl.value : 'REAL';
+      payload.total_deposit_cents = Math.round((Number(depEl ? depEl.value : 0) || 0) * 100);
+      payload.total_withdrawal_cents = Math.round((Number(wdEl ? wdEl.value : 0) || 0) * 100);
+    }
+
     var submitBtn = $('accountSubmit');
     if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Creating...'; }
 
