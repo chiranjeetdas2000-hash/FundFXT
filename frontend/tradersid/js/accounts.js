@@ -252,6 +252,7 @@
       .then(function(){
         if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Save Update'; }
       });
+  });
 
   function loadAccounts(){
     if(!token || !accountsList) return;
