@@ -853,6 +853,7 @@ router.patch("/me/profile", authenticateTid, requireJsonBody, async (req, res) =
       "trading_style",
       "twitter",
       "linkedin",
+      "card_pattern",
     ];
     const body = req.body || {};
     const profileValues = {};
@@ -865,6 +866,11 @@ router.patch("/me/profile", authenticateTid, requireJsonBody, async (req, res) =
 
     if (profileValues.full_name && profileValues.full_name.length < 2) {
       return jsonError(res, 400, "Full name is too short");
+    }
+
+    const VALID_PATTERNS = ["classic", "silver", "emerald", "gold", "midnight"];
+    if (profileValues.card_pattern !== undefined && !VALID_PATTERNS.includes(profileValues.card_pattern)) {
+      return jsonError(res, 400, "Invalid card pattern");
     }
 
     profileValues.updated_at = new Date();
