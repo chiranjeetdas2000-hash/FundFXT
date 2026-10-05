@@ -497,8 +497,7 @@ async function createAndSendOtp(user) {
   };
 
   await Promise.race([
-    insertFlexible(db, "tid_email_verifications", values),
-    new Promise((_, reject) =>
+    insertFlexible(db, "tid_email_verifications", values),    new Promise((_, reject) =>
       setTimeout(() => reject(new Error("OTP database insert timed out")), 5000),
     ),
   ]);
@@ -997,8 +996,7 @@ router.patch("/me/profile", authenticateTid, requireJsonBody, async (req, res) =
 
     const existing = await fetchProfile(req.tidUser.tidUserId);
     if (existing) {
-      await updateFlexible(
-        db,
+      await updateFlexible(        db,
         "tid_profiles",
         profileValues,
         "id = ?",
@@ -1498,7 +1496,6 @@ router.post(
         [orderId],
       );
       if (!rows.length) return jsonError(res, 404, "Card order not found");
-
       const values = {
         status,
         payment_status: status,
@@ -1530,17 +1527,48 @@ router.post(
 
 router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
   try {
-    const firm = cleanString(req.body?.firm_name, 100);
+    const category = String(req.body?.account_category || "PROP_FIRM").toUpperCase();
+    if (!["PROP_FIRM", "BROKER"].includes(category)) {
+      return jsonError(res, 400, "Invalid account category");
+    }
+
+    const intentRaw = String(req.body?.score_impact_intent || "NO").toUpperCase();
+    const intent = intentRaw === "YES" ? "YES" : "NO";
+
     const sizeCents = Math.max(0, Number(req.body?.account_size_cents) || 0);
-    const type = String(req.body?.account_type || "CHALLENGE").toUpperCase();
     const startDate = req.body?.start_date ? String(req.body.start_date).slice(0, 10) : null;
 
-    if (!firm || firm.length < 2) return jsonError(res, 400, "Firm name is required");
-    if (!["CHALLENGE", "FUNDED", "LIVE"].includes(type)) return jsonError(res, 400, "Invalid account type");
+    let firm = null;
+    let type = null;
+    let brokerName = null;
+    let brokerAccountId = null;
+    let brokerMode = null;
+    let depositCents = 0;
+    let withdrawalCents = 0;
+
+    if (category === "PROP_FIRM") {
+      firm = cleanString(req.body?.firm_name, 100);
+      if (!firm || firm.length < 2) return jsonError(res, 400, "Firm name is required");
+      type = String(req.body?.account_type || "CHALLENGE").toUpperCase();
+      if (!["CHALLENGE", "FUNDED", "LIVE"].includes(type)) {
+        return jsonError(res, 400, "Invalid account type");
+      }
+    } else {
+      brokerName = cleanString(req.body?.broker_name, 100);
+      if (!brokerName || brokerName.length < 2) return jsonError(res, 400, "Broker name is required");
+      brokerAccountId = cleanString(req.body?.broker_account_id, 100);
+      if (!brokerAccountId) return jsonError(res, 400, "Broker account ID is required");
+      brokerMode = String(req.body?.broker_account_mode || "").toUpperCase();
+      if (!["DEMO", "REAL"].includes(brokerMode)) {
+        return jsonError(res, 400, "Broker account mode must be DEMO or REAL");
+      }
+      depositCents = Math.max(0, Math.round(Number(req.body?.total_deposit_cents) || 0));
+      withdrawalCents = Math.max(0, Math.round(Number(req.body?.total_withdrawal_cents) || 0));
+    }
 
     const [result] = await db.execute(
-      "INSERT INTO tid_accounts (tid_user_id, firm_name, account_size_cents, account_type, status, verification_status, start_date) VALUES (?, ?, ?, ?, 'PENDING', 'NONE', ?)",
-      [req.tidUser.tidUserId, firm, sizeCents, type, startDate],
+      "INSERT INTO tid_accounts (tid_user_id, firm_name, account_size_cents, account_type, status, verification_status, start_date, account_category, score_impact_intent, broker_name, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents) VALUES (?, ?, ?, ?, 'PENDING', 'NONE', ?, ?, ?, ?, ?, ?, ?, ?)",
+      [req.tidUser.tidUserId, firm, sizeCents, type, startDate, category, intent, brokerName, brokerAccountId, brokerMode, depositCents, withdrawalCents],
     );
 
     await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCOUNT_CREATE");
@@ -1549,9 +1577,16 @@ router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
       success: true,
       account: {
         id: result.insertId,
+        account_category: category,
         firm_name: firm,
         account_size_cents: sizeCents,
         account_type: type,
+        broker_name: brokerName,
+        broker_account_id: brokerAccountId,
+        broker_account_mode: brokerMode,
+        total_deposit_cents: depositCents,
+        total_withdrawal_cents: withdrawalCents,
+        score_impact_intent: intent,
         status: "PENDING",
         verification_status: "NONE",
         start_date: startDate,
