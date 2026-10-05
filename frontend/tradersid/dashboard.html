@@ -779,39 +779,93 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
     </div>
     <form class="modal-body" id="accountForm">
       <div class="form-row">
-        <label class="form-label" for="acctFirm">Firm Name</label>
-        <input class="form-input" id="acctFirm" type="text" placeholder="e.g. FundedNext, FTMO, Topstep" required maxlength="100" autocomplete="off">
-      </div>
-      <div class="form-grid">
-        <div class="form-row">
-          <label class="form-label" for="acctSize">Account Size</label>
-          <select class="form-select" id="acctSize">
-            <option value="500000">$5,000</option>
-            <option value="1000000" selected>$10,000</option>
-            <option value="2500000">$25,000</option>
-            <option value="5000000">$50,000</option>
-            <option value="10000000">$100,000</option>
-            <option value="20000000">$200,000</option>
-          </select>
-        </div>
-        <div class="form-row">
-          <label class="form-label" for="acctType">Account Type</label>
-          <select class="form-select" id="acctType">
-            <option value="CHALLENGE" selected>Challenge</option>
-            <option value="FUNDED">Funded</option>
-            <option value="LIVE">Live</option>
-          </select>
+        <label class="form-label">Account Category</label>
+        <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+            <input type="radio" name="acctCategory" value="PROP_FIRM" checked> Prop Firm Challenge
+          </label>
+          <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+            <input type="radio" name="acctCategory" value="BROKER"> Broker Account
+          </label>
         </div>
       </div>
-      <div class="form-row">
-        <label class="form-label" for="acctStartDate">Start Date (optional)</label>
-        <input class="form-input" id="acctStartDate" type="date">
+
+      <div id="propFirmFields">
+        <div class="form-row">
+          <label class="form-label" for="acctFirm">Firm Name</label>
+          <input class="form-input" id="acctFirm" type="text" placeholder="e.g. FundedNext, FTMO, Topstep" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label" for="acctSize">Account Size</label>
+            <select class="form-select" id="acctSize">
+              <option value="500000">$5,000</option>
+              <option value="1000000" selected>$10,000</option>
+              <option value="2500000">$25,000</option>
+              <option value="5000000">$50,000</option>
+              <option value="10000000">$100,000</option>
+              <option value="20000000">$200,000</option>
+            </select>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="acctType">Account Type</label>
+            <select class="form-select" id="acctType">
+              <option value="CHALLENGE" selected>Challenge</option>
+              <option value="FUNDED">Funded</option>
+              <option value="LIVE">Live</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="acctStartDate">Start Date (optional)</label>
+          <input class="form-input" id="acctStartDate" type="date">
+        </div>
       </div>
+
+      <div id="brokerFields" style="display:none">
+        <div class="form-row">
+          <label class="form-label" for="acctBrokerName">Broker Name</label>
+          <input class="form-input" id="acctBrokerName" type="text" placeholder="e.g. Zerodha, IC Markets, XM" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="acctBrokerId">Broker Account ID</label>
+          <input class="form-input" id="acctBrokerId" type="text" placeholder="Your broker account number" maxlength="100" autocomplete="off">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="acctBrokerMode">Account Mode</label>
+          <select class="form-select" id="acctBrokerMode">
+            <option value="REAL" selected>Real</option>
+            <option value="DEMO">Demo</option>
+          </select>
+        </div>
+        <div class="form-grid">
+          <div class="form-row">
+            <label class="form-label" for="acctDeposit">Total Deposit ($)</label>
+            <input class="form-input" id="acctDeposit" type="number" min="0" step="0.01" placeholder="0">
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="acctWithdrawal">Total Withdrawal ($)</label>
+            <input class="form-input" id="acctWithdrawal" type="number" min="0" step="0.01" placeholder="0">
+          </div>
+        </div>
+      </div>
+
       <div class="form-row">
-        <label class="form-label" for="acctFile">Statement / Screenshot (optional)</label>
+        <label class="form-label" for="acctFile">Deposit + Withdrawal Statement (optional)</label>
         <input class="form-file" id="acctFile" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp">
-        <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">PDF, JPG, PNG, WEBP · Max 3 MB. You can also upload later.</div>
+        <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">PDF, JPG, PNG, WEBP · Max 3 MB. Merge both into one PDF or upload later.</div>
       </div>
+
+      <div class="form-row" style="background:var(--bg-light);padding:12px;border-radius:10px;border:1px solid var(--border)">
+        <label style="display:flex;align-items:flex-start;gap:10px;cursor:pointer">
+          <input type="checkbox" id="acctIntentYes" style="margin-top:3px;flex-shrink:0">
+          <span style="font-size:13px;line-height:1.55">
+            I believe this account will <strong>improve my Trader Score</strong>.<br>
+            <span style="color:var(--muted);font-size:12px">Submit for admin verification. If approved, a $2 verification fee applies. Unchecked = tracking only.</span>
+          </span>
+        </label>
+      </div>
+
       <div class="modal-error" id="acctError"></div>
       <div class="modal-actions">
         <button class="btn btn-ghost" type="button" id="accountCancel">Cancel</button>
