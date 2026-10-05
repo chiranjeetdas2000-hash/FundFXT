@@ -169,6 +169,30 @@
     }
   }
 
+  async function loadKycDuplicates(id){
+    var wrap = document.getElementById('kycDuplicates');
+    if(!wrap) return;
+    wrap.innerHTML = '<div style="color:var(--muted);font-size:12px">Checking for duplicates…</div>';
+    try {
+      var d = await api('/api/admin/tid/kyc/' + id + '/duplicates');
+      if(!d.matches || !d.matches.length){ wrap.innerHTML = ''; return; }
+      var html = '<div style="padding:14px;border:1px solid rgba(255,176,32,.4);background:rgba(255,176,32,.08);border-radius:12px">';
+      html += '<div style="font-weight:800;color:#ffc94d;margin-bottom:10px;font-size:13px">⚠️ ' + d.matches.length + ' Duplicate Match' + (d.matches.length>1?'es':'') + ' Found</div>';
+      d.matches.forEach(function(m){
+        html += '<div style="padding:10px;background:var(--surface3);border-radius:9px;margin-bottom:8px;font-size:12.5px">';
+        html += '<div><b>' + (m.tid||'—') + '</b> · ' + (m.legal_name||'—') + '</div>';
+        html += '<div style="color:var(--muted);font-size:11px;margin-top:3px">' + (m.email||'') + '</div>';
+        html += '<div style="color:#ffc94d;font-size:11px;margin-top:4px">Match: ' + ((m.match_reasons||[]).join(' · ')) + '</div>';
+        html += '<div style="color:var(--muted);font-size:10.5px;margin-top:3px">Status: ' + (m.status||'') + ' · ' + fmtDate(m.created_at) + '</div>';
+        html += '</div>';
+      });
+      html += '</div>';
+      wrap.innerHTML = html;
+    } catch(e){
+      wrap.innerHTML = '<div style="color:var(--red);font-size:12px">Duplicate check failed: ' + esc(e.message) + '</div>';
+    }
+  }
+
   window.viewFile = async function(id){
     try {
       var d = await api('/api/admin/tid/files/' + id + '/url');
