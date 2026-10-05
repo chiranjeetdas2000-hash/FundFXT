@@ -248,6 +248,37 @@ router.get("/admin/tid/files/:id/url", authenticateAdmin, async function (req, r
   }
 });
 
+// Duplicate check for a KYC submission
+router.get("/admin/tid/kyc/:id/duplicates", authenticateAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+    const [me] = await db.execute(
+      "SELECT id, tid_user_id, device_fingerprint, ip_address FROM tid_kyc_submissions WHERE id = ? LIMIT 1",
+      [id]
+    );
+    if (!me.length) return res.status(404).json({ error: "KYC not found" });
+    const cur = me[0];
+    if (!cur.device_fingerprint && !cur.ip_address) {
+      return res.json({ success: true, matches: [] });
+    }
+    const [rows] = await db.execute(
+      "SELECT k.id, k.tid_user_id, k.status, k.device_fingerprint, k.ip_address, k.created_at, u.tid, u.legal_name, u.email FROM tid_kyc_submissions k LEFT JOIN tid_users u ON u.id = k.tid_user_id WHERE k.id != ? AND k.tid_user_id != ? AND (k.device_fingerprint = ? OR k.ip_address = ?) ORDER BY k.created_at DESC LIMIT 50",
+      [id, cur.tid_user_id, cur.device_fingerprint || "", cur.ip_address || ""]
+    );
+    const matches = rows.map(function(r){
+      const reasons = [];
+      if (cur.device_fingerprint && r.device_fingerprint === cur.device_fingerprint) reasons.push("Same device fingerprint");
+      if (cur.ip_address && r.ip_address === cur.ip_address) reasons.push("Same IP address");
+      return Object.assign({}, r, { match_reasons: reasons });
+    });
+    return res.json({ success: true, matches });
+  } catch (e) {
+    console.error("[TID-ADMIN] kyc duplicates:", e.message);
+    return res.status(500).json({ error: "Unable to check duplicates" });
+  }
+});
+
 // TID users list
 router.get("/admin/tid/users", authenticateAdmin, async function (req, res) {
   try {
