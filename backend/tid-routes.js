@@ -933,6 +933,7 @@ router.get("/me", authenticateTid, async (req, res) => {
 
     const profile = await fetchProfile(user.id);
     const verification = await fetchLatestVerification(user.id);
+    const stats = await computeTraderStats(user.id);
     await logAccess(req, user.id, user.tid, "ME");
 
     return res.json({
@@ -949,6 +950,7 @@ router.get("/me", authenticateTid, async (req, res) => {
       },
       profile,
       verification,
+      stats,
     });
   } catch (error) {
     console.error("TID me error:", error);
