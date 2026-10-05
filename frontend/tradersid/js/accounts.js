@@ -133,6 +133,7 @@
         '<div class="acct-actions">' +
           filesBtn +
           verifyBtn +
+          '<button class="btn btn-ghost acct-update" data-id="' + a.id + '">Update</button>' +
           '<button class="btn btn-ghost acct-delete" data-id="' + a.id + '">Delete</button>' +
         '</div>' +
       '</div>';
