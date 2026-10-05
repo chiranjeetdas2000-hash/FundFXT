@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Verify Trader ID</title>
 <link rel="stylesheet" href="/tradersid/card-styles.css">
+<style>.card-photo{overflow:hidden}.card-photo>img{width:100%;height:100%;object-fit:cover;display:block;border-radius:50%}</style>
 </head>
 <body>
 <main class="access-page">
@@ -60,11 +61,15 @@ function renderCard(t){
   const pass=safe(t.pass_rate);
   const payouts=safe(t.payouts);
   const tier=safe(t.tier);
+  const avatarUrl=String(t.avatar_url||'').trim();
+  const showAvatar=avatarUrl && avatarUrl.indexOf('r2:')!==0;
+  const initials=(function(){var p=String(name||'TID').trim().split(/\s+/);var i=(p[0]?p[0][0]:'')+(p[1]?p[1][0]:'');return (i||'TID').toUpperCase().slice(0,2);})();
+  const photoHTML=showAvatar?'<img src="'+esc(avatarUrl)+'" alt="Avatar">':'<div class="card-photo-inner">'+esc(initials)+'</div>';
   return '<div class="tid-card v2" id="verifiedCard"><div class="tid-card-content">'+
     '<svg class="card-watermark" viewBox="0 0 600 400" aria-hidden="true"><defs><pattern id="resultTidPattern" width="120" height="80" patternUnits="userSpaceOnUse" patternTransform="rotate(-30)"><text x="0" y="40" font-family="Inter,sans-serif" font-weight="900" font-size="24" fill="#00b56a" fill-opacity=".045">TID</text></pattern></defs><rect width="100%" height="100%" fill="url(#resultTidPattern)"/></svg>'+
     '<div class="card-holo-sweep"></div>'+
     '<div class="v2-top"><div class="monogram">TID</div><div class="card-tid">'+esc(tid)+'</div><div class="tid-qr"><img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data='+encodeURIComponent("https://fundfxt.vercel.app/t/?tid="+tid)+'" alt="Scan to verify Trader ID"></div></div>'+
-    '<div class="v2-main"><div class="card-photo"><div class="card-photo-inner">TID</div></div><div class="identity"><div class="card-name">'+esc(name)+'</div><div class="card-rank">★ '+esc(rank)+' · VERIFIED</div><div class="card-badges"><span class="badge-verified">✓ VERIFIED</span></div><div class="card-trust-score"><span class="trust-label">TRUST</span><span class="trust-value">'+esc(trust)+'</span><span class="trust-max">/100</span></div></div></div>'+
+    '<div class="v2-main"><div class="card-photo">'+photoHTML+'</div><div class="identity"><div class="card-name">'+esc(name)+'</div><div class="card-rank">★ '+esc(rank)+' · VERIFIED</div><div class="card-badges"><span class="badge-verified">✓ VERIFIED</span></div><div class="card-trust-score"><span class="trust-label">TRUST</span><span class="trust-value">'+esc(trust)+'</span><span class="trust-max">/100</span></div></div></div>'+
     '<div class="card-holo-strip"><div class="card-holo-strip-inner"><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span><span>FXT-ID</span></div></div>'+
     '<div class="card-stats"><div class="stat"><b>'+esc(pass)+'</b><span>Pass Rate</span></div><div class="stat"><b>'+esc(payouts)+'</b><span>Payouts</span></div><div class="stat"><b>'+esc(tier)+'</b><span>Payout Tier</span></div></div>'+
     '</div></div>';
