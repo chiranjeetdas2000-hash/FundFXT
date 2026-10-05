@@ -193,13 +193,15 @@
         var p = $('updProfit'); if(p) p.value = ((Number(a.profit_bps) || 0) / 100).toFixed(2);
         var bw = $('updBestWin'); if(bw) bw.value = ((Number(a.biggest_win_cents) || 0) / 100).toFixed(2);
         var bl = $('updWorstLoss'); if(bl) bl.value = ((Number(a.biggest_loss_cents) || 0) / 100).toFixed(2);
-        updateModal.classList.add('show');
+        updateModal.classList.add('open');
+        document.body.style.overflow = 'hidden';
       })
       .catch(function(e){ if(updError){ updError.textContent = e.message || 'Load failed'; updError.classList.add('show'); } });
   }
 
   function closeUpdateModal(){
-    if(updateModal) updateModal.classList.remove('show');
+    if(updateModal) updateModal.classList.remove('open');
+    document.body.style.overflow = '';
     currentUpdateId = null;
   }
 
