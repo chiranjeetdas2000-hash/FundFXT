@@ -1715,6 +1715,39 @@ router.patch("/accounts/:id", authenticateTid, requireJsonBody, async (req, res)
   }
 });
 
+router.post("/accounts/:id/request-verification", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [rows] = await db.execute(
+      "SELECT id, verification_status, score_impact_intent, account_category FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!rows.length) return jsonError(res, 404, "Account not found");
+
+    const acc = rows[0];
+    if (String(acc.verification_status || "").toUpperCase() !== "NONE") {
+      return jsonError(res, 400, "Verification already requested or completed");
+    }
+    if (String(acc.score_impact_intent || "").toUpperCase() !== "YES") {
+      return jsonError(res, 400, "This account is set as tracking-only");
+    }
+
+    await db.execute(
+      "UPDATE tid_accounts SET verification_status = 'AWAITING_ADMIN' WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCOUNT_VERIFY_REQUEST");
+
+    return res.json({ success: true, status: "AWAITING_ADMIN" });
+  } catch (error) {
+    console.error("TID verify request error:", error);
+    return jsonError(res, 500, "Unable to request verification");
+  }
+});
+
 router.delete("/accounts/:id", authenticateTid, async (req, res) => {
   try {
     const id = Number(req.params.id);
