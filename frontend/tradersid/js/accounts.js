@@ -369,6 +369,20 @@
       });
   });
 
+  var propFields = $('propFirmFields');
+  var brokerFields = $('brokerFields');
+  var categoryRadios = document.querySelectorAll('input[name="acctCategory"]');
+  function applyCategoryToggle(){
+    var selected = document.querySelector('input[name="acctCategory"]:checked');
+    var cat = selected ? selected.value : 'PROP_FIRM';
+    if(propFields) propFields.style.display = (cat === 'PROP_FIRM') ? '' : 'none';
+    if(brokerFields) brokerFields.style.display = (cat === 'BROKER') ? '' : 'none';
+  }
+  for(var cr = 0; cr < categoryRadios.length; cr++){
+    categoryRadios[cr].addEventListener('change', applyCategoryToggle);
+  }
+  applyCategoryToggle();
+
   if(acctForm) acctForm.addEventListener('submit', function(e){
     e.preventDefault();
     var errBox = $('acctError');
