@@ -1088,9 +1088,35 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   loadDashboard();
 
   // ---- Profile save ----
-  $('profileForm').addEventListener('submit', function(e){
+  var profileForm = $('profileForm');
+  if(profileForm) profileForm.addEventListener('submit', async function(e){
     e.preventDefault();
-    toast('Profile saved locally (backend endpoint coming soon)');
+    var payload = {
+      display_name: ($('pfDisplay')?.value || '').trim(),
+      country: ($('pfCountry')?.value || '').trim(),
+      twitter: ($('pfTwitter')?.value || '').trim(),
+      linkedin: ($('pfLinkedin')?.value || '').trim(),
+      bio: ($('pfBio')?.value || '').trim()
+    };
+    Object.keys(payload).forEach(function(k){ if(payload[k] === '') delete payload[k]; });
+    if(!Object.keys(payload).length){ toast('No changes to save'); return; }
+    var submitBtn = profileForm.querySelector('button[type="submit"]');
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Saving…'; }
+    try {
+      var res = await fetch(API + '/api/tid/me/profile', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + token },
+        body: JSON.stringify(payload)
+      });
+      var data = await res.json();
+      if(!res.ok || !data.success) throw new Error(data.error || 'Save failed');
+      toast('Profile saved');
+      loadDashboard();
+    } catch(err){
+      toast(err.message || 'Save failed');
+    } finally {
+      if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Save Changes'; }
+    }
   });
   $('profileReset').addEventListener('click', function(){ loadDashboard(); });
 
