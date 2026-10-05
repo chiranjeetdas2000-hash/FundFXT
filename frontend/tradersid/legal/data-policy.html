@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Trader ID — Data Policy. What data we store, where, and for how long.">
+  <title>Data Policy — Trader ID</title>
+  <link rel="stylesheet" href="/tradersid/css/tid.css">
+  <link rel="stylesheet" href="/tradersid/css/legal.css">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+<header class="tid-header">
+  <div class="container tid-header-inner">
+    <a href="/tradersid/home.html" class="tid-logo"><span class="tid-logo-mark">TID</span><span>Trader ID</span></a>
+    <nav class="tid-nav">
+      <a href="/tradersid/home.html">Home</a>
+      <a href="/tradersid/home.html#what-is">About</a>
+      <a href="/tradersid/verify.html">Verify</a>
+      <a href="/tradersid/login.html">Login</a>
+    </nav>
+    <a href="/tradersid/login.html" class="btn btn-primary btn-sm">Sign In</a>
+    <button class="tid-menu-toggle" id="tidMenuToggle" aria-label="Open menu" aria-expanded="false"><span class="tid-menu-icon"><span></span><span></span><span></span></span></button>
+    <nav class="tid-mobile-nav" id="tidMobileNav" hidden>
+      <a href="/tradersid/home.html">Home</a>
+      <a href="/tradersid/home.html#what-is">About</a>
+      <a href="/tradersid/verify.html">Verify</a>
+      <a href="/tradersid/login.html">Login</a>
+    </nav>
+  </div>
+</header>
+
+<section class="legal-hero">
+  <div class="container">
+    <a href="/tradersid/home.html" class="back-link">← Back to Home</a>
+    <div class="page-eyebrow">Legal</div>
+    <h1 class="page-title">Data Policy</h1>
+    <p class="page-sub">Where your data lives, how it is protected, and how it is deleted.</p>
+    <span class="legal-updated">Last updated: 5 October 2026</span>
+  </div>
+</section>
+
+<section class="legal-body">
+  <div class="container">
+    <div class="legal-layout">
+      <aside class="legal-sidebar">
+        <h4>On this page</h4>
+        <nav>
+          <a href="#categories">Data Categories</a>
+          <a href="#storage">Storage Locations</a>
+          <a href="#encryption">Encryption</a>
+          <a href="#access">Access Control</a>
+          <a href="#retention">Retention Periods</a>
+          <a href="#deletion">Deletion Process</a>
+          <a href="#backups">Backups</a>
+          <a href="#sub">Sub-processors</a>
+          <a href="#contact">Contact</a>
+        </nav>
+      </aside>
+      <main class="legal-content">
+
+        <h2 id="categories">1. Data Categories</h2>
+        <p>Traders ID stores the following broad categories of data:</p>
+        <ul>
+          <li><strong>Identity data:</strong> name, email, password hash, Trader ID.</li>
+          <li><strong>Profile data:</strong> bio, country, social links, avatar, preferences.</li>
+          <li><strong>Verification data:</strong> KYC documents, selfies, review notes, decision logs.</li>
+          <li><strong>Trading data:</strong> statements, snapshots, performance metrics you upload or authorize.</li>
+          <li><strong>Activity data:</strong> login events, device fingerprint, IP, timezone, access logs.</li>
+          <li><strong>Order data:</strong> payments, physical card orders, delivery details.</li>
+        </ul>
+
+        <h2 id="storage">2. Storage Locations</h2>
+        <ul>
+          <li><strong>MySQL database (Aiven):</strong> structured data — accounts, profiles, KYC metadata, logs, payments.</li>
+          <li><strong>Cloudflare R2:</strong> encrypted files — statements, KYC documents, avatars.</li>
+          <li><strong>Application servers (Render):</strong> transient processing; no permanent user data is stored on disk.</li>
+          <li><strong>Frontend (Vercel):</strong> static assets only; no personal user data is stored on Vercel.</li>
+        </ul>
+
+        <h2 id="encryption">3. Encryption</h2>
+        <p>Sensitive files (KYC documents, statements) are encrypted at rest with <strong>AES-256</strong> before being written to storage. All traffic between your device and our backend uses TLS. Passwords are stored using industry-standard one-way hashing — we never store passwords in plain text.</p>
+
+        <h2 id="access">4. Access Control</h2>
+        <p>Access to production data is restricted to authorized personnel and is logged. Admin actions (KYC approvals, account changes) are recorded in audit logs. Files in R2 are private and served only via short-lived signed URLs (typically 1 hour) generated for authenticated requests.</p>
+
+        <h2 id="retention">5. Retention Periods</h2>
+        <ul>
+          <li><strong>Account &amp; profile data:</strong> until account deletion + up to 30 days (backup cycle).</li>
+          <li><strong>KYC documents &amp; decisions:</strong> typically up to 3 years after last activity, per legal retention norms.</li>
+          <li><strong>Activity logs:</strong> up to 12 months.</li>
+          <li><strong>Payment &amp; order records:</strong> up to 7 years where required by tax/accounting law.</li>
+        </ul>
+
+        <h2 id="deletion">6. Deletion Process</h2>
+        <p>You may request deletion of your account and personal data from your dashboard or by emailing us. Once processed:</p>
+        <ul>
+          <li>Profile, avatar, and non-legally-required data are deleted.</li>
+          <li>KYC and financial records are deleted once the legal retention period expires.</li>
+          <li>Backups are purged on their normal rotation cycle (typically 30 days).</li>
+        </ul>
+        <p>We may retain limited data where required to comply with the law, resolve disputes, or prevent fraud.</p>
+
+        <h2 id="backups">7. Backups</h2>
+        <p>We take periodic encrypted backups to protect against data loss. Backups are stored in the same regions as primary storage and are subject to the same access controls.</p>
+
+        <h2 id="sub">8. Sub-processors</h2>
+        <p>We rely on the following sub-processors to deliver the Service: Cloudflare R2, Render, Aiven MySQL, Vercel, our email delivery provider, and payment gateways. Each is contractually required to protect your data.</p>
+
+        <h2 id="contact">9. Contact</h2>
+        <p>For data-related questions:</p>
+        <p><strong>Email:</strong> <a href="mailto:support.fundfxt@gmail.com">support.fundfxt@gmail.com</a><br>
+        <strong>Location:</strong> India</p>
+
+        <div class="legal-crosslinks">
+          <h4>Other legal documents</h4>
+          <div class="links">
+            <a href="/tradersid/legal/terms.html">Terms of Service</a>
+            <a href="/tradersid/legal/privacy.html">Privacy Policy</a>
+            <a href="/tradersid/legal/verification-policy.html">Verification Policy</a>
+            <a href="/tradersid/legal/refund.html">Refund Policy</a>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+</section>
+
+<footer class="tid-footer">
+  <div class="container footer-inner">
+    <span>© 2026 Trader ID · A separate brand. Not affiliated with FundFXT.</span>
+    <div>
+      <a href="/tradersid/legal/privacy.html">Privacy</a>
+      <a href="/tradersid/legal/terms.html">Terms</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var toggle=document.getElementById('tidMenuToggle');
+  var nav=document.getElementById('tidMobileNav');
+  if(!toggle||!nav)return;
+  toggle.addEventListener('click',function(){
+    var open=toggle.getAttribute('aria-expanded')==='true';
+    toggle.setAttribute('aria-expanded',String(!open));
+    if(open)nav.setAttribute('hidden','');else nav.removeAttribute('hidden');
+  });
+  nav.querySelectorAll('a').forEach(function(a){
+    a.addEventListener('click',function(){toggle.setAttribute('aria-expanded','false');nav.setAttribute('hidden','');});
+  });
+  document.addEventListener('keydown',function(e){
+    if(e.key==='Escape'){toggle.setAttribute('aria-expanded','false');nav.setAttribute('hidden','');}
+  });
+})();
+</script>
+</body>
+</html>
