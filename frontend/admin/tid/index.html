@@ -76,14 +76,24 @@ tr:hover td{background:var(--surface2)}
 .file-row .meta{color:var(--muted);font-size:11px;margin-top:3px;font-family:'JetBrains Mono',monospace}
 .actions-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}
 .hidden{display:none}
+ .menu-toggle{display:none;position:fixed;top:60px;left:12px;z-index:60;width:42px;height:42px;border-radius:10px;background:var(--surface);border:1px solid var(--line);color:#fff;font-size:18px;font-weight:700;cursor:pointer;transition:.15s}
+.menu-toggle:hover{border-color:var(--green2);color:var(--green2)}
+.sidebar-close{display:none;position:absolute;top:14px;right:14px;width:34px;height:34px;border-radius:9px;background:transparent;border:1px solid var(--line);color:#fff;font-size:16px;font-weight:700;cursor:pointer;transition:.15s}
+.sidebar-close:hover{border-color:var(--red);color:var(--red)}
+.drawer-backdrop{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:55;opacity:0;transition:opacity .22s}
+.drawer-backdrop.show{opacity:1}
 @media(max-width:900px){
   .app{display:block}
-  .sidebar{width:100%;padding:16px}
-  .main{padding:18px}
+  .main{padding:18px;padding-top:66px}
   .admin-mode-bar{padding:10px 14px;gap:6px}
   .admin-mode-label{width:100%;margin:0 0 4px 0}
   .admin-mode-btn{flex:1;text-align:center;padding:9px 12px}
   .detail-label{min-width:100px;font-size:10.5px}
+  .menu-toggle{display:block}
+  .sidebar-close{display:block}
+  .sidebar{position:fixed;top:0;left:0;bottom:0;width:260px;max-width:82vw;z-index:60;transform:translateX(-100%);transition:transform .25s cubic-bezier(.4,0,.2,1);overflow-y:auto;padding:60px 16px 20px;box-shadow:0 20px 60px rgba(0,0,0,.5)}
+  .sidebar.open{transform:translateX(0)}
+  .drawer-backdrop.show{display:block}
 }
 @media(max-width:520px){
   .detail-row{flex-direction:column;gap:4px}
@@ -99,8 +109,11 @@ tr:hover td{background:var(--surface2)}
   <a href="/admin/tid/" class="admin-mode-btn active">Traders ID</a>
 </div>
 
+<button class="menu-toggle" id="menuToggle" aria-label="Open menu">☰</button>
+<div class="drawer-backdrop" id="drawerBackdrop"></div>
 <div class="app">
-  <aside class="sidebar">
+  <aside class="sidebar" id="adminSidebar">
+    <button class="sidebar-close" id="sidebarClose" aria-label="Close menu">✕</button>
     <div class="brand">
       <div class="brand-mark">TID</div>
       <div>
