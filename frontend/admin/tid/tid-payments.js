@@ -34,7 +34,7 @@
     if(listWrap) listWrap.classList.remove('hidden');
     list.innerHTML = '<div class="loading">Loading payment requests…</div>';
     try {
-      var d = await api('/api/admin/tid/accounts/payment-requests');
+      var d = await api('/api/admin/tid/payment-requests');
       if(!d.accounts.length){
         list.innerHTML = '<div class="empty">No payment requests.</div>';
         return;
