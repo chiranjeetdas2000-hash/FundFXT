@@ -66,6 +66,7 @@
     else if(view === 'kyc') loadKycQueue();
     else if(view === 'accounts') loadAccountQueue();
     else if(view === 'users') loadUsers();
+    else if(view === 'payments') loadPaymentRequests();
     if(window.closeDrawer) window.closeDrawer();
   };
 
@@ -274,6 +275,68 @@
     try { await api('/api/admin/tid/accounts/' + id + '/reject', { method: 'POST', body: { reason: reason } }); alert('Rejected'); loadAccountQueue(); }
     catch(e){ setError(e.message); }
   };
+
+  // ---------- PAYMENT REQUESTS ----------
+  async function loadPaymentRequests(){
+    $('paymentDetailWrap').classList.add('hidden');
+    $('paymentListWrap').classList.remove('hidden');
+    var list = $('paymentList');
+    list.innerHTML = '<div class="loading">Loading payment requests…</div>';
+    try {
+      var d = await api('/api/admin/tid/accounts/payment-requests');
+      if(!d.accounts.length){ list.innerHTML = '<div class="empty">No payment requests.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>Req No</th><th>TID</th><th>Account</th><th>Status</th><th>Fee</th><th>Created</th><th>Action</th></tr></thead><tbody>';
+      d.accounts.forEach(function(a){
+        var accLabel = String(a.account_category || '').toUpperCase() === 'BROKER'
+          ? (a.broker_name || 'Broker') + ' · ' + (String(a.broker_account_mode || '').toUpperCase() === 'DEMO' ? 'Demo' : 'Real')
+          : (a.firm_name || 'Firm') + ' · 
+  async function loadUsers(){
+    var list = $('usersList');
+    list.innerHTML = '<div class="loading">Loading users…</div>';
+    try {
+      var search = $('userSearch').value.trim();
+      var d = await api('/api/admin/tid/users' + (search ? '?search=' + encodeURIComponent(search) : ''));
+      if(!d.users.length){ list.innerHTML = '<div class="empty">No users found.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Name</th><th>Email</th><th>Rank</th><th>Verified</th><th>Joined</th></tr></thead><tbody>';
+      d.users.forEach(function(u){
+        html += '<tr><td>' + u.id + '</td><td><b>' + esc(u.tid||'—') + '</b></td><td>' + esc(u.legal_name||'—') + '</td><td>' + esc(u.email||'—') + '</td><td>' + esc(u.current_rank||'ROOKIE') + '</td><td>' + (u.email_verified?'✅':'—') + '</td><td>' + fmtDate(u.created_at) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  // ---------- INIT ----------
+  loadOverview();
+})(); + (Number(a.account_size_cents||0)/100).toLocaleString('en-US');
+        var badge = a.verification_status === 'PAID_PENDING' ? 'approved'
+          : a.verification_status === 'PAID_REQUESTED' ? 'pending'
+          : a.verification_status === 'LINK_SENT' ? 'pending' : 'none';
+        html += '<tr><td><b style="font-family:Consolas,monospace">' + esc(a.payment_request_no || '—') + '</b></td><td>' + esc(a.tid||'—') + '</td><td>' + esc(accLabel) + '</td><td><span class="badge ' + badge + '">' + esc(a.verification_status) + '</span></td><td>
+  async function loadUsers(){
+    var list = $('usersList');
+    list.innerHTML = '<div class="loading">Loading users…</div>';
+    try {
+      var search = $('userSearch').value.trim();
+      var d = await api('/api/admin/tid/users' + (search ? '?search=' + encodeURIComponent(search) : ''));
+      if(!d.users.length){ list.innerHTML = '<div class="empty">No users found.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Name</th><th>Email</th><th>Rank</th><th>Verified</th><th>Joined</th></tr></thead><tbody>';
+      d.users.forEach(function(u){
+        html += '<tr><td>' + u.id + '</td><td><b>' + esc(u.tid||'—') + '</b></td><td>' + esc(u.legal_name||'—') + '</td><td>' + esc(u.email||'—') + '</td><td>' + esc(u.current_rank||'ROOKIE') + '</td><td>' + (u.email_verified?'✅':'—') + '</td><td>' + fmtDate(u.created_at) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  // ---------- INIT ----------
+  loadOverview();
+})(); + (Number(a.verification_fee_cents||0)/100).toFixed(0) + '</td><td>' + fmtDate(a.created_at) + '</td><td><button class="btn sm" onclick="openPayment(' + a.id + ')">Review</button></td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
 
   // ---------- USERS ----------
   async function loadUsers(){
