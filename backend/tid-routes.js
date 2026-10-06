@@ -1950,6 +1950,79 @@ router.delete("/accounts/:id/trades/:tradeId", authenticateTid, async (req, res)
   }
 });
 
+router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [acc] = await db.execute(
+      "SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!acc.length) return jsonError(res, 404, "Account not found");
+
+    const trades = Array.isArray(req.body?.trades) ? req.body.trades : [];
+    if (!trades.length) return jsonError(res, 400, "No trades provided");
+    if (trades.length > 500) return jsonError(res, 400, "Maximum 500 trades per import");
+
+    const inserted = [];
+    const errors = [];
+
+    for (let i = 0; i < trades.length; i++) {
+      const t = trades[i] || {};
+      try {
+        const symbol = cleanString(t.symbol, 30).toUpperCase();
+        if (!symbol) { errors.push({ row: i + 1, error: "Missing symbol" }); continue; }
+
+        const direction = String(t.direction || "").toUpperCase();
+        if (!["BUY","SELL"].includes(direction)) {
+          errors.push({ row: i + 1, error: "Invalid direction" });
+          continue;
+        }
+
+        const entryPrice = t.entry_price != null ? Number(t.entry_price) : null;
+        const exitPrice = t.exit_price != null ? Number(t.exit_price) : null;
+        const lotSize = t.lot_size != null ? Number(t.lot_size) : null;
+        const pips = t.pips != null ? Number(t.pips) : null;
+        const profitCents = Math.round(Number(t.profit_cents) || 0);
+        const status = String(t.status || "CLOSED").toUpperCase();
+        if (!["OPEN","CLOSED"].includes(status)) {
+          errors.push({ row: i + 1, error: "Invalid status" });
+          continue;
+        }
+
+        const openedAt = t.opened_at ? new Date(t.opened_at) : null;
+        const closedAt = t.closed_at ? new Date(t.closed_at) : null;
+        const notes = cleanString(t.notes, 1000) || null;
+        const screenshotUrl = cleanString(t.screenshot_url, 500) || null;
+
+        const [result] = await db.execute(
+          "INSERT INTO tid_trades (tid_user_id, account_id, symbol, direction, entry_price, exit_price, lot_size, pips, profit_cents, status, opened_at, closed_at, notes, screenshot_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [req.tidUser.tidUserId, id, symbol, direction, entryPrice, exitPrice, lotSize, pips, profitCents, status, openedAt, closedAt, notes, screenshotUrl],
+        );
+        inserted.push(result.insertId);
+      } catch (rowErr) {
+        errors.push({ row: i + 1, error: rowErr.message });
+      }
+    }
+
+    if (inserted.length > 0) {
+      await recomputeAccountAggregates(id, req.tidUser.tidUserId);
+      await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRADE_BULK_IMPORT");
+    }
+
+    return res.json({
+      success: true,
+      inserted_count: inserted.length,
+      error_count: errors.length,
+      errors: errors.slice(0, 20),
+    });
+  } catch (error) {
+    console.error("TID trade bulk error:", error);
+    return jsonError(res, 500, "Unable to import trades");
+  }
+});
+
 router.get("/accounts", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
