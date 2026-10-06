@@ -262,6 +262,12 @@
       });
   }
 
+  function renderTrades(trades){
+    var body = $('tradesListBody');
+    if(!body) return;
+    body.innerHTML = '<div class="empty"><div class="empty-text">Loaded ' + trades.length + ' trades.</div></div>';
+  }
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
