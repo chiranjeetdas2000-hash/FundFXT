@@ -283,6 +283,14 @@
     body.innerHTML = '<table><thead><tr><th>Symbol</th><th>Dir</th><th>Pips</th><th>P/L</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
+  var tradesListClose = $('tradesListClose');
+  if(tradesListClose) tradesListClose.addEventListener('click', closeTradesModal);
+  if(tradesListModal) tradesListModal.addEventListener('click', function(e){ if(e.target === tradesListModal) closeTradesModal(); });
+  var openAddTradeBtn = $('openAddTradeBtn');
+  if(openAddTradeBtn) openAddTradeBtn.addEventListener('click', function(){ if(typeof openTradeForm === 'function') openTradeForm(currentTradesAccountId); });
+  var openBulkImportBtn = $('openBulkImportBtn');
+  if(openBulkImportBtn) openBulkImportBtn.addEventListener('click', function(){ if(typeof openBulkImport === 'function') openBulkImport(currentTradesAccountId); });
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
