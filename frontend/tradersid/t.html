@@ -174,11 +174,12 @@ form.addEventListener("submit",async e=>{
   result.hidden=true;
   const key=keyInput.value.trim().toUpperCase();
   if(!requestedTid){errorBox.textContent="Missing Trader ID in QR URL";errorBox.hidden=false;return;}
-  if(!/^PAK-[A-Z0-9]{8}$/.test(key)){errorBox.textContent="Enter a valid access key";errorBox.hidden=false;return;}
+  if(!/^(PAK|AK)-[A-Z0-9]{8}$/.test(key)){errorBox.textContent="Enter a valid access key (PAK-XXXX or AK-XXXX)";errorBox.hidden=false;return;}
   verifyBtn.disabled=true;
   verifyBtn.textContent="Verifying…";
   try{
-    const response=await fetch(API+"/api/tid/pak/"+encodeURIComponent(key),{headers:{"Accept":"application/json"}});
+    const endpoint = key.startsWith("AK-") ? "/api/tid/ak/" : "/api/tid/pak/";
+    const response=await fetch(API+endpoint+encodeURIComponent(key),{headers:{"Accept":"application/json"}});
     const data=await response.json().catch(()=>({}));
     if(!response.ok||!data.success||!data.trader) throw new Error("Invalid access key");
     if(String(data.trader.tid||"").toUpperCase()!==requestedTid) throw new Error("Access key does not match this Trader ID");
