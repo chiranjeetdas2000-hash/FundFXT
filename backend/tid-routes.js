@@ -694,6 +694,90 @@ router.get("/health", async (req, res) => {
 });
 
 
+router.get("/ak/:key", async (req, res) => {
+  try {
+    const key = cleanString(req.params.key, 64).toUpperCase();
+    if (!/^AK-[A-Z0-9]{8}$/.test(key)) {
+      return jsonError(res, 400, "Invalid access key format");
+    }
+
+    const [rows] = await db.execute(
+      "SELECT k.id, k.tid_user_id, k.scopes, k.expires_at, k.revoked_at, k.last_used_at, k.use_count FROM tid_access_keys k WHERE k.key_value = ? LIMIT 1",
+      [key],
+    );
+    if (!rows.length) return jsonError(res, 404, "Invalid access key");
+
+    const k = rows[0];
+    if (k.revoked_at) return jsonError(res, 403, "Access key has been revoked");
+    if (new Date(k.expires_at).getTime() < Date.now()) {
+      return jsonError(res, 403, "Access key has expired");
+    }
+
+    const [users] = await db.execute(
+      "SELECT * FROM tid_users WHERE id = ? LIMIT 1",
+      [k.tid_user_id],
+    );
+    if (!users.length) return jsonError(res, 404, "User not found");
+    const user = users[0];
+
+    const profile = await fetchProfile(user.id);
+    const stats = await computeTraderStats(user.id);
+
+    await db.execute(
+      "UPDATE tid_access_keys SET last_used_at = NOW(), use_count = use_count + 1 WHERE id = ? LIMIT 1",
+      [k.id],
+    );
+
+    await logAccess(req, user.id, user.tid, "AK_VERIFY");
+
+    const scopes = String(k.scopes || "identity").split(",").filter(Boolean);
+    const hasScope = (s) => scopes.includes(s);
+
+    const trader = {
+      tid: user.tid || null,
+      name: user.legal_name || null,
+      member_since: profile?.member_since || user.created_at || null,
+      avatar_url: profile?.avatar_url || null,
+    };
+
+    if (hasScope("identity")) {
+      trader.rank = stats.rank;
+      trader.trust_score = stats.trust_score;
+      trader.pass_rate = stats.pass_rate;
+      trader.verified_badges = profile?.verified_badges ?? null;
+    }
+
+    if (hasScope("accounts")) {
+      trader.total_challenges = stats.total_challenges;
+      trader.total_passed = stats.total_passed;
+      trader.total_failed = stats.total_failed;
+      trader.funded_count = stats.funded_count;
+      trader.accounts_count = stats.accounts_count;
+    }
+
+    if (hasScope("trades")) {
+      trader.best_win_rate = stats.best_win_rate;
+      trader.best_win_rate_bps = stats.best_win_rate_bps;
+    }
+
+    if (hasScope("payouts")) {
+      trader.payouts = stats.total_profit;
+      trader.total_profit_cents = stats.total_profit_cents;
+      trader.tier = stats.tier;
+    }
+
+    return res.json({
+      success: true,
+      verified: true,
+      scopes,
+      trader,
+    });
+  } catch (error) {
+    console.error("TID AK verify error:", error);
+    return jsonError(res, 500, "Unable to verify access key");
+  }
+});
+
 router.get("/pak/:public_access_key", async (req, res) => {
   try {
     const pak = cleanString(req.params.public_access_key, 64);
