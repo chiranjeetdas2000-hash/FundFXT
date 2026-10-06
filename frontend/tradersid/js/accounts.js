@@ -86,6 +86,8 @@
     if(u === 'VERIFIED') return 'verified';
     if(u === 'PENDING') return 'pending';
     if(u === 'REJECTED') return 'rejected';
+    if(u === 'AWAITING_PAYMENT' || u === 'PAID_REQUESTED' || u === 'LINK_SENT' || u === 'PAID_PENDING') return 'pending';
+    if(u === 'TRACKING_ONLY') return 'none';
     return 'none';
   }
   function statusLabel(s){
@@ -93,6 +95,11 @@
     if(u === 'VERIFIED') return 'Verified';
     if(u === 'PENDING') return 'Pending Review';
     if(u === 'REJECTED') return 'Rejected';
+    if(u === 'AWAITING_PAYMENT') return 'Awaiting Payment';
+    if(u === 'PAID_REQUESTED') return 'Request Sent';
+    if(u === 'LINK_SENT') return 'Link Sent';
+    if(u === 'PAID_PENDING') return 'Under Review';
+    if(u === 'TRACKING_ONLY') return 'Tracking Only';
     return 'Not Verified';
   }
   function fileStatusClass(s){
