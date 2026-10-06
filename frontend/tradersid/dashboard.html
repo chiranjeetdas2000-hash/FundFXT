@@ -951,6 +951,26 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
   </div>
 </div>
 
+<div class="modal-backdrop" id="tradesListModal">
+  <div class="modal-card" style="max-width:720px">
+    <div class="modal-head">
+      <div class="modal-title">Trade History</div>
+      <button class="modal-close" type="button" id="tradesListClose" aria-label="Close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="tradesListAccountId">
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+        <button class="btn btn-primary" type="button" id="openAddTradeBtn">+ Add Trade</button>
+        <button class="btn btn-ghost" type="button" id="openBulkImportBtn">Bulk Import (CSV)</button>
+        <span style="margin-left:auto;font-size:12px;color:var(--muted);align-self:center" id="tradesListSummary"></span>
+      </div>
+      <div id="tradesListBody">
+        <div class="empty"><div class="empty-text">Loading trades…</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
 
 <!-- ============ FILE MANAGEMENT MODAL ============ -->
 <div class="modal-backdrop" id="filesModal">
