@@ -1797,6 +1797,105 @@ router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
   }
 });
 
+async function recomputeAccountAggregates(accountId, tidUserId) {
+  try {
+    const [rows] = await db.execute(
+      "SELECT COALESCE(SUM(pips),0) AS total_pips, COALESCE(SUM(CASE WHEN pips>0 THEN pips ELSE 0 END),0) AS pips_won, COALESCE(SUM(CASE WHEN pips<0 THEN -pips ELSE 0 END),0) AS pips_lost, COUNT(*) AS cnt, SUM(CASE WHEN pips>0 THEN 1 ELSE 0 END) AS wins, SUM(CASE WHEN pips<0 THEN 1 ELSE 0 END) AS losses, COALESCE(SUM(profit_cents),0) AS total_profit_cents, COALESCE(MAX(CASE WHEN profit_cents>0 THEN profit_cents ELSE 0 END),0) AS big_win, COALESCE(MAX(CASE WHEN profit_cents<0 THEN -profit_cents ELSE 0 END),0) AS big_loss FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status='CLOSED'",
+      [accountId, tidUserId],
+    );
+    const r = rows[0] || {};
+    const totalTrades = Number(r.cnt) || 0;
+    const wins = Number(r.wins) || 0;
+    const losses = Number(r.losses) || 0;
+    const winRateBps = totalTrades > 0 ? Math.round((wins / totalTrades) * 10000) : 0;
+    const totalPips = Number(r.total_pips) || 0;
+    const pipsWon = Number(r.pips_won) || 0;
+    const pipsLost = Number(r.pips_lost) || 0;
+    const avgRr = pipsLost > 0 ? Number((pipsWon / pipsLost).toFixed(3)) : 0;
+    const bigWin = Number(r.big_win) || 0;
+    const bigLoss = Number(r.big_loss) || 0;
+    const totalProfitCents = Number(r.total_profit_cents) || 0;
+
+    const [acct] = await db.execute(
+      "SELECT account_size_cents FROM tid_accounts WHERE id = ? LIMIT 1",
+      [accountId],
+    );
+    const sizeCents = Number(acct[0]?.account_size_cents) || 0;
+    const profitBps = sizeCents > 0 ? Math.round((totalProfitCents / sizeCents) * 10000) : 0;
+
+    await db.execute(
+      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, biggest_win_cents = ?, biggest_loss_cents = ?, total_pips = ?, total_pips_won = ?, total_pips_lost = ?, avg_rr = ?, profit_bps = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
+      [totalTrades, wins, losses, winRateBps, bigWin, bigLoss, totalPips, pipsWon, pipsLost, avgRr, profitBps, accountId],
+    );
+  } catch (err) {
+    console.error("recomputeAccountAggregates error:", err);
+  }
+}
+
+router.post("/accounts/:id/trades", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [acc] = await db.execute(
+      "SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!acc.length) return jsonError(res, 404, "Account not found");
+
+    const symbol = cleanString(req.body?.symbol, 30).toUpperCase();
+    if (!symbol) return jsonError(res, 400, "Symbol is required");
+
+    const direction = String(req.body?.direction || "").toUpperCase();
+    if (!["BUY","SELL"].includes(direction)) return jsonError(res, 400, "Direction must be BUY or SELL");
+
+    const entryPrice = req.body?.entry_price != null ? Number(req.body.entry_price) : null;
+    const exitPrice = req.body?.exit_price != null ? Number(req.body.exit_price) : null;
+    const lotSize = req.body?.lot_size != null ? Number(req.body.lot_size) : null;
+    const pips = req.body?.pips != null ? Number(req.body.pips) : null;
+    const profitCents = Math.round(Number(req.body?.profit_cents) || 0);
+
+    const status = String(req.body?.status || "CLOSED").toUpperCase();
+    if (!["OPEN","CLOSED"].includes(status)) return jsonError(res, 400, "Invalid status");
+
+    const openedAt = req.body?.opened_at ? new Date(req.body.opened_at) : null;
+    const closedAt = req.body?.closed_at ? new Date(req.body.closed_at) : null;
+    const notes = cleanString(req.body?.notes, 1000) || null;
+    const screenshotUrl = cleanString(req.body?.screenshot_url, 500) || null;
+
+    const [result] = await db.execute(
+      "INSERT INTO tid_trades (tid_user_id, account_id, symbol, direction, entry_price, exit_price, lot_size, pips, profit_cents, status, opened_at, closed_at, notes, screenshot_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      [req.tidUser.tidUserId, id, symbol, direction, entryPrice, exitPrice, lotSize, pips, profitCents, status, openedAt, closedAt, notes, screenshotUrl],
+    );
+
+    await recomputeAccountAggregates(id, req.tidUser.tidUserId);
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRADE_CREATE");
+
+    return res.status(201).json({
+      success: true,
+      trade: {
+        id: result.insertId,
+        account_id: id,
+        symbol,
+        direction,
+        entry_price: entryPrice,
+        exit_price: exitPrice,
+        lot_size: lotSize,
+        pips,
+        profit_cents: profitCents,
+        status,
+        opened_at: openedAt,
+        closed_at: closedAt,
+        notes,
+        screenshot_url: screenshotUrl,
+      },
+    });
+  } catch (error) {
+    console.error("TID trade create error:", error);
+    return jsonError(res, 500, "Unable to create trade");
+  }
+});
+
 router.get("/accounts", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
