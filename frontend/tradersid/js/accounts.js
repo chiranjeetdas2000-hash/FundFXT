@@ -169,6 +169,7 @@
         '<div class="acct-actions">' +
           filesBtn +
           verifyBtn +
+          '<button class="btn btn-ghost acct-trades" data-id="' + a.id + '">Trades</button>' +
           '<button class="btn btn-ghost acct-delete" data-id="' + a.id + '">Delete</button>' +
         '</div>' +
       '</div>';
@@ -218,6 +219,13 @@
       });
     }
     // Update button removed — metrics are set by admin after verification
+    var trdBtns = accountsList.querySelectorAll('.acct-trades');
+    for(var n = 0; n < trdBtns.length; n++){
+      trdBtns[n].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        if(typeof openTradesModal === 'function') openTradesModal(id);
+      });
+    }
   }
 
   function loadAccounts(){
