@@ -169,7 +169,6 @@
         '<div class="acct-actions">' +
           filesBtn +
           verifyBtn +
-          '<button class="btn btn-ghost acct-update" data-id="' + a.id + '">Update</button>' +
           '<button class="btn btn-ghost acct-delete" data-id="' + a.id + '">Delete</button>' +
         '</div>' +
       '</div>';
@@ -218,13 +217,7 @@
         openFilesModal(id);
       });
     }
-    var updBtns = accountsList.querySelectorAll('.acct-update');
-    for(var m = 0; m < updBtns.length; m++){
-      updBtns[m].addEventListener('click', function(){
-        var id = this.getAttribute('data-id');
-        openUpdateModal(id);
-      });
-    }
+    // Update button removed — metrics are set by admin after verification
   }
 
   var updateModal = $('updateAccountModal');
