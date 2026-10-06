@@ -185,7 +185,7 @@ router.post("/admin/tid/kyc/:id/reject", authenticateAdmin, requireSuperAdmin, a
 router.get("/admin/tid/accounts/pending", authenticateAdmin, async function (req, res) {
   try {
     const [rows] = await db.execute(
-      "SELECT a.*, u.tid, u.legal_name, u.email FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.verification_status IN ('NONE','PENDING') ORDER BY a.created_at ASC LIMIT 200"
+      "SELECT a.*, u.tid, u.legal_name, u.email FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.verification_status IN ('NONE','PENDING','AWAITING_PAYMENT','PAID_REQUESTED','LINK_SENT','PAID_PENDING') ORDER BY FIELD(a.verification_status,'PAID_PENDING','PAID_REQUESTED','LINK_SENT','AWAITING_PAYMENT','PENDING','NONE'), a.created_at DESC LIMIT 200"
     );
     // attach file counts
     for (const r of rows) {
@@ -228,17 +228,51 @@ router.post("/admin/tid/accounts/:id/verify", authenticateAdmin, requireSuperAdm
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const b = req.body || {};
+    const fields = [];
+    const values = [];
+
+    const num = (v) => Math.max(0, Math.round(Number(v) || 0));
+
+    if (b.total_trades !== undefined) { fields.push("total_trades = ?"); values.push(num(b.total_trades)); }
+    if (b.total_wins !== undefined) { fields.push("total_wins = ?"); values.push(num(b.total_wins)); }
+    if (b.total_losses !== undefined) { fields.push("total_losses = ?"); values.push(num(b.total_losses)); }
+    if (b.profit_bps !== undefined) { fields.push("profit_bps = ?"); values.push(Math.round(Number(b.profit_bps) || 0)); }
+    if (b.biggest_win_cents !== undefined) { fields.push("biggest_win_cents = ?"); values.push(num(b.biggest_win_cents)); }
+    if (b.biggest_loss_cents !== undefined) { fields.push("biggest_loss_cents = ?"); values.push(num(b.biggest_loss_cents)); }
+
+    if (b.total_trades !== undefined || b.total_wins !== undefined) {
+      const [cur] = await db.execute("SELECT total_trades, total_wins FROM tid_accounts WHERE id=? LIMIT 1", [id]);
+      if (!cur.length) return res.status(404).json({ error: "Not found" });
+      const trades = b.total_trades !== undefined ? num(b.total_trades) : num(cur[0].total_trades);
+      const wins = b.total_wins !== undefined ? num(b.total_wins) : num(cur[0].total_wins);
+      const winRateBps = trades > 0 ? Math.round((wins / trades) * 10000) : 0;
+      fields.push("win_rate_bps = ?");
+      values.push(winRateBps);
+    }
+
+    fields.push("verification_status = 'VERIFIED'");
+    if (b.admin_notes !== undefined) {
+      const notes = String(b.admin_notes || "").trim().slice(0, 500) || null;
+      fields.push("admin_notes = ?");
+      values.push(notes);
+    }
+    fields.push("updated_at = NOW()");
+
+    values.push(id);
     const [r] = await db.execute(
-      "UPDATE tid_accounts SET verification_status='VERIFIED', updated_at=NOW() WHERE id=? LIMIT 1",
-      [id]
+      "UPDATE tid_accounts SET " + fields.join(", ") + " WHERE id = ? LIMIT 1",
+      values
     );
     if (!r.affectedRows) return res.status(404).json({ error: "Not found" });
-    // Also mark all files as approved
+
     await db.execute(
       "UPDATE tid_statements SET status='APPROVED', verified_at=NOW(), verified_by=? WHERE account_id=? AND status='PENDING'",
       [req.adminId, id]
     );
-    return res.json({ success: true });
+
+    return res.json({ success: true, status: "VERIFIED" });
   } catch (e) {
     console.error("[TID-ADMIN] account verify:", e.message);
     return res.status(500).json({ error: "Unable to verify" });
