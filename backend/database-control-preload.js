@@ -163,7 +163,7 @@ function installDatabaseControl(app) {
     const blocked=/\\b(INSERT|UPDATE|DELETE|DROP|ALTER|TRUNCATE|CREATE|GRANT|REVOKE)\\b/i;
     const allowed=["SELECT","SHOW","DESCRIBE","DESC","EXPLAIN"];
     const writeOps=["INSERT","UPDATE","DELETE","CREATE","ALTER","DROP","TRUNCATE","REPLACE"];
-    const forbidden=new RegExp("GRANT|REVOKE|SHUTDOWN|KILL|LOAD[ ]+DATA|INTO[ ]+OUTFILE|INTO[ ]+DUMPFILE","i");
+    const forbidden=/\b(GRANT|REVOKE|SHUTDOWN|KILL|LOAD\s+DATA|INTO\s+OUTFILE|INTO\s+DUMPFILE)\b/i;
     const isWrite=writeOps.includes(firstWord);
     if(!allowed.includes(firstWord)&&!isWrite)return res.status(403).json({success:false,error:"Query type not allowed."});
     if(forbidden.test(sql))return res.status(403).json({success:false,error:"This query pattern is not allowed."});
