@@ -305,7 +305,7 @@ router.post("/admin/tid/accounts/:id/reject", authenticateAdmin, requireSuperAdm
 router.get("/admin/tid/payment-requests", authenticateAdmin, async function (req, res) {
   try {
     const [rows] = await db.execute(
-      "SELECT a.id, a.tid_user_id, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.total_withdrawal_cents, a.verification_status, a.verification_fee_cents, a.payment_ref, a.score_impact_intent, a.created_at, u.tid, u.legal_name, u.email FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.verification_status IN ('AWAITING_PAYMENT','PAID_REQUESTED','LINK_SENT','PAID_PENDING') ORDER BY FIELD(a.verification_status,'PAID_REQUESTED','AWAITING_PAYMENT','LINK_SENT','PAID_PENDING'), a.updated_at DESC LIMIT 200"
+      "SELECT a.id, a.tid_user_id, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.total_withdrawal_cents, a.verification_status, a.verification_fee_cents, a.payment_ref, a.payment_request_no, a.transaction_id, a.score_impact_intent, a.created_at, u.tid, u.legal_name, u.email FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.verification_status IN ('AWAITING_PAYMENT','PAID_REQUESTED','LINK_SENT','PAID_PENDING') ORDER BY FIELD(a.verification_status,'PAID_REQUESTED','AWAITING_PAYMENT','LINK_SENT','PAID_PENDING'), a.updated_at DESC LIMIT 200"
     );
     return res.json({ success: true, accounts: rows });
   } catch (e) {
