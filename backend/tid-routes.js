@@ -1759,48 +1759,40 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
         const safe = (v) => escapeHtml(String(v == null ? "" : v));
 
         const html =
-          "<!doctype html><html lang="en"><head><meta charset="utf-8"></head>" +
-          "<body style="margin:0;padding:0;background:#F8F9FB;font-family:Inter,Arial,sans-serif;color:#0F1B2D">" +
-          "<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8F9FB;padding:32px 16px"><tr><td align="center">" +
-          "<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#FFFFFF;border:1px solid #E8EBF0;border-radius:14px;overflow:hidden">" +
-
-          "<tr><td style="padding:22px 28px;border-bottom:1px solid #E8EBF0">" +
-          "<table role="presentation" cellpadding="0" cellspacing="0"><tr>" +
-          "<td style="width:40px;height:40px;background:#0F1B2D;color:#FFFFFF;border-radius:8px;text-align:center;vertical-align:middle;font-weight:800;font-size:13px;letter-spacing:.5px">TID</td>" +
-          "<td style="padding-left:12px;font-size:18px;font-weight:700;color:#0F1B2D">Trader ID · Admin</td>" +
-          "</tr></table></td></tr>" +
-
-          "<tr><td style="padding:32px 28px 10px">" +
-          "<p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#B8935A">Payment Request</p>" +
-          "<h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;color:#0F1B2D">New verification payment request</h1>" +
-          "<p style="margin:0 0 18px;font-size:14.5px;line-height:1.7;color:#64748B">A trader has requested verification payment. Review the details below and send them a payment link from the admin panel.</p>" +
-          "</td></tr>" +
-
-          "<tr><td style="padding:0 28px 10px">" +
-          "<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px">" +
-          "<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">User</span><br><b style="color:#0F1B2D;font-size:14px">" + safe(userName) + "</b></td></tr>" +
-          "<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Email</span><br><b style="color:#0F1B2D;font-size:14px">" + safe(userEmail) + "</b></td></tr>" +
-          "<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Trader ID</span><br><b style="color:#0F1B2D;font-size:14px;font-family:Consolas,monospace">" + safe(userTid) + "</b></td></tr>" +
-          "<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Account</span><br><b style="color:#0F1B2D;font-size:14px">" + safe(accLabel) + "</b></td></tr>" +
-          "<tr><td style="padding:16px 18px;font-size:13px"><span style="color:#64748B">Verification Fee</span><br><b style="color:#00b56a;font-size:16px">" + safe(feeStr) + "</b></td></tr>" +
-          "</table></td></tr>" +
-
-          "<tr><td style="padding:18px 28px 6px">" +
-          "<a href="" + adminUrl + "" style="display:inline-block;padding:12px 22px;background:#00b56a;color:#06110d;text-decoration:none;border-radius:9px;font-weight:700;font-size:14px">Open Admin Panel →</a>" +
-          "</td></tr>" +
-
-          "<tr><td style="padding:22px 28px 26px">" +
-          "<p style="margin:0;font-size:13px;line-height:1.7;color:#64748B">From the admin panel, open this account under <b>Payment Requests</b>, paste the Razorpay (or UPI) link, and save. You will then receive a ready-to-forward email for the user.</p>" +
-          "</td></tr>" +
-
-          "<tr><td style="padding:18px 28px;border-top:1px solid #E8EBF0;background:#F8F9FB">" +
-          "<p style="margin:0 0 5px;font-size:12px;color:#64748B">Traders ID · Admin Notifications</p>" +
-          "<p style="margin:0;font-size:12px;color:#94A3B8">Automated message · Do not reply</p>" +
-          "</td></tr></table></td></tr></table></body></html>";
+          '<!doctype html><html lang="en"><head><meta charset="utf-8"></head>' +
+          '<body style="margin:0;padding:0;background:#F8F9FB;font-family:Inter,Arial,sans-serif;color:#0F1B2D">' +
+          '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8F9FB;padding:32px 16px"><tr><td align="center">' +
+          '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:580px;background:#FFFFFF;border:1px solid #E8EBF0;border-radius:14px;overflow:hidden">' +
+          '<tr><td style="padding:22px 28px;border-bottom:1px solid #E8EBF0">' +
+          '<table role="presentation" cellpadding="0" cellspacing="0"><tr>' +
+          '<td style="width:40px;height:40px;background:#0F1B2D;color:#FFFFFF;border-radius:8px;text-align:center;vertical-align:middle;font-weight:800;font-size:13px;letter-spacing:.5px">TID</td>' +
+          '<td style="padding-left:12px;font-size:18px;font-weight:700;color:#0F1B2D">Trader ID · Admin</td>' +
+          '</tr></table></td></tr>' +
+          '<tr><td style="padding:32px 28px 10px">' +
+          '<p style="margin:0 0 8px;font-size:12px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#B8935A">Payment Request</p>' +
+          '<h1 style="margin:0 0 18px;font-size:24px;line-height:1.25;color:#0F1B2D">New verification payment request</h1>' +
+          '<p style="margin:0 0 18px;font-size:14.5px;line-height:1.7;color:#64748B">A trader has requested verification payment. Review the details below and send them a payment link from the admin panel.</p>' +
+          '</td></tr>' +
+          '<tr><td style="padding:0 28px 10px">' +
+          '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px">' +
+          '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">User</span><br><b style="color:#0F1B2D;font-size:14px">' + safe(userName) + '</b></td></tr>' +
+          '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Email</span><br><b style="color:#0F1B2D;font-size:14px">' + safe(userEmail) + '</b></td></tr>' +
+          '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Trader ID</span><br><b style="color:#0F1B2D;font-size:14px;font-family:Consolas,monospace">' + safe(userTid) + '</b></td></tr>' +
+          '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Account</span><br><b style="color:#0F1B2D;font-size:14px">' + safe(accLabel) + '</b></td></tr>' +
+          '<tr><td style="padding:16px 18px;font-size:13px"><span style="color:#64748B">Verification Fee</span><br><b style="color:#00b56a;font-size:16px">' + safe(feeStr) + '</b></td></tr>' +
+          '</table></td></tr>' +
+          '<tr><td style="padding:18px 28px 6px">' +
+          '<a href="' + adminUrl + '" style="display:inline-block;padding:12px 22px;background:#00b56a;color:#06110d;text-decoration:none;border-radius:9px;font-weight:700;font-size:14px">Open Admin Panel &rarr;</a>' +
+          '</td></tr>' +
+          '<tr><td style="padding:22px 28px 26px">' +
+          '<p style="margin:0;font-size:13px;line-height:1.7;color:#64748B">From the admin panel, open this account under <b>Payment Requests</b>, paste the Razorpay (or UPI) link, and save. You will then receive a ready-to-forward email for the user.</p>' +
+          '</td></tr>' +
+          '<tr><td style="padding:18px 28px;border-top:1px solid #E8EBF0;background:#F8F9FB">' +
+          '<p style="margin:0 0 5px;font-size:12px;color:#64748B">Traders ID · Admin Notifications</p>' +
+          '<p style="margin:0;font-size:12px;color:#94A3B8">Automated message · Do not reply</p>' +
+          '</td></tr></table></td></tr></table></body></html>';
 
         await sendEmail("support.fundfxt@gmail.com", "Payment Request · " + userTid + " · " + accLabel, html, 8000);
-      } catch (emailErr) {
-        console.warn("Admin payment-request email failed:", emailErr.message);
       } catch (emailErr) {
         console.warn("Admin payment-request email failed:", emailErr.message);
       }
