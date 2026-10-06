@@ -328,7 +328,7 @@ async function computeTraderStats(userId) {
       tenurePoints
     );
 
-    const passRateBps = Number((profile && profile.pass_rate_bps) || 0);
+    const passRateBps = accountsCount > 0 ? Math.round((passedCount / accountsCount) * 10000) : 0;
     const passRateStr = passRateBps > 0 ? (Math.floor(passRateBps / 100) + "%") : "0%";
 
     const totalProfitCents = accounts.reduce((sum, a) => {
