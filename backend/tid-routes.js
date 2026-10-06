@@ -1801,6 +1801,8 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
         await sendEmail("support.fundfxt@gmail.com", "Payment Request · " + userTid + " · " + accLabel, html, 8000);
       } catch (emailErr) {
         console.warn("Admin payment-request email failed:", emailErr.message);
+      } catch (emailErr) {
+        console.warn("Admin payment-request email failed:", emailErr.message);
       }
     });
   } catch (error) {
