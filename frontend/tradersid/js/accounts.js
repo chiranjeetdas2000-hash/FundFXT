@@ -247,6 +247,295 @@
     currentTradesAccountId = null;
   }
 
+  function loadTrades(accountId){
+    var body = $('tradesListBody');
+    if(!body) return;
+    body.innerHTML = '<div class="empty"><div class="empty-text">Loading trades…</div></div>';
+    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        renderTrades(d.trades || []);
+      })
+      .catch(function(e){
+        body.innerHTML = '<div class="empty"><div class="empty-text">' + esc(e.message) + '</div></div>';
+      });
+  }
+
+  function renderTrades(trades){
+    var body = $('tradesListBody');
+    var summary = $('tradesListSummary');
+    if(!body) return;
+    if(!trades.length){
+      body.innerHTML = '<div class="empty"><div class="empty-title">No trades yet</div><div class="empty-text">Add your first trade or import a statement.</div></div>';
+      if(summary) summary.textContent = '';
+      return;
+    }
+    var totalPips = 0;
+    var wins = 0;
+    for(var i = 0; i < trades.length; i++){
+      totalPips += Number(trades[i].pips) || 0;
+      if((Number(trades[i].pips) || 0) > 0) wins++;
+    }
+    if(summary) summary.textContent = trades.length + ' trades · ' + wins + ' wins · ' + totalPips.toFixed(1) + ' pips';
+
+    var html = '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:12.5px">';
+    html += '<thead><tr style="text-align:left;color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.05em">';
+    html += '<th style="padding:8px 6px">Date</th><th style="padding:8px 6px">Symbol</th><th style="padding:8px 6px">Dir</th><th style="padding:8px 6px;text-align:right">Pips</th><th style="padding:8px 6px;text-align:right">P/L</th><th style="padding:8px 6px">Status</th><th style="padding:8px 6px"></th></tr></thead><tbody>';
+    for(var j = 0; j < trades.length; j++){
+      var t = trades[j];
+      var pips = Number(t.pips) || 0;
+      var profit = (Number(t.profit_cents) || 0) / 100;
+      var dateStr = t.closed_at || t.opened_at || t.created_at;
+      var dateShow = dateStr ? new Date(dateStr).toLocaleDateString('en-IN',{year:'numeric',month:'short',day:'numeric'}) : '—';
+      var pipsColor = pips > 0 ? '#10B981' : (pips < 0 ? '#EF4444' : 'var(--muted)');
+      var plColor = profit > 0 ? '#10B981' : (profit < 0 ? '#EF4444' : 'var(--muted)');
+      var dirBg = t.direction === 'BUY' ? 'rgba(16,185,129,.12)' : 'rgba(239,68,68,.12)';
+      var dirFg = t.direction === 'BUY' ? '#10B981' : '#EF4444';
+      html += '<tr style="border-top:1px solid var(--border)">';
+      html += '<td style="padding:8px 6px;white-space:nowrap">' + esc(dateShow) + '</td>';
+      html += '<td style="padding:8px 6px;font-weight:600">' + esc(t.symbol) + '</td>';
+      html += '<td style="padding:8px 6px"><span style="padding:2px 6px;border-radius:4px;font-size:10.5px;font-weight:700;background:' + dirBg + ';color:' + dirFg + '">' + esc(t.direction) + '</span></td>';
+      html += '<td style="padding:8px 6px;text-align:right;color:' + pipsColor + ';font-weight:700">' + (pips > 0 ? '+' : '') + pips.toFixed(1) + '</td>';
+      html += '<td style="padding:8px 6px;text-align:right;color:' + plColor + ';font-weight:700">' + (profit > 0 ? '+' : '') + '
+    if(!token || !accountsList) return;
+    fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){
+        if(r.status === 401 || r.status === 403){
+          localStorage.removeItem('tid_token');
+          localStorage.removeItem('tid_user');
+          window.location.href = '/tradersid/login.html';
+          throw new Error('unauth');
+        }
+        return r.json();
+      })
+      .then(function(d){ if(!d.success) throw new Error(d.error || 'Load failed'); renderAccounts(d.accounts || []); })
+      .catch(function(e){ if(e.message !== 'unauth' && accountsCount){ accountsCount.textContent = 'Unable to load'; } });
+  }
+
+  function loadFiles(accountId){
+    if(!filesList) return;
+    filesList.innerHTML = '<div class="files-loading">Loading files\u2026</div>';
+    fetch(API + '/api/tid/files?account_id=' + accountId, {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        renderFiles(d.files || []);
+      })
+      .catch(function(e){
+        filesList.innerHTML = '<div class="files-empty">Unable to load files. ' + esc(e.message || '') + '</div>';
+      });
+  }
+
+  function renderFiles(files){
+    if(!filesList) return;
+    if(!files.length){
+      filesList.innerHTML = '<div class="files-empty">No files uploaded yet.<br>Upload your first statement or receipt below.</div>';
+      if(filesUploadBtn) filesUploadBtn.disabled = false;
+      return;
+    }
+    filesList.innerHTML = files.map(function(f){
+      var sc = fileStatusClass(f.status);
+      var sl = fileStatusLabel(f.status);
+      var canDel = String(f.status || '').toUpperCase() !== 'APPROVED';
+      var delBtn = canDel ? '<button class="btn btn-ghost file-del" data-id="' + f.id + '">Delete</button>' : '';
+      return '<div class="file-row">' +
+        '<div class="file-row-info">' +
+          '<div class="file-row-name">' + esc(f.file_type || 'File').replace(/_/g, ' ') + '</div>' +
+          '<div class="file-row-meta">' + fmtBytes(f.file_size) + ' \u00b7 ' + esc(f.mime_type || '') + ' \u00b7 ' + fmtShortDate(f.uploaded_at) + '</div>' +
+          '<div class="file-row-meta file-row-status file-row-status-' + sc + '">' + sl + '</div>' +
+        '</div>' +
+        delBtn +
+      '</div>';
+    }).join('');
+
+    if(filesUploadBtn) filesUploadBtn.disabled = files.length >= 2;
+
+    var dbs = filesList.querySelectorAll('.file-del');
+    for(var i = 0; i < dbs.length; i++){
+      dbs[i].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        if(!confirm('Delete this file?')) return;
+        fetch(API + '/api/tid/file/' + id, {method:'DELETE', headers:{Authorization:'Bearer ' + token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+          .then(function(x){ if(!x.ok) throw new Error(x.data.error || 'Delete failed'); toast('File deleted'); loadFiles(currentFileAccountId); })
+          .catch(function(e){ toast(e.message || 'Delete failed'); });
+      });
+    }
+  }
+
+  addAcctBtn.addEventListener('click', openAccountModal);
+  var acctClose = $('accountModalClose');
+  if(acctClose) acctClose.addEventListener('click', closeAccountModal);
+  var acctCancel = $('accountCancel');
+  if(acctCancel) acctCancel.addEventListener('click', closeAccountModal);
+  if(acctModal) acctModal.addEventListener('click', function(e){ if(e.target === acctModal) closeAccountModal(); });
+
+  var filesClose = $('filesModalClose');
+  if(filesClose) filesClose.addEventListener('click', closeFilesModal);
+  var filesDone = $('filesModalDone');
+  if(filesDone) filesDone.addEventListener('click', closeFilesModal);
+  if(filesModal) filesModal.addEventListener('click', function(e){ if(e.target === filesModal) closeFilesModal(); });
+
+  if(filesUploadBtn) filesUploadBtn.addEventListener('click', function(){
+    if(filesUploadInput) filesUploadInput.click();
+  });
+
+  if(filesUploadInput) filesUploadInput.addEventListener('change', function(){
+    var file = this.files && this.files[0];
+    if(!file) return;
+    if(file.size > 3 * 1024 * 1024){ toast('File too large. Max 3 MB.'); this.value = ''; return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('file_type', filesUploadType ? filesUploadType.value : 'STATEMENT');
+    fd.append('account_id', String(currentFileAccountId));
+    if(filesUploadProgress) filesUploadProgress.style.display = 'block';
+    if(filesUploadBtn) filesUploadBtn.disabled = true;
+    if(filesError) filesError.classList.remove('show');
+
+    fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd})
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok) throw new Error(x.data.error || 'Upload failed');
+        toast('File uploaded');
+        if(filesUploadInput) filesUploadInput.value = '';
+        loadFiles(currentFileAccountId);
+      })
+      .catch(function(e){
+        if(filesError){ filesError.textContent = e.message || 'Upload failed'; filesError.classList.add('show'); }
+      })
+      .then(function(){
+        if(filesUploadProgress) filesUploadProgress.style.display = 'none';
+        if(filesUploadBtn) filesUploadBtn.disabled = false;
+      });
+  });
+
+  var propFields = $('propFirmFields');
+  var brokerFields = $('brokerFields');
+  var categoryRadios = document.querySelectorAll('input[name="acctCategory"]');
+  function applyCategoryToggle(){
+    var selected = document.querySelector('input[name="acctCategory"]:checked');
+    var cat = selected ? selected.value : 'PROP_FIRM';
+    if(propFields) propFields.style.display = (cat === 'PROP_FIRM') ? '' : 'none';
+    if(brokerFields) brokerFields.style.display = (cat === 'BROKER') ? '' : 'none';
+  }
+  for(var cr = 0; cr < categoryRadios.length; cr++){
+    categoryRadios[cr].addEventListener('change', applyCategoryToggle);
+  }
+  applyCategoryToggle();
+
+  if(acctForm) acctForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var errBox = $('acctError');
+    if(errBox) errBox.classList.remove('show');
+
+    var catEl = document.querySelector('input[name="acctCategory"]:checked');
+    var category = catEl ? catEl.value : 'PROP_FIRM';
+    var intentEl = $('acctIntentYes');
+    var intent = (intentEl && intentEl.checked) ? 'YES' : 'NO';
+
+    var payload = {
+      account_category: category,
+      score_impact_intent: intent
+    };
+
+    if(category === 'PROP_FIRM'){
+      var firmInput = $('acctFirm');
+      var firm = firmInput ? firmInput.value.trim() : '';
+      if(firm.length < 2){
+        if(errBox){ errBox.textContent = 'Enter firm name'; errBox.classList.add('show'); }
+        return;
+      }
+      var sizeEl = $('acctSize');
+      var typeEl = $('acctType');
+      var dateEl = $('acctStartDate');
+      payload.firm_name = firm;
+      payload.account_size_cents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
+      payload.start_date = dateEl && dateEl.value ? dateEl.value : null;
+    } else {
+      var bNameEl = $('acctBrokerName');
+      var bName = bNameEl ? bNameEl.value.trim() : '';
+      if(bName.length < 2){
+        if(errBox){ errBox.textContent = 'Enter broker name'; errBox.classList.add('show'); }
+        return;
+      }
+      var bIdEl = $('acctBrokerId');
+      var bId = bIdEl ? bIdEl.value.trim() : '';
+      if(!bId){
+        if(errBox){ errBox.textContent = 'Enter broker account ID'; errBox.classList.add('show'); }
+        return;
+      }
+      var bModeEl = $('acctBrokerMode');
+      var depEl = $('acctDeposit');
+      var wdEl = $('acctWithdrawal');
+      payload.broker_name = bName;
+      payload.broker_account_id = bId;
+      payload.broker_account_mode = bModeEl ? bModeEl.value : 'REAL';
+      payload.total_deposit_cents = Math.round((Number(depEl ? depEl.value : 0) || 0) * 100);
+      payload.total_withdrawal_cents = Math.round((Number(wdEl ? wdEl.value : 0) || 0) * 100);
+    }
+
+    var submitBtn = $('accountSubmit');
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Creating...'; }
+
+    fetch(API + '/api/tid/accounts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify(payload)
+    })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Create failed');
+        var newId = x.data.account && x.data.account.id;
+        var fileInput = $('acctFile');
+        if(fileInput && fileInput.files && fileInput.files[0] && newId){
+          var fd = new FormData();
+          fd.append('file', fileInput.files[0]);
+          fd.append('file_type', 'STATEMENT');
+          fd.append('account_id', String(newId));
+          fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd}).catch(function(){});
+        }
+        closeAccountModal();
+        acctForm.reset();
+        toast('Account added');
+        loadAccounts();
+      })
+      .catch(function(err){
+        if(errBox){ errBox.textContent = err.message || 'Create failed'; errBox.classList.add('show'); }
+      })
+      .then(function(){
+        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Create Account'; }
+      });
+  });
+
+  loadAccounts();
+})(); + profit.toFixed(2) + '</td>';
+      html += '<td style="padding:8px 6px;font-size:11px;color:var(--muted)">' + esc(t.status) + '</td>';
+      html += '<td style="padding:8px 6px;text-align:right"><button class="btn btn-ghost trade-del" data-id="' + t.id + '" style="padding:4px 8px;font-size:11px">Delete</button></td>';
+      html += '</tr>';
+    }
+    html += '</tbody></table></div>';
+    body.innerHTML = html;
+
+    var delBtns = body.querySelectorAll('.trade-del');
+    for(var k = 0; k < delBtns.length; k++){
+      delBtns[k].addEventListener('click', function(){
+        var tid = this.getAttribute('data-id');
+        if(!confirm('Delete this trade?')) return;
+        fetch(API + '/api/tid/accounts/' + currentTradesAccountId + '/trades/' + tid, {method:'DELETE', headers:{Authorization:'Bearer ' + token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+          .then(function(x){
+            if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Delete failed');
+            toast('Trade deleted');
+            loadTrades(currentTradesAccountId);
+            loadAccounts();
+          })
+          .catch(function(e){ toast(e.message || 'Delete failed'); });
+      });
+    }
+  }
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
