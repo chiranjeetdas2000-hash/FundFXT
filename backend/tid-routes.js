@@ -261,6 +261,13 @@ async function fetchTidUserByEmail(email) {
   return rows[0] || null;
 }
 
+function generateAccessKey() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "AK-";
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 function generatePaymentRequestNo() {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let out = "PAY-";
@@ -932,7 +939,57 @@ router.post("/login", loginRateLimiter, requireJsonBody, async (req, res) => {
 
 // ---------- AUTHENTICATED PROFILE ----------
 
-router.get("/me", authenticateTid, async (req, res) => {
+router.post("/access-keys", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const name = cleanString(req.body?.key_name, 100);
+    if (!name || name.length < 2) return jsonError(res, 400, "Key name is required");
+
+    const expiryDays = Math.min(365, Math.max(1, Number(req.body?.expiry_days) || 30));
+
+    const rawScopes = Array.isArray(req.body?.scopes) ? req.body.scopes : [];
+    const allowedScopes = ["identity", "accounts", "trades", "payouts"];
+    const scopes = rawScopes
+      .map((s) => String(s || "").toLowerCase().trim())
+      .filter((s) => allowedScopes.includes(s));
+    if (!scopes.length) scopes.push("identity");
+
+    let keyValue = null;
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const candidate = generateAccessKey();
+      const [dupe] = await db.execute(
+        "SELECT id FROM tid_access_keys WHERE key_value = ? LIMIT 1",
+        [candidate],
+      );
+      if (!dupe.length) { keyValue = candidate; break; }
+    }
+    if (!keyValue) return jsonError(res, 500, "Could not allocate access key");
+
+    const expiresAt = new Date(Date.now() + expiryDays * 86400000);
+
+    const [result] = await db.execute(
+      "INSERT INTO tid_access_keys (tid_user_id, key_name, key_value, scopes, expires_at) VALUES (?, ?, ?, ?, ?)",
+      [req.tidUser.tidUserId, name, keyValue, scopes.join(","), expiresAt],
+    );
+
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCESS_KEY_CREATE");
+
+    return res.status(201).json({
+      success: true,
+      key: {
+        id: result.insertId,
+        key_name: name,
+        key_value: keyValue,
+        scopes: scopes,
+        expires_at: expiresAt,
+      },
+    });
+  } catch (error) {
+    console.error("TID access key create error:", error);
+    return jsonError(res, 500, "Unable to create access key");
+  }
+});
+
+router.get("/me", authenticateTid, async (req, res) =>
   try {
     const user = await fetchTidUserById(req.tidUser.tidUserId);
     if (!user) return jsonError(res, 404, "Trader ID account not found");
