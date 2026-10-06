@@ -573,10 +573,10 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
     <div style="margin-bottom:16px">
       <div class="form-label">Visible Data</div>
       <div style="display:flex;flex-wrap:wrap;gap:10px">
-        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" checked> Basic Identity</label>
-        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox"> Account List</label>
-        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox"> Trade History</label>
-        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox"> Payout Records</label>
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" id="kcIdentity" checked> Basic Identity</label>
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" id="kcAccounts"> Account List</label>
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" id="kcTrades"> Trade History</label>
+        <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:var(--muted);cursor:pointer"><input type="checkbox" id="kcPayouts"> Payout Records</label>
       </div>
     </div>
     <button class="btn btn-green" id="generateKeyBtn">
