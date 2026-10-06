@@ -291,6 +291,75 @@
   var openBulkImportBtn = $('openBulkImportBtn');
   if(openBulkImportBtn) openBulkImportBtn.addEventListener('click', function(){ if(typeof openBulkImport === 'function') openBulkImport(currentTradesAccountId); });
 
+  var tradeModal = $('tradeModal');
+  var tradeForm = $('tradeForm');
+
+  window.openTradeForm = function(accountId){
+    if(!tradeModal) return;
+    var hid = $('tradeAccountId');
+    if(hid) hid.value = accountId;
+    if(tradeForm) tradeForm.reset();
+    var errEl = $('tradeError');
+    if(errEl) errEl.classList.remove('show');
+    tradeModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  function closeTradeForm(){
+    if(tradeModal) tradeModal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  var tradeModalClose = $('tradeModalClose');
+  if(tradeModalClose) tradeModalClose.addEventListener('click', closeTradeForm);
+  var tradeCancel = $('tradeCancel');
+  if(tradeCancel) tradeCancel.addEventListener('click', closeTradeForm);
+  if(tradeModal) tradeModal.addEventListener('click', function(e){ if(e.target === tradeModal) closeTradeForm(); });
+
+  if(tradeForm) tradeForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var errEl = $('tradeError');
+    if(errEl) errEl.classList.remove('show');
+    var accId = $('tradeAccountId') ? $('tradeAccountId').value : null;
+    if(!accId){ if(errEl){ errEl.textContent = 'Missing account'; errEl.classList.add('show'); } return; }
+    var symbol = $('tradeSymbol') ? $('tradeSymbol').value.trim().toUpperCase() : '';
+    if(!symbol){ if(errEl){ errEl.textContent = 'Symbol required'; errEl.classList.add('show'); } return; }
+    var payload = {
+      symbol: symbol,
+      direction: $('tradeDirection') ? $('tradeDirection').value : 'BUY',
+      entry_price: $('tradeEntry') && $('tradeEntry').value ? Number($('tradeEntry').value) : null,
+      exit_price: $('tradeExit') && $('tradeExit').value ? Number($('tradeExit').value) : null,
+      lot_size: $('tradeLot') && $('tradeLot').value ? Number($('tradeLot').value) : null,
+      pips: $('tradePips') && $('tradePips').value ? Number($('tradePips').value) : null,
+      profit_cents: Math.round(Number($('tradeProfit') ? $('tradeProfit').value : 0) * 100),
+      status: $('tradeStatus') ? $('tradeStatus').value : 'CLOSED',
+      opened_at: $('tradeOpened') && $('tradeOpened').value ? $('tradeOpened').value : null,
+      closed_at: $('tradeClosed') && $('tradeClosed').value ? $('tradeClosed').value : null,
+      notes: $('tradeNotes') ? $('tradeNotes').value.trim() : null
+    };
+    var btn = $('tradeSubmit');
+    if(btn){ btn.disabled = true; btn.textContent = 'Saving...'; }
+    fetch(API + '/api/tid/accounts/' + accId + '/trades', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify(payload)
+    })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Create failed');
+        toast('Trade added');
+        closeTradeForm();
+        loadTrades(currentTradesAccountId);
+        loadAccounts();
+      })
+      .catch(function(err){
+        if(errEl){ errEl.textContent = err.message || 'Create failed'; errEl.classList.add('show'); }
+      })
+      .then(function(){
+        if(btn){ btn.disabled = false; btn.textContent = 'Add Trade'; }
+      });
+  });
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
