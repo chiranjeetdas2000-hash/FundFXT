@@ -1221,6 +1221,7 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
         toast('Unable to load dashboard');
         if (cachedUser && cachedUser.tid) renderDashboard(cachedUser, {});
       });
+    if (typeof loadAccessKeys === 'function') loadAccessKeys();
   }
   loadDashboard();
 
@@ -1330,11 +1331,103 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
       .catch(function(){});
   })();
     // addAccountBtn wired by external accounts.js
-  $('generateKeyBtn').addEventListener('click', function(){
+  $('generateKeyBtn').addEventListener('click', async function(){
     var n = $('keyName').value.trim();
     if (!n) { toast('Enter a key name first'); return; }
-    toast('Access key creation coming soon');
+    var expiry = Number($('keyExpiry').value) || 30;
+    if (expiry < 1) expiry = 1;
+    if (expiry > 365) expiry = 365;
+    var scopes = [];
+    if ($('kcIdentity') && $('kcIdentity').checked) scopes.push('identity');
+    if ($('kcAccounts') && $('kcAccounts').checked) scopes.push('accounts');
+    if ($('kcTrades') && $('kcTrades').checked) scopes.push('trades');
+    if ($('kcPayouts') && $('kcPayouts').checked) scopes.push('payouts');
+    if (!scopes.length) { toast('Select at least one scope'); return; }
+    var btn = this;
+    btn.disabled = true;
+    var oldText = btn.innerHTML;
+    btn.textContent = 'Creating...';
+    try {
+      var res = await fetch(API + '/api/tid/access-keys', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json', Authorization:'Bearer ' + token},
+        body: JSON.stringify({ key_name: n, expiry_days: expiry, scopes: scopes })
+      });
+      var data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Create failed');
+      toast('Access key created');
+      $('keyName').value = '';
+      $('keyExpiry').value = '';
+      loadAccessKeys();
+    } catch(err) {
+      toast('Failed: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = oldText;
+    }
   });
+
+  async function loadAccessKeys(){
+    var wrap = $('keysList');
+    if (!wrap) return;
+    wrap.innerHTML = '<div class="empty"><div class="empty-text">Loading…</div></div>';
+    try {
+      var res = await fetch(API + '/api/tid/access-keys', {headers:{Authorization:'Bearer ' + token}});
+      var data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Load failed');
+      renderAccessKeys(data.keys || []);
+    } catch(err) {
+      wrap.innerHTML = '<div class="empty"><div class="empty-text">Unable to load keys.</div></div>';
+    }
+  }
+
+  function renderAccessKeys(keys){
+    var wrap = $('keysList');
+    if (!wrap) return;
+    if (!keys.length) {
+      wrap.innerHTML = '<div class="empty"><div class="empty-title">No access keys yet</div><div class="empty-text">Create your first access key to share selected account data with prop firms or clients.</div></div>';
+      return;
+    }
+    var html = '';
+    keys.forEach(function(k){
+      var statusColor = k.status === 'ACTIVE' ? '#10B981' : (k.status === 'EXPIRED' ? '#F59E0B' : '#EF4444');
+      var scopesStr = (k.scopes || []).map(function(s){ return s.charAt(0).toUpperCase() + s.slice(1); }).join(' · ');
+      var expiryStr = '';
+      try { expiryStr = new Date(k.expires_at).toLocaleDateString('en-IN',{year:'numeric',month:'short',day:'numeric'}); } catch(_){ expiryStr = '—'; }
+      var usedStr = k.use_count > 0 ? (k.use_count + ' use' + (k.use_count === 1 ? '' : 's')) : 'Never used';
+      var revokeBtn = k.status === 'ACTIVE' ? '<button class="btn btn-ghost key-revoke" data-id="' + k.id + '">Revoke</button>' : '';
+      html += '<div class="key-card" style="padding:16px;border:1px solid var(--border);border-radius:12px;margin-bottom:12px">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;flex-wrap:wrap">';
+      html += '<div><div style="font-weight:700;font-size:14px;color:var(--navy-900);margin-bottom:4px">' + esc(k.key_name) + '</div>';
+      html += '<div style="font-family:Consolas,monospace;font-size:13px;color:var(--navy-800);margin-bottom:6px">' + esc(k.key_value) + '</div>';
+      html += '<div style="font-size:11.5px;color:var(--muted);line-height:1.6">' + esc(scopesStr) + '<br>Expires: ' + expiryStr + ' · ' + esc(usedStr) + '</div></div>';
+      html += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">';
+      html += '<span style="display:inline-block;padding:3px 10px;border-radius:99px;font-size:10.5px;font-weight:800;letter-spacing:.05em;background:' + statusColor + '20;color:' + statusColor + '">' + k.status + '</span>';
+      html += revokeBtn;
+      html += '</div></div></div>';
+    });
+    wrap.innerHTML = html;
+    var btns = wrap.querySelectorAll('.key-revoke');
+    for (var i = 0; i < btns.length; i++) {
+      btns[i].addEventListener('click', async function(){
+        var id = this.getAttribute('data-id');
+        if (!confirm('Revoke this access key? Anyone using it will lose access immediately.')) return;
+        this.disabled = true;
+        this.textContent = 'Revoking...';
+        try {
+          var res = await fetch(API + '/api/tid/access-keys/' + id, {method:'DELETE', headers:{Authorization:'Bearer ' + token}});
+          var data = await res.json();
+          if (!res.ok || !data.success) throw new Error(data.error || 'Revoke failed');
+          toast('Key revoked');
+          loadAccessKeys();
+        } catch(err) {
+          toast('Failed: ' + err.message);
+          this.disabled = false;
+          this.textContent = 'Revoke';
+        }
+      });
+    }
+  }
   // ---- Avatar picker ----
   var avatarModal = $('avatarModal');
   var avatarGrid = $('avatarGrid');
