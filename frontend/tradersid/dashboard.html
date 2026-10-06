@@ -874,6 +874,82 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
     </form>
   </div>
 </div>
+<div class="modal-backdrop" id="tradeModal">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div class="modal-title">Add Trade</div>
+      <button class="modal-close" type="button" id="tradeModalClose" aria-label="Close">&times;</button>
+    </div>
+    <form class="modal-body" id="tradeForm">
+      <input type="hidden" id="tradeAccountId">
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="tradeSymbol">Symbol / Pair</label>
+          <input class="form-input" id="tradeSymbol" type="text" placeholder="e.g. EURUSD, NIFTY, BTCUSD" maxlength="30" autocomplete="off" required>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="tradeDirection">Direction</label>
+          <select class="form-select" id="tradeDirection">
+            <option value="BUY" selected>BUY</option>
+            <option value="SELL">SELL</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="tradeEntry">Entry Price</label>
+          <input class="form-input" id="tradeEntry" type="number" step="0.00000001" placeholder="0.00">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="tradeExit">Exit Price</label>
+          <input class="form-input" id="tradeExit" type="number" step="0.00000001" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="tradeLot">Lot Size</label>
+          <input class="form-input" id="tradeLot" type="number" step="0.0001" min="0" placeholder="0.00">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="tradePips">Pips / Points</label>
+          <input class="form-input" id="tradePips" type="number" step="0.01" placeholder="0.00">
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="tradeProfit">Profit ($)</label>
+          <input class="form-input" id="tradeProfit" type="number" step="0.01" placeholder="0.00">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="tradeStatus">Status</label>
+          <select class="form-select" id="tradeStatus">
+            <option value="CLOSED" selected>Closed</option>
+            <option value="OPEN">Open (running)</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid">
+        <div class="form-row">
+          <label class="form-label" for="tradeOpened">Opened At</label>
+          <input class="form-input" id="tradeOpened" type="datetime-local">
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="tradeClosed">Closed At</label>
+          <input class="form-input" id="tradeClosed" type="datetime-local">
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="form-label" for="tradeNotes">Notes (optional)</label>
+        <input class="form-input" id="tradeNotes" type="text" placeholder="e.g. Breakout setup" maxlength="500">
+      </div>
+      <div class="modal-error" id="tradeError"></div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" type="button" id="tradeCancel">Cancel</button>
+        <button class="btn btn-primary" type="submit" id="tradeSubmit">Add Trade</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 
 <!-- ============ FILE MANAGEMENT MODAL ============ -->
