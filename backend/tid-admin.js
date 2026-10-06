@@ -327,7 +327,7 @@ router.post("/admin/tid/accounts/:id/save-payment-link", authenticateAdmin, requ
     const link = linkRaw.slice(0, 500);
 
     const [rows] = await db.execute(
-      "SELECT a.id, a.verification_status, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.verification_fee_cents, a.tid_user_id, u.tid, u.email, u.legal_name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? LIMIT 1",
+      "SELECT a.id, a.verification_status, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.verification_fee_cents, a.payment_request_no, a.tid_user_id, u.tid, u.email, u.legal_name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? LIMIT 1",
       [id]
     );
     if (!rows.length) return res.status(404).json({ error: "Not found" });
