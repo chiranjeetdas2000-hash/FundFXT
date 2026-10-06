@@ -261,6 +261,13 @@ async function fetchTidUserByEmail(email) {
   return rows[0] || null;
 }
 
+function generatePaymentRequestNo() {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let out = "PAY-";
+  for (let i = 0; i < 8; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+
 async function computeTraderStats(userId) {
   try {
     const profile = await fetchProfile(userId);
@@ -1722,7 +1729,7 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
     if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
 
     const [rows] = await db.execute(
-      "SELECT a.id, a.verification_status, a.score_impact_intent, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.verification_fee_cents, u.tid, u.email, u.legal_name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? AND a.tid_user_id = ? LIMIT 1",
+      "SELECT a.id, a.verification_status, a.score_impact_intent, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.verification_fee_cents, a.payment_request_no, a.transaction_id, u.tid, u.email, u.legal_name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? AND a.tid_user_id = ? LIMIT 1",
       [id, req.tidUser.tidUserId],
     );
     if (!rows.length) return jsonError(res, 404, "Account not found");
@@ -1736,14 +1743,27 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
       return jsonError(res, 400, "This account is set as tracking-only");
     }
 
+    let requestNo = acc.payment_request_no;
+    if (!requestNo) {
+      for (let attempt = 0; attempt < 5; attempt++) {
+        const candidate = generatePaymentRequestNo();
+        const [dupe] = await db.execute(
+          "SELECT id FROM tid_accounts WHERE payment_request_no = ? LIMIT 1",
+          [candidate],
+        );
+        if (!dupe.length) { requestNo = candidate; break; }
+      }
+      if (!requestNo) return jsonError(res, 500, "Could not allocate request number");
+    }
+
     await db.execute(
-      "UPDATE tid_accounts SET verification_status = 'PAID_REQUESTED', verification_fee_cents = COALESCE(NULLIF(verification_fee_cents,0), 200), updated_at = NOW() WHERE id = ? AND tid_user_id = ? LIMIT 1",
-      [id, req.tidUser.tidUserId],
+      "UPDATE tid_accounts SET verification_status = 'PAID_REQUESTED', payment_request_no = ?, verification_fee_cents = COALESCE(NULLIF(verification_fee_cents,0), 200), updated_at = NOW() WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [requestNo, id, req.tidUser.tidUserId],
     );
 
     await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCOUNT_PAYMENT_REQUEST");
 
-    res.json({ success: true, status: "PAID_REQUESTED" });
+    res.json({ success: true, status: "PAID_REQUESTED", payment_request_no: requestNo });
 
     setImmediate(async () => {
       try {
@@ -1778,6 +1798,7 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
           '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">User</span><br><b style="color:#0F1B2D;font-size:14px">' + safe(userName) + '</b></td></tr>' +
           '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Email</span><br><b style="color:#0F1B2D;font-size:14px">' + safe(userEmail) + '</b></td></tr>' +
           '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Trader ID</span><br><b style="color:#0F1B2D;font-size:14px;font-family:Consolas,monospace">' + safe(userTid) + '</b></td></tr>' +
+          '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Request ID</span><br><b style="color:#0F1B2D;font-size:14px;font-family:Consolas,monospace">' + safe(requestNo) + '</b></td></tr>' +
           '<tr><td style="padding:16px 18px;border-bottom:1px solid #E8EBF0;font-size:13px"><span style="color:#64748B">Account</span><br><b style="color:#0F1B2D;font-size:14px">' + safe(accLabel) + '</b></td></tr>' +
           '<tr><td style="padding:16px 18px;font-size:13px"><span style="color:#64748B">Verification Fee</span><br><b style="color:#00b56a;font-size:16px">' + safe(feeStr) + '</b></td></tr>' +
           '</table></td></tr>' +
@@ -1792,7 +1813,7 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
           '<p style="margin:0;font-size:12px;color:#94A3B8">Automated message · Do not reply</p>' +
           '</td></tr></table></td></tr></table></body></html>';
 
-        await sendEmail("support.fundfxt@gmail.com", "Payment Request · " + userTid + " · " + accLabel, html, 8000);
+        await sendEmail("support.fundfxt@gmail.com", "Payment Request · " + requestNo + " · " + userTid, html, 8000);
       } catch (emailErr) {
         console.warn("Admin payment-request email failed:", emailErr.message);
       }
