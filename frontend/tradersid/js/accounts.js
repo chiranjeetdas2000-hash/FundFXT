@@ -122,8 +122,17 @@
       var isVerified = String(a.verification_status || '').toUpperCase() === 'VERIFIED';
       var filesBtn = isVerified ? '' : '<button class="btn btn-ghost acct-files" data-id="' + a.id + '">Files</button>';
       var vStatus = String(a.verification_status || 'NONE').toUpperCase();
-      var canRequest = vStatus === 'NONE' && String(a.score_impact_intent || 'NO').toUpperCase() === 'YES';
-      var verifyBtn = canRequest ? '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Request Verify</button>' : '';
+      var hasIntent = String(a.score_impact_intent || 'NO').toUpperCase() === 'YES';
+      var verifyBtn = '';
+      if (vStatus === 'AWAITING_PAYMENT' && hasIntent) {
+        verifyBtn = '<button class="btn btn-ghost acct-verify" data-id="' + a.id + '">Pay $2 \u00b7 Request</button>';
+      } else if (vStatus === 'PAID_REQUESTED') {
+        verifyBtn = '<button class="btn btn-ghost" disabled>Request Sent</button>';
+      } else if (vStatus === 'LINK_SENT') {
+        verifyBtn = '<button class="btn btn-ghost" disabled>Check Email</button>';
+      } else if (vStatus === 'PAID_PENDING') {
+        verifyBtn = '<button class="btn btn-ghost" disabled>Under Review</button>';
+      }
       var isBroker = String(a.account_category || 'PROP_FIRM').toUpperCase() === 'BROKER';
       var intentYes = String(a.score_impact_intent || 'NO').toUpperCase() === 'YES';
       var catLabel = isBroker ? 'Broker' : 'Prop Firm';
@@ -178,20 +187,20 @@
         if(!confirm('Request verification for this account? Admin will review and may request a $2 fee.')) return;
         btn.disabled = true;
         btn.textContent = 'Requesting…';
-        fetch(API + '/api/tid/accounts/' + id + '/request-verification', {
+        fetch(API + '/api/tid/accounts/' + id + '/request-payment', {
           method: 'POST',
           headers: {Authorization:'Bearer ' + token}
         })
           .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
           .then(function(x){
             if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Request failed');
-            toast('Verification requested — admin will review');
+            toast('Payment request sent to admin');
             loadAccounts();
           })
           .catch(function(e){
             toast(e.message || 'Request failed');
             btn.disabled = false;
-            btn.textContent = 'Request Verify';
+            btn.textContent = 'Pay $2 \u00b7 Request';
           });
       });
     }
