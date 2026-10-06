@@ -360,6 +360,145 @@
       });
   });
 
+  var bulkImportModal = $('bulkImportModal');
+  var bulkImportFile = $('bulkImportFile');
+  var bulkImportPreview = $('bulkImportPreview');
+  var bulkImportError = $('bulkImportError');
+  var parsedTrades = [];
+
+  window.openBulkImport = function(accountId){
+    if(!bulkImportModal) return;
+    var hid = $('tradesListAccountId');
+    if(hid) hid.value = accountId;
+    parsedTrades = [];
+    if(bulkImportFile) bulkImportFile.value = '';
+    if(bulkImportPreview) bulkImportPreview.textContent = '';
+    if(bulkImportError) bulkImportError.classList.remove('show');
+    bulkImportModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  };
+
+  function closeBulkImport(){
+    if(bulkImportModal) bulkImportModal.classList.remove('open');
+    document.body.style.overflow = '';
+    parsedTrades = [];
+  }
+
+  function parseCSVLine(line){
+    var out = [];
+    var cur = '';
+    var inQ = false;
+    for(var k = 0; k < line.length; k++){
+      var ch = line[k];
+      if(ch === '"'){ inQ = !inQ; continue; }
+      if(ch === ',' && !inQ){ out.push(cur.trim()); cur = ''; continue; }
+      cur += ch;
+    }
+    out.push(cur.trim());
+    return out;
+  }
+
+  function normalizeHeader(h){
+    return String(h || '').toLowerCase().trim().replace(/\s+/g, '_');
+  }
+
+  function parseCSV(text){
+    var lines = text.split(/\r?\n/).filter(function(l){ return l.trim().length > 0; });
+    if(lines.length < 2) return { trades: [], error: 'CSV must have header + at least one row' };
+    var headers = parseCSVLine(lines[0]).map(normalizeHeader);
+    var trades = [];
+    var errs = [];
+    for(var i = 1; i < lines.length; i++){
+      var cells = parseCSVLine(lines[i]);
+      var row = {};
+      for(var h = 0; h < headers.length; h++){
+        row[headers[h]] = cells[h] != null ? cells[h] : '';
+      }
+      var profitVal = row.profit_usd || row.profit || row.pnl || '0';
+      var trade = {
+        symbol: row.symbol || '',
+        direction: (row.direction || 'BUY').toUpperCase(),
+        entry_price: row.entry_price ? Number(row.entry_price) : null,
+        exit_price: row.exit_price ? Number(row.exit_price) : null,
+        lot_size: row.lot_size ? Number(row.lot_size) : null,
+        pips: row.pips ? Number(row.pips) : null,
+        profit_cents: Math.round((Number(profitVal) || 0) * 100),
+        status: (row.status || 'CLOSED').toUpperCase(),
+        opened_at: row.opened_at || null,
+        closed_at: row.closed_at || null,
+        notes: row.notes || null
+      };
+      if(!trade.symbol) errs.push('Row ' + (i + 1) + ': missing symbol');
+      else trades.push(trade);
+    }
+    return { trades: trades, error: errs.length ? errs.slice(0, 3).join('; ') : null };
+  }
+
+  if(bulkImportFile) bulkImportFile.addEventListener('change', function(){
+    var f = this.files && this.files[0];
+    if(!f) return;
+    if(bulkImportPreview) bulkImportPreview.textContent = 'Reading...';
+    var reader = new FileReader();
+    reader.onload = function(e){
+      var parsed = parseCSV(String(e.target.result || ''));
+      parsedTrades = parsed.trades || [];
+      if(parsed.error){
+        if(bulkImportPreview) bulkImportPreview.textContent = 'Issues: ' + parsed.error;
+      } else if(!parsedTrades.length){
+        if(bulkImportPreview) bulkImportPreview.textContent = 'No valid trades found';
+      } else {
+        if(bulkImportPreview) bulkImportPreview.textContent = 'Ready to import: ' + parsedTrades.length + ' trades';
+      }
+    };
+    reader.onerror = function(){
+      if(bulkImportPreview) bulkImportPreview.textContent = 'Failed to read file';
+    };
+    reader.readAsText(f);
+  });
+
+  var bulkImportCloseBtn = $('bulkImportClose');
+  if(bulkImportCloseBtn) bulkImportCloseBtn.addEventListener('click', closeBulkImport);
+  var bulkImportCancelBtn = $('bulkImportCancel');
+  if(bulkImportCancelBtn) bulkImportCancelBtn.addEventListener('click', closeBulkImport);
+  if(bulkImportModal) bulkImportModal.addEventListener('click', function(e){ if(e.target === bulkImportModal) closeBulkImport(); });
+
+  var bulkImportSubmitBtn = $('bulkImportSubmit');
+  if(bulkImportSubmitBtn) bulkImportSubmitBtn.addEventListener('click', function(){
+    if(bulkImportError) bulkImportError.classList.remove('show');
+    if(!parsedTrades.length){
+      if(bulkImportError){ bulkImportError.textContent = 'Upload a valid CSV first'; bulkImportError.classList.add('show'); }
+      return;
+    }
+    var accId = $('tradesListAccountId') ? $('tradesListAccountId').value : null;
+    if(!accId){
+      if(bulkImportError){ bulkImportError.textContent = 'Missing account'; bulkImportError.classList.add('show'); }
+      return;
+    }
+    var btn = this;
+    btn.disabled = true;
+    btn.textContent = 'Importing...';
+    fetch(API + '/api/tid/accounts/' + accId + '/trades/bulk', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify({ trades: parsedTrades })
+    })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Import failed');
+        toast('Imported ' + x.data.inserted_count + ' trades');
+        closeBulkImport();
+        loadTrades(currentTradesAccountId);
+        loadAccounts();
+      })
+      .catch(function(e){
+        if(bulkImportError){ bulkImportError.textContent = e.message || 'Import failed'; bulkImportError.classList.add('show'); }
+      })
+      .then(function(){
+        btn.disabled = false;
+        btn.textContent = 'Import Trades';
+      });
+  });
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
