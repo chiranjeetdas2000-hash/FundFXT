@@ -398,7 +398,7 @@ router.post("/admin/tid/accounts/:id/save-payment-link", authenticateAdmin, requ
           "<p style=\"margin:0;font-size:12px;color:#94A3B8\">Automated message · Do not reply</p>" +
           "</td></tr></table></td></tr></table></body></html>";
 
-        await sendEmail("support.fundfxt@gmail.com", "Ready to Forward · " + userTid + " · " + accLabel, html, 8000);
+        await sendEmail("support.fundfxt@gmail.com", "Ready to Forward · " + (acc.payment_request_no || "PAY-PENDING") + " · " + userTid, html, 8000);
       } catch (emailErr) {
         console.warn("Admin link-saved email failed:", emailErr.message);
       }
