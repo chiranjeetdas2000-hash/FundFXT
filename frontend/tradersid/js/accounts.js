@@ -247,6 +247,21 @@
     currentTradesAccountId = null;
   }
 
+  function loadTrades(accountId){
+    var body = $('tradesListBody');
+    if(!body) return;
+    body.innerHTML = '<div class="empty"><div class="empty-text">Loading...</div></div>';
+    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error('Load failed');
+        renderTrades(d.trades || []);
+      })
+      .catch(function(){
+        body.innerHTML = '<div class="empty"><div class="empty-text">Unable to load trades.</div></div>';
+      });
+  }
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
