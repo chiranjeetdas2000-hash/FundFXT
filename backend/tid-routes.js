@@ -989,7 +989,57 @@ router.post("/access-keys", authenticateTid, requireJsonBody, async (req, res) =
   }
 });
 
-router.get("/me", authenticateTid, async (req, res) =>
+router.get("/access-keys", authenticateTid, async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      "SELECT id, key_name, key_value, scopes, expires_at, revoked_at, last_used_at, use_count, created_at FROM tid_access_keys WHERE tid_user_id = ? ORDER BY created_at DESC LIMIT 100",
+      [req.tidUser.tidUserId],
+    );
+    const now = Date.now();
+    const keys = rows.map((r) => {
+      const expired = new Date(r.expires_at).getTime() < now;
+      const revoked = Boolean(r.revoked_at);
+      return {
+        id: r.id,
+        key_name: r.key_name,
+        key_value: r.key_value,
+        scopes: String(r.scopes || "").split(",").filter(Boolean),
+        expires_at: r.expires_at,
+        revoked_at: r.revoked_at,
+        last_used_at: r.last_used_at,
+        use_count: r.use_count,
+        created_at: r.created_at,
+        status: revoked ? "REVOKED" : expired ? "EXPIRED" : "ACTIVE",
+      };
+    });
+    return res.json({ success: true, keys });
+  } catch (error) {
+    console.error("TID access key list error:", error);
+    return jsonError(res, 500, "Unable to load access keys");
+  }
+});
+
+router.delete("/access-keys/:id", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid key id");
+
+    const [r] = await db.execute(
+      "UPDATE tid_access_keys SET revoked_at = NOW() WHERE id = ? AND tid_user_id = ? AND revoked_at IS NULL LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!r.affectedRows) return jsonError(res, 404, "Key not found or already revoked");
+
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "ACCESS_KEY_REVOKE");
+
+    return res.json({ success: true, revoked: id });
+  } catch (error) {
+    console.error("TID access key revoke error:", error);
+    return res.json ? jsonError(res, 500, "Unable to revoke access key") : null;
+  }
+});
+
+router.get("/me", authenticateTid, async (req, res) => {
   try {
     const user = await fetchTidUserById(req.tidUser.tidUserId);
     if (!user) return jsonError(res, 404, "Trader ID account not found");
