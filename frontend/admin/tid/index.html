@@ -126,6 +126,7 @@ tr:hover td{background:var(--surface2)}
       <button data-view="overview" class="active" onclick="showView('overview')"><span class="nav-icon">◈</span>Overview</button>
       <button data-view="kyc" onclick="showView('kyc')"><span class="nav-icon">🛡</span>KYC Queue</button>
       <button data-view="accounts" onclick="showView('accounts')"><span class="nav-icon">▤</span>Account Queue</button>
+      <button data-view="payments" onclick="showView('payments')"><span class="nav-icon">₹</span>Payment Requests</button>
       <button data-view="users" onclick="showView('users')"><span class="nav-icon">♙</span>Users</button>
     </nav>
   </aside>
@@ -180,6 +181,22 @@ tr:hover td{background:var(--surface2)}
       <div id="accountDetailWrap" class="hidden"></div>
       <div id="accountListWrap" class="panel">
         <div id="accountList"></div>
+      </div>
+    </section>
+
+    <!-- PAYMENTS -->
+    <section id="view-payments" class="view">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Verification Payments</div>
+          <h1>Payment Requests</h1>
+          <p>Accounts awaiting payment link or verification.</p>
+        </div>
+        <button class="btn secondary" onclick="loadPaymentRequests()">↻ Refresh</button>
+      </div>
+      <div id="paymentDetailWrap" class="hidden"></div>
+      <div id="paymentListWrap" class="panel">
+        <div id="paymentList"></div>
       </div>
     </section>
 
