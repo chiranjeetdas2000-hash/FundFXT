@@ -338,6 +338,121 @@
     } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
   }
 
+  window.openPayment = async function(id){
+    try {
+      var d = await api('/api/admin/tid/accounts/' + id);
+      var a = d.account, files = d.files || [];
+      var accLabel = String(a.account_category || '').toUpperCase() === 'BROKER'
+        ? (a.broker_name || 'Broker') + ' · ' + (String(a.broker_account_mode || '').toUpperCase() === 'DEMO' ? 'Demo' : 'Real') + ' · ID: ' + (a.broker_account_id || '—')
+        : (a.firm_name || 'Firm') + ' · 
+  async function loadUsers(){
+    var list = $('usersList');
+    list.innerHTML = '<div class="loading">Loading users…</div>';
+    try {
+      var search = $('userSearch').value.trim();
+      var d = await api('/api/admin/tid/users' + (search ? '?search=' + encodeURIComponent(search) : ''));
+      if(!d.users.length){ list.innerHTML = '<div class="empty">No users found.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Name</th><th>Email</th><th>Rank</th><th>Verified</th><th>Joined</th></tr></thead><tbody>';
+      d.users.forEach(function(u){
+        html += '<tr><td>' + u.id + '</td><td><b>' + esc(u.tid||'—') + '</b></td><td>' + esc(u.legal_name||'—') + '</td><td>' + esc(u.email||'—') + '</td><td>' + esc(u.current_rank||'ROOKIE') + '</td><td>' + (u.email_verified?'✅':'—') + '</td><td>' + fmtDate(u.created_at) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  // ---------- INIT ----------
+  loadOverview();
+})(); + (Number(a.account_size_cents||0)/100).toLocaleString('en-US');
+      var status = String(a.verification_status || '').toUpperCase();
+
+      var html = '<div class="top"><div><div class="eyebrow">Payment Review</div><h1>' + esc(a.payment_request_no || 'No Request') + '</h1><p>' + esc(a.tid||'—') + ' · ' + esc(a.legal_name||'—') + '</p></div><button class="btn secondary" onclick="loadPaymentRequests()">← Back</button></div>';
+      html += '<div class="panel">';
+      html += '<div class="detail-card">';
+      html += '<div class="detail-row"><span class="detail-label">Status</span><span class="detail-value"><span class="badge ' + (status === 'PAID_PENDING' ? 'approved' : 'pending') + '">' + esc(status) + '</span></span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Request No</span><span class="detail-value">' + esc(a.payment_request_no || '—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">User</span><span class="detail-value">' + esc(a.legal_name || '—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Email</span><span class="detail-value">' + esc(a.email || '—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Account</span><span class="detail-value">' + esc(accLabel) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Fee</span><span class="detail-value">
+  async function loadUsers(){
+    var list = $('usersList');
+    list.innerHTML = '<div class="loading">Loading users…</div>';
+    try {
+      var search = $('userSearch').value.trim();
+      var d = await api('/api/admin/tid/users' + (search ? '?search=' + encodeURIComponent(search) : ''));
+      if(!d.users.length){ list.innerHTML = '<div class="empty">No users found.</div>'; return; }
+      var html = '<div class="table-wrap"><table><thead><tr><th>ID</th><th>TID</th><th>Name</th><th>Email</th><th>Rank</th><th>Verified</th><th>Joined</th></tr></thead><tbody>';
+      d.users.forEach(function(u){
+        html += '<tr><td>' + u.id + '</td><td><b>' + esc(u.tid||'—') + '</b></td><td>' + esc(u.legal_name||'—') + '</td><td>' + esc(u.email||'—') + '</td><td>' + esc(u.current_rank||'ROOKIE') + '</td><td>' + (u.email_verified?'✅':'—') + '</td><td>' + fmtDate(u.created_at) + '</td></tr>';
+      });
+      html += '</tbody></table></div>';
+      list.innerHTML = html;
+    } catch(e){ list.innerHTML = '<div class="empty">' + esc(e.message) + '</div>'; }
+  }
+
+  // ---------- INIT ----------
+  loadOverview();
+})(); + (Number(a.verification_fee_cents||0)/100).toFixed(0) + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Payment Link</span><span class="detail-value">' + (a.payment_ref ? '<a href="' + esc(a.payment_ref) + '" target="_blank" style="color:#76e5b5">' + esc(a.payment_ref.substring(0,60)) + '...</a>' : '—') + '</span></div>';
+      html += '<div class="detail-row"><span class="detail-label">Transaction ID</span><span class="detail-value">' + esc(a.transaction_id || '—') + '</span></div>';
+      html += '</div>';
+
+      if(files.length){
+        html += '<h3 style="margin:16px 0 10px;font-size:13.5px">Uploaded Files (' + files.length + ')</h3>';
+        files.forEach(function(f){
+          html += '<div class="file-row"><div><b>' + esc(f.file_type) + '</b><div class="meta">' + fmtBytes(f.file_size) + ' · ' + esc(f.mime_type||'') + ' · ' + fmtDate(f.uploaded_at) + '</div></div><button class="btn sm secondary" onclick="viewFile(' + f.id + ')">View</button></div>';
+        });
+      }
+
+      // Status-conditional action blocks
+      if(status === 'PAID_REQUESTED' || status === 'AWAITING_PAYMENT'){
+        html += '<h3 style="margin:20px 0 10px;font-size:13.5px">Step 1 — Save Payment Link</h3>';
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">';
+        html += '<input class="input" id="payLinkInput" type="url" placeholder="https://razorpay.me/@..." style="flex:1;min-width:240px" value="' + esc(a.payment_ref || '') + '">';
+        html += '<button class="btn" onclick="savePaymentLink(' + a.id + ')">Save & Notify</button>';
+        html += '</div>';
+        html += '<p style="color:var(--muted);font-size:11.5px;margin-top:8px">Saving will send you a ready-to-forward email.</p>';
+      } else if(status === 'LINK_SENT'){
+        html += '<h3 style="margin:20px 0 10px;font-size:13.5px">Step 2 — Mark as Paid</h3>';
+        html += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start">';
+        html += '<input class="input" id="txnIdInput" type="text" placeholder="Transaction ID from user (UPI/Razorpay ref)" style="flex:1;min-width:240px">';
+        html += '<button class="btn" onclick="markPaid(' + a.id + ')">Mark Paid</button>';
+        html += '</div>';
+      } else if(status === 'PAID_PENDING'){
+        html += '<h3 style="margin:20px 0 10px;font-size:13.5px">Step 3 — Set Metrics & Verify</h3>';
+        html += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px">';
+        html += '<input class="input" id="vmTrades" type="number" min="0" placeholder="Total Trades">';
+        html += '<input class="input" id="vmWins" type="number" min="0" placeholder="Wins">';
+        html += '<input class="input" id="vmLosses" type="number" min="0" placeholder="Losses">';
+        html += '<input class="input" id="vmProfit" type="number" step="0.01" placeholder="Profit %">';
+        html += '<input class="input" id="vmBestWin" type="number" step="0.01" placeholder="Best Win ($)">';
+        html += '<input class="input" id="vmWorstLoss" type="number" step="0.01" placeholder="Worst Loss ($)">';
+        html += '</div>';
+        html += '<div style="display:flex;gap:10px;margin-top:14px;flex-wrap:wrap">';
+        html += '<button class="btn" onclick="verifyPaymentWithMetrics(' + a.id + ')">✓ Verify</button>';
+        html += '<button class="btn red" onclick="rejectPayment(' + a.id + ')">✕ Reject</button>';
+        html += '</div>';
+      }
+
+      html += '</div>';
+      $('paymentDetailWrap').innerHTML = html;
+      $('paymentDetailWrap').classList.remove('hidden');
+      $('paymentListWrap').classList.add('hidden');
+    } catch(e){ setError(e.message); }
+  };
+
+  window.savePaymentLink = async function(id){
+    var input = $('payLinkInput');
+    var link = input ? input.value.trim() : '';
+    if(!link){ alert('Enter payment link first'); return; }
+    try {
+      await api('/api/admin/tid/accounts/' + id + '/save-payment-link', { method:'POST', body:{ payment_link: link } });
+      alert('Payment link saved. Check your email for the ready-to-forward template.');
+      loadPaymentRequests();
+    } catch(e){ setError(e.message); }
+  };
+
   // ---------- USERS ----------
   async function loadUsers(){
     var list = $('usersList');
