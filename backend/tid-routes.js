@@ -1800,7 +1800,7 @@ router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
 async function recomputeAccountAggregates(accountId, tidUserId) {
   try {
     const [rows] = await db.execute(
-      "SELECT COALESCE(SUM(pips),0) AS total_pips, COALESCE(SUM(CASE WHEN pips>0 THEN pips ELSE 0 END),0) AS pips_won, COALESCE(SUM(CASE WHEN pips<0 THEN -pips ELSE 0 END),0) AS pips_lost, COUNT(*) AS cnt, SUM(CASE WHEN pips>0 THEN 1 ELSE 0 END) AS wins, SUM(CASE WHEN pips<0 THEN 1 ELSE 0 END) AS losses, COALESCE(SUM(profit_cents),0) AS total_profit_cents, COALESCE(MAX(CASE WHEN profit_cents>0 THEN profit_cents ELSE 0 END),0) AS big_win, COALESCE(MAX(CASE WHEN profit_cents<0 THEN -profit_cents ELSE 0 END),0) AS big_loss FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status='CLOSED'",
+      "SELECT COALESCE(SUM(pips),0) AS total_pips, COALESCE(SUM(CASE WHEN pips>0 THEN pips ELSE 0 END),0) AS pips_won, COALESCE(SUM(CASE WHEN pips<0 THEN -pips ELSE 0 END),0) AS pips_lost, COUNT(*) AS cnt, SUM(CASE WHEN profit_cents>0 THEN 1 ELSE 0 END) AS wins, SUM(CASE WHEN profit_cents<0 THEN 1 ELSE 0 END) AS losses, COALESCE(SUM(profit_cents),0) AS total_profit_cents, COALESCE(MAX(CASE WHEN profit_cents>0 THEN profit_cents ELSE 0 END),0) AS big_win, COALESCE(MAX(CASE WHEN profit_cents<0 THEN -profit_cents ELSE 0 END),0) AS big_loss FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status='CLOSED'",
       [accountId, tidUserId],
     );
     const r = rows[0] || {};
