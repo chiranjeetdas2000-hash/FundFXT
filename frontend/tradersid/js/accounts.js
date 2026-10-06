@@ -536,6 +536,21 @@
     }
   }
 
+  function loadTrades(accountId){
+    var body = $('tradesListBody');
+    if(!body) return;
+    body.innerHTML = '<div class="empty"><div class="empty-text">Loading trades…</div></div>';
+    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        renderTrades(d.trades || []);
+      })
+      .catch(function(e){
+        body.innerHTML = '<div class="empty"><div class="empty-text">' + esc(e.message) + '</div></div>';
+      });
+  }
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
