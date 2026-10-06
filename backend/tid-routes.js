@@ -1896,6 +1896,60 @@ router.post("/accounts/:id/trades", authenticateTid, requireJsonBody, async (req
   }
 });
 
+router.get("/accounts/:id/trades", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [acc] = await db.execute(
+      "SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!acc.length) return jsonError(res, 404, "Account not found");
+
+    const limit = Math.min(500, Math.max(1, Number(req.query.limit) || 100));
+    const status = req.query.status ? String(req.query.status).toUpperCase() : null;
+
+    let sql = "SELECT id, account_id, symbol, direction, entry_price, exit_price, lot_size, pips, profit_cents, status, opened_at, closed_at, notes, screenshot_url, created_at FROM tid_trades WHERE account_id = ? AND tid_user_id = ?";
+    const params = [id, req.tidUser.tidUserId];
+    if (status && ["OPEN","CLOSED"].includes(status)) {
+      sql += " AND status = ?";
+      params.push(status);
+    }
+    sql += " ORDER BY COALESCE(closed_at, opened_at, created_at) DESC LIMIT ?";
+
+    const [rows] = await db.execute(sql, [...params, limit]);
+    return res.json({ success: true, trades: rows });
+  } catch (error) {
+    console.error("TID trade list error:", error);
+    return jsonError(res, 500, "Unable to load trades");
+  }
+});
+
+router.delete("/accounts/:id/trades/:tradeId", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    const tradeId = Number(req.params.tradeId);
+    if (!Number.isFinite(id) || !Number.isFinite(tradeId)) {
+      return jsonError(res, 400, "Invalid id");
+    }
+
+    const [r] = await db.execute(
+      "DELETE FROM tid_trades WHERE id = ? AND account_id = ? AND tid_user_id = ? LIMIT 1",
+      [tradeId, id, req.tidUser.tidUserId],
+    );
+    if (!r.affectedRows) return jsonError(res, 404, "Trade not found");
+
+    await recomputeAccountAggregates(id, req.tidUser.tidUserId);
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRADE_DELETE");
+
+    return res.json({ success: true, deleted: tradeId });
+  } catch (error) {
+    console.error("TID trade delete error:", error);
+    return jsonError(res, 500, "Unable to delete trade");
+  }
+});
+
 router.get("/accounts", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
