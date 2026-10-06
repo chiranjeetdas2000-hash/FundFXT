@@ -415,9 +415,10 @@ router.post("/admin/tid/accounts/:id/mark-paid", authenticateAdmin, requireSuper
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
 
+    const txnId = String(req.body?.transaction_id || "").trim().slice(0, 100) || null;
     const [r] = await db.execute(
-      "UPDATE tid_accounts SET verification_status = 'PAID_PENDING', verification_paid = 1, updated_at = NOW() WHERE id = ? AND verification_status IN ('LINK_SENT','PAID_REQUESTED') LIMIT 1",
-      [id]
+      "UPDATE tid_accounts SET verification_status = 'PAID_PENDING', verification_paid = 1, transaction_id = ?, updated_at = NOW() WHERE id = ? AND verification_status IN ('LINK_SENT','PAID_REQUESTED') LIMIT 1",
+      [txnId, id]
     );
     if (!r.affectedRows) return res.status(404).json({ error: "Not found or invalid state" });
     return res.json({ success: true, status: "PAID_PENDING" });
