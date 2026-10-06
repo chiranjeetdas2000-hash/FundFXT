@@ -450,6 +450,56 @@
     } catch(e){ setError(e.message); }
   };
 
+  window.savePaymentLink = async function(id){
+    var input = $('payLinkInput');
+    var link = input ? input.value.trim() : '';
+    if(!link){ alert('Enter payment link first'); return; }
+    if(!/^https?:\/\//i.test(link)){ alert('Link must start with http:// or https://'); return; }
+    try {
+      await api('/api/admin/tid/accounts/' + id + '/save-payment-link', { method:'POST', body:{ payment_link: link } });
+      alert('Payment link saved. Check your email for the ready-to-forward template.');
+      loadPaymentRequests();
+    } catch(e){ setError(e.message); }
+  };
+
+  window.markPaid = async function(id){
+    var txn = $('txnIdInput') ? $('txnIdInput').value.trim() : '';
+    if(!txn){ if(!confirm('No transaction ID entered. Mark as paid anyway?')) return; }
+    try {
+      await api('/api/admin/tid/accounts/' + id + '/mark-paid', { method:'POST', body:{ transaction_id: txn } });
+      alert('Marked as paid');
+      openPayment(id);
+    } catch(e){ setError(e.message); }
+  };
+
+  window.verifyPaymentWithMetrics = async function(id){
+    var n = function(elId){ var el = $(elId); return el ? Number(el.value) || 0 : 0; };
+    var payload = {
+      total_trades: n('vmTrades'),
+      total_wins: n('vmWins'),
+      total_losses: n('vmLosses'),
+      profit_bps: Math.round(n('vmProfit') * 100),
+      biggest_win_cents: Math.round(n('vmBestWin') * 100),
+      biggest_loss_cents: Math.round(n('vmWorstLoss') * 100)
+    };
+    if(!confirm('Verify this account with the entered metrics?')) return;
+    try {
+      await api('/api/admin/tid/accounts/' + id + '/verify', { method:'POST', body: payload });
+      alert('Account verified');
+      loadPaymentRequests();
+    } catch(e){ setError(e.message); }
+  };
+
+  window.rejectPayment = async function(id){
+    var reason = prompt('Rejection reason:');
+    if(reason === null) return;
+    try {
+      await api('/api/admin/tid/accounts/' + id + '/reject', { method:'POST', body:{ reason: reason } });
+      alert('Rejected');
+      loadPaymentRequests();
+    } catch(e){ setError(e.message); }
+  };
+
   // ---------- USERS ----------
   async function loadUsers(){
     var list = $('usersList');
