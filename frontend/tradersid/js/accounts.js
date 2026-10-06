@@ -265,7 +265,22 @@
   function renderTrades(trades){
     var body = $('tradesListBody');
     if(!body) return;
-    body.innerHTML = '<div class="empty"><div class="empty-text">Loaded ' + trades.length + ' trades.</div></div>';
+    if(!trades.length){
+      body.innerHTML = '<div class="empty"><div class="empty-text">No trades yet.</div></div>';
+      return;
+    }
+    var rows = '';
+    var i;
+    for(i = 0; i < trades.length; i++){
+      var t = trades[i];
+      rows += '<tr>';
+      rows += '<td>' + esc(t.symbol) + '</td>';
+      rows += '<td>' + esc(t.direction) + '</td>';
+      rows += '<td>' + (Number(t.pips) || 0) + '</td>';
+      rows += '<td>' + ((Number(t.profit_cents) || 0) / 100) + '</td>';
+      rows += '</tr>';
+    }
+    body.innerHTML = '<table><thead><tr><th>Symbol</th><th>Dir</th><th>Pips</th><th>P/L</th></tr></thead><tbody>' + rows + '</tbody></table>';
   }
 
   function loadAccounts(){
