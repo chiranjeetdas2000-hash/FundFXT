@@ -1722,7 +1722,7 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
     if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
 
     const [rows] = await db.execute(
-      "SELECT a.id, a.verification_status, a.score_impact_intent, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.verification_fee_cents, u.tid, u.email, u.full_name, u.name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? AND a.tid_user_id = ? LIMIT 1",
+      "SELECT a.id, a.verification_status, a.score_impact_intent, a.account_category, a.firm_name, a.broker_name, a.broker_account_id, a.broker_account_mode, a.account_size_cents, a.total_deposit_cents, a.verification_fee_cents, u.tid, u.email, u.legal_name FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.id = ? AND a.tid_user_id = ? LIMIT 1",
       [id, req.tidUser.tidUserId],
     );
     if (!rows.length) return jsonError(res, 404, "Account not found");
@@ -1752,7 +1752,7 @@ router.post("/accounts/:id/request-payment", authenticateTid, async (req, res) =
         const accLabel = String(acc.account_category || "").toUpperCase() === "BROKER"
           ? (acc.broker_name || "Broker") + " · " + (String(acc.broker_account_mode || "").toUpperCase() === "DEMO" ? "Demo" : "Real") + " · ID: " + (acc.broker_account_id || "—")
           : (acc.firm_name || "Firm") + " · $" + ((Number(acc.account_size_cents) || 0) / 100).toLocaleString("en-US");
-        const userName = acc.full_name || acc.name || "Trader";
+        const userName = acc.legal_name || "Trader";
         const userEmail = acc.email || "—";
         const userTid = acc.tid || "—";
         const adminUrl = "https://fundfxt.vercel.app/admin/tid/";
