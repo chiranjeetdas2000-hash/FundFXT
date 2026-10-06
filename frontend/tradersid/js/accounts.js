@@ -228,6 +228,25 @@
     }
   }
 
+  var tradesListModal = $('tradesListModal');
+  var currentTradesAccountId = null;
+
+  window.openTradesModal = function(accountId){
+    if(!tradesListModal) return;
+    currentTradesAccountId = accountId;
+    var h = $('tradesListAccountId');
+    if(h) h.value = accountId;
+    tradesListModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    loadTrades(accountId);
+  };
+
+  function closeTradesModal(){
+    if(tradesListModal) tradesListModal.classList.remove('open');
+    document.body.style.overflow = '';
+    currentTradesAccountId = null;
+  }
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
