@@ -2041,6 +2041,59 @@ router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async
   }
 });
 
+router.post("/accounts/:id/transactions", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [acc] = await db.execute(
+      "SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!acc.length) return jsonError(res, 404, "Account not found");
+
+    const txType = String(req.body?.tx_type || "").toUpperCase();
+    if (!["DEPOSIT", "WITHDRAWAL", "PROFIT_ADJUSTMENT"].includes(txType)) {
+      return jsonError(res, 400, "Invalid tx_type");
+    }
+
+    const amountCents = Math.max(0, Math.round(Number(req.body?.amount_cents) || 0));
+    if (amountCents <= 0) return jsonError(res, 400, "Amount must be positive");
+
+    const txDate = req.body?.tx_date ? new Date(req.body.tx_date) : new Date();
+    if (isNaN(txDate.getTime())) return jsonError(res, 400, "Invalid tx_date");
+
+    const notes = cleanString(req.body?.notes, 255) || null;
+
+    const [result] = await db.execute(
+      "INSERT INTO tid_account_transactions (account_id, tid_user_id, tx_type, amount_cents, tx_date, notes) VALUES (?, ?, ?, ?, ?, ?)",
+      [id, req.tidUser.tidUserId, txType, amountCents, txDate, notes],
+    );
+
+    await db.execute(
+      "UPDATE tid_accounts SET total_deposit_cents = (SELECT COALESCE(SUM(amount_cents),0) FROM tid_account_transactions WHERE account_id = ? AND tx_type = 'DEPOSIT'), total_withdrawal_cents = (SELECT COALESCE(SUM(amount_cents),0) FROM tid_account_transactions WHERE account_id = ? AND tx_type = 'WITHDRAWAL'), updated_at = NOW() WHERE id = ? LIMIT 1",
+      [id, id, id],
+    );
+
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRANSACTION_CREATE");
+
+    return res.status(201).json({
+      success: true,
+      transaction: {
+        id: result.insertId,
+        account_id: id,
+        tx_type: txType,
+        amount_cents: amountCents,
+        tx_date: txDate,
+        notes,
+      },
+    });
+  } catch (error) {
+    console.error("TID transaction create error:", error);
+    return jsonError(res, 500, "Unable to create transaction");
+  }
+});
+
 router.get("/accounts", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
