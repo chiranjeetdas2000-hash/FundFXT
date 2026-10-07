@@ -157,7 +157,7 @@
         '<div class="acct-meta-item"><b>' + fmtMoney(a.total_deposit_cents) + '</b>Deposited</div>' +
         '<div class="acct-meta-item"><b>' + fmtMoney(a.total_withdrawal_cents) + '</b>Withdrawn</div>'
       ) : '';
-      return '<div class="acct-card" data-id="' + a.id + '">' +
+      return '<div class="acct-card" data-id="' + a.id + '" onclick="if(event.target.tagName===\'BUTTON\')return;if(typeof openAccountDetail===\'function\')openAccountDetail(' + a.id + ')" style="cursor:pointer">' +
         '<div class="acct-head"><div><div class="acct-firm">' + titleLine + intentBadge + '</div><div class="acct-size">' + catLabel + ' \u00b7 ' + subLine + '</div>' + (a.payment_request_no ? '<div style="font-family:Consolas,monospace;font-size:11.5px;margin-top:2px;color:var(--muted)">Request: ' + esc(a.payment_request_no) + '</div>' : '') + '</div>' +
         '<span class="acct-badge ' + cls + '">' + lbl + '</span></div>' +
         '<div class="acct-meta">' +
