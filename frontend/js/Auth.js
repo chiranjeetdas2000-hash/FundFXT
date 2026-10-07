@@ -113,7 +113,7 @@ const login = async () => {
         showMessage('Login successful. Opening dashboard…', true);
 
         setTimeout(() => {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/frontend/dashboard.html';
         }, 450);
     } catch (error) {
         showMessage(error.message);
@@ -165,7 +165,7 @@ const registerUser = async () => {
         showMessage('Account created successfully. Opening dashboard…', true);
 
         setTimeout(() => {
-            window.location.href = '/dashboard.html';
+            window.location.href = '/frontend/dashboard.html';
         }, 500);
     } catch (error) {
         showMessage(error.message);
