@@ -128,6 +128,7 @@ tr:hover td{background:var(--surface2)}
       <button data-view="accounts" onclick="showView('accounts')"><span class="nav-icon">▤</span>Account Queue</button>
       <button data-view="payments" onclick="showView('payments')"><span class="nav-icon">₹</span>Payment Requests</button>
       <button data-view="users" onclick="showView('users')"><span class="nav-icon">♙</span>Users</button>
+      <button data-view="updatequeue" onclick="showView('updatequeue')"><span class="nav-icon">🔄</span>Update Queue</button>
     </nav>
   </aside>
 
@@ -217,10 +218,26 @@ tr:hover td{background:var(--surface2)}
         <div id="usersList"></div>
       </div>
     </section>
+
+    <!-- UPDATE QUEUE -->
+    <section id="view-updatequeue" class="view">
+      <div class="top">
+        <div>
+          <div class="eyebrow">Data Sync</div>
+          <h1>Update Queue</h1>
+          <p>Accounts users have requested to update.</p>
+        </div>
+        <button class="btn secondary" onclick="loadUpdateQueue()">↻ Refresh</button>
+      </div>
+      <div class="panel">
+        <div id="updateQueueList"></div>
+      </div>
+    </section>
   </main>
 </div>
 
 <script src="tid-admin.js" defer></script>
 <script src="tid-payments.js" defer></script>
+<script src="tid-update-queue.js" defer></script>
 </body>
 </html>
