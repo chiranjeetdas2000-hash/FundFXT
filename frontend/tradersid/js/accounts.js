@@ -610,7 +610,8 @@
     p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">' + worstP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Worst</div></div>');
     p.push('</div>');
 
-    acctDetailBody.innerHTML = p.join('');
+    var heroEl = $('acctDetailHero');
+    if(heroEl) heroEl.innerHTML = p.join('');
   }
 
   var acctDetailCloseBtn = $('acctDetailClose');
