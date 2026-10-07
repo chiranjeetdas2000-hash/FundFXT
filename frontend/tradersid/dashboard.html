@@ -1322,7 +1322,7 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
         toast('Unable to load dashboard');
         if (cachedUser && cachedUser.tid) renderDashboard(cachedUser, {});
       });
-    if (typeof loadAccessKeys === 'function') loadAccessKeys();
+    if (typeof loadAccessKeys === 'function') loadAccessKeys(); if (typeof loadDashboardTradeStats === 'function') loadDashboardTradeStats();
   }
   loadDashboard();
 
