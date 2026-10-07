@@ -78,7 +78,9 @@
       var sub = isBroker
         ? ('ID: ' + (a.broker_account_id || '—') + ' · ' + (String(a.broker_account_mode || '').toUpperCase() === 'DEMO' ? 'Demo' : 'Real'))
         : ('$' + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US') + ' · ' + (a.account_type || ''));
-      var wl = (Number(a.total_wins) || 0) + '/' + ((Number(a.total_wins) || 0) + (Number(a.total_losses) || 0));
+      var wins = Number(a.total_wins) || 0;
+      var losses = Number(a.total_losses) || 0;
+      var wl = wins + 'W / ' + losses + 'L';
       h += '<div class="firm-account" data-id="' + a.id + '">';
       h += '<div class="fa-left">';
       h += '<div class="fa-sub">' + esc(sub) + '</div>';
