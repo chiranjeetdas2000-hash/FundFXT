@@ -282,22 +282,6 @@
     }
     body.innerHTML = '<table><thead><tr><th>Symbol</th><th>Dir</th><th>Pips</th><th>P/L</th></tr></thead><tbody>' + rows + '</tbody></table>';
 
-    var delBtns = body.querySelectorAll('.trade-del');
-    for(i = 0; i < delBtns.length; i++){
-      delBtns[i].addEventListener('click', function(){
-        var tradeId = this.getAttribute('data-id');
-        if(!confirm('Delete this trade?')) return;
-        fetch(API + '/api/tid/accounts/' + currentTradesAccountId + '/trades/' + tradeId, {method:'DELETE', headers:{Authorization:'Bearer ' + token}})
-          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
-          .then(function(x){
-            if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Delete failed');
-            toast('Trade deleted');
-            loadTrades(currentTradesAccountId);
-            loadAccounts();
-          })
-          .catch(function(e){ toast(e.message || 'Delete failed'); });
-      });
-    }
   }
 
   var tradesListClose = $('tradesListClose');
