@@ -429,64 +429,52 @@
     for(var i = 1; i < lines.length; i++){
       var cells = parseCSVLine(lines[i]);
       var row = {};
-      for(var h = 0; h < headers.length; h++){
-        row[headers[h]] = cells[h] != null ? cells[h] : '';
-      }
-      var profitVal = row.profit_usd || row.profit || row.pnl || '0';
-      var trade = {
-        symbol: row.symbol || '',
-        direction: (row.direction || 'BUY').toUpperCase(),
+      for(var j = 0; j < headers.length; j++) row[headers[j]] = cells[j] || '';
+      var symbol = String(row.symbol || row.instrument || '').trim().toUpperCase();
+      var direction = String(row.direction || row.side || '').trim().toUpperCase();
+      if(!symbol) errs.push('Row ' + (i + 1) + ': symbol missing');
+      if(direction !== 'BUY' && direction !== 'SELL') errs.push('Row ' + (i + 1) + ': direction must be BUY or SELL');
+      if(errs.length) continue;
+      trades.push({
+        symbol: symbol,
+        direction: direction,
         entry_price: row.entry_price ? Number(row.entry_price) : null,
         exit_price: row.exit_price ? Number(row.exit_price) : null,
         lot_size: row.lot_size ? Number(row.lot_size) : null,
         pips: row.pips ? Number(row.pips) : null,
-        profit_cents: Math.round((Number(profitVal) || 0) * 100),
-        status: (row.status || 'CLOSED').toUpperCase(),
+        profit_cents: row.profit_cents ? Number(row.profit_cents) : 0,
+        status: row.status || 'CLOSED',
         opened_at: row.opened_at || null,
         closed_at: row.closed_at || null,
         notes: row.notes || null
-      };
-      if(!trade.symbol) errs.push('Row ' + (i + 1) + ': missing symbol');
-      else trades.push(trade);
+      });
     }
-    return { trades: trades, error: errs.length ? errs.slice(0, 3).join('; ') : null };
+    return { trades: trades, error: errs.length ? errs.join('\n') : '' };
   }
 
   if(bulkImportFile) bulkImportFile.addEventListener('change', function(){
-    var f = this.files && this.files[0];
-    if(!f) return;
-    if(bulkImportPreview) bulkImportPreview.textContent = 'Reading...';
+    var file = this.files && this.files[0];
+    if(!file) return;
     var reader = new FileReader();
-    reader.onload = function(e){
-      var parsed = parseCSV(String(e.target.result || ''));
-      parsedTrades = parsed.trades || [];
-      if(parsed.error){
-        if(bulkImportPreview) bulkImportPreview.textContent = 'Issues: ' + parsed.error;
-      } else if(!parsedTrades.length){
-        if(bulkImportPreview) bulkImportPreview.textContent = 'No valid trades found';
-      } else {
-        if(bulkImportPreview) bulkImportPreview.textContent = 'Ready to import: ' + parsedTrades.length + ' trades';
-      }
+    reader.onload = function(){
+      var parsed = parseCSV(String(reader.result || ''));
+      parsedTrades = parsed.trades;
+      if(bulkImportPreview) bulkImportPreview.textContent = parsed.trades.length + ' trades ready' + (parsed.error ? '\n' + parsed.error : '');
     };
-    reader.onerror = function(){
-      if(bulkImportPreview) bulkImportPreview.textContent = 'Failed to read file';
-    };
-    reader.readAsText(f);
+    reader.readAsText(file);
   });
 
-  var bulkImportCloseBtn = $('bulkImportClose');
-  if(bulkImportCloseBtn) bulkImportCloseBtn.addEventListener('click', closeBulkImport);
-  var bulkImportCancelBtn = $('bulkImportCancel');
-  if(bulkImportCancelBtn) bulkImportCancelBtn.addEventListener('click', closeBulkImport);
+  var bulkImportCancel = $('bulkImportCancel');
+  if(bulkImportCancel) bulkImportCancel.addEventListener('click', closeBulkImport);
+  var bulkImportModalClose = $('bulkImportModalClose');
+  if(bulkImportModalClose) bulkImportModalClose.addEventListener('click', closeBulkImport);
   if(bulkImportModal) bulkImportModal.addEventListener('click', function(e){ if(e.target === bulkImportModal) closeBulkImport(); });
 
-  var bulkImportSubmitBtn = $('bulkImportSubmit');
-  if(bulkImportSubmitBtn) bulkImportSubmitBtn.addEventListener('click', function(){
+  var bulkImportForm = $('bulkImportForm');
+  if(bulkImportForm) bulkImportForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var bulkImportError = $('bulkImportError');
     if(bulkImportError) bulkImportError.classList.remove('show');
-    if(!parsedTrades.length){
-      if(bulkImportError){ bulkImportError.textContent = 'Upload a valid CSV first'; bulkImportError.classList.add('show'); }
-      return;
-    }
     var accId = $('tradesListAccountId') ? $('tradesListAccountId').value : null;
     if(!accId){
       if(bulkImportError){ bulkImportError.textContent = 'Missing account'; bulkImportError.classList.add('show'); }
@@ -616,7 +604,7 @@
 
     var heroEl = $('acctDetailHero');
     if(heroEl) heroEl.innerHTML = p.join('');
-    renderAcctMoney(a.id); if(typeof window.renderAcctTrades === 'function') window.renderAcctTrades(a.id);
+    renderAcctMoney(a.id); if(typeof window.renderAcctTrades === 'function') window.renderAcctTrades(a.id); if(typeof window.renderRequestUpdateBtn === 'function') window.renderRequestUpdateBtn(a.id);
   }
 
   var acctDetailCloseBtn = $('acctDetailClose');
