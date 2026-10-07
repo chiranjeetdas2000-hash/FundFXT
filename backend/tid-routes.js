@@ -1137,6 +1137,26 @@ router.get("/accounts/:id/transactions", authenticateTid, async (req, res) => {
   }
 });
 
+router.post("/accounts/:id/request-update", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+    const [acc] = await db.execute("SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1", [id, req.tidUser.tidUserId]);
+    if (!acc.length) return jsonError(res, 404, "Account not found");
+    const [existing] = await db.execute("SELECT id FROM tid_sync_log WHERE account_id = ? LIMIT 1", [id]);
+    if (existing.length) {
+      await db.execute("UPDATE tid_sync_log SET sync_status = 'PENDING', attempts = 0, error_message = NULL, updated_at = NOW() WHERE account_id = ? LIMIT 1", [id]);
+    } else {
+      await db.execute("INSERT INTO tid_sync_log (account_id, sync_status) VALUES (?, 'PENDING')", [id]);
+    }
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "UPDATE_REQUEST");
+    return res.json({ success: true, message: "Update requested" });
+  } catch (error) {
+    console.error("TID update request error:", error);
+    return jsonError(res, 500, "Unable to request update");
+  }
+});
+
 router.get("/me", authenticateTid, async (req, res) => {
   try {
     const user = await fetchTidUserById(req.tidUser.tidUserId);
