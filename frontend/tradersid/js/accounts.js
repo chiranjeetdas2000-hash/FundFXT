@@ -616,7 +616,7 @@
 
     var heroEl = $('acctDetailHero');
     if(heroEl) heroEl.innerHTML = p.join('');
-    renderAcctMoney(a.id);
+    renderAcctMoney(a.id); if(typeof window.renderAcctTrades === 'function') window.renderAcctTrades(a.id);
   }
 
   var acctDetailCloseBtn = $('acctDetailClose');
