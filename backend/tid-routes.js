@@ -1981,6 +1981,7 @@ router.get("/accounts/:id/trades", authenticateTid, async (req, res) => {
 });
 
 router.delete("/accounts/:id/trades/:tradeId", authenticateTid, async (req, res) => {
+  return jsonError(res, 403, "Trade deletion is disabled. Verified trades are immutable.");
   try {
     const id = Number(req.params.id);
     const tradeId = Number(req.params.tradeId);
