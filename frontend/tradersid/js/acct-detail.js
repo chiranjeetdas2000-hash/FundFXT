@@ -138,3 +138,38 @@ window.renderAcctTrades = function(accountId){
       el.textContent = '';
     });
 };
+window.renderRequestUpdateBtn = function(accountId){
+  var el = document.getElementById('acctDetailTrades');
+  if(!el) return;
+  var btn = document.createElement('button');
+  btn.type = 'button';
+  btn.id = 'acctRequestUpdateBtn';
+  btn.textContent = '🔄 Request Update';
+  btn.style.cssText = 'margin-top:14px;width:100%;padding:11px;background:#0F1B2D;color:#fff;border:0;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer';
+  btn.onclick = function(){
+    var token = localStorage.getItem('tid_token');
+    btn.disabled = true;
+    btn.textContent = 'Requesting...';
+    fetch('https://fundfxt.onrender.com/api/tid/accounts/' + accountId + '/request-update', {
+      method: 'POST',
+      headers: {Authorization: 'Bearer ' + token}
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Failed');
+        btn.textContent = '✓ Update Requested';
+        btn.style.background = '#10B981';
+        setTimeout(function(){
+          btn.disabled = false;
+          btn.textContent = '🔄 Request Update';
+          btn.style.background = '#0F1B2D';
+        }, 3000);
+      })
+      .catch(function(e){
+        btn.disabled = false;
+        btn.textContent = '🔄 Request Update';
+        alert(e.message || 'Failed');
+      });
+  };
+  el.appendChild(btn);
+};
