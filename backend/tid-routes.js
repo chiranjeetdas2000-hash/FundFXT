@@ -1123,6 +1123,20 @@ router.delete("/access-keys/:id", authenticateTid, async (req, res) => {
   }
 });
 
+router.get("/accounts/:id/transactions", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+    const [acc] = await db.execute("SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1", [id, req.tidUser.tidUserId]);
+    if (!acc.length) return jsonError(res, 404, "Account not found");
+    const [rows] = await db.execute("SELECT id, tx_type, amount_cents, tx_date, notes, created_at FROM tid_account_transactions WHERE account_id = ? AND tid_user_id = ? ORDER BY tx_date ASC", [id, req.tidUser.tidUserId]);
+    return res.json({ success: true, transactions: rows });
+  } catch (error) {
+    console.error("TID transaction list error:", error);
+    return jsonError(res, 500, "Unable to load transactions");
+  }
+});
+
 router.get("/me", authenticateTid, async (req, res) => {
   try {
     const user = await fetchTidUserById(req.tidUser.tidUserId);
