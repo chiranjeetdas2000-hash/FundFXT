@@ -1824,8 +1824,8 @@ async function recomputeAccountAggregates(accountId, tidUserId) {
     const profitBps = sizeCents > 0 ? Math.round((totalProfitCents / sizeCents) * 10000) : 0;
 
     await db.execute(
-      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, biggest_win_cents = ?, biggest_loss_cents = ?, total_pips = ?, total_pips_won = ?, total_pips_lost = ?, avg_rr = ?, profit_bps = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
-      [totalTrades, wins, losses, winRateBps, bigWin, bigLoss, totalPips, pipsWon, pipsLost, avgRr, profitBps, accountId],
+      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, biggest_win_cents = ?, biggest_loss_cents = ?, total_pips = ?, total_pips_won = ?, total_pips_lost = ?, avg_rr = ?, profit_bps = ?, avg_win_pips = ?, avg_loss_pips = ?, best_trade_pips = ?, worst_trade_pips = ?, consistency_score = ?, account_score = ?, first_trade_at = ?, last_trade_at = ?, last_updated_at = NOW(), updated_at = NOW() WHERE id = ? LIMIT 1",
+      [totalTrades, wins, losses, winRateBps, bigWin, bigLoss, totalPips, pipsWon, pipsLost, avgRr, profitBps, avgWinPips, avgLossPips, bestTradePips, worstTradePips, consistencyScore, accountScore, firstTradeAt, lastTradeAt, accountId],
     );
   } catch (err) {
     console.error("recomputeAccountAggregates error:", err);
