@@ -601,6 +601,15 @@
     p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + (totalPips >= 0 ? '#10B981' : '#EF4444') + '">' + (totalPips >= 0 ? '+' : '') + totalPips.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Net Pips</div></div>');
     p.push('</div>');
 
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#64748B;margin:0 0 10px">Pips Analysis</div>');
+    p.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:18px">');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">+' + avgWin.toFixed(1) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Avg Win</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">-' + avgLoss.toFixed(1) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Avg Loss</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:' + (rr >= 1.5 ? '#10B981' : '#F59E0B') + '">' + rr.toFixed(2) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">R:R</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">+' + bestP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Best</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">' + worstP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Worst</div></div>');
+    p.push('</div>');
+
     acctDetailBody.innerHTML = p.join('');
   }
 
