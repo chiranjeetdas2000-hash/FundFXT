@@ -546,6 +546,615 @@
       });
   };
 
+  function renderAcctMoney(accountId){
+    var el = $('acctDetailMoney');
+    if(!el) return;
+    el.innerHTML = '<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#64748B;margin:0 0 10px">Money Flow</div><div style="color:#94A3B8;font-size:12px">Loading...</div>';
+    fetch(API + '/api/tid/accounts/' + accountId + '/transactions', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(td){
+        var txs = (td && td.transactions) || [];
+        var dep = 0;
+        var wd = 0;
+        for(var i = 0; i < txs.length; i++){
+          var amt = (Number(txs[i].amount_cents) || 0) / 100;
+          if(txs[i].tx_type === 'DEPOSIT') dep += amt;
+          if(txs[i].tx_type === 'WITHDRAWAL') wd += amt;
+        }
+        var m = '';
+        m += '<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#64748B;margin:0 0 10px">Money Flow</div>';
+        m += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">';
+        m += '<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px"><div style="font-size:10px;color:#64748B;margin-bottom:4px">DEPOSITED</div><div style="font-size:16px;font-weight:800;color:#10B981">
+    var isBroker = String(a.account_category || '').toUpperCase() === 'BROKER';
+    var name = isBroker ? (a.broker_name || 'Broker') : (a.firm_name || 'Firm');
+    var sub = isBroker ? 'Broker' : 'Prop Firm';
+    if(acctDetailTitle) acctDetailTitle.textContent = name;
+
+    var score = Number(a.account_score) || 0;
+    var wr = Math.round((Number(a.win_rate_bps) || 0) / 100);
+    var totalTrades = Number(a.total_trades) || 0;
+    var avgWin = Number(a.avg_win_pips) || 0;
+    var avgLoss = Number(a.avg_loss_pips) || 0;
+    var bestP = Number(a.best_trade_pips) || 0;
+    var worstP = Number(a.worst_trade_pips) || 0;
+    var totalPips = Number(a.total_pips) || 0;
+    var rr = Number(a.avg_rr) || 0;
+    var consistency = Number(a.consistency_score) || 0;
+
+    var wrPts = Math.round(Math.min(wr,70)*25/70);
+    var rrPts = Math.round(Math.min(rr,3)*25/3);
+    var consPts = Math.round(consistency*0.2);
+    var ddPts = Math.round(Math.max(0, Math.min(15, 15 - Math.abs(worstP)/10)));
+    var tenPts = 15;
+
+    var arcLen = Math.round((score / 100) * 289);
+
+    var p = [];
+    p.push('<div style="background:linear-gradient(135deg,#0F1B2D 0%,#1E3A5F 100%);border-radius:14px;padding:22px 20px;color:#fff;margin-bottom:18px">');
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#D4AF37;margin-bottom:6px">' + esc(sub) + '</div>');
+    p.push('<div style="font-size:20px;font-weight:800;margin-bottom:2px">' + esc(name) + '</div>');
+    p.push('<div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:20px">' + esc(a.broker_account_id || a.account_type || '—') + '</div>');
+
+    p.push('<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">');
+
+    p.push('<div style="position:relative;width:110px;height:110px;flex-shrink:0">');
+    p.push('<svg width="110" height="110" viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="10"/>');
+    p.push('<circle cx="55" cy="55" r="46" fill="none" stroke="#00b56a" stroke-width="10" stroke-dasharray="' + arcLen + ' 289" stroke-linecap="round" transform="rotate(-90 55 55)"/></svg>');
+    p.push('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">');
+    p.push('<div style="font-size:30px;font-weight:800;line-height:1">' + score + '</div>');
+    p.push('<div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.15em;margin-top:2px">SCORE</div>');
+    p.push('</div></div>');
+
+    p.push('<div style="flex:1;min-width:180px">');
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px">Score Breakdown</div>');
+    p.push('<div style="font-size:12.5px;line-height:2;color:rgba(255,255,255,.85)">');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Win Rate</span><b>' + wrPts + '/25</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>R:R</span><b>' + rrPts + '/25</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Consistency</span><b>' + consPts + '/20</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Drawdown</span><b>' + ddPts + '/15</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Tenure</span><b>' + tenPts + '/15</b></div>');
+    p.push('</div></div>');
+
+    p.push('</div></div>');
+
+    p.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:18px">');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#0F1B2D">' + totalTrades + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Trades</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#10B981">' + wr + '%</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Win Rate</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + (totalPips >= 0 ? '#10B981' : '#EF4444') + '">' + (totalPips >= 0 ? '+' : '') + totalPips.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Net Pips</div></div>');
+    p.push('</div>');
+
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#64748B;margin:0 0 10px">Pips Analysis</div>');
+    p.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:18px">');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">+' + avgWin.toFixed(1) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Avg Win</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">-' + avgLoss.toFixed(1) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Avg Loss</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:' + (rr >= 1.5 ? '#10B981' : '#F59E0B') + '">' + rr.toFixed(2) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">R:R</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">+' + bestP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Best</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">' + worstP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Worst</div></div>');
+    p.push('</div>');
+
+    var heroEl = $('acctDetailHero');
+    if(heroEl) heroEl.innerHTML = p.join('');
+    renderAcctMoney(a.id);
+  }
+
+  var acctDetailCloseBtn = $('acctDetailClose');
+  if(acctDetailCloseBtn) acctDetailCloseBtn.addEventListener('click', closeAcctDetail);
+  if(acctDetailModal) acctDetailModal.addEventListener('click', function(e){ if(e.target === acctDetailModal) closeAcctDetail(); });
+
+  function loadAccounts(){
+    if(!token || !accountsList) return;
+    fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){
+        if(r.status === 401 || r.status === 403){
+          localStorage.removeItem('tid_token');
+          localStorage.removeItem('tid_user');
+          window.location.href = '/tradersid/login.html';
+          throw new Error('unauth');
+        }
+        return r.json();
+      })
+      .then(function(d){ if(!d.success) throw new Error(d.error || 'Load failed'); renderAccounts(d.accounts || []); })
+      .catch(function(e){ if(e.message !== 'unauth' && accountsCount){ accountsCount.textContent = 'Unable to load'; } });
+  }
+
+  function loadFiles(accountId){
+    if(!filesList) return;
+    filesList.innerHTML = '<div class="files-loading">Loading files\u2026</div>';
+    fetch(API + '/api/tid/files?account_id=' + accountId, {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        renderFiles(d.files || []);
+      })
+      .catch(function(e){
+        filesList.innerHTML = '<div class="files-empty">Unable to load files. ' + esc(e.message || '') + '</div>';
+      });
+  }
+
+  function renderFiles(files){
+    if(!filesList) return;
+    if(!files.length){
+      filesList.innerHTML = '<div class="files-empty">No files uploaded yet.<br>Upload your first statement or receipt below.</div>';
+      if(filesUploadBtn) filesUploadBtn.disabled = false;
+      return;
+    }
+    filesList.innerHTML = files.map(function(f){
+      var sc = fileStatusClass(f.status);
+      var sl = fileStatusLabel(f.status);
+      var canDel = String(f.status || '').toUpperCase() !== 'APPROVED';
+      var delBtn = canDel ? '<button class="btn btn-ghost file-del" data-id="' + f.id + '">Delete</button>' : '';
+      return '<div class="file-row">' +
+        '<div class="file-row-info">' +
+          '<div class="file-row-name">' + esc(f.file_type || 'File').replace(/_/g, ' ') + '</div>' +
+          '<div class="file-row-meta">' + fmtBytes(f.file_size) + ' \u00b7 ' + esc(f.mime_type || '') + ' \u00b7 ' + fmtShortDate(f.uploaded_at) + '</div>' +
+          '<div class="file-row-meta file-row-status file-row-status-' + sc + '">' + sl + '</div>' +
+        '</div>' +
+        delBtn +
+      '</div>';
+    }).join('');
+
+    if(filesUploadBtn) filesUploadBtn.disabled = files.length >= 2;
+
+    var dbs = filesList.querySelectorAll('.file-del');
+    for(var i = 0; i < dbs.length; i++){
+      dbs[i].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        if(!confirm('Delete this file?')) return;
+        fetch(API + '/api/tid/file/' + id, {method:'DELETE', headers:{Authorization:'Bearer ' + token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+          .then(function(x){ if(!x.ok) throw new Error(x.data.error || 'Delete failed'); toast('File deleted'); loadFiles(currentFileAccountId); })
+          .catch(function(e){ toast(e.message || 'Delete failed'); });
+      });
+    }
+  }
+
+  addAcctBtn.addEventListener('click', openAccountModal);
+  var acctClose = $('accountModalClose');
+  if(acctClose) acctClose.addEventListener('click', closeAccountModal);
+  var acctCancel = $('accountCancel');
+  if(acctCancel) acctCancel.addEventListener('click', closeAccountModal);
+  if(acctModal) acctModal.addEventListener('click', function(e){ if(e.target === acctModal) closeAccountModal(); });
+
+  var filesClose = $('filesModalClose');
+  if(filesClose) filesClose.addEventListener('click', closeFilesModal);
+  var filesDone = $('filesModalDone');
+  if(filesDone) filesDone.addEventListener('click', closeFilesModal);
+  if(filesModal) filesModal.addEventListener('click', function(e){ if(e.target === filesModal) closeFilesModal(); });
+
+  if(filesUploadBtn) filesUploadBtn.addEventListener('click', function(){
+    if(filesUploadInput) filesUploadInput.click();
+  });
+
+  if(filesUploadInput) filesUploadInput.addEventListener('change', function(){
+    var file = this.files && this.files[0];
+    if(!file) return;
+    if(file.size > 3 * 1024 * 1024){ toast('File too large. Max 3 MB.'); this.value = ''; return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('file_type', filesUploadType ? filesUploadType.value : 'STATEMENT');
+    fd.append('account_id', String(currentFileAccountId));
+    if(filesUploadProgress) filesUploadProgress.style.display = 'block';
+    if(filesUploadBtn) filesUploadBtn.disabled = true;
+    if(filesError) filesError.classList.remove('show');
+
+    fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd})
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok) throw new Error(x.data.error || 'Upload failed');
+        toast('File uploaded');
+        if(filesUploadInput) filesUploadInput.value = '';
+        loadFiles(currentFileAccountId);
+      })
+      .catch(function(e){
+        if(filesError){ filesError.textContent = e.message || 'Upload failed'; filesError.classList.add('show'); }
+      })
+      .then(function(){
+        if(filesUploadProgress) filesUploadProgress.style.display = 'none';
+        if(filesUploadBtn) filesUploadBtn.disabled = false;
+      });
+  });
+
+  var propFields = $('propFirmFields');
+  var brokerFields = $('brokerFields');
+  var categoryRadios = document.querySelectorAll('input[name="acctCategory"]');
+  function applyCategoryToggle(){
+    var selected = document.querySelector('input[name="acctCategory"]:checked');
+    var cat = selected ? selected.value : 'PROP_FIRM';
+    if(propFields) propFields.style.display = (cat === 'PROP_FIRM') ? '' : 'none';
+    if(brokerFields) brokerFields.style.display = (cat === 'BROKER') ? '' : 'none';
+  }
+  for(var cr = 0; cr < categoryRadios.length; cr++){
+    categoryRadios[cr].addEventListener('change', applyCategoryToggle);
+  }
+  applyCategoryToggle();
+
+  if(acctForm) acctForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var errBox = $('acctError');
+    if(errBox) errBox.classList.remove('show');
+
+    var catEl = document.querySelector('input[name="acctCategory"]:checked');
+    var category = catEl ? catEl.value : 'PROP_FIRM';
+    var intentEl = $('acctIntentYes');
+    var intent = (intentEl && intentEl.checked) ? 'YES' : 'NO';
+
+    var payload = {
+      account_category: category,
+      score_impact_intent: intent
+    };
+
+    if(category === 'PROP_FIRM'){
+      var firmInput = $('acctFirm');
+      var firm = firmInput ? firmInput.value.trim() : '';
+      if(firm.length < 2){
+        if(errBox){ errBox.textContent = 'Enter firm name'; errBox.classList.add('show'); }
+        return;
+      }
+      var sizeEl = $('acctSize');
+      var typeEl = $('acctType');
+      var dateEl = $('acctStartDate');
+      payload.firm_name = firm;
+      payload.account_size_cents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
+      payload.start_date = dateEl && dateEl.value ? dateEl.value : null;
+    } else {
+      var bNameEl = $('acctBrokerName');
+      var bName = bNameEl ? bNameEl.value.trim() : '';
+      if(bName.length < 2){
+        if(errBox){ errBox.textContent = 'Enter broker name'; errBox.classList.add('show'); }
+        return;
+      }
+      var bIdEl = $('acctBrokerId');
+      var bId = bIdEl ? bIdEl.value.trim() : '';
+      if(!bId){
+        if(errBox){ errBox.textContent = 'Enter broker account ID'; errBox.classList.add('show'); }
+        return;
+      }
+      var bModeEl = $('acctBrokerMode');
+      var depEl = $('acctDeposit');
+      var wdEl = $('acctWithdrawal');
+      payload.broker_name = bName;
+      payload.broker_account_id = bId;
+      payload.broker_account_mode = bModeEl ? bModeEl.value : 'REAL';
+      payload.total_deposit_cents = Math.round((Number(depEl ? depEl.value : 0) || 0) * 100);
+      payload.total_withdrawal_cents = Math.round((Number(wdEl ? wdEl.value : 0) || 0) * 100);
+    }
+
+    var submitBtn = $('accountSubmit');
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Creating...'; }
+
+    fetch(API + '/api/tid/accounts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify(payload)
+    })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Create failed');
+        var newId = x.data.account && x.data.account.id;
+        var fileInput = $('acctFile');
+        if(fileInput && fileInput.files && fileInput.files[0] && newId){
+          var fd = new FormData();
+          fd.append('file', fileInput.files[0]);
+          fd.append('file_type', 'STATEMENT');
+          fd.append('account_id', String(newId));
+          fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd}).catch(function(){});
+        }
+        closeAccountModal();
+        acctForm.reset();
+        toast('Account added');
+        loadAccounts();
+      })
+      .catch(function(err){
+        if(errBox){ errBox.textContent = err.message || 'Create failed'; errBox.classList.add('show'); }
+      })
+      .then(function(){
+        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Create Account'; }
+      });
+  });
+
+  loadAccounts();
+})(); + dep.toFixed(0) + '</div></div>';
+        m += '<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px"><div style="font-size:10px;color:#64748B;margin-bottom:4px">WITHDRAWN</div><div style="font-size:16px;font-weight:800;color:#EF4444">
+    var isBroker = String(a.account_category || '').toUpperCase() === 'BROKER';
+    var name = isBroker ? (a.broker_name || 'Broker') : (a.firm_name || 'Firm');
+    var sub = isBroker ? 'Broker' : 'Prop Firm';
+    if(acctDetailTitle) acctDetailTitle.textContent = name;
+
+    var score = Number(a.account_score) || 0;
+    var wr = Math.round((Number(a.win_rate_bps) || 0) / 100);
+    var totalTrades = Number(a.total_trades) || 0;
+    var avgWin = Number(a.avg_win_pips) || 0;
+    var avgLoss = Number(a.avg_loss_pips) || 0;
+    var bestP = Number(a.best_trade_pips) || 0;
+    var worstP = Number(a.worst_trade_pips) || 0;
+    var totalPips = Number(a.total_pips) || 0;
+    var rr = Number(a.avg_rr) || 0;
+    var consistency = Number(a.consistency_score) || 0;
+
+    var wrPts = Math.round(Math.min(wr,70)*25/70);
+    var rrPts = Math.round(Math.min(rr,3)*25/3);
+    var consPts = Math.round(consistency*0.2);
+    var ddPts = Math.round(Math.max(0, Math.min(15, 15 - Math.abs(worstP)/10)));
+    var tenPts = 15;
+
+    var arcLen = Math.round((score / 100) * 289);
+
+    var p = [];
+    p.push('<div style="background:linear-gradient(135deg,#0F1B2D 0%,#1E3A5F 100%);border-radius:14px;padding:22px 20px;color:#fff;margin-bottom:18px">');
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#D4AF37;margin-bottom:6px">' + esc(sub) + '</div>');
+    p.push('<div style="font-size:20px;font-weight:800;margin-bottom:2px">' + esc(name) + '</div>');
+    p.push('<div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:20px">' + esc(a.broker_account_id || a.account_type || '—') + '</div>');
+
+    p.push('<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">');
+
+    p.push('<div style="position:relative;width:110px;height:110px;flex-shrink:0">');
+    p.push('<svg width="110" height="110" viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="10"/>');
+    p.push('<circle cx="55" cy="55" r="46" fill="none" stroke="#00b56a" stroke-width="10" stroke-dasharray="' + arcLen + ' 289" stroke-linecap="round" transform="rotate(-90 55 55)"/></svg>');
+    p.push('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">');
+    p.push('<div style="font-size:30px;font-weight:800;line-height:1">' + score + '</div>');
+    p.push('<div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.15em;margin-top:2px">SCORE</div>');
+    p.push('</div></div>');
+
+    p.push('<div style="flex:1;min-width:180px">');
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px">Score Breakdown</div>');
+    p.push('<div style="font-size:12.5px;line-height:2;color:rgba(255,255,255,.85)">');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Win Rate</span><b>' + wrPts + '/25</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>R:R</span><b>' + rrPts + '/25</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Consistency</span><b>' + consPts + '/20</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Drawdown</span><b>' + ddPts + '/15</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Tenure</span><b>' + tenPts + '/15</b></div>');
+    p.push('</div></div>');
+
+    p.push('</div></div>');
+
+    p.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:18px">');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#0F1B2D">' + totalTrades + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Trades</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#10B981">' + wr + '%</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Win Rate</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + (totalPips >= 0 ? '#10B981' : '#EF4444') + '">' + (totalPips >= 0 ? '+' : '') + totalPips.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Net Pips</div></div>');
+    p.push('</div>');
+
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#64748B;margin:0 0 10px">Pips Analysis</div>');
+    p.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:18px">');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">+' + avgWin.toFixed(1) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Avg Win</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">-' + avgLoss.toFixed(1) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Avg Loss</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:' + (rr >= 1.5 ? '#10B981' : '#F59E0B') + '">' + rr.toFixed(2) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">R:R</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#10B981">+' + bestP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Best</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:16px;font-weight:800;color:#EF4444">' + worstP.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Worst</div></div>');
+    p.push('</div>');
+
+    var heroEl = $('acctDetailHero');
+    if(heroEl) heroEl.innerHTML = p.join('');
+    renderAcctMoney(a.id);
+  }
+
+  var acctDetailCloseBtn = $('acctDetailClose');
+  if(acctDetailCloseBtn) acctDetailCloseBtn.addEventListener('click', closeAcctDetail);
+  if(acctDetailModal) acctDetailModal.addEventListener('click', function(e){ if(e.target === acctDetailModal) closeAcctDetail(); });
+
+  function loadAccounts(){
+    if(!token || !accountsList) return;
+    fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){
+        if(r.status === 401 || r.status === 403){
+          localStorage.removeItem('tid_token');
+          localStorage.removeItem('tid_user');
+          window.location.href = '/tradersid/login.html';
+          throw new Error('unauth');
+        }
+        return r.json();
+      })
+      .then(function(d){ if(!d.success) throw new Error(d.error || 'Load failed'); renderAccounts(d.accounts || []); })
+      .catch(function(e){ if(e.message !== 'unauth' && accountsCount){ accountsCount.textContent = 'Unable to load'; } });
+  }
+
+  function loadFiles(accountId){
+    if(!filesList) return;
+    filesList.innerHTML = '<div class="files-loading">Loading files\u2026</div>';
+    fetch(API + '/api/tid/files?account_id=' + accountId, {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        renderFiles(d.files || []);
+      })
+      .catch(function(e){
+        filesList.innerHTML = '<div class="files-empty">Unable to load files. ' + esc(e.message || '') + '</div>';
+      });
+  }
+
+  function renderFiles(files){
+    if(!filesList) return;
+    if(!files.length){
+      filesList.innerHTML = '<div class="files-empty">No files uploaded yet.<br>Upload your first statement or receipt below.</div>';
+      if(filesUploadBtn) filesUploadBtn.disabled = false;
+      return;
+    }
+    filesList.innerHTML = files.map(function(f){
+      var sc = fileStatusClass(f.status);
+      var sl = fileStatusLabel(f.status);
+      var canDel = String(f.status || '').toUpperCase() !== 'APPROVED';
+      var delBtn = canDel ? '<button class="btn btn-ghost file-del" data-id="' + f.id + '">Delete</button>' : '';
+      return '<div class="file-row">' +
+        '<div class="file-row-info">' +
+          '<div class="file-row-name">' + esc(f.file_type || 'File').replace(/_/g, ' ') + '</div>' +
+          '<div class="file-row-meta">' + fmtBytes(f.file_size) + ' \u00b7 ' + esc(f.mime_type || '') + ' \u00b7 ' + fmtShortDate(f.uploaded_at) + '</div>' +
+          '<div class="file-row-meta file-row-status file-row-status-' + sc + '">' + sl + '</div>' +
+        '</div>' +
+        delBtn +
+      '</div>';
+    }).join('');
+
+    if(filesUploadBtn) filesUploadBtn.disabled = files.length >= 2;
+
+    var dbs = filesList.querySelectorAll('.file-del');
+    for(var i = 0; i < dbs.length; i++){
+      dbs[i].addEventListener('click', function(){
+        var id = this.getAttribute('data-id');
+        if(!confirm('Delete this file?')) return;
+        fetch(API + '/api/tid/file/' + id, {method:'DELETE', headers:{Authorization:'Bearer ' + token}})
+          .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+          .then(function(x){ if(!x.ok) throw new Error(x.data.error || 'Delete failed'); toast('File deleted'); loadFiles(currentFileAccountId); })
+          .catch(function(e){ toast(e.message || 'Delete failed'); });
+      });
+    }
+  }
+
+  addAcctBtn.addEventListener('click', openAccountModal);
+  var acctClose = $('accountModalClose');
+  if(acctClose) acctClose.addEventListener('click', closeAccountModal);
+  var acctCancel = $('accountCancel');
+  if(acctCancel) acctCancel.addEventListener('click', closeAccountModal);
+  if(acctModal) acctModal.addEventListener('click', function(e){ if(e.target === acctModal) closeAccountModal(); });
+
+  var filesClose = $('filesModalClose');
+  if(filesClose) filesClose.addEventListener('click', closeFilesModal);
+  var filesDone = $('filesModalDone');
+  if(filesDone) filesDone.addEventListener('click', closeFilesModal);
+  if(filesModal) filesModal.addEventListener('click', function(e){ if(e.target === filesModal) closeFilesModal(); });
+
+  if(filesUploadBtn) filesUploadBtn.addEventListener('click', function(){
+    if(filesUploadInput) filesUploadInput.click();
+  });
+
+  if(filesUploadInput) filesUploadInput.addEventListener('change', function(){
+    var file = this.files && this.files[0];
+    if(!file) return;
+    if(file.size > 3 * 1024 * 1024){ toast('File too large. Max 3 MB.'); this.value = ''; return; }
+    var fd = new FormData();
+    fd.append('file', file);
+    fd.append('file_type', filesUploadType ? filesUploadType.value : 'STATEMENT');
+    fd.append('account_id', String(currentFileAccountId));
+    if(filesUploadProgress) filesUploadProgress.style.display = 'block';
+    if(filesUploadBtn) filesUploadBtn.disabled = true;
+    if(filesError) filesError.classList.remove('show');
+
+    fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd})
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok) throw new Error(x.data.error || 'Upload failed');
+        toast('File uploaded');
+        if(filesUploadInput) filesUploadInput.value = '';
+        loadFiles(currentFileAccountId);
+      })
+      .catch(function(e){
+        if(filesError){ filesError.textContent = e.message || 'Upload failed'; filesError.classList.add('show'); }
+      })
+      .then(function(){
+        if(filesUploadProgress) filesUploadProgress.style.display = 'none';
+        if(filesUploadBtn) filesUploadBtn.disabled = false;
+      });
+  });
+
+  var propFields = $('propFirmFields');
+  var brokerFields = $('brokerFields');
+  var categoryRadios = document.querySelectorAll('input[name="acctCategory"]');
+  function applyCategoryToggle(){
+    var selected = document.querySelector('input[name="acctCategory"]:checked');
+    var cat = selected ? selected.value : 'PROP_FIRM';
+    if(propFields) propFields.style.display = (cat === 'PROP_FIRM') ? '' : 'none';
+    if(brokerFields) brokerFields.style.display = (cat === 'BROKER') ? '' : 'none';
+  }
+  for(var cr = 0; cr < categoryRadios.length; cr++){
+    categoryRadios[cr].addEventListener('change', applyCategoryToggle);
+  }
+  applyCategoryToggle();
+
+  if(acctForm) acctForm.addEventListener('submit', function(e){
+    e.preventDefault();
+    var errBox = $('acctError');
+    if(errBox) errBox.classList.remove('show');
+
+    var catEl = document.querySelector('input[name="acctCategory"]:checked');
+    var category = catEl ? catEl.value : 'PROP_FIRM';
+    var intentEl = $('acctIntentYes');
+    var intent = (intentEl && intentEl.checked) ? 'YES' : 'NO';
+
+    var payload = {
+      account_category: category,
+      score_impact_intent: intent
+    };
+
+    if(category === 'PROP_FIRM'){
+      var firmInput = $('acctFirm');
+      var firm = firmInput ? firmInput.value.trim() : '';
+      if(firm.length < 2){
+        if(errBox){ errBox.textContent = 'Enter firm name'; errBox.classList.add('show'); }
+        return;
+      }
+      var sizeEl = $('acctSize');
+      var typeEl = $('acctType');
+      var dateEl = $('acctStartDate');
+      payload.firm_name = firm;
+      payload.account_size_cents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
+      payload.start_date = dateEl && dateEl.value ? dateEl.value : null;
+    } else {
+      var bNameEl = $('acctBrokerName');
+      var bName = bNameEl ? bNameEl.value.trim() : '';
+      if(bName.length < 2){
+        if(errBox){ errBox.textContent = 'Enter broker name'; errBox.classList.add('show'); }
+        return;
+      }
+      var bIdEl = $('acctBrokerId');
+      var bId = bIdEl ? bIdEl.value.trim() : '';
+      if(!bId){
+        if(errBox){ errBox.textContent = 'Enter broker account ID'; errBox.classList.add('show'); }
+        return;
+      }
+      var bModeEl = $('acctBrokerMode');
+      var depEl = $('acctDeposit');
+      var wdEl = $('acctWithdrawal');
+      payload.broker_name = bName;
+      payload.broker_account_id = bId;
+      payload.broker_account_mode = bModeEl ? bModeEl.value : 'REAL';
+      payload.total_deposit_cents = Math.round((Number(depEl ? depEl.value : 0) || 0) * 100);
+      payload.total_withdrawal_cents = Math.round((Number(wdEl ? wdEl.value : 0) || 0) * 100);
+    }
+
+    var submitBtn = $('accountSubmit');
+    if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Creating...'; }
+
+    fetch(API + '/api/tid/accounts', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json', Authorization:'Bearer ' + token},
+      body: JSON.stringify(payload)
+    })
+      .then(function(r){ return r.json().then(function(d){ return {ok:r.ok, data:d}; }); })
+      .then(function(x){
+        if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Create failed');
+        var newId = x.data.account && x.data.account.id;
+        var fileInput = $('acctFile');
+        if(fileInput && fileInput.files && fileInput.files[0] && newId){
+          var fd = new FormData();
+          fd.append('file', fileInput.files[0]);
+          fd.append('file_type', 'STATEMENT');
+          fd.append('account_id', String(newId));
+          fetch(API + '/api/tid/upload', {method:'POST', headers:{Authorization:'Bearer ' + token}, body: fd}).catch(function(){});
+        }
+        closeAccountModal();
+        acctForm.reset();
+        toast('Account added');
+        loadAccounts();
+      })
+      .catch(function(err){
+        if(errBox){ errBox.textContent = err.message || 'Create failed'; errBox.classList.add('show'); }
+      })
+      .then(function(){
+        if(submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'Create Account'; }
+      });
+  });
+
+  loadAccounts();
+})(); + wd.toFixed(0) + '</div></div>';
+        m += '</div>';
+        el.innerHTML = m;
+      })
+      .catch(function(){
+        var el2 = $('acctDetailMoney');
+        if(el2) el2.innerHTML = '';
+      });
+  }
+
   function renderAcctDetail(a){
     var isBroker = String(a.account_category || '').toUpperCase() === 'BROKER';
     var name = isBroker ? (a.broker_name || 'Broker') : (a.firm_name || 'Firm');
