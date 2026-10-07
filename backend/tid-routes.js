@@ -315,6 +315,7 @@ async function computeTraderStats(userId) {
     const memberSince = (profile && profile.member_since) || (user && user.created_at) || null;
     const daysSince = memberSince ? Math.floor((Date.now() - new Date(memberSince).getTime()) / 86400000) : 0;
     const tenurePoints = Math.min(Math.floor(daysSince / 30), 10);
+    var tAgg = { w: 0, l: 0, bw: 0, bl: 0 };
 
     const trustScore = Math.round(
       (emailVerified ? 8 : 0) +
