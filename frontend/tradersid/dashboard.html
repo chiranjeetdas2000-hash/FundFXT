@@ -1344,12 +1344,15 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
         // Merge pak key for signup compat
         if (!user.public_access_key && user.pak) user.public_access_key = user.pak;
         localStorage.setItem('tid_user', JSON.stringify(user));
+        try { localStorage.setItem('tid_stats', JSON.stringify(data.stats || {})); } catch (_) {}
         renderDashboard(user, data.profile || {}, data.stats || {});
       })
       .catch(function(err){
         if (err && err.message === 'unauth') return;
         toast('Unable to load dashboard');
-        if (cachedUser && cachedUser.tid) renderDashboard(cachedUser, {});
+        var cachedStats = {};
+        try { cachedStats = JSON.parse(localStorage.getItem('tid_stats') || '{}'); } catch (_) {}
+        if (cachedUser && cachedUser.tid) renderDashboard(cachedUser, {}, cachedStats);
       });
     if (typeof loadAccessKeys === 'function') loadAccessKeys(); if (typeof loadDashboardTradeStats === 'function') loadDashboardTradeStats();
   }
