@@ -530,7 +530,11 @@
     if(!acctDetailModal || !acctDetailBody) return;
     acctDetailModal.classList.add('open');
     document.body.style.overflow = 'hidden';
-    acctDetailBody.innerHTML = '<div class="empty"><div class="empty-text">Loading…</div></div>';
+    var heroEl0 = $('acctDetailHero'); if(heroEl0) heroEl0.innerHTML = '<div class="empty"><div class="empty-text">Loading…</div></div>';
+    var moneyEl0 = $('acctDetailMoney'); if(moneyEl0) moneyEl0.innerHTML = '';
+    var chartEl0 = $('acctDetailChart'); if(chartEl0) chartEl0.innerHTML = '';
+    var pipsEl0 = $('acctDetailPips'); if(pipsEl0) pipsEl0.innerHTML = '';
+    var tradesEl0 = $('acctDetailTrades'); if(tradesEl0) tradesEl0.innerHTML = '';
     fetch(API + '/api/tid/accounts/' + accountId, {headers:{Authorization:'Bearer ' + token}})
       .then(function(r){ return r.json(); })
       .then(function(d){
