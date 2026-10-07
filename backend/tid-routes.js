@@ -2131,6 +2131,10 @@ router.post("/accounts/:id/transactions", authenticateTid, requireJsonBody, asyn
   }
 });
 
+router.get("/firms", authenticateTid, async (req, res) => {
+  return jsonError(res, 500, "Coming soon");
+});
+
 router.get("/accounts", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
