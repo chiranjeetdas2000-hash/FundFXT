@@ -74,6 +74,8 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 /* 4. Main + Container */
 .main{flex:1;margin-left:calc(var(--sidebar-w) + 28px);padding:28px 32px 56px;min-width:0;transition:margin-left .22s cubic-bezier(.4,0,.2,1)}
 .container{max-width:1180px;margin:0 auto}
+@media(min-width:1280px){.container{max-width:1440px}}
+@media(min-width:1600px){.container{max-width:1600px}}
 
 /* 5. Page Head */
 .page-head{margin-bottom:26px}
