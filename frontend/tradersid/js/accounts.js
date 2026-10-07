@@ -616,6 +616,7 @@
 
     var heroEl = $('acctDetailHero');
     if(heroEl) heroEl.innerHTML = p.join('');
+    renderAcctMoney(a.id);
   }
 
   var acctDetailCloseBtn = $('acctDetailClose');
