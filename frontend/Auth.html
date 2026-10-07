@@ -220,7 +220,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const params = new URLSearchParams(location.search);
-            const redirect = params.get('redirect') || '/dashboard.html';
+            const redirect = params.get('redirect') || '/frontend/dashboard.html';
             const msg = document.getElementById('msg');
 
             if (params.get('expired') === '1' && msg) {
