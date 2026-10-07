@@ -278,10 +278,9 @@
       rows += '<td>' + esc(t.direction) + '</td>';
       rows += '<td>' + (Number(t.pips) || 0) + '</td>';
       rows += '<td>' + ((Number(t.profit_cents) || 0) / 100) + '</td>';
-      rows += '<td><button class="trade-del" data-id="' + t.id + '" style="background:none;border:0;color:#EF4444;cursor:pointer;font-size:11px;font-weight:700">DEL</button></td>';
       rows += '</tr>';
     }
-    body.innerHTML = '<table><thead><tr><th>Symbol</th><th>Dir</th><th>Pips</th><th>P/L</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>';
+    body.innerHTML = '<table><thead><tr><th>Symbol</th><th>Dir</th><th>Pips</th><th>P/L</th></tr></thead><tbody>' + rows + '</tbody></table>';
 
     var delBtns = body.querySelectorAll('.trade-del');
     for(i = 0; i < delBtns.length; i++){
