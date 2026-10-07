@@ -1886,6 +1886,7 @@ async function recomputeAccountAggregates(accountId, tidUserId) {
 }
 
 router.post("/accounts/:id/trades", authenticateTid, requireJsonBody, async (req, res) => {
+  return jsonError(res, 403, "Manual trade entry is disabled. Please upload a statement and request verification.");
   try {
     const id = Number(req.params.id);
     if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
