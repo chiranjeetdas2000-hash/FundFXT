@@ -1815,6 +1815,24 @@ async function recomputeAccountAggregates(accountId, tidUserId) {
     const bigWin = Number(r.big_win) || 0;
     const bigLoss = Number(r.big_loss) || 0;
     const totalProfitCents = Number(r.total_profit_cents) || 0;
+    const avgWinPips = Number(r.avg_win_pips) || 0;
+    const avgLossPips = Number(r.avg_loss_pips) || 0;
+    const bestTradePips = Number(r.best_trade_pips) || 0;
+    const worstTradePips = Number(r.worst_trade_pips) || 0;
+    const stddevPips = Number(r.stddev_pips) || 0;
+    const avgAbsPips = Number(r.avg_abs_pips) || 0;
+    const firstTradeAt = r.first_trade_at || null;
+    const lastTradeAt = r.last_trade_at || null;
+    const consistencyScore = avgAbsPips > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stddevPips / avgAbsPips) * 50))) : 0;
+    const winRatePct = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+    const rrRatio = avgLossPips > 0 ? avgWinPips / avgLossPips : 0;
+    const winRateComponent = Math.min(winRatePct, 70) * 25 / 70;
+    const rrComponent = Math.min(rrRatio, 3) * 25 / 3;
+    const consistencyComponent = consistencyScore * 0.2;
+    const ddComponent = pipsWon > 0 ? Math.max(0, Math.min(15, (1 - Math.abs(worstTradePips) / pipsWon) * 15)) : 0;
+    const daysActive = firstTradeAt ? Math.floor((Date.now() - new Date(firstTradeAt).getTime()) / 86400000) : 0;
+    const tenureComponent = Math.min(daysActive / 90, 1) * 15;
+    const accountScore = Math.max(0, Math.min(100, Math.round(winRateComponent + rrComponent + consistencyComponent + ddComponent + tenureComponent)));
 
     const [acct] = await db.execute(
       "SELECT account_size_cents FROM tid_accounts WHERE id = ? LIMIT 1",
