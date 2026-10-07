@@ -272,6 +272,12 @@ router.post("/admin/tid/accounts/:id/verify", authenticateAdmin, requireSuperAdm
       [req.adminId, id]
     );
 
+    // Clear from update queue if pending
+    await db.execute(
+      "UPDATE tid_sync_log SET sync_status='SUCCESS', updated_at=NOW() WHERE account_id=? AND sync_status='PENDING' LIMIT 1",
+      [id]
+    );
+
     return res.json({ success: true, status: "VERIFIED" });
   } catch (e) {
     console.error("[TID-ADMIN] account verify:", e.message);
@@ -479,6 +485,36 @@ router.get("/admin/tid/kyc/:id/duplicates", authenticateAdmin, async function (r
   } catch (e) {
     console.error("[TID-ADMIN] kyc duplicates:", e.message);
     return res.status(500).json({ error: "Unable to check duplicates" });
+  }
+});
+
+// Update queue (accounts with sync_status = PENDING)
+router.get("/admin/tid/update-queue", authenticateAdmin, async function (req, res) {
+  try {
+    const [rows] = await db.execute(
+      "SELECT s.id AS sync_id, s.account_id, s.sync_status, s.last_sync_at, s.error_message, s.attempts, s.updated_at AS requested_at, a.firm_name, a.broker_name, a.account_category, a.broker_account_id, a.account_type, a.account_size_cents, u.tid, u.legal_name, u.email FROM tid_sync_log s LEFT JOIN tid_accounts a ON a.id = s.account_id LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE s.sync_status = 'PENDING' ORDER BY s.updated_at ASC LIMIT 200"
+    );
+    return res.json({ success: true, items: rows });
+  } catch (e) {
+    console.error("[TID-ADMIN] update queue:", e.message);
+    return res.status(500).json({ error: "Unable to load update queue" });
+  }
+});
+
+// Dismiss update request (mark SUCCESS without verification)
+router.post("/admin/tid/update-queue/:accountId/dismiss", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const accountId = Number(req.params.accountId);
+    if (!Number.isFinite(accountId)) return res.status(400).json({ error: "Invalid ID" });
+    const [r] = await db.execute(
+      "UPDATE tid_sync_log SET sync_status = 'SUCCESS', updated_at = NOW() WHERE account_id = ? AND sync_status = 'PENDING' LIMIT 1",
+      [accountId]
+    );
+    if (!r.affectedRows) return res.status(404).json({ error: "Not in queue" });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("[TID-ADMIN] dismiss update:", e.message);
+    return res.status(500).json({ error: "Unable to dismiss" });
   }
 });
 
