@@ -1,12 +1,12 @@
 (function(){
   'use strict';
   var API = 'https://fundfxt.onrender.com';
-  var token = localStorage.getItem('tid_token');
-  if(!token) return;
 
   function $(id){ return document.getElementById(id); }
 
-  window.loadDashboardTradeStats = function(){
+  function loadStats(){
+    var token = localStorage.getItem('tid_token');
+    if(!token) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
       .then(function(r){ return r.json(); })
       .then(function(d){
@@ -34,13 +34,22 @@
         if(blEl) blEl.textContent = bigLoss > 0 ? '-$' + (bigLoss / 100).toFixed(0) : '—';
         var blMeta = $('biggestLossMeta');
         if(blMeta) blMeta.textContent = bigLoss > 0 ? 'Worst single trade' : 'No data yet';
-        if(typeof wlChart !== 'undefined' && wlChart && (totalWins + totalLosses) > 0){
-          wlChart.data.datasets[0].data = [totalWins, totalLosses];
-          wlChart.update();
+        var chart = window.wlChart || (typeof wlChart !== 'undefined' ? wlChart : null);
+        if(chart && (totalWins + totalLosses) > 0){
+          chart.data.datasets[0].data = [totalWins, totalLosses];
+          chart.update();
           var wlE = $('wlEmpty');
           if(wlE) wlE.style.display = 'none';
         }
       })
       .catch(function(){});
-  };
+  }
+
+  window.loadDashboardTradeStats = loadStats;
+
+  if(document.readyState === 'complete'){
+    setTimeout(loadStats, 300);
+  } else {
+    window.addEventListener('load', function(){ setTimeout(loadStats, 300); });
+  }
 })();
