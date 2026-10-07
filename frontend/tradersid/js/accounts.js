@@ -517,6 +517,97 @@
       });
   });
 
+  var acctDetailModal = $('acctDetailModal');
+  var acctDetailTitle = $('acctDetailTitle');
+  var acctDetailBody = $('acctDetailBody');
+
+  function closeAcctDetail(){
+    if(acctDetailModal) acctDetailModal.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+
+  window.openAccountDetail = function(accountId){
+    if(!acctDetailModal || !acctDetailBody) return;
+    acctDetailModal.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    acctDetailBody.innerHTML = '<div class="empty"><div class="empty-text">Loading…</div></div>';
+    fetch(API + '/api/tid/accounts/' + accountId, {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if(!d.success || !d.account) throw new Error('Not found');
+        renderAcctDetail(d.account);
+      })
+      .catch(function(e){
+        acctDetailBody.innerHTML = '<div class="empty"><div class="empty-text">Unable to load.</div></div>';
+      });
+  };
+
+  function renderAcctDetail(a){
+    var isBroker = String(a.account_category || '').toUpperCase() === 'BROKER';
+    var name = isBroker ? (a.broker_name || 'Broker') : (a.firm_name || 'Firm');
+    var sub = isBroker ? 'Broker' : 'Prop Firm';
+    if(acctDetailTitle) acctDetailTitle.textContent = name;
+
+    var score = Number(a.account_score) || 0;
+    var wr = Math.round((Number(a.win_rate_bps) || 0) / 100);
+    var totalTrades = Number(a.total_trades) || 0;
+    var avgWin = Number(a.avg_win_pips) || 0;
+    var avgLoss = Number(a.avg_loss_pips) || 0;
+    var bestP = Number(a.best_trade_pips) || 0;
+    var worstP = Number(a.worst_trade_pips) || 0;
+    var totalPips = Number(a.total_pips) || 0;
+    var rr = Number(a.avg_rr) || 0;
+    var consistency = Number(a.consistency_score) || 0;
+
+    var wrPts = Math.round(Math.min(wr,70)*25/70);
+    var rrPts = Math.round(Math.min(rr,3)*25/3);
+    var consPts = Math.round(consistency*0.2);
+    var ddPts = Math.round(Math.max(0, Math.min(15, 15 - Math.abs(worstP)/10)));
+    var tenPts = 15;
+
+    var arcLen = Math.round((score / 100) * 289);
+
+    var p = [];
+    p.push('<div style="background:linear-gradient(135deg,#0F1B2D 0%,#1E3A5F 100%);border-radius:14px;padding:22px 20px;color:#fff;margin-bottom:18px">');
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:#D4AF37;margin-bottom:6px">' + esc(sub) + '</div>');
+    p.push('<div style="font-size:20px;font-weight:800;margin-bottom:2px">' + esc(name) + '</div>');
+    p.push('<div style="font-size:12px;color:rgba(255,255,255,.55);margin-bottom:20px">' + esc(a.broker_account_id || a.account_type || '—') + '</div>');
+
+    p.push('<div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap">');
+
+    p.push('<div style="position:relative;width:110px;height:110px;flex-shrink:0">');
+    p.push('<svg width="110" height="110" viewBox="0 0 110 110"><circle cx="55" cy="55" r="46" fill="none" stroke="rgba(255,255,255,.1)" stroke-width="10"/>');
+    p.push('<circle cx="55" cy="55" r="46" fill="none" stroke="#00b56a" stroke-width="10" stroke-dasharray="' + arcLen + ' 289" stroke-linecap="round" transform="rotate(-90 55 55)"/></svg>');
+    p.push('<div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">');
+    p.push('<div style="font-size:30px;font-weight:800;line-height:1">' + score + '</div>');
+    p.push('<div style="font-size:10px;color:rgba(255,255,255,.5);letter-spacing:.15em;margin-top:2px">SCORE</div>');
+    p.push('</div></div>');
+
+    p.push('<div style="flex:1;min-width:180px">');
+    p.push('<div style="font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:10px">Score Breakdown</div>');
+    p.push('<div style="font-size:12.5px;line-height:2;color:rgba(255,255,255,.85)">');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Win Rate</span><b>' + wrPts + '/25</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>R:R</span><b>' + rrPts + '/25</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Consistency</span><b>' + consPts + '/20</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Drawdown</span><b>' + ddPts + '/15</b></div>');
+    p.push('<div style="display:flex;justify-content:space-between"><span>Tenure</span><b>' + tenPts + '/15</b></div>');
+    p.push('</div></div>');
+
+    p.push('</div></div>');
+
+    p.push('<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:10px;margin-bottom:18px">');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#0F1B2D">' + totalTrades + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Trades</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:#10B981">' + wr + '%</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Win Rate</div></div>');
+    p.push('<div style="background:#F8F9FB;border:1px solid #E8EBF0;border-radius:10px;padding:12px;text-align:center"><div style="font-size:18px;font-weight:800;color:' + (totalPips >= 0 ? '#10B981' : '#EF4444') + '">' + (totalPips >= 0 ? '+' : '') + totalPips.toFixed(0) + '</div><div style="font-size:10px;color:#64748B;letter-spacing:.05em;text-transform:uppercase;margin-top:2px">Net Pips</div></div>');
+    p.push('</div>');
+
+    acctDetailBody.innerHTML = p.join('');
+  }
+
+  var acctDetailCloseBtn = $('acctDetailClose');
+  if(acctDetailCloseBtn) acctDetailCloseBtn.addEventListener('click', closeAcctDetail);
+  if(acctDetailModal) acctDetailModal.addEventListener('click', function(e){ if(e.target === acctDetailModal) closeAcctDetail(); });
+
   function loadAccounts(){
     if(!token || !accountsList) return;
     fetch(API + '/api/tid/accounts', {headers:{Authorization:'Bearer ' + token}})
