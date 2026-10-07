@@ -2134,7 +2134,7 @@ router.post("/accounts/:id/transactions", authenticateTid, requireJsonBody, asyn
 router.get("/accounts", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
-      "SELECT id, firm_name, account_size_cents, account_type, status, verification_status, verification_paid, start_date, end_date, total_trades, total_wins, total_losses, win_rate_bps, profit_bps, biggest_win_cents, biggest_loss_cents, account_category, score_impact_intent, broker_name, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents, payment_request_no, transaction_id, created_at, updated_at FROM tid_accounts WHERE tid_user_id = ? ORDER BY created_at DESC LIMIT 100",
+      "SELECT id, firm_name, account_size_cents, account_type, status, verification_status, verification_paid, start_date, end_date, total_trades, total_wins, total_losses, win_rate_bps, profit_bps, biggest_win_cents, biggest_loss_cents, account_category, score_impact_intent, broker_name, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents, payment_request_no, transaction_id, account_score, total_pips, total_pips_won, total_pips_lost, avg_win_pips, avg_loss_pips, best_trade_pips, worst_trade_pips, consistency_score, created_at, updated_at FROM tid_accounts WHERE tid_user_id = ? ORDER BY created_at DESC LIMIT 100",
       [req.tidUser.tidUserId],
     );
     return res.json({ success: true, accounts: rows });
