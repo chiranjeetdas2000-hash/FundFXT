@@ -1022,33 +1022,15 @@ body:has(.sidebar:hover) .main{margin-left:calc(var(--sidebar-w-open) + 28px)}
   </div>
 </div>
 
-<!-- ============ FILE MANAGEMENT MODAL ============ -->
-<div class="modal-backdrop" id="filesModal">
-  <div class="modal-card">
+<!-- ============ ACCOUNT DETAIL MODAL ============ -->
+<div class="modal-backdrop" id="acctDetailModal">
+  <div class="modal-card" style="max-width:640px">
     <div class="modal-head">
-      <div class="modal-title" id="filesModalTitle">Account Files</div>
-      <button class="modal-close" type="button" id="filesModalClose" aria-label="Close">&times;</button>
+      <div class="modal-title" id="acctDetailTitle">Account Details</div>
+      <button class="modal-close" type="button" id="acctDetailClose" aria-label="Close">&times;</button>
     </div>
-    <div class="modal-body">
-      <div style="margin-bottom:16px;padding:12px 14px;background:#F8F9FB;border:1px solid var(--border);border-radius:10px;font-size:12px;color:var(--muted);line-height:1.55">
-        <b style="color:var(--navy-900)">Max 2 files.</b> Accepted: PDF, JPG, PNG, WEBP. Size limit: 3 MB each. Files are read-only for admin verification and deleted after account verification.
-      </div>
-      <div id="filesList" class="files-list">
-        <div class="files-loading">Loading files…</div>
-      </div>
-      <div id="fileUploadArea" style="margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
-        <input type="file" id="filesUploadInput" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none">
-        <input type="text" id="filesUploadType" value="STATEMENT" style="display:none">
-        <button class="btn btn-primary" type="button" id="filesUploadBtn" style="width:100%">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
-          Upload File
-        </button>
-        <div id="filesUploadProgress" style="display:none;margin-top:10px;font-size:12px;color:var(--muted);text-align:center">Uploading…</div>
-      </div>
-      <div class="modal-error" id="filesError"></div>
-      <div class="modal-actions">
-        <button class="btn btn-ghost" type="button" id="filesModalDone">Done</button>
-      </div>
+    <div class="modal-body" id="acctDetailBody">
+      <div class="empty"><div class="empty-text">Loading…</div></div>
     </div>
   </div>
 </div>
