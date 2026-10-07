@@ -89,3 +89,52 @@ window.renderAcctMoney = function(accountId){
       el.textContent = '';
     });
 };
+
+window.renderAcctTrades = function(accountId){
+  var el = document.getElementById('acctDetailTrades');
+  if(!el) return;
+  el.textContent = 'Loading...';
+  var token = localStorage.getItem('tid_token');
+  fetch('https://fundfxt.onrender.com/api/tid/accounts/' + accountId + '/trades?limit=5', {headers:{Authorization:'Bearer ' + token}})
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var trades = (d && d.trades) || [];
+      var h = '';
+      h += '<div style="margin-top:16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">';
+      h += '<div style="font-size:10px;color:#64748B;letter-spacing:.05em">RECENT TRADES</div>';
+      h += '<button type="button" id="acctTradesViewAll" data-id="' + accountId + '" style="background:none;border:0;color:#00b56a;font-size:11px;font-weight:700;cursor:pointer">View All →</button>';
+      h += '</div>';
+      if(!trades.length){
+        h += '<div style="color:#94A3B8;font-size:12px;padding:8px 0">No trades logged yet.</div>';
+      } else {
+        for(var i = 0; i < trades.length; i++){
+          var t = trades[i];
+          var pips = Number(t.pips) || 0;
+          var profit = (Number(t.profit_cents) || 0) / 100;
+          var pc = pips > 0 ? '#10B981' : (pips < 0 ? '#EF4444' : '#94A3B8');
+          var qc = profit > 0 ? '#10B981' : (profit < 0 ? '#EF4444' : '#94A3B8');
+          var dirC = t.direction === 'BUY' ? '#10B981' : '#EF4444';
+          h += '<div style="display:flex;align-items:center;padding:9px 0;border-bottom:1px solid #F1F5F9;font-size:12.5px;gap:10px">';
+          h += '<div style="flex:1;min-width:0"><div style="font-weight:600;color:#0F1B2D">' + String(t.symbol || '') + '</div>';
+          h += '<div style="font-size:10.5px;color:' + dirC + ';font-weight:700;margin-top:1px">' + String(t.direction || '') + '</div></div>';
+          h += '<div style="text-align:right;min-width:52px"><div style="color:' + pc + ';font-weight:700">' + (pips > 0 ? '+' : '') + pips.toFixed(1) + 'p</div>';
+          h += '<div style="font-size:10.5px;color:' + qc + ';font-weight:600;margin-top:1px">' + (profit > 0 ? '+' : '') + '$' + profit.toFixed(0) + '</div></div>';
+          h += '</div>';
+        }
+      }
+      el.innerHTML = h;
+      var va = document.getElementById('acctTradesViewAll');
+      if(va) va.addEventListener('click', function(){
+        var aid = this.getAttribute('data-id');
+        if(typeof window.closeAcctDetail === 'function') window.closeAcctDetail();
+        else {
+          var m = document.getElementById('acctDetailModal');
+          if(m) m.classList.remove('open');
+        }
+        if(typeof window.openTradesModal === 'function') window.openTradesModal(aid);
+      });
+    })
+    .catch(function(){
+      el.textContent = '';
+    });
+};
