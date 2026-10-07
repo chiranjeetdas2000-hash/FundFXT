@@ -318,6 +318,35 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .file-row-status-verified{color:#067a4a}
 .file-row-status-rejected{color:var(--red)}
 .file-row .btn{padding:7px 12px;font-size:11.5px;min-height:0;flex-shrink:0}
+/* ===== FIRM CARDS ===== */
+.firms-grid{display:flex;flex-direction:column;gap:18px}
+.firm-card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:20px;box-shadow:var(--shadow);transition:transform .18s,box-shadow .18s;cursor:pointer}
+.firm-card:hover{transform:translateY(-2px);box-shadow:var(--shadow-lg)}
+.firm-head{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin-bottom:14px}
+.firm-name{font-size:17px;font-weight:800;color:var(--navy-900);letter-spacing:-.01em}
+.firm-type{font-size:11.5px;color:var(--muted);margin-top:3px;font-weight:600;letter-spacing:.02em}
+.firm-score{text-align:center;flex-shrink:0}
+.firm-score-val{font-family:'JetBrains Mono',monospace;font-size:32px;font-weight:800;color:var(--navy-900);line-height:1}
+.firm-score-lbl{font-size:9.5px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;font-weight:700;margin-top:3px}
+.firm-meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px 0;border-top:1px solid var(--border);border-bottom:1px solid var(--border);margin-bottom:14px}
+.firm-meta-item{display:flex;flex-direction:column;gap:2px}
+.firm-meta-item b{font-family:'JetBrains Mono',monospace;font-size:15px;color:var(--navy-900);font-weight:700}
+.firm-meta-item span{font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;font-weight:600}
+.firm-accounts{display:flex;flex-direction:column;gap:8px;margin-bottom:14px}
+.firm-account{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#F8F9FB;border:1px solid var(--border);border-radius:10px;transition:background .15s,border-color .15s}
+.firm-account:hover{background:#fff;border-color:var(--border-strong)}
+.fa-left{flex:1;min-width:0}
+.fa-sub{font-size:12px;color:var(--muted);font-weight:600;margin-bottom:4px;font-family:'JetBrains Mono',monospace}
+.fa-stats{display:flex;gap:8px;font-size:11.5px;color:var(--muted);flex-wrap:wrap;align-items:center}
+.fa-open{padding:7px 12px;background:transparent;border:1px solid var(--border-strong);border-radius:8px;color:var(--navy-900);font-weight:700;font-size:11.5px;cursor:pointer;transition:background .15s,border-color .15s,color .15s;flex-shrink:0}
+.fa-open:hover{background:var(--green);border-color:var(--green);color:#fff}
+.firm-actions{display:flex;justify-content:flex-end}
+.firm-add-btn{font-size:12px;padding:8px 14px}
+.loading-firms{padding:30px;text-align:center;color:var(--muted);font-size:13px}
+@media(max-width:600px){
+  .firm-meta{grid-template-columns:1fr 1fr}
+  .firm-score-val{font-size:26px}
+}
 </style>
 </head>
 <body>
