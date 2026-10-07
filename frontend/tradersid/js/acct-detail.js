@@ -138,14 +138,20 @@ window.renderAcctTrades = function(accountId){
       el.textContent = '';
     });
 };
+
 window.renderRequestUpdateBtn = function(accountId){
-  var el = document.getElementById('acctDetailTrades');
-  if(!el) return;
+  var parent = document.getElementById('acctDetailBody');
+  if(!parent) return;
+  var old = document.getElementById('acctRequestUpdateWrap');
+  if(old) old.remove();
+  var wrap = document.createElement('div');
+  wrap.id = 'acctRequestUpdateWrap';
+  wrap.style.cssText = 'margin-top:18px;padding-top:18px;border-top:1px solid #E8EBF0';
   var btn = document.createElement('button');
   btn.type = 'button';
   btn.id = 'acctRequestUpdateBtn';
   btn.textContent = '🔄 Request Update';
-  btn.style.cssText = 'margin-top:14px;width:100%;padding:11px;background:#0F1B2D;color:#fff;border:0;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer';
+  btn.style.cssText = 'width:100%;padding:11px;background:#0F1B2D;color:#fff;border:0;border-radius:10px;font-weight:700;font-size:13px;cursor:pointer';
   btn.onclick = function(){
     var token = localStorage.getItem('tid_token');
     btn.disabled = true;
@@ -171,5 +177,6 @@ window.renderRequestUpdateBtn = function(accountId){
         alert(e.message || 'Failed');
       });
   };
-  el.appendChild(btn);
+  wrap.appendChild(btn);
+  parent.appendChild(wrap);
 };
