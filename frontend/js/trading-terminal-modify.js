@@ -204,6 +204,21 @@
                 </div>
             `;
             document.body.appendChild(modalElement);
+
+            var tpInputEl = document.getElementById('modifyTP');
+            var slInputEl = document.getElementById('modifySL');
+            if (tpInputEl) {
+                tpInputEl.addEventListener('input', function () {
+                    updateModifyPreview(trade, side);
+                });
+            }
+            if (slInputEl) {
+                slInputEl.addEventListener('input', function () {
+                    updateModifyPreview(trade, side);
+                });
+            }
+            updateModifyPreview(trade, side);
+
             modalElement.querySelector(".trade-modal-close").onclick = () => {
                 modalElement.remove();
             }            ;
