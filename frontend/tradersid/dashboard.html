@@ -1198,12 +1198,13 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 
   // ---- Init Charts ----
   var equityChart = null, wlChart = null;
+  window.equityChart = null; window.wlChart = null;
   function initCharts(){
     var eqCtx = $('equityChart').getContext('2d');
     var grad = eqCtx.createLinearGradient(0,0,0,280);
     grad.addColorStop(0,'rgba(37,99,235,.32)');
     grad.addColorStop(1,'rgba(37,99,235,0)');
-    equityChart = new Chart(eqCtx,{
+    window.equityChart = equityChart = new Chart(eqCtx,{
       type:'line',
       data:{
         labels:['Start','M1','M2','M3','M4','M5','M6'],
@@ -1222,7 +1223,7 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
       }
     });
 
-    wlChart = new Chart($('winLossChart').getContext('2d'),{
+    window.wlChart = wlChart = new Chart($('winLossChart').getContext('2d'),{
       type:'doughnut',
       data:{
         labels:['Wins','Losses'],
