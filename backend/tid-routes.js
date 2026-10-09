@@ -2078,6 +2078,19 @@ router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async
   }
 });
 
+router.get("/me/trades-timeline", authenticateTid, async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      "SELECT t.id, t.account_id, t.symbol, t.direction, t.pips, t.profit_cents, t.closed_at, t.opened_at FROM tid_trades t INNER JOIN tid_accounts a ON a.id = t.account_id WHERE a.tid_user_id = ? AND t.status = 'CLOSED' ORDER BY COALESCE(t.closed_at, t.opened_at, t.created_at) ASC LIMIT 1000",
+      [req.tidUser.tidUserId],
+    );
+    return res.json({ success: true, trades: rows });
+  } catch (error) {
+    console.error("TID trades-timeline error:", error);
+    return res.json({ success: true, trades: [] });
+  }
+});
+
 router.post("/accounts/:id/transactions", authenticateTid, requireJsonBody, async (req, res) => {
   try {
     const id = Number(req.params.id);
