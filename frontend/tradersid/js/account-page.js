@@ -74,6 +74,27 @@
     renderAcctStats(a);
   }
 
+  function renderAcctStats(a){
+    var wrap = $('acctStatsWrap');
+    if(!wrap) return;
+    var totalTrades = Number(a.total_trades) || 0;
+    var totalWins = Number(a.total_wins) || 0;
+    var totalLosses = Number(a.total_losses) || 0;
+    var winRateBps = Number(a.win_rate_bps) || 0;
+    var winRate = (winRateBps / 100).toFixed(0);
+    var totalPips = Number(a.total_pips) || 0;
+    var pipsColor = totalPips >= 0 ? '#00b56a' : '#DC2626';
+    var pipsSign = totalPips >= 0 ? '+' : '';
+    var h = '';
+    h += '<div class="stat-grid" style="margin-top:20px">';
+    h += '<div class="stat"><div class="stat-icon">▦</div><div class="stat-label">Total Trades</div><div class="stat-value">' + totalTrades + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon green">✓</div><div class="stat-label">Win Rate</div><div class="stat-value">' + winRate + '%</div></div>';
+    h += '<div class="stat"><div class="stat-icon gold">◆</div><div class="stat-label">Wins / Losses</div><div class="stat-value" style="font-size:20px">' + totalWins + 'W / ' + totalLosses + 'L</div></div>';
+    h += '<div class="stat"><div class="stat-icon" style="background:rgba(0,181,106,.10);color:' + pipsColor + '">▲</div><div class="stat-label">Net Pips</div><div class="stat-value" style="color:' + pipsColor + '">' + pipsSign + totalPips.toFixed(0) + '</div></div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+  }
+
   // Sidebar nav (redirect to dashboard with section)
   document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
     btn.addEventListener('click', function(){
