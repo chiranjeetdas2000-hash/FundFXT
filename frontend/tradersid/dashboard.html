@@ -1313,12 +1313,6 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
     $('scoreBar').setAttribute('stroke-dasharray', dash + ' ' + (289 - dash));
     $('scoreVal').textContent = (score > 0) ? score : '—';
 
-    // Win-loss chart update
-    if (wlChart && (passed + failed) > 0) {
-      wlChart.data.datasets[0].data = [passed, failed];
-      wlChart.update();
-      $('wlEmpty').style.display = 'none';
-    }
   }
 
   function loadDashboard(){
