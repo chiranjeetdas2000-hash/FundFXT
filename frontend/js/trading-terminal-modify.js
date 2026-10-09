@@ -43,6 +43,37 @@
             element.className = "trade-feedback";
         }        , 4000);
     }
+    var FX_INSTRUMENTS = {
+        EURUSD: { pip: 0.0001, size: 100000 },
+        GBPUSD: { pip: 0.0001, size: 100000 },
+        USDCHF: { pip: 0.0001, size: 100000 },
+        AUDUSD: { pip: 0.0001, size: 100000 },
+        USDCAD: { pip: 0.0001, size: 100000 },
+        NZDUSD: { pip: 0.0001, size: 100000 },
+        EURGBP: { pip: 0.0001, size: 100000 },
+        EURJPY: { pip: 0.01, size: 100000 },
+        EURAUD: { pip: 0.0001, size: 100000 },
+        EURCHF: { pip: 0.0001, size: 100000 },
+        EURNZD: { pip: 0.0001, size: 100000 },
+        GBPJPY: { pip: 0.01, size: 100000 },
+        GBPCHF: { pip: 0.0001, size: 100000 },
+        GBPAUD: { pip: 0.0001, size: 100000 },
+        GBPNZD: { pip: 0.0001, size: 100000 },
+        AUDJPY: { pip: 0.01, size: 100000 },
+        AUDNZD: { pip: 0.0001, size: 100000 },
+        AUDCAD: { pip: 0.0001, size: 100000 },
+        AUDCHF: { pip: 0.0001, size: 100000 },
+        CADJPY: { pip: 0.01, size: 100000 },
+        CADCHF: { pip: 0.0001, size: 100000 },
+        CHFJPY: { pip: 0.01, size: 100000 },
+        NZDJPY: { pip: 0.01, size: 100000 },
+        NZDCHF: { pip: 0.0001, size: 100000 },
+        NZDCAD: { pip: 0.0001, size: 100000 },
+        USDJPY: { pip: 0.01, size: 100000 },
+        XAUUSD: { pip: 0.01, size: 100 },
+        XAGUSD: { pip: 0.001, size: 5000 }
+    };
+
     async function openModify(id) {
         try {
             const account = localStorage.getItem("fundfxt_selected_account");
