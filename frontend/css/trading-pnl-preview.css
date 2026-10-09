@@ -1,0 +1,27 @@
+/* FundFXT — SL/TP P&L Preview Styles */
+.pnl-preview {
+  margin-top: 14px;
+  padding: 14px 16px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.pnl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 13px;
+}
+.pnl-label {
+  color: rgba(255, 255, 255, 0.6);
+  font-weight: 600;
+}
+.pnl-value {
+  font-family: Consolas, Menlo, monospace;
+  font-weight: 700;
+}
+.pnl-value.red { color: #ff6a76; }
+.pnl-value.green { color: #00e59a; }
