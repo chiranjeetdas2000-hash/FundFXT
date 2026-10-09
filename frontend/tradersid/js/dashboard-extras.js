@@ -86,12 +86,16 @@
           var avgMoney = cumProfit / count / 100;
           var avgPips = cumPips / count;
           var y = anyProfit ? avgMoney : avgPips;
-          var dtStr = t.closed_at || t.opened_at;
+          var dtStr = t.closed_at || t.opened_at || null;
           var lb = 'T' + count;
-          try {
-            var dd = new Date(dtStr);
-            if(!isNaN(dd.getTime())){ lb = dd.getDate() + ' ' + months[dd.getMonth()]; }
-          } catch(_){}
+          if(dtStr){
+            try {
+              var dd = new Date(dtStr);
+              if(!isNaN(dd.getTime()) && dd.getFullYear() > 2000){
+                lb = dd.getDate() + ' ' + months[dd.getMonth()];
+              }
+            } catch(_){}
+          }
           labels.push(lb);
           data.push(Number(y.toFixed(2)));
         }
