@@ -72,6 +72,7 @@
 
     el.innerHTML = h;
     renderAcctStats(a);
+    renderAcctCharts(a);
   }
 
   function renderAcctStats(a){
@@ -93,6 +94,66 @@
     h += '<div class="stat"><div class="stat-icon" style="background:rgba(0,181,106,.10);color:' + pipsColor + '">▲</div><div class="stat-label">Net Pips</div><div class="stat-value" style="color:' + pipsColor + '">' + pipsSign + totalPips.toFixed(0) + '</div></div>';
     h += '</div>';
     wrap.innerHTML = h;
+  }
+
+  function renderAcctCharts(a){
+    var wrap = $('acctChartsWrap');
+    if(!wrap) return;
+    var totalTrades = Number(a.total_trades) || 0;
+    var totalWins = Number(a.total_wins) || 0;
+    var totalLosses = Number(a.total_losses) || 0;
+    if(totalTrades === 0){
+      wrap.innerHTML = '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Performance</div><div class="card-sub">No trades yet</div></div><div class="chart-empty">Trade data will appear here once trades are recorded.</div></div>';
+      return;
+    }
+    var h = '';
+    h += '<div class="grid-2" style="margin-top:20px">';
+    h += '<div class="card"><div class="card-head"><div class="card-title">Lifetime Performance</div><div class="card-sub">Cumulative pips</div></div><div class="chart-wrap"><canvas id="acctEquityChart"></canvas></div></div>';
+    h += '<div class="card"><div class="card-head"><div class="card-title">Win / Loss</div><div class="card-sub">' + totalWins + 'W · ' + totalLosses + 'L</div></div><div class="chart-wrap"><canvas id="acctWlChart"></canvas></div></div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var trades = (d && Array.isArray(d.trades)) ? d.trades : [];
+        trades.sort(function(x,y){
+          var dx = x.closed_at || x.opened_at || x.created_at || '';
+          var dy = y.closed_at || y.opened_at || y.created_at || '';
+          return String(dx).localeCompare(String(dy));
+        });
+        var labels = ['Start'];
+        var pips = [0];
+        var cum = 0;
+        trades.forEach(function(t, i){
+          cum += Number(t.pips) || 0;
+          labels.push('T' + (i + 1));
+          pips.push(cum);
+        });
+        var eq = $('acctEquityChart');
+        if(eq){
+          var ctx = eq.getContext('2d');
+          var grad = ctx.createLinearGradient(0,0,0,220);
+          grad.addColorStop(0,'rgba(37,99,235,.28)');
+          grad.addColorStop(1,'rgba(37,99,235,0)');
+          new Chart(ctx, {
+            type:'line',
+            data:{ labels:labels, datasets:[{ label:'Cumulative Pips', data:pips, borderColor:'#2563EB', backgroundColor:grad, fill:true, borderWidth:2.4, tension:.35, pointRadius:0 }] },
+            options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false } }, scales:{ x:{ grid:{ display:false }, ticks:{ color:'#94A3B8', font:{size:10,family:'Inter'}, maxTicksLimit:8 } }, y:{ grid:{ color:'#E8EBF0' }, ticks:{ color:'#94A3B8', font:{size:10,family:'Inter'} } } } }
+          });
+        }
+        var wl = $('acctWlChart');
+        if(wl){
+          new Chart(wl.getContext('2d'), {
+            type:'doughnut',
+            data:{ labels:['Wins','Losses'], datasets:[{ data:[totalWins, totalLosses], backgroundColor:['#00b56a','#E8EBF0'], borderWidth:0, hoverOffset:4 }] },
+            options:{ responsive:true, maintainAspectRatio:false, cutout:'68%', plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, boxHeight:10, font:{size:11,family:'Inter'}, color:'#64748B', padding:12 } } } }
+          });
+        }
+      })
+      .catch(function(){
+        var eq = $('acctEquityChart');
+        if(eq){ eq.parentNode.innerHTML = '<div class="chart-empty">Unable to load trade data.</div>'; }
+      });
   }
 
   // Sidebar nav (redirect to dashboard with section)
