@@ -105,6 +105,21 @@
                         <div class="modify-hint">
                             ${side} position · Leave a field empty to remove that TP/SL.
                         </div>
+
+                        <div class="pnl-preview" id="modifyPnlPreview" hidden>
+                            <div class="pnl-row">
+                                <span class="pnl-label">Loss at SL</span>
+                                <span class="pnl-value red" id="modifyPreviewLoss">—</span>
+                            </div>
+                            <div class="pnl-row">
+                                <span class="pnl-label">Profit at TP</span>
+                                <span class="pnl-value green" id="modifyPreviewProfit">—</span>
+                            </div>
+                            <div class="pnl-row">
+                                <span class="pnl-label">Risk : Reward</span>
+                                <span class="pnl-value" id="modifyPreviewRR">—</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="modal-actions">
