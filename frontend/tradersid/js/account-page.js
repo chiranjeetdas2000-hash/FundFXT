@@ -39,28 +39,7 @@
       var mode = String(a.broker_account_mode || '').toUpperCase() === 'DEMO' ? 'Demo' : 'Real';
       sub = 'ID: ' + (a.broker_account_id || '—') + ' · ' + mode;
     } else {
-      sub = '
-
-  // Sidebar nav (redirect to dashboard with section)
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})(); + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US') + ' · ' + (a.account_type || '—');
+      sub = '$' + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US') + ' · ' + (a.account_type || '—');
     }
     var rankLabel = isVerified ? '★ VERIFIED' : (isBroker ? '● BROKER' : '● CHALLENGE');
 
