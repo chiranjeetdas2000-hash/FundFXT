@@ -59,42 +59,51 @@
   function renderHomeEquity(accounts){
     var eq = window.equityChart || null;
     if(!eq) return;
-    var rows = [];
-    var i;
-    for(i = 0; i < accounts.length; i++){
-      var a = accounts[i];
-      var dt = a.first_trade_at || a.last_trade_at || a.created_at || a.updated_at;
-      var pips = Number(a.total_pips) || 0;
-      if(!dt) continue;
-      rows.push({ dt: dt, pips: pips });
-    }
-    if(!rows.length){
-      return;
-    }
-    rows.sort(function(x, y){ return String(x.dt).localeCompare(String(y.dt)); });
-    var labels = ['Start'];
-    var data = [0];
-    var cum = 0;
-    var lastLabel = null;
-    var j;
-    for(j = 0; j < rows.length; j++){
-      cum += rows[j].pips;
-      var lb = fmtMonth(rows[j].dt) || ('A' + (j + 1));
-      if(lb === lastLabel){
-        labels[labels.length - 1] = lb;
-        data[data.length - 1] = cum;
-      } else {
-        labels.push(lb);
-        data.push(cum);
-        lastLabel = lb;
-      }
-    }
-    eq.data.labels = labels;
-    eq.data.datasets[0].data = labels.map(function(){ return 0; });
-    eq.data.datasets[1].data = data;
-    eq.update();
-    var eqE = $('equityEmpty');
-    if(eqE) eqE.style.display = 'none';
+    var token = localStorage.getItem('tid_token');
+    if(!token) return;
+    fetch(API + '/api/tid/me/trades-timeline', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var trades = (d && Array.isArray(d.trades)) ? d.trades : [];
+        if(!trades.length) return;
+        var anyProfit = false;
+        var k;
+        for(k = 0; k < trades.length; k++){
+          if(Number(trades[k].profit_cents) !== 0){ anyProfit = true; break; }
+        }
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var labels = ['Start'];
+        var data = [0];
+        var cumProfit = 0;
+        var cumPips = 0;
+        var count = 0;
+        var i;
+        for(i = 0; i < trades.length; i++){
+          var t = trades[i];
+          cumProfit += Number(t.profit_cents) || 0;
+          cumPips += Number(t.pips) || 0;
+          count++;
+          var avgMoney = cumProfit / count / 100;
+          var avgPips = cumPips / count;
+          var y = anyProfit ? avgMoney : avgPips;
+          var dtStr = t.closed_at || t.opened_at;
+          var lb = 'T' + count;
+          try {
+            var dd = new Date(dtStr);
+            if(!isNaN(dd.getTime())){ lb = dd.getDate() + ' ' + months[dd.getMonth()]; }
+          } catch(_){}
+          labels.push(lb);
+          data.push(Number(y.toFixed(2)));
+        }
+        eq.data.labels = labels;
+        eq.data.datasets[0].data = labels.map(function(){ return 0; });
+        eq.data.datasets[1].data = data;
+        eq.data.datasets[1].label = anyProfit ? 'Avg Profit / Trade ($)' : 'Avg Pips / Trade';
+        eq.update();
+        var eqE = $('equityEmpty');
+        if(eqE) eqE.style.display = 'none';
+      })
+      .catch(function(){});
   }
 
   window.loadDashboardTradeStats = loadStats;
