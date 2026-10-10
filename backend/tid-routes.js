@@ -2172,6 +2172,19 @@ router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async
   }
 });
 
+router.get("/me/snapshots", authenticateTid, async (req, res) => {
+  try {
+    const [rows] = await db.execute(
+      "SELECT account_id, snapshot_date, cumulative_pips, cumulative_profit_cents, total_trades, avg_pips_per_trade, avg_profit_per_trade_cents FROM tid_daily_passbook WHERE tid_user_id = ? ORDER BY snapshot_date ASC, account_id ASC LIMIT 5000",
+      [req.tidUser.tidUserId],
+    );
+    return res.json({ success: true, snapshots: rows });
+  } catch (error) {
+    console.error("TID snapshots error:", error);
+    return res.json({ success: true, snapshots: [] });
+  }
+});
+
 router.get("/me/trades-timeline", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
