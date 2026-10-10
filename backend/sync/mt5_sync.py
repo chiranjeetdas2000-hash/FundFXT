@@ -190,10 +190,191 @@ def main_loop():
         time.sleep(POLL_INTERVAL)
 
 
-# ─── Placeholder (part 2 will define process_account) ───
+# ─── MT5 fetch ───
+def fetch_mt5_data(login, password, server, last_synced_id):
+    try:
+        import MetaTrader5 as mt5
+    except ImportError:
+        raise Exception("MetaTrader5 package not installed. Run: pip install MetaTrader5")
+
+    init_kwargs = {"login": int(login), "password": str(password), "server": str(server), "timeout": 60000}
+    if MT5_TERMINAL_PATH:
+        init_kwargs["path"] = MT5_TERMINAL_PATH
+
+    if not mt5.initialize(**init_kwargs):
+        err = mt5.last_error()
+        raise Exception("MT5 initialize failed: " + str(err))
+
+    try:
+        info = mt5.account_info()
+        if info is None:
+            raise Exception("MT5 account_info returned None")
+
+        balance_cents = int(round(float(info.balance) * 100))
+        equity_cents = int(round(float(info.equity) * 100))
+        currency = str(info.currency or "USD")
+
+        # Time window: last 5 years (breached accounts have full history)
+        to_date = datetime.now(timezone.utc) + timedelta(days=1)
+        from_date = datetime(2020, 1, 1)
+
+        deals = mt5.history_deals_get(from_date, to_date) or []
+        print("    MT5 returned %d deals" % len(deals))
+
+        # Group deals by position_id → {in_deal, out_deal}
+        positions = {}
+        balance_ops = []
+
+        for d in deals:
+            # Deposits/withdrawals (balance/credit operations)
+            if d.type == mt5.DEAL_TYPE_BALANCE:
+                broker_tx_id = "mt5-bal-" + str(d.ticket)
+                if last_synced_id and broker_tx_id <= last_synced_id:
+                    continue
+                amount_cents = int(round(float(d.profit) * 100))
+                if amount_cents == 0:
+                    continue
+                tx_type = "DEPOSIT" if amount_cents > 0 else "WITHDRAWAL"
+                ts = datetime.fromtimestamp(d.time, tz=timezone.utc)
+                balance_ops.append({
+                    "broker_tx_id": broker_tx_id,
+                    "tx_type": tx_type,
+                    "amount_cents": abs(amount_cents),
+                    "tx_date": ts.isoformat(),
+                    "notes": str(d.comment or "Balance op")[:100],
+                })
+                continue
+
+            # Only entry-out (closed trade legs)
+            if d.entry != mt5.DEAL_ENTRY_OUT:
+                continue
+
+            pid = int(d.position_id)
+            positions.setdefault(pid, {})["out"] = d
+
+        # Also fetch entry legs (DEAL_ENTRY_IN) to pair
+        for d in deals:
+            if d.entry == mt5.DEAL_ENTRY_IN:
+                pid = int(d.position_id)
+                positions.setdefault(pid, {})["in"] = d
+
+        trades = []
+        max_broker_id = last_synced_id
+
+        for pid, legs in positions.items():
+            if "in" not in legs or "out" not in legs:
+                continue
+
+            in_d = legs["in"]
+            out_d = legs["out"]
+
+            broker_trade_id = "mt5-pos-" + str(pid)
+            if last_synced_id and broker_trade_id <= last_synced_id:
+                continue
+
+            symbol = str(out_d.symbol or "").upper()
+            direction = "BUY" if in_d.type == mt5.DEAL_TYPE_BUY else "SELL"
+
+            entry_price = float(in_d.price)
+            exit_price = float(out_d.price)
+            lot_size = float(out_d.volume)
+
+            pip_size = get_pip_size(symbol)
+            if pip_size > 0:
+                diff = (exit_price - entry_price) if direction == "BUY" else (entry_price - exit_price)
+                pips = round(diff / pip_size, 2)
+            else:
+                pips = 0.0
+
+            total_profit = float(out_d.profit) + float(out_d.commission) + float(out_d.swap)
+            profit_cents = int(round(total_profit * 100))
+
+            opened_at = datetime.fromtimestamp(in_d.time, tz=timezone.utc).isoformat()
+            closed_at = datetime.fromtimestamp(out_d.time, tz=timezone.utc).isoformat()
+
+            trades.append({
+                "broker_trade_id": broker_trade_id,
+                "symbol": symbol,
+                "direction": direction,
+                "entry_price": entry_price,
+                "exit_price": exit_price,
+                "lot_size": lot_size,
+                "pips": pips,
+                "profit_cents": profit_cents,
+                "opened_at": opened_at,
+                "closed_at": closed_at,
+                "status": "CLOSED",
+                "notes": str(out_d.comment or "")[:200] or None,
+            })
+
+            if max_broker_id is None or broker_trade_id > max_broker_id:
+                max_broker_id = broker_trade_id
+
+        return {
+            "balance_cents": balance_cents,
+            "equity_cents": equity_cents,
+            "currency": currency,
+            "trades": trades,
+            "transactions": balance_ops,
+            "max_broker_id": max_broker_id,
+        }
+    finally:
+        try:
+            mt5.shutdown()
+        except Exception:
+            pass
+
+
+# ─── Process single account ───
 def process_account(item):
-    print("  [process_account] placeholder — not yet implemented")
-    print("  item:", item.get("account_id"))
+    account_id = item.get("account_id")
+    login = item.get("platform_login")
+    encrypted_pwd = item.get("platform_password_encrypted")
+    server = item.get("broker_server")
+    source = item.get("source", "AUTO")
+    last_synced_id = item.get("last_synced_broker_trade_id")
+
+    print("  [account %s] login=%s server=%s source=%s last_synced=%s" % (
+        account_id, login, server, source, last_synced_id
+    ))
+
+    if not login or not encrypted_pwd or not server:
+        print("  [account %s] missing credentials — skipping" % account_id)
+        return
+
+    if not mark_start(account_id, source):
+        print("  [account %s] sync-start failed — skipping" % account_id)
+        return
+
+    try:
+        password = decrypt_field(encrypted_pwd)
+        if not password:
+            raise Exception("Decryption failed")
+
+        print("  [account %s] decrypt OK — connecting MT5..." % account_id)
+        data = fetch_mt5_data(login, password, server, last_synced_id)
+
+        print("  [account %s] fetched %d trades, %d transactions, balance=%d cents" % (
+            account_id, len(data["trades"]), len(data["transactions"]), data["balance_cents"]
+        ))
+
+        payload = {
+            "balance_cents": data["balance_cents"],
+            "equity_cents": data["equity_cents"],
+            "currency": data["currency"],
+            "trades": data["trades"],
+            "transactions": data["transactions"],
+        }
+
+        if push_complete(account_id, payload):
+            print("  [account %s] SUCCESS" % account_id)
+        else:
+            push_fail(account_id, "sync-complete failed")
+    except Exception as e:
+        err = str(e)[:250]
+        print("  [account %s] FAIL: %s" % (account_id, err))
+        traceback.print_exc()
+        push_fail(account_id, err)
 
 
 if __name__ == "__main__":
