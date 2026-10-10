@@ -61,43 +61,49 @@
     if(!eq) return;
     var token = localStorage.getItem('tid_token');
     if(!token) return;
-    fetch(API + '/api/tid/me/trades-timeline', {headers:{Authorization:'Bearer ' + token}})
+    fetch(API + '/api/tid/me/snapshots', {headers:{Authorization:'Bearer ' + token}})
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var trades = (d && Array.isArray(d.trades)) ? d.trades : [];
-        if(!trades.length) return;
+        var snaps = (d && Array.isArray(d.snapshots)) ? d.snapshots : [];
+        if(!snaps.length) return;
+        var byDate = {};
+        var i;
+        for(i = 0; i < snaps.length; i++){
+          var s = snaps[i];
+          var dt = s.snapshot_date;
+          if(!dt) continue;
+          var key = String(dt).substring(0, 10);
+          if(!byDate[key]){ byDate[key] = { profit: 0, pips: 0, trades: 0 }; }
+          byDate[key].profit += Number(s.cumulative_profit_cents) || 0;
+          byDate[key].pips += Number(s.cumulative_pips) || 0;
+          byDate[key].trades += Number(s.total_trades) || 0;
+        }
+        var dates = Object.keys(byDate).sort();
+        if(!dates.length) return;
         var anyProfit = false;
-        var k;
-        for(k = 0; k < trades.length; k++){
-          if(Number(trades[k].profit_cents) !== 0){ anyProfit = true; break; }
+        for(i = 0; i < dates.length; i++){
+          if(byDate[dates[i]].profit !== 0){ anyProfit = true; break; }
         }
         var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         var labels = ['Start'];
         var data = [0];
-        var cumProfit = 0;
-        var cumPips = 0;
-        var count = 0;
-        var i;
-        for(i = 0; i < trades.length; i++){
-          var t = trades[i];
-          cumProfit += Number(t.profit_cents) || 0;
-          cumPips += Number(t.pips) || 0;
-          count++;
-          var avgMoney = cumProfit / count / 100;
-          var avgPips = cumPips / count;
-          var y = anyProfit ? avgMoney : avgPips;
-          var dtStr = t.closed_at || t.opened_at || null;
-          var lb = 'T' + count;
-          if(dtStr){
-            try {
-              var dd = new Date(dtStr);
-              if(!isNaN(dd.getTime()) && dd.getFullYear() > 2000){
-                lb = dd.getDate() + ' ' + months[dd.getMonth()];
-              }
-            } catch(_){}
+        var j;
+        for(j = 0; j < dates.length; j++){
+          var k = dates[j];
+          var bucket = byDate[k];
+          var yVal = 0;
+          if(bucket.trades > 0){
+            yVal = anyProfit ? (bucket.profit / bucket.trades / 100) : (bucket.pips / bucket.trades);
           }
+          var lb = 'T' + (j + 1);
+          try {
+            var dd = new Date(k + 'T00:00:00Z');
+            if(!isNaN(dd.getTime()) && dd.getFullYear() > 2000){
+              lb = dd.getDate() + ' ' + months[dd.getMonth()];
+            }
+          } catch(_){}
           labels.push(lb);
-          data.push(Number(y.toFixed(2)));
+          data.push(Number(yVal.toFixed(2)));
         }
         eq.data.labels = labels;
         eq.data.datasets[0].data = labels.map(function(){ return 0; });
