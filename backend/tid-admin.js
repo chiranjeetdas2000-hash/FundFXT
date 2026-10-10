@@ -567,4 +567,99 @@ router.post("/admin/internal/sync-start/:id", authenticateInternal, async functi
   }
 });
 
+router.post("/admin/internal/sync-complete/:id", authenticateInternal, express.json(), async function (req, res) {
+  try {
+    var id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+    var [accRows] = await db.execute(
+      "SELECT id, tid_user_id, platform FROM tid_accounts WHERE id = ? LIMIT 1",
+      [id],
+    );
+    if (!accRows.length) return res.status(404).json({ error: "Account not found" });
+    var acc = accRows[0];
+    var b = req.body || {};
+    var trades = Array.isArray(b.trades) ? b.trades : [];
+    var transactions = Array.isArray(b.transactions) ? b.transactions : [];
+    var balanceCents = Number(b.balance_cents) || 0;
+    var equityCents = Number(b.equity_cents) || 0;
+    var tradesInserted = 0;
+    var tradesSkipped = 0;
+    var maxBrokerTradeId = null;
+    var i;
+    for (i = 0; i < trades.length; i++) {
+      var t = trades[i];
+      try {
+        var btId = t.broker_trade_id ? String(t.broker_trade_id).slice(0, 100) : null;
+        var sym = String(t.symbol || "").toUpperCase().slice(0, 30);
+        var dir = String(t.direction || "").toUpperCase();
+        if (!sym || (dir !== "BUY" && dir !== "SELL")) continue;
+        var [result] = await db.execute(
+          "INSERT IGNORE INTO tid_trades (tid_user_id, account_id, symbol, direction, entry_price, exit_price, lot_size, pips, profit_cents, status, opened_at, closed_at, notes, screenshot_url, broker_trade_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          [
+            acc.tid_user_id, id, sym, dir,
+            t.entry_price != null ? Number(t.entry_price) : null,
+            t.exit_price != null ? Number(t.exit_price) : null,
+            t.lot_size != null ? Number(t.lot_size) : null,
+            t.pips != null ? Number(t.pips) : null,
+            Number(t.profit_cents) || 0,
+            String(t.status || "CLOSED").toUpperCase(),
+            t.opened_at ? new Date(t.opened_at) : null,
+            t.closed_at ? new Date(t.closed_at) : null,
+            t.notes ? String(t.notes).slice(0, 1000) : null,
+            t.screenshot_url ? String(t.screenshot_url).slice(0, 500) : null,
+            btId,
+          ],
+        );
+        if (result.affectedRows > 0) {
+          tradesInserted++;
+          if (btId) maxBrokerTradeId = btId;
+        } else {
+          tradesSkipped++;
+        }
+      } catch (rowErr) {
+        console.error("[TID-INTERNAL] trade insert:", rowErr.message);
+      }
+    }
+    var txInserted = 0;
+    for (i = 0; i < transactions.length; i++) {
+      var tx = transactions[i];
+      try {
+        var txBrokerId = tx.broker_tx_id ? String(tx.broker_tx_id).slice(0, 100) : null;
+        var txType = String(tx.tx_type || "").toUpperCase();
+        if (txType !== "DEPOSIT" && txType !== "WITHDRAWAL" && txType !== "PROFIT_ADJUSTMENT") continue;
+        var [txResult] = await db.execute(
+          "INSERT IGNORE INTO tid_account_transactions (account_id, tid_user_id, tx_type, amount_cents, tx_date, notes, broker_tx_id) VALUES (?, ?, ?, ?, ?, ?, ?)",
+          [
+            id, acc.tid_user_id, txType,
+            Number(tx.amount_cents) || 0,
+            tx.tx_date ? new Date(tx.tx_date) : new Date(),
+            tx.notes ? String(tx.notes).slice(0, 255) : null,
+            txBrokerId,
+          ],
+        );
+        if (txResult.affectedRows > 0) txInserted++;
+      } catch (txErr) {
+        console.error("[TID-INTERNAL] tx insert:", txErr.message);
+      }
+    }
+    await db.execute(
+      "UPDATE tid_accounts SET platform_sync_status = 'SUCCESS', platform_last_sync_at = NOW(), last_synced_broker_trade_id = COALESCE(?, last_synced_broker_trade_id), floating_pnl_cents = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
+      [maxBrokerTradeId, equityCents - balanceCents, id],
+    );
+    await db.execute(
+      "UPDATE tid_sync_log SET sync_status = 'SUCCESS', completed_at = NOW(), last_sync_at = NOW(), error_message = NULL, updated_at = NOW() WHERE account_id = ? LIMIT 1",
+      [id],
+    );
+    return res.json({
+      success: true,
+      trades_inserted: tradesInserted,
+      trades_skipped: tradesSkipped,
+      transactions_inserted: txInserted,
+    });
+  } catch (e) {
+    console.error("[TID-INTERNAL] sync-complete:", e.message);
+    return res.status(500).json({ error: "Unable to complete sync" });
+  }
+});
+
 module.exports = router;
