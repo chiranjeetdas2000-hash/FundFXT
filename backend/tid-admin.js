@@ -644,10 +644,56 @@ router.post("/admin/internal/sync-complete/:id", authenticateInternal, express.j
         console.error("[TID-INTERNAL] tx insert:", txErr.message);
       }
     }
-    await db.execute(
-      "UPDATE tid_accounts SET platform_sync_status = 'SUCCESS', platform_last_sync_at = NOW(), last_synced_broker_trade_id = COALESCE(?, last_synced_broker_trade_id), floating_pnl_cents = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
-      [maxBrokerTradeId, equityCents - balanceCents, id],
-    );
+    // Recompute account aggregates from tid_trades
+    try {
+      const [aggRows] = await db.execute(
+        "SELECT COUNT(*) AS cnt, SUM(CASE WHEN profit_cents > 0 THEN 1 ELSE 0 END) AS wins, SUM(CASE WHEN profit_cents < 0 THEN 1 ELSE 0 END) AS losses, COALESCE(SUM(pips), 0) AS total_pips, COALESCE(SUM(CASE WHEN pips > 0 THEN pips ELSE 0 END), 0) AS sum_win_pips, COALESCE(SUM(CASE WHEN pips < 0 THEN -pips ELSE 0 END), 0) AS sum_loss_pips, COALESCE(SUM(pips * pips), 0) AS sum_pips_squared, COALESCE(MAX(CASE WHEN profit_cents > 0 THEN profit_cents ELSE 0 END), 0) AS big_win, COALESCE(MAX(CASE WHEN profit_cents < 0 THEN -profit_cents ELSE 0 END), 0) AS big_loss, MIN(closed_at) AS first_trade_at, MAX(closed_at) AS last_trade_at FROM tid_trades WHERE account_id = ? AND status = 'CLOSED'",
+        [id],
+      );
+      const agg = aggRows[0] || {};
+      const totalTrades = Number(agg.cnt) || 0;
+      const wins = Number(agg.wins) || 0;
+      const losses = Number(agg.losses) || 0;
+      const totalPips = Number(agg.total_pips) || 0;
+      const sumWin = Number(agg.sum_win_pips) || 0;
+      const sumLoss = Number(agg.sum_loss_pips) || 0;
+      const sumSq = Number(agg.sum_pips_squared) || 0;
+      const bigWin = Number(agg.big_win) || 0;
+      const bigLoss = Number(agg.big_loss) || 0;
+      const firstTradeAt = agg.first_trade_at || null;
+      const lastTradeAt = agg.last_trade_at || null;
+
+      const winRateBps = totalTrades > 0 ? Math.round((wins / totalTrades) * 10000) : 0;
+      const avgWinPips = wins > 0 ? sumWin / wins : 0;
+      const avgLossPips = losses > 0 ? sumLoss / losses : 0;
+      const avgRr = avgLossPips > 0 ? Number((avgWinPips / avgLossPips).toFixed(3)) : 0;
+      const mean = totalTrades > 0 ? totalPips / totalTrades : 0;
+      const variance = totalTrades > 0 ? Math.max(0, (sumSq / totalTrades) - (mean * mean)) : 0;
+      const stddev = Math.sqrt(variance);
+      const avgAbs = totalTrades > 0 ? (sumWin + sumLoss) / totalTrades : 0;
+      const consistencyScore = avgAbs > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stddev / avgAbs) * 50))) : 0;
+      const winRatePct = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
+      const rrRatio = avgLossPips > 0 ? avgWinPips / avgLossPips : 0;
+      const winRateComponent = Math.min(winRatePct, 70) * 25 / 70;
+      const rrComponent = Math.min(rrRatio, 3) * 25 / 3;
+      const consistencyComponent = consistencyScore * 0.2;
+      const ddComponent = sumWin > 0 ? Math.max(0, Math.min(15, (1 - Math.abs(avgLossPips) / sumWin) * 15)) : 0;
+      const daysActive = firstTradeAt ? Math.floor((Date.now() - new Date(firstTradeAt).getTime()) / 86400000) : 0;
+      const tenureComponent = Math.min(daysActive / 90, 1) * 15;
+      const accountScore = Math.max(0, Math.min(100, Math.round(winRateComponent + rrComponent + consistencyComponent + ddComponent + tenureComponent)));
+
+      await db.execute(
+        "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, total_pips = ?, sum_win_pips = ?, sum_loss_pips = ?, sum_pips_squared = ?, avg_rr = ?, avg_win_pips = ?, avg_loss_pips = ?, consistency_score = ?, account_score = ?, biggest_win_cents = ?, biggest_loss_cents = ?, first_trade_at = COALESCE(first_trade_at, ?), last_trade_at = ?, platform_sync_status = 'SUCCESS', platform_last_sync_at = NOW(), last_synced_broker_trade_id = COALESCE(?, last_synced_broker_trade_id), floating_pnl_cents = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
+        [totalTrades, wins, losses, winRateBps, totalPips, sumWin, sumLoss, sumSq, avgRr, avgWinPips, avgLossPips, consistencyScore, accountScore, bigWin, bigLoss, firstTradeAt, lastTradeAt, maxBrokerTradeId, equityCents - balanceCents, id],
+      );
+    } catch (aggErr) {
+      console.error("[TID-INTERNAL] aggregates recompute:", aggErr.message);
+      // Fallback: still mark as success with minimal update
+      await db.execute(
+        "UPDATE tid_accounts SET platform_sync_status = 'SUCCESS', platform_last_sync_at = NOW(), last_synced_broker_trade_id = COALESCE(?, last_synced_broker_trade_id), floating_pnl_cents = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
+        [maxBrokerTradeId, equityCents - balanceCents, id],
+      );
+    }
     await db.execute(
       "UPDATE tid_sync_log SET sync_status = 'SUCCESS', completed_at = NOW(), last_sync_at = NOW(), error_message = NULL, updated_at = NOW() WHERE account_id = ? LIMIT 1",
       [id],
