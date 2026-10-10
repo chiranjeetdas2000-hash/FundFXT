@@ -275,7 +275,7 @@
           out += '<td>' + (isFinite(entry) ? entry.toFixed(2) : '—') + '</td>';
           out += '<td>' + (isFinite(exit) ? exit.toFixed(2) : '—') + '</td>';
           out += '<td class="td-pips ' + pipsCls + '">' + pipsSign + pips.toFixed(1) + '</td>';
-          out += '<td class="td-pl ' + plCls + '">' + plSign + '$ + Math.abs(pl).toFixed(2) + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plSign + '$' + Math.abs(pl).toFixed(2) + '</td>';
           out += '<td class="td-status closed">' + esc(status) + '</td>';
           out += '</tr>';
         });
