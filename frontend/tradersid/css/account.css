@@ -240,6 +240,21 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
 .tbl .td-status.closed{color:var(--muted)}
 .tbl-empty{padding:32px 16px;text-align:center;color:var(--muted-2);font-size:13px}
 
+.tbl .td-type{font-family:'Inter',sans-serif;font-weight:700;font-size:11px;letter-spacing:.06em}
+.tbl .td-type.deposit{color:#B8935A}
+.tbl .td-type.withdrawal{color:var(--red)}
+.tbl .td-type.trade{color:#067a4a}
+.tbl .td-desc{font-family:'Inter',sans-serif;font-size:12.5px;color:var(--navy-900);max-width:220px;overflow:hidden;text-overflow:ellipsis}
+.tbl .td-amount{font-weight:700}
+.tbl .td-amount.pos{color:#067a4a}
+.tbl .td-amount.neg{color:var(--red)}
+.tbl .td-balance{font-weight:800;color:var(--navy-900)}
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch}
+@media(max-width:900px){
+  .tbl{min-width:1100px;font-size:12px}
+  .tbl thead th,.tbl tbody td{padding:10px 10px}
+}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media(max-width:900px){
   .bottom-nav{display:block}
