@@ -751,6 +751,16 @@
   bindPlatformToggle('acctPlatformPF', 'acctMT5FieldsPF', 'acctManualNotePF');
   bindPlatformToggle('acctPlatformBR', 'acctMT5FieldsBR', 'acctManualNoteBR');
 
+  // Custom size toggle
+  (function(){
+    var sizeSel = $('acctSize');
+    var sizeCustom = $('acctSizeCustom');
+    if(!sizeSel || !sizeCustom) return;
+    sizeSel.addEventListener('change', function(){
+      sizeCustom.style.display = (sizeSel.value === 'custom') ? '' : 'none';
+    });
+  })();
+
   if(acctForm) acctForm.addEventListener('submit', function(e){
     e.preventDefault();
     var errBox = $('acctError');
@@ -774,10 +784,22 @@
         return;
       }
       var sizeEl = $('acctSize');
+      var sizeCustomEl = $('acctSizeCustom');
       var typeEl = $('acctType');
       var dateEl = $('acctStartDate');
+      var sizeCents = 0;
+      if(sizeEl && sizeEl.value === 'custom'){
+        var customUsd = Number(sizeCustomEl ? sizeCustomEl.value : 0) || 0;
+        if(customUsd < 100){
+          if(errBox){ errBox.textContent = 'Enter custom size (min $100)'; errBox.classList.add('show'); }
+          return;
+        }
+        sizeCents = Math.round(customUsd * 100);
+      } else {
+        sizeCents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      }
       payload.firm_name = firm;
-      payload.account_size_cents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      payload.account_size_cents = sizeCents;
       payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
       payload.start_date = dateEl && dateEl.value ? dateEl.value : null;
     } else {
