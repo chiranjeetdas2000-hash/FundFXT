@@ -733,6 +733,24 @@
   }
   applyCategoryToggle();
 
+  // Platform toggle — show/hide MT5 fields per platform selection
+  function bindPlatformToggle(platformId, mt5WrapId, manualWrapId){
+    var sel = $(platformId);
+    var mt5Wrap = $(mt5WrapId);
+    var manualWrap = $(manualWrapId);
+    if(!sel) return;
+    function update(){
+      var v = String(sel.value || '').toUpperCase();
+      var isMT = (v === 'MT5' || v === 'MT4');
+      if(mt5Wrap) mt5Wrap.style.display = isMT ? '' : 'none';
+      if(manualWrap) manualWrap.style.display = isMT ? 'none' : '';
+    }
+    sel.addEventListener('change', update);
+    update();
+  }
+  bindPlatformToggle('acctPlatformPF', 'acctMT5FieldsPF', 'acctManualNotePF');
+  bindPlatformToggle('acctPlatformBR', 'acctMT5FieldsBR', 'acctManualNoteBR');
+
   if(acctForm) acctForm.addEventListener('submit', function(e){
     e.preventDefault();
     var errBox = $('acctError');
@@ -785,6 +803,36 @@
       payload.total_withdrawal_cents = Math.round((Number(wdEl ? wdEl.value : 0) || 0) * 100);
     }
 
+    // Collect platform + MT5 credentials
+    var platformSel = null;
+    var loginEl = null;
+    var pwdEl = null;
+    var serverEl = null;
+    if(category === 'PROP_FIRM'){
+      platformSel = $('acctPlatformPF');
+      loginEl = $('acctLoginPF');
+      pwdEl = $('acctPasswordPF');
+      serverEl = $('acctServerPF');
+    } else {
+      platformSel = $('acctPlatformBR');
+      loginEl = $('acctLoginBR');
+      pwdEl = $('acctPasswordBR');
+      serverEl = $('acctServerBR');
+    }
+    var platform = platformSel ? String(platformSel.value || 'MT5').toUpperCase() : 'MT5';
+    var isMT = (platform === 'MT5' || platform === 'MT4');
+    var mtLogin = loginEl ? loginEl.value.trim() : '';
+    var mtPwd = pwdEl ? pwdEl.value.trim() : '';
+    var mtServer = serverEl ? serverEl.value.trim() : '';
+
+    if(isMT){
+      if(!mtLogin){ if(errBox){ errBox.textContent = 'Enter MT5 login'; errBox.classList.add('show'); } return; }
+      if(!mtPwd){ if(errBox){ errBox.textContent = 'Enter investor password'; errBox.classList.add('show'); } return; }
+      if(!mtServer){ if(errBox){ errBox.textContent = 'Enter server'; errBox.classList.add('show'); } return; }
+    }
+
+    payload.platform = platform;
+
     var submitBtn = $('accountSubmit');
     if(submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'Creating...'; }
 
@@ -797,6 +845,29 @@
       .then(function(x){
         if(!x.ok || !x.data.success) throw new Error(x.data.error || 'Create failed');
         var newId = x.data.account && x.data.account.id;
+
+        // Save platform credentials (if MT5/MT4)
+        if(isMT && newId){
+          return fetch(API + '/api/tid/accounts/' + newId + '/platform-credentials', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json', Authorization:'Bearer ' + token},
+            body: JSON.stringify({
+              platform: platform,
+              login: mtLogin,
+              password: mtPwd,
+              server: mtServer
+            })
+          })
+            .then(function(r){ return r.json(); })
+            .then(function(cres){
+              // Silent fail acceptable — account still created
+              return newId;
+            })
+            .catch(function(){ return newId; });
+        }
+        return newId;
+      })
+      .then(function(newId){
         var fileInput = $('acctFile');
         if(fileInput && fileInput.files && fileInput.files[0] && newId){
           var fd = new FormData();
