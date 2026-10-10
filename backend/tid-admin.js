@@ -662,4 +662,36 @@ router.post("/admin/internal/sync-complete/:id", authenticateInternal, express.j
   }
 });
 
+router.post("/admin/internal/sync-fail/:id", authenticateInternal, express.json(), async function (req, res) {
+  try {
+    var id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+    var msg = String((req.body && req.body.error) || "Unknown error").slice(0, 255);
+    await db.execute(
+      "UPDATE tid_sync_log SET sync_status = 'FAILED', error_message = ?, attempts = attempts + 1, completed_at = NOW(), updated_at = NOW() WHERE account_id = ? LIMIT 1",
+      [msg, id],
+    );
+    var [logRows] = await db.execute(
+      "SELECT attempts FROM tid_sync_log WHERE account_id = ? LIMIT 1",
+      [id],
+    );
+    var attempts = logRows.length ? Number(logRows[0].attempts) : 1;
+    if (attempts >= 3) {
+      await db.execute(
+        "UPDATE tid_accounts SET platform_sync_status = 'FAILED', updated_at = NOW() WHERE id = ? LIMIT 1",
+        [id],
+      );
+    } else {
+      await db.execute(
+        "UPDATE tid_accounts SET platform_sync_status = 'PENDING', updated_at = NOW() WHERE id = ? LIMIT 1",
+        [id],
+      );
+    }
+    return res.json({ success: true, attempts: attempts });
+  } catch (e) {
+    console.error("[TID-INTERNAL] sync-fail:", e.message);
+    return res.status(500).json({ error: "Unable to log failure" });
+  }
+});
+
 module.exports = router;
