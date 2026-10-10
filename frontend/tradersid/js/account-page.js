@@ -263,119 +263,14 @@
           var pipsStr = pips != null ? ((pips >= 0 ? '+' : '') + pips.toFixed(1)) : '—';
           var pipsCls = pips != null ? (pips >= 0 ? 'pos' : 'neg') : '';
           var pl = (e.pl != null && isFinite(e.pl)) ? Number(e.pl) / 100 : null;
-          var plStr = pl != null ? ((pl >= 0 ? '+
-
-  // Sidebar nav (redirect to dashboard with section)
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})(); : '-
-
-  // Sidebar nav (redirect to dashboard with section)
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})();) + Math.abs(pl).toFixed(2)) : '—';
+          var plStr = pl != null ? ((pl >= 0 ? '+$' : '-$') + Math.abs(pl).toFixed(2)) : '—';
           var plCls = pl != null ? (pl >= 0 ? 'pos' : 'neg') : '';
           var amt = Number(e.amount) || 0;
           var amtDollars = amt / 100;
-          var amtStr = (amtDollars >= 0 ? '+
-
-  // Sidebar nav (redirect to dashboard with section)
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})(); : '-
-
-  // Sidebar nav (redirect to dashboard with section)
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})();) + Math.abs(amtDollars).toFixed(2);
+          var amtStr = (amtDollars >= 0 ? '+$' : '-$') + Math.abs(amtDollars).toFixed(2);
           var amtCls = amt >= 0 ? 'pos' : 'neg';
           var balDollars = (Number(e.balance) || 0) / 100;
-          var balStr = '
-
-  // Sidebar nav (redirect to dashboard with section)
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})(); + balDollars.toFixed(2);
+          var balStr = '$' + balDollars.toFixed(2);
           var status = e.status ? esc(String(e.status).toUpperCase()) : '—';
           out += '<tr>';
           out += '<td>' + esc(dateStr) + '</td>';
