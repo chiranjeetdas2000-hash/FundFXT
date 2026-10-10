@@ -275,25 +275,7 @@
           out += '<td>' + (isFinite(entry) ? entry.toFixed(2) : '—') + '</td>';
           out += '<td>' + (isFinite(exit) ? exit.toFixed(2) : '—') + '</td>';
           out += '<td class="td-pips ' + pipsCls + '">' + pipsSign + pips.toFixed(1) + '</td>';
-          out += '<td class="td-pl ' + plCls + '">' + plSign + '
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadAccount();
-})(); + Math.abs(pl).toFixed(2) + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plSign + '$ + Math.abs(pl).toFixed(2) + '</td>';
           out += '<td class="td-status closed">' + esc(status) + '</td>';
           out += '</tr>';
         });
