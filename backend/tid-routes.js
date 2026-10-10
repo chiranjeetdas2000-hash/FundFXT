@@ -4,6 +4,7 @@ const mysql = require("mysql2/promise");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const crypto = require("crypto");
+const { encryptField, decryptField } = require("./tid-crypto");
 const nodemailer = require("nodemailer");
 const Razorpay = require("razorpay");
 const { createRateLimiter } = require("./rate-limits");
@@ -2116,6 +2117,67 @@ router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async
   } catch (error) {
     console.error("TID trade bulk error:", error);
     return jsonError(res, 500, "Unable to import trades");
+  }
+});
+
+router.post("/accounts/:id/platform-credentials", authenticateTid, requireJsonBody, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [accRows] = await db.execute(
+      "SELECT id, tid_user_id, platform FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!accRows.length) return jsonError(res, 404, "Account not found");
+
+    const b = req.body || {};
+    const platform = String(b.platform || accRows[0].platform || "MT5").toUpperCase();
+    const login = String(b.login || "").trim().slice(0, 100);
+    const password = String(b.password || "").trim();
+    const server = String(b.server || "").trim().slice(0, 200);
+
+    if (!login) return jsonError(res, 400, "Login required");
+    if (!password) return jsonError(res, 400, "Investor password required");
+    if (!server) return jsonError(res, 400, "Server required");
+
+    let whitelisted = 0;
+    try {
+      const [srvRows] = await db.execute(
+        "SELECT id FROM tid_broker_servers WHERE server_name = ? AND verified = 1 LIMIT 1",
+        [server],
+      );
+      if (srvRows.length) whitelisted = 1;
+    } catch (_) {}
+
+    let encrypted = null;
+    try {
+      encrypted = encryptField(password);
+    } catch (encErr) {
+      console.error("TID platform-credentials encrypt error:", encErr.message);
+      return jsonError(res, 500, "Encryption unavailable. Contact support.");
+    }
+    if (!encrypted) return jsonError(res, 500, "Unable to encrypt credentials");
+
+    const extra = JSON.stringify({ server: server });
+
+    await db.execute(
+      "UPDATE tid_accounts SET platform = ?, platform_login = ?, platform_password_encrypted = ?, platform_extra = ?, broker_server = ?, server_whitelisted = ?, platform_sync_status = 'PENDING', updated_at = NOW() WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [platform, login, encrypted, extra, server, whitelisted, id, req.tidUser.tidUserId],
+    );
+
+    await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "PLATFORM_CREDS_SAVED");
+
+    return res.json({
+      success: true,
+      server_whitelisted: whitelisted === 1,
+      message: whitelisted === 1
+        ? "Credentials saved. Sync will run on next cycle."
+        : "Credentials saved. Server is not whitelisted — admin review required.",
+    });
+  } catch (error) {
+    console.error("TID platform-credentials error:", error);
+    return jsonError(res, 500, "Unable to save credentials");
   }
 });
 
