@@ -26,6 +26,34 @@
       });
   }
 
+  function getHeroStatusMeta(a){
+    var sync = String(a.platform_sync_status || 'NONE').toUpperCase();
+    var acctStatus = String(a.status || '').toUpperCase();
+    if(sync === 'FAILED'){
+      return { label: 'Sync Failed', cls: 'st-failed' };
+    }
+    if(sync === 'SUCCESS'){
+      if(acctStatus === 'BREACHED' || acctStatus === 'CLOSED'){
+        return { label: 'Synced', cls: 'st-synced' };
+      }
+      return { label: 'LIVE', cls: 'st-live' };
+    }
+    return { label: 'Under Review', cls: 'st-review' };
+  }
+
+  function formatRelTime(dtStr){
+    if(!dtStr) return null;
+    try {
+      var t = new Date(dtStr).getTime();
+      if(!isFinite(t)) return null;
+      var diff = Math.floor((Date.now() - t) / 1000);
+      if(diff < 60) return 'just now';
+      if(diff < 3600) return Math.floor(diff / 60) + ' min ago';
+      if(diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    } catch(_) { return null; }
+  }
+
   function renderAccount(a){
     var el = $('account-content');
     var isBroker = String(a.account_category || '').toUpperCase() === 'BROKER';
@@ -42,6 +70,12 @@
       sub = '$' + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US') + ' · ' + (a.account_type || '—');
     }
     var rankLabel = isVerified ? '★ VERIFIED' : (isBroker ? '● BROKER' : '● CHALLENGE');
+    var statusMeta = getHeroStatusMeta(a);
+    var relTime = formatRelTime(a.platform_last_sync_at);
+    var heroStatusLine = statusMeta.label;
+    if(statusMeta.cls === 'st-live' && relTime){
+      heroStatusLine = statusMeta.label + ' · Updated ' + relTime;
+    }
 
     var h = '';
     h += '<div style="margin-bottom:14px"><a href="/tradersid/dashboard.html#accounts" style="display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:#64748B;text-decoration:none">← Back to Accounts</a></div>';
@@ -51,6 +85,7 @@
     h += '<div>';
     h += '<h1 class="hero-name">' + esc(name) + '</h1>';
     h += '<div class="hero-rank">' + esc(rankLabel) + '</div>';
+    h += '<div class="hero-status" style="margin-top:8px"><span class="acct-pill ' + statusMeta.cls + '">' + esc(heroStatusLine) + '</span></div>';
     h += '<div class="hero-meta">';
     h += '<div class="hero-meta-item"><span class="hero-meta-label">Account</span><span class="hero-meta-value">' + esc(sub) + '</span></div>';
     h += '<div class="hero-meta-item"><span class="hero-meta-label">Type</span><span class="hero-meta-value">' + esc(isBroker ? 'Broker' : 'Prop Firm') + '</span></div>';
