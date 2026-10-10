@@ -40,6 +40,34 @@
     return out;
   }
 
+  function getAccountStatusMeta(a){
+    var sync = String(a.platform_sync_status || 'NONE').toUpperCase();
+    var acctStatus = String(a.status || '').toUpperCase();
+    if(sync === 'FAILED'){
+      return { label: 'Sync Failed', cls: 'st-failed' };
+    }
+    if(sync === 'SUCCESS'){
+      if(acctStatus === 'BREACHED' || acctStatus === 'CLOSED'){
+        return { label: 'Synced', cls: 'st-synced' };
+      }
+      return { label: 'LIVE', cls: 'st-live' };
+    }
+    return { label: 'Under Review', cls: 'st-review' };
+  }
+
+  function formatRelTime(dtStr){
+    if(!dtStr) return null;
+    try {
+      var t = new Date(dtStr).getTime();
+      if(!isFinite(t)) return null;
+      var diff = Math.floor((Date.now() - t) / 1000);
+      if(diff < 60) return 'just now';
+      if(diff < 3600) return Math.floor(diff / 60) + ' min ago';
+      if(diff < 86400) return Math.floor(diff / 3600) + 'h ago';
+      return Math.floor(diff / 86400) + 'd ago';
+    } catch(_) { return null; }
+  }
+
   function renderFirmCard(firm){
     var accs = firm.accounts;
     var totalTrades = 0;
@@ -81,9 +109,15 @@
       var wins = Number(a.total_wins) || 0;
       var losses = Number(a.total_losses) || 0;
       var wl = wins + 'W / ' + losses + 'L';
+      var statusMeta = getAccountStatusMeta(a);
+      var relTime = formatRelTime(a.platform_last_sync_at);
+      var statusLine = statusMeta.label;
+      if(statusMeta.cls === 'st-live' && relTime){
+        statusLine = statusMeta.label + ' · Updated ' + relTime;
+      }
       h += '<div class="firm-account" data-id="' + a.id + '">';
       h += '<div class="fa-left">';
-      h += '<div class="fa-sub">' + esc(sub) + '</div>';
+      h += '<div class="fa-top"><div class="fa-sub">' + esc(sub) + '</div><span class="acct-pill ' + statusMeta.cls + '">' + esc(statusLine) + '</span></div>';
       h += '<div class="fa-stats">';
       h += '<span>' + (Number(a.total_trades) || 0) + ' trades</span>';
       h += '<span>·</span>';
