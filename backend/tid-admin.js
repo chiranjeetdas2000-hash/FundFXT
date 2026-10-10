@@ -546,4 +546,25 @@ router.get("/admin/tid/users", authenticateAdmin, async function (req, res) {
   }
 });
 
+router.post("/admin/internal/sync-start/:id", authenticateInternal, async function (req, res) {
+  try {
+    var id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+    var source = String((req.body && req.body.source) || "AUTO").toUpperCase();
+    var triggeredBy = source === "USER" ? "USER" : (source === "ADMIN" ? "ADMIN" : "AUTO");
+    await db.execute(
+      "INSERT INTO tid_sync_log (account_id, sync_status, started_at, triggered_by) VALUES (?, 'IN_PROGRESS', NOW(), ?) ON DUPLICATE KEY UPDATE sync_status = 'IN_PROGRESS', started_at = NOW(), triggered_by = ?, error_message = NULL, updated_at = NOW()",
+      [id, triggeredBy, triggeredBy],
+    );
+    await db.execute(
+      "UPDATE tid_accounts SET platform_sync_status = 'IN_PROGRESS', updated_at = NOW() WHERE id = ? LIMIT 1",
+      [id],
+    );
+    return res.json({ success: true, status: "IN_PROGRESS" });
+  } catch (e) {
+    console.error("[TID-INTERNAL] sync-start:", e.message);
+    return res.status(500).json({ error: "Unable to mark sync-start" });
+  }
+});
+
 module.exports = router;
