@@ -94,6 +94,14 @@ function requireSuperAdmin(req, res, next) {
   next();
 }
 
+function authenticateInternal(req, res, next) {
+  var key = req.headers["x-internal-sync-key"];
+  var expected = process.env.INTERNAL_SYNC_KEY;
+  if (!expected) return res.status(500).json({ error: "INTERNAL_SYNC_KEY not configured" });
+  if (!key || key !== expected) return res.status(403).json({ error: "Invalid internal key" });
+  next();
+}
+
 // Overview counts
 router.get("/admin/tid/overview", authenticateAdmin, async function (req, res) {
   try {
