@@ -74,7 +74,7 @@
     renderAcctStats(a);
     renderAcctCharts(a);
     renderAcctMoney(a);
-    renderAcctTrades(a);
+    renderAcctPassbook(a);
   }
 
   function renderAcctStats(a){
@@ -226,64 +226,178 @@
       });
   }
 
-  function renderAcctTrades(a){
+  function renderAcctPassbook(a){
     var wrap = $('acctTradesWrap');
     if(!wrap) return;
-    var totalTrades = Number(a.total_trades) || 0;
-    if(totalTrades === 0){
-      wrap.innerHTML = '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Trade Passbook</div><div class="card-sub">No trades yet</div></div><div class="tbl-empty">Trade history will appear here after trades are recorded.</div></div>';
-      return;
-    }
     var h = '';
-    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Trade Passbook</div><div class="card-sub">' + totalTrades + ' closed trades</div></div>';
-    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Status</th></tr></thead><tbody id="acctTradesBody"></tbody></table></div>';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Account Passbook</div><div class="card-sub" id="acctPassbookSub">Loading…</div></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Amount</th><th>Balance</th><th>Status</th></tr></thead><tbody id="acctPassbookBody"></tbody></table></div>';
     h += '</div>';
     wrap.innerHTML = h;
-    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+    fetch(API + '/api/tid/accounts/' + accountId + '/passbook', {headers:{Authorization:'Bearer ' + token}})
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var rows = (d && Array.isArray(d.trades)) ? d.trades : [];
-        rows.sort(function(x, y){
-          var dx = x.closed_at || x.opened_at || x.created_at || '';
-          var dy = y.closed_at || y.opened_at || y.created_at || '';
-          return String(dy).localeCompare(String(dx));
-        });
-        var body = $('acctTradesBody');
+        var rows = (d && Array.isArray(d.entries)) ? d.entries : [];
+        var sub = $('acctPassbookSub');
+        if(sub) sub.textContent = rows.length + ' entries';
+        var body = $('acctPassbookBody');
         if(!body) return;
-        if(!rows.length){ body.innerHTML = '<tr><td colspan="9" class="tbl-empty">No trades recorded.</td></tr>'; return; }
+        if(!rows.length){ body.innerHTML = '<tr><td colspan="13" class="tbl-empty">No entries yet.</td></tr>'; return; }
+        rows.sort(function(x, y){
+          var dx = x.date ? new Date(x.date).getTime() : 0;
+          var dy = y.date ? new Date(y.date).getTime() : 0;
+          return dy - dx;
+        });
         var out = '';
-        rows.forEach(function(t){
-          var dateStr = fmtDate(t.closed_at || t.opened_at || t.created_at);
-          var sym = String(t.symbol || '—').toUpperCase();
-          var dir = String(t.direction || '').toUpperCase();
-          var dirCls = dir === 'BUY' ? 'buy' : 'sell';
-          var lot = (Number(t.lot_size) || 0).toFixed(2);
-          var entry = Number(t.entry_price);
-          var exit = Number(t.exit_price);
-          var pips = Number(t.pips) || 0;
-          var pipsCls = pips >= 0 ? 'pos' : 'neg';
-          var pipsSign = pips >= 0 ? '+' : '';
-          var pl = (Number(t.profit_cents) || 0) / 100;
-          var plCls = pl >= 0 ? 'pos' : 'neg';
-          var plSign = pl >= 0 ? '+' : '-';
-          var status = String(t.status || '—').toUpperCase();
+        rows.forEach(function(e){
+          var type = String(e.type || '').toUpperCase();
+          var typeCls = type === 'DEPOSIT' ? 'deposit' : type === 'WITHDRAWAL' ? 'withdrawal' : 'trade';
+          var dateStr = fmtDateTime(e.date);
+          var pair = e.pair ? esc(String(e.pair).toUpperCase()) : '—';
+          var dir = e.dir ? String(e.dir).toUpperCase() : '—';
+          var dirCls = e.dir ? (dir === 'BUY' ? 'buy' : 'sell') : '';
+          var lot = (e.lot != null && isFinite(e.lot)) ? Number(e.lot).toFixed(2) : '—';
+          var entryPx = (e.entry != null && isFinite(e.entry)) ? Number(e.entry).toFixed(2) : '—';
+          var exitPx = (e.exit != null && isFinite(e.exit)) ? Number(e.exit).toFixed(2) : '—';
+          var pips = (e.pips != null && isFinite(e.pips)) ? Number(e.pips) : null;
+          var pipsStr = pips != null ? ((pips >= 0 ? '+' : '') + pips.toFixed(1)) : '—';
+          var pipsCls = pips != null ? (pips >= 0 ? 'pos' : 'neg') : '';
+          var pl = (e.pl != null && isFinite(e.pl)) ? Number(e.pl) / 100 : null;
+          var plStr = pl != null ? ((pl >= 0 ? '+
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})(); : '-
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})();) + Math.abs(pl).toFixed(2)) : '—';
+          var plCls = pl != null ? (pl >= 0 ? 'pos' : 'neg') : '';
+          var amt = Number(e.amount) || 0;
+          var amtDollars = amt / 100;
+          var amtStr = (amtDollars >= 0 ? '+
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})(); : '-
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})();) + Math.abs(amtDollars).toFixed(2);
+          var amtCls = amt >= 0 ? 'pos' : 'neg';
+          var balDollars = (Number(e.balance) || 0) / 100;
+          var balStr = '
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})(); + balDollars.toFixed(2);
+          var status = e.status ? esc(String(e.status).toUpperCase()) : '—';
           out += '<tr>';
           out += '<td>' + esc(dateStr) + '</td>';
-          out += '<td class="td-symbol">' + esc(sym) + '</td>';
+          out += '<td class="td-type ' + typeCls + '">' + esc(type) + '</td>';
+          out += '<td class="td-desc">' + esc(e.description || '—') + '</td>';
+          out += '<td class="td-symbol">' + pair + '</td>';
           out += '<td class="td-dir ' + dirCls + '">' + esc(dir) + '</td>';
           out += '<td>' + lot + '</td>';
-          out += '<td>' + (isFinite(entry) ? entry.toFixed(2) : '—') + '</td>';
-          out += '<td>' + (isFinite(exit) ? exit.toFixed(2) : '—') + '</td>';
-          out += '<td class="td-pips ' + pipsCls + '">' + pipsSign + pips.toFixed(1) + '</td>';
-          out += '<td class="td-pl ' + plCls + '">' + plSign + '$' + Math.abs(pl).toFixed(2) + '</td>';
-          out += '<td class="td-status closed">' + esc(status) + '</td>';
+          out += '<td>' + entryPx + '</td>';
+          out += '<td>' + exitPx + '</td>';
+          out += '<td class="td-pips ' + pipsCls + '">' + pipsStr + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plStr + '</td>';
+          out += '<td class="td-amount ' + amtCls + '">' + amtStr + '</td>';
+          out += '<td class="td-balance"><b>' + balStr + '</b></td>';
+          out += '<td class="td-status closed">' + status + '</td>';
           out += '</tr>';
         });
         body.innerHTML = out;
       })
       .catch(function(){
-        var body = $('acctTradesBody');
-        if(body) body.innerHTML = '<tr><td colspan="9" class="tbl-empty">Unable to load trades.</td></tr>';
+        var body = $('acctPassbookBody');
+        if(body) body.innerHTML = '<tr><td colspan="13" class="tbl-empty">Unable to load passbook.</td></tr>';
       });
   }
 
