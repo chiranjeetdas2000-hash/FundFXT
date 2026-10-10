@@ -2156,7 +2156,7 @@ router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async
     }
 
     if (inserted.length > 0) {
-      await recomputeAccountAggregates(id, req.tidUser.tidUserId);
+      await applyTradeDelta(id, req.tidUser.tidUserId);
       await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRADE_BULK_IMPORT");
     }
 
