@@ -221,6 +221,25 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
   .hero-score{align-items:flex-start;flex-direction:row;gap:16px}
   .form-grid{grid-template-columns:1fr}
 }
+/* 21. Trade Passbook Table */
+.tbl-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:12px;border:1px solid var(--border);background:var(--card)}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl thead th{text-align:left;padding:12px 14px;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);background:var(--bg);border-bottom:1px solid var(--border);white-space:nowrap}
+.tbl tbody td{padding:12px 14px;border-bottom:1px solid var(--border);color:var(--navy-900);font-family:'JetBrains Mono',monospace;font-size:12.5px;white-space:nowrap}
+.tbl tbody tr:last-child td{border-bottom:none}
+.tbl tbody tr:hover{background:rgba(37,99,235,.03)}
+.tbl .td-symbol{font-weight:700;font-family:'Inter',sans-serif;color:var(--navy-900)}
+.tbl .td-dir{font-family:'Inter',sans-serif;font-weight:700;font-size:11.5px;letter-spacing:.04em}
+.tbl .td-dir.buy{color:#067a4a}
+.tbl .td-dir.sell{color:var(--red)}
+.tbl .td-pips.pos{color:#067a4a;font-weight:700}
+.tbl .td-pips.neg{color:var(--red);font-weight:700}
+.tbl .td-pl.pos{color:#067a4a;font-weight:700}
+.tbl .td-pl.neg{color:var(--red);font-weight:700}
+.tbl .td-status{font-family:'Inter',sans-serif;font-size:11px;font-weight:700;letter-spacing:.04em}
+.tbl .td-status.closed{color:var(--muted)}
+.tbl-empty{padding:32px 16px;text-align:center;color:var(--muted-2);font-size:13px}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
 @media(max-width:900px){
   .bottom-nav{display:block}
