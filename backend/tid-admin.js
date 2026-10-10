@@ -590,11 +590,12 @@ router.post("/admin/internal/sync-complete/:id", authenticateInternal, express.j
       var t = trades[i];
       try {
         var btId = t.broker_trade_id ? String(t.broker_trade_id).slice(0, 100) : null;
+        var dtId = t.deal_ticket ? String(t.deal_ticket).slice(0, 100) : null;
         var sym = String(t.symbol || "").toUpperCase().slice(0, 30);
         var dir = String(t.direction || "").toUpperCase();
         if (!sym || (dir !== "BUY" && dir !== "SELL")) continue;
         var [result] = await db.execute(
-          "INSERT IGNORE INTO tid_trades (tid_user_id, account_id, symbol, direction, entry_price, exit_price, lot_size, pips, profit_cents, status, opened_at, closed_at, notes, screenshot_url, broker_trade_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+          "INSERT IGNORE INTO tid_trades (tid_user_id, account_id, symbol, direction, entry_price, exit_price, lot_size, pips, profit_cents, status, opened_at, closed_at, notes, screenshot_url, broker_trade_id, deal_ticket) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           [
             acc.tid_user_id, id, sym, dir,
             t.entry_price != null ? Number(t.entry_price) : null,
@@ -608,6 +609,7 @@ router.post("/admin/internal/sync-complete/:id", authenticateInternal, express.j
             t.notes ? String(t.notes).slice(0, 1000) : null,
             t.screenshot_url ? String(t.screenshot_url).slice(0, 500) : null,
             btId,
+            dtId,
           ],
         );
         if (result.affectedRows > 0) {
