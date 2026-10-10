@@ -1877,11 +1877,105 @@ async function recomputeAccountAggregates(accountId, tidUserId) {
     const profitBps = sizeCents > 0 ? Math.round((totalProfitCents / sizeCents) * 10000) : 0;
 
     await db.execute(
-      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, biggest_win_cents = ?, biggest_loss_cents = ?, total_pips = ?, total_pips_won = ?, total_pips_lost = ?, avg_rr = ?, profit_bps = ?, avg_win_pips = ?, avg_loss_pips = ?, best_trade_pips = ?, worst_trade_pips = ?, consistency_score = ?, account_score = ?, first_trade_at = ?, last_trade_at = ?, last_updated_at = NOW(), updated_at = NOW() WHERE id = ? LIMIT 1",
-      [totalTrades, wins, losses, winRateBps, bigWin, bigLoss, totalPips, pipsWon, pipsLost, avgRr, profitBps, avgWinPips, avgLossPips, bestTradePips, worstTradePips, consistencyScore, accountScore, firstTradeAt, lastTradeAt, accountId],
+      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, biggest_win_cents = ?, biggest_loss_cents = ?, total_pips = ?, total_pips_won = ?, total_pips_lost = ?, avg_rr = ?, profit_bps = ?, avg_win_pips = ?, avg_loss_pips = ?, best_trade_pips = ?, worst_trade_pips = ?, consistency_score = ?, account_score = ?, first_trade_at = ?, last_trade_at = ?, sum_win_pips = ?, sum_loss_pips = ?, sum_pips_squared = ?, last_aggregated_trade_id = (SELECT COALESCE(MAX(id),0) FROM tid_trades WHERE account_id = ? AND status='CLOSED'), last_updated_at = NOW(), updated_at = NOW() WHERE id = ? LIMIT 1",
+      [totalTrades, wins, losses, winRateBps, bigWin, bigLoss, totalPips, pipsWon, pipsLost, avgRr, profitBps, avgWinPips, avgLossPips, bestTradePips, worstTradePips, consistencyScore, accountScore, firstTradeAt, lastTradeAt, pipsWon, pipsLost, (pipsWon + pipsLost) > 0 ? 0 : 0, accountId, accountId],
     );
   } catch (err) {
     console.error("recomputeAccountAggregates error:", err);
+  }
+}
+
+async function applyTradeDelta(accountId, tidUserId) {
+  try {
+    const [accRows] = await db.execute(
+      "SELECT last_aggregated_trade_id, total_trades, total_wins, total_losses, total_pips, sum_win_pips, sum_loss_pips, sum_pips_squared, biggest_win_cents, biggest_loss_cents, account_size_cents FROM tid_accounts WHERE id = ? LIMIT 1",
+      [accountId],
+    );
+    if (!accRows.length) return;
+    const acc = accRows[0];
+    const watermark = Number(acc.last_aggregated_trade_id) || 0;
+
+    const [newTrades] = await db.execute(
+      "SELECT id, pips, profit_cents, closed_at, opened_at, created_at FROM tid_trades WHERE account_id = ? AND id > ? AND status='CLOSED' ORDER BY id ASC",
+      [accountId, watermark],
+    );
+    if (!newTrades.length) return;
+
+    let dPips = 0, dPipsSq = 0, dWinPips = 0, dLossPips = 0;
+    let dWins = 0, dLosses = 0, dBigWin = 0, dBigLoss = 0;
+    let newFirst = null, newLast = null;
+    let maxTradeId = watermark;
+
+    for (let i = 0; i < newTrades.length; i++) {
+      const t = newTrades[i];
+      const pips = Number(t.pips) || 0;
+      const profit = Number(t.profit_cents) || 0;
+      dPips += pips;
+      dPipsSq += pips * pips;
+      if (profit > 0) dWins++;
+      else if (profit < 0) dLosses++;
+      if (pips > 0) dWinPips += pips;
+      if (pips < 0) dLossPips += -pips;
+      if (profit > dBigWin) dBigWin = profit;
+      if (-profit > dBigLoss) dBigLoss = -profit;
+      const dt = t.closed_at || t.opened_at || t.created_at;
+      if (dt) {
+        if (!newFirst || dt < newFirst) newFirst = dt;
+        if (!newLast || dt > newLast) newLast = dt;
+      }
+      if (Number(t.id) > maxTradeId) maxTradeId = Number(t.id);
+    }
+
+    const totalTrades = Number(acc.total_trades) + dWins + dLosses;
+    const totalWins = Number(acc.total_wins) + dWins;
+    const totalLosses = Number(acc.total_losses) + dLosses;
+    const totalPips = Number(acc.total_pips) + dPips;
+    const sumWin = Number(acc.sum_win_pips) + dWinPips;
+    const sumLoss = Number(acc.sum_loss_pips) + dLossPips;
+    const sumSq = Number(acc.sum_pips_squared) + dPipsSq;
+    const bigWin = Math.max(Number(acc.biggest_win_cents) || 0, dBigWin);
+    const bigLoss = Math.max(Number(acc.biggest_loss_cents) || 0, dBigLoss);
+
+    const winRateBps = totalTrades > 0 ? Math.round((totalWins / totalTrades) * 10000) : 0;
+    const avgWinPips = totalWins > 0 ? sumWin / totalWins : 0;
+    const avgLossPips = totalLosses > 0 ? sumLoss / totalLosses : 0;
+    const avgRr = avgLossPips > 0 ? Number((avgWinPips / avgLossPips).toFixed(3)) : 0;
+    const mean = totalTrades > 0 ? totalPips / totalTrades : 0;
+    const variance = totalTrades > 0 ? Math.max(0, (sumSq / totalTrades) - (mean * mean)) : 0;
+    const stddev = Math.sqrt(variance);
+    const avgAbs = totalTrades > 0 ? (sumWin + sumLoss) / totalTrades : 0;
+    const consistencyScore = avgAbs > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stddev / avgAbs) * 50))) : 0;
+    const winRatePct = totalTrades > 0 ? (totalWins / totalTrades) * 100 : 0;
+    const rrRatio = avgLossPips > 0 ? avgWinPips / avgLossPips : 0;
+    const winRateComponent = Math.min(winRatePct, 70) * 25 / 70;
+    const rrComponent = Math.min(rrRatio, 3) * 25 / 3;
+    const consistencyComponent = consistencyScore * 0.2;
+    const ddComponent = sumWin > 0 ? Math.max(0, Math.min(15, (1 - Math.abs(avgLossPips) / sumWin) * 15)) : 0;
+    const firstForTenure = newFirst || null;
+    const daysActive = firstForTenure ? Math.floor((Date.now() - new Date(firstForTenure).getTime()) / 86400000) : 0;
+    const tenureComponent = Math.min(daysActive / 90, 1) * 15;
+    const accountScore = Math.max(0, Math.min(100, Math.round(winRateComponent + rrComponent + consistencyComponent + ddComponent + tenureComponent)));
+
+    await db.execute(
+      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, total_pips = ?, sum_win_pips = ?, sum_loss_pips = ?, sum_pips_squared = ?, avg_rr = ?, avg_win_pips = ?, avg_loss_pips = ?, consistency_score = ?, account_score = ?, biggest_win_cents = ?, biggest_loss_cents = ?, first_trade_at = COALESCE(first_trade_at, ?), last_trade_at = ?, last_aggregated_trade_id = ?, last_updated_at = NOW(), updated_at = NOW() WHERE id = ? LIMIT 1",
+      [totalTrades, totalWins, totalLosses, winRateBps, totalPips, sumWin, sumLoss, sumSq, avgRr, avgWinPips, avgLossPips, consistencyScore, accountScore, bigWin, bigLoss, newFirst, newLast, maxTradeId, accountId],
+    );
+
+    await rebuildAccountSnapshots(accountId, tidUserId);
+  } catch (err) {
+    console.error("applyTradeDelta error:", err);
+  }
+}
+
+async function rebuildAccountSnapshots(accountId, tidUserId) {
+  try {
+    await db.execute("DELETE FROM tid_daily_passbook WHERE account_id = ?", [accountId]);
+    await db.execute(
+      "INSERT INTO tid_daily_passbook (account_id, tid_user_id, snapshot_date, cumulative_pips, cumulative_profit_cents, total_trades, avg_pips_per_trade, avg_profit_per_trade_cents) SELECT account_id, tid_user_id, snapshot_date, cum_pips, cum_profit, cum_trades, ROUND(cum_pips / cum_trades, 4), ROUND(cum_profit / cum_trades) FROM (SELECT account_id, tid_user_id, snapshot_date, SUM(day_pips) OVER (PARTITION BY account_id ORDER BY snapshot_date) AS cum_pips, SUM(day_profit) OVER (PARTITION BY account_id ORDER BY snapshot_date) AS cum_profit, SUM(day_trades) OVER (PARTITION BY account_id ORDER BY snapshot_date) AS cum_trades FROM (SELECT t.account_id, a.tid_user_id, DATE(COALESCE(t.closed_at, t.opened_at, t.created_at)) AS snapshot_date, SUM(t.pips) AS day_pips, SUM(t.profit_cents) AS day_profit, COUNT(*) AS day_trades FROM tid_trades t JOIN tid_accounts a ON a.id = t.account_id WHERE t.status = 'CLOSED' AND t.account_id = ? AND COALESCE(t.closed_at, t.opened_at, t.created_at) IS NOT NULL GROUP BY t.account_id, a.tid_user_id, DATE(COALESCE(t.closed_at, t.opened_at, t.created_at))) daily) cumul WHERE cum_trades > 0",
+      [accountId],
+    );
+  } catch (err) {
+    console.error("rebuildAccountSnapshots error:", err);
   }
 }
 
