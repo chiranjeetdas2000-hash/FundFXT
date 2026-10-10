@@ -2119,6 +2119,96 @@ router.post("/accounts/:id/trades/bulk", authenticateTid, requireJsonBody, async
   }
 });
 
+router.get("/accounts/:id/passbook", authenticateTid, async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return jsonError(res, 400, "Invalid account id");
+
+    const [accRows] = await db.execute(
+      "SELECT id FROM tid_accounts WHERE id = ? AND tid_user_id = ? LIMIT 1",
+      [id, req.tidUser.tidUserId],
+    );
+    if (!accRows.length) return jsonError(res, 404, "Account not found");
+
+    const [trades] = await db.execute(
+      "SELECT id, symbol, direction, lot_size, entry_price, exit_price, pips, profit_cents, status, closed_at, opened_at, created_at FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status = 'CLOSED'",
+      [id, req.tidUser.tidUserId],
+    );
+
+    const [txs] = await db.execute(
+      "SELECT id, tx_type, amount_cents, tx_date, notes, created_at FROM tid_account_transactions WHERE account_id = ? ORDER BY tx_date ASC",
+      [id],
+    );
+
+    const entries = [];
+
+    for (let i = 0; i < txs.length; i++) {
+      const t = txs[i];
+      const txType = String(t.tx_type || "").toUpperCase();
+      const amount = Number(t.amount_cents) || 0;
+      const dt = t.tx_date || t.created_at;
+      const desc = t.notes || (txType === "DEPOSIT" ? "Deposit" : txType === "WITHDRAWAL" ? "Withdrawal" : "Adjustment");
+      entries.push({
+        date: dt,
+        type: txType,
+        description: desc,
+        pair: null,
+        dir: null,
+        lot: null,
+        entry: null,
+        exit: null,
+        pips: null,
+        pl: null,
+        amount: txType === "WITHDRAWAL" ? -Math.abs(amount) : Math.abs(amount),
+        status: null,
+      });
+    }
+
+    for (let j = 0; j < trades.length; j++) {
+      const tr = trades[j];
+      const pips = Number(tr.pips) || 0;
+      const profit = Number(tr.profit_cents) || 0;
+      const sym = String(tr.symbol || "").toUpperCase();
+      const dir = String(tr.direction || "").toUpperCase();
+      const lot = Number(tr.lot_size) || 0;
+      const dt = tr.closed_at || tr.opened_at || tr.created_at;
+      const suffix = profit >= 0 ? "Profit" : "Loss";
+      const desc = sym + " " + dir + " " + lot.toFixed(2) + " — " + suffix;
+      entries.push({
+        date: dt,
+        type: "TRADE",
+        description: desc,
+        pair: sym,
+        dir: dir,
+        lot: lot,
+        entry: Number(tr.entry_price) || null,
+        exit: Number(tr.exit_price) || null,
+        pips: pips,
+        pl: profit,
+        amount: profit,
+        status: String(tr.status || "CLOSED").toUpperCase(),
+      });
+    }
+
+    entries.sort(function (a, b) {
+      const da = a.date ? new Date(a.date).getTime() : 0;
+      const db_ = b.date ? new Date(b.date).getTime() : 0;
+      return da - db_;
+    });
+
+    let running = 0;
+    for (let k = 0; k < entries.length; k++) {
+      running += Number(entries[k].amount) || 0;
+      entries[k].balance = running;
+    }
+
+    return res.json({ success: true, entries: entries });
+  } catch (error) {
+    console.error("TID passbook error:", error);
+    return jsonError(res, 500, "Unable to load passbook");
+  }
+});
+
 router.get("/me/snapshots", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
