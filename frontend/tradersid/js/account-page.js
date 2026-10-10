@@ -239,7 +239,7 @@
     if(!wrap) return;
     var h = '';
     h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Account Passbook</div><div class="card-sub" id="acctPassbookSub">Loading…</div></div>';
-    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Amount</th><th>Balance</th><th>Status</th></tr></thead><tbody id="acctPassbookBody"></tbody></table></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Ticket</th><th>Type</th><th>Description</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Amount</th><th>Balance</th><th>Status</th></tr></thead><tbody id="acctPassbookBody"></tbody></table></div>';
     h += '</div>';
     wrap.innerHTML = h;
     fetch(API + '/api/tid/accounts/' + accountId + '/passbook', {headers:{Authorization:'Bearer ' + token}})
@@ -250,7 +250,7 @@
         if(sub) sub.textContent = rows.length + ' entries';
         var body = $('acctPassbookBody');
         if(!body) return;
-        if(!rows.length){ body.innerHTML = '<tr><td colspan="13" class="tbl-empty">No entries yet.</td></tr>'; return; }
+        if(!rows.length){ body.innerHTML = '<tr><td colspan="14" class="tbl-empty">No entries yet.</td></tr>'; return; }
         rows.sort(function(x, y){
           var dx = x.date ? new Date(x.date).getTime() : 0;
           var dy = y.date ? new Date(y.date).getTime() : 0;
@@ -280,8 +280,10 @@
           var balDollars = (Number(e.balance) || 0) / 100;
           var balStr = '$' + balDollars.toFixed(2);
           var status = e.status ? esc(String(e.status).toUpperCase()) : '—';
+          var ticketVal = e.deal_ticket ? esc(String(e.deal_ticket)) : '—';
           out += '<tr>';
           out += '<td>' + esc(dateStr) + '</td>';
+          out += '<td class="td-ticket">' + ticketVal + '</td>';
           out += '<td class="td-type ' + typeCls + '">' + esc(type) + '</td>';
           out += '<td class="td-desc">' + esc(e.description || '—') + '</td>';
           out += '<td class="td-symbol">' + pair + '</td>';
@@ -300,7 +302,7 @@
       })
       .catch(function(){
         var body = $('acctPassbookBody');
-        if(body) body.innerHTML = '<tr><td colspan="13" class="tbl-empty">Unable to load passbook.</td></tr>';
+        if(body) body.innerHTML = '<tr><td colspan="14" class="tbl-empty">Unable to load passbook.</td></tr>';
       });
   }
 
