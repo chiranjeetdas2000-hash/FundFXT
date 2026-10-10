@@ -1832,58 +1832,7 @@ router.post("/accounts", authenticateTid, requireJsonBody, async (req, res) => {
   }
 });
 
-async function recomputeAccountAggregates(accountId, tidUserId) {
-  try {
-    const [rows] = await db.execute(
-      "SELECT COALESCE(SUM(pips),0) AS total_pips, COALESCE(SUM(CASE WHEN pips>0 THEN pips ELSE 0 END),0) AS pips_won, COALESCE(SUM(CASE WHEN pips<0 THEN -pips ELSE 0 END),0) AS pips_lost, COUNT(*) AS cnt, SUM(CASE WHEN profit_cents>0 THEN 1 ELSE 0 END) AS wins, SUM(CASE WHEN profit_cents<0 THEN 1 ELSE 0 END) AS losses, COALESCE(SUM(profit_cents),0) AS total_profit_cents, COALESCE(MAX(CASE WHEN profit_cents>0 THEN profit_cents ELSE 0 END),0) AS big_win, COALESCE(MAX(CASE WHEN profit_cents<0 THEN -profit_cents ELSE 0 END),0) AS big_loss, COALESCE(AVG(CASE WHEN pips>0 THEN pips ELSE NULL END),0) AS avg_win_pips, COALESCE(AVG(CASE WHEN pips<0 THEN -pips ELSE NULL END),0) AS avg_loss_pips, COALESCE(MAX(pips),0) AS best_trade_pips, COALESCE(MIN(pips),0) AS worst_trade_pips, COALESCE(STDDEV(pips),0) AS stddev_pips, COALESCE(AVG(ABS(pips)),0) AS avg_abs_pips, MIN(COALESCE(closed_at, opened_at, created_at)) AS first_trade_at, MAX(COALESCE(closed_at, opened_at, created_at)) AS last_trade_at FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status='CLOSED'",
-      [accountId, tidUserId],
-    );
-    const r = rows[0] || {};
-    const totalTrades = Number(r.cnt) || 0;
-    const wins = Number(r.wins) || 0;
-    const losses = Number(r.losses) || 0;
-    const winRateBps = totalTrades > 0 ? Math.round((wins / totalTrades) * 10000) : 0;
-    const totalPips = Number(r.total_pips) || 0;
-    const pipsWon = Number(r.pips_won) || 0;
-    const pipsLost = Number(r.pips_lost) || 0;
-    const avgRr = pipsLost > 0 ? Number((pipsWon / pipsLost).toFixed(3)) : 0;
-    const bigWin = Number(r.big_win) || 0;
-    const bigLoss = Number(r.big_loss) || 0;
-    const totalProfitCents = Number(r.total_profit_cents) || 0;
-    const avgWinPips = Number(r.avg_win_pips) || 0;
-    const avgLossPips = Number(r.avg_loss_pips) || 0;
-    const bestTradePips = Number(r.best_trade_pips) || 0;
-    const worstTradePips = Number(r.worst_trade_pips) || 0;
-    const stddevPips = Number(r.stddev_pips) || 0;
-    const avgAbsPips = Number(r.avg_abs_pips) || 0;
-    const firstTradeAt = r.first_trade_at || null;
-    const lastTradeAt = r.last_trade_at || null;
-    const consistencyScore = avgAbsPips > 0 ? Math.max(0, Math.min(100, Math.round(100 - (stddevPips / avgAbsPips) * 50))) : 0;
-    const winRatePct = totalTrades > 0 ? (wins / totalTrades) * 100 : 0;
-    const rrRatio = avgLossPips > 0 ? avgWinPips / avgLossPips : 0;
-    const winRateComponent = Math.min(winRatePct, 70) * 25 / 70;
-    const rrComponent = Math.min(rrRatio, 3) * 25 / 3;
-    const consistencyComponent = consistencyScore * 0.2;
-    const ddComponent = pipsWon > 0 ? Math.max(0, Math.min(15, (1 - Math.abs(worstTradePips) / pipsWon) * 15)) : 0;
-    const daysActive = firstTradeAt ? Math.floor((Date.now() - new Date(firstTradeAt).getTime()) / 86400000) : 0;
-    const tenureComponent = Math.min(daysActive / 90, 1) * 15;
-    const accountScore = Math.max(0, Math.min(100, Math.round(winRateComponent + rrComponent + consistencyComponent + ddComponent + tenureComponent)));
-
-    const [acct] = await db.execute(
-      "SELECT account_size_cents FROM tid_accounts WHERE id = ? LIMIT 1",
-      [accountId],
-    );
-    const sizeCents = Number(acct[0]?.account_size_cents) || 0;
-    const profitBps = sizeCents > 0 ? Math.round((totalProfitCents / sizeCents) * 10000) : 0;
-
-    await db.execute(
-      "UPDATE tid_accounts SET total_trades = ?, total_wins = ?, total_losses = ?, win_rate_bps = ?, biggest_win_cents = ?, biggest_loss_cents = ?, total_pips = ?, total_pips_won = ?, total_pips_lost = ?, avg_rr = ?, profit_bps = ?, avg_win_pips = ?, avg_loss_pips = ?, best_trade_pips = ?, worst_trade_pips = ?, consistency_score = ?, account_score = ?, first_trade_at = ?, last_trade_at = ?, sum_win_pips = ?, sum_loss_pips = ?, sum_pips_squared = ?, last_aggregated_trade_id = (SELECT COALESCE(MAX(id),0) FROM tid_trades WHERE account_id = ? AND status='CLOSED'), last_updated_at = NOW(), updated_at = NOW() WHERE id = ? LIMIT 1",
-      [totalTrades, wins, losses, winRateBps, bigWin, bigLoss, totalPips, pipsWon, pipsLost, avgRr, profitBps, avgWinPips, avgLossPips, bestTradePips, worstTradePips, consistencyScore, accountScore, firstTradeAt, lastTradeAt, pipsWon, pipsLost, (pipsWon + pipsLost) > 0 ? 0 : 0, accountId, accountId],
-    );
-  } catch (err) {
-    console.error("recomputeAccountAggregates error:", err);
-  }
-}
+// recomputeAccountAggregates removed — replaced by applyTradeDelta (incremental, watermark-based)
 
 async function applyTradeDelta(accountId, tidUserId) {
   try {
@@ -2016,7 +1965,6 @@ router.post("/accounts/:id/trades", authenticateTid, requireJsonBody, async (req
       [req.tidUser.tidUserId, id, symbol, direction, entryPrice, exitPrice, lotSize, pips, profitCents, status, openedAt, closedAt, notes, screenshotUrl],
     );
 
-    await recomputeAccountAggregates(id, req.tidUser.tidUserId);
     await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRADE_CREATE");
 
     return res.status(201).json({
@@ -2089,7 +2037,6 @@ router.delete("/accounts/:id/trades/:tradeId", authenticateTid, async (req, res)
     );
     if (!r.affectedRows) return jsonError(res, 404, "Trade not found");
 
-    await recomputeAccountAggregates(id, req.tidUser.tidUserId);
     await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "TRADE_DELETE");
 
     return res.json({ success: true, deleted: tradeId });
