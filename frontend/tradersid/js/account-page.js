@@ -74,6 +74,7 @@
     renderAcctStats(a);
     renderAcctCharts(a);
     renderAcctMoney(a);
+    renderAcctTrades(a);
   }
 
   function renderAcctStats(a){
@@ -222,6 +223,85 @@
       .catch(function(){
         var meta = $('acctMoneyMeta');
         if(meta) meta.textContent = 'Unable to load transaction dates.';
+      });
+  }
+
+  function renderAcctTrades(a){
+    var wrap = $('acctTradesWrap');
+    if(!wrap) return;
+    var totalTrades = Number(a.total_trades) || 0;
+    if(totalTrades === 0){
+      wrap.innerHTML = '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Trade Passbook</div><div class="card-sub">No trades yet</div></div><div class="tbl-empty">Trade history will appear here after trades are recorded.</div></div>';
+      return;
+    }
+    var h = '';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Trade Passbook</div><div class="card-sub">' + totalTrades + ' closed trades</div></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Status</th></tr></thead><tbody id="acctTradesBody"></tbody></table></div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var rows = (d && Array.isArray(d.trades)) ? d.trades : [];
+        rows.sort(function(x, y){
+          var dx = x.closed_at || x.opened_at || x.created_at || '';
+          var dy = y.closed_at || y.opened_at || y.created_at || '';
+          return String(dy).localeCompare(String(dx));
+        });
+        var body = $('acctTradesBody');
+        if(!body) return;
+        if(!rows.length){ body.innerHTML = '<tr><td colspan="9" class="tbl-empty">No trades recorded.</td></tr>'; return; }
+        var out = '';
+        rows.forEach(function(t){
+          var dateStr = fmtDate(t.closed_at || t.opened_at || t.created_at);
+          var sym = String(t.symbol || '—').toUpperCase();
+          var dir = String(t.direction || '').toUpperCase();
+          var dirCls = dir === 'BUY' ? 'buy' : 'sell';
+          var lot = (Number(t.lot_size) || 0).toFixed(2);
+          var entry = Number(t.entry_price);
+          var exit = Number(t.exit_price);
+          var pips = Number(t.pips) || 0;
+          var pipsCls = pips >= 0 ? 'pos' : 'neg';
+          var pipsSign = pips >= 0 ? '+' : '';
+          var pl = (Number(t.profit_cents) || 0) / 100;
+          var plCls = pl >= 0 ? 'pos' : 'neg';
+          var plSign = pl >= 0 ? '+' : '-';
+          var status = String(t.status || '—').toUpperCase();
+          out += '<tr>';
+          out += '<td>' + esc(dateStr) + '</td>';
+          out += '<td class="td-symbol">' + esc(sym) + '</td>';
+          out += '<td class="td-dir ' + dirCls + '">' + esc(dir) + '</td>';
+          out += '<td>' + lot + '</td>';
+          out += '<td>' + (isFinite(entry) ? entry.toFixed(2) : '—') + '</td>';
+          out += '<td>' + (isFinite(exit) ? exit.toFixed(2) : '—') + '</td>';
+          out += '<td class="td-pips ' + pipsCls + '">' + pipsSign + pips.toFixed(1) + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plSign + '
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})(); + Math.abs(pl).toFixed(2) + '</td>';
+          out += '<td class="td-status closed">' + esc(status) + '</td>';
+          out += '</tr>';
+        });
+        body.innerHTML = out;
+      })
+      .catch(function(){
+        var body = $('acctTradesBody');
+        if(body) body.innerHTML = '<tr><td colspan="9" class="tbl-empty">Unable to load trades.</td></tr>';
       });
   }
 
