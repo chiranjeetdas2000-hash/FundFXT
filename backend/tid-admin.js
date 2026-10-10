@@ -763,7 +763,7 @@ router.get("/admin/internal/sync-queue", authenticateInternal, async function (r
 
     if (items.length < limit) {
       var [sr] = await db.execute(
-        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_STALE' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('ACTIVE','PASSED') AND (platform_last_sync_at IS NULL OR platform_last_sync_at < NOW() - INTERVAL 6 HOUR) AND platform_sync_status != 'IN_PROGRESS' ORDER BY platform_last_sync_at ASC LIMIT ?",
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_STALE' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('ACTIVE','PASSED') AND (platform_last_sync_at IS NULL OR platform_last_sync_at < NOW() - INTERVAL 24 HOUR) AND platform_sync_status != 'IN_PROGRESS' ORDER BY platform_last_sync_at ASC LIMIT ?",
         [limit - items.length]
       );
       if (sr && sr.length) items = items.concat(sr);
