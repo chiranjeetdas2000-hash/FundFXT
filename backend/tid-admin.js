@@ -694,4 +694,46 @@ router.post("/admin/internal/sync-fail/:id", authenticateInternal, express.json(
   }
 });
 
+router.get("/admin/internal/sync-queue", authenticateInternal, async function (req, res) {
+  try {
+    var limit = Math.min(Number(req.query.limit) || 20, 50);
+    var items = [];
+
+    var [ur] = await db.execute(
+      "SELECT a.id AS account_id, a.tid_user_id, a.platform, a.platform_login, a.platform_password_encrypted, a.broker_server, a.status, a.platform_sync_status, a.last_synced_broker_trade_id, s.sync_status, s.attempts, 'USER' AS source FROM tid_sync_log s INNER JOIN tid_accounts a ON a.id = s.account_id WHERE s.sync_status = 'PENDING' AND a.platform_login IS NOT NULL AND a.platform_password_encrypted IS NOT NULL ORDER BY s.updated_at ASC LIMIT ?",
+      [limit]
+    );
+    if (ur && ur.length) items = items.concat(ur);
+
+    if (items.length < limit) {
+      var [ar] = await db.execute(
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_PENDING' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND platform_sync_status = 'PENDING' ORDER BY updated_at ASC LIMIT ?",
+        [limit - items.length]
+      );
+      if (ar && ar.length) items = items.concat(ar);
+    }
+
+    if (items.length < limit) {
+      var [sr] = await db.execute(
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_STALE' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('ACTIVE','PASSED') AND (platform_last_sync_at IS NULL OR platform_last_sync_at < NOW() - INTERVAL 6 HOUR) AND platform_sync_status != 'IN_PROGRESS' ORDER BY platform_last_sync_at ASC LIMIT ?",
+        [limit - items.length]
+      );
+      if (sr && sr.length) items = items.concat(sr);
+    }
+
+    if (items.length < limit) {
+      var [br] = await db.execute(
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_BREACHED' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('BREACHED','CLOSED') AND platform_sync_status != 'SUCCESS' ORDER BY updated_at ASC LIMIT ?",
+        [limit - items.length]
+      );
+      if (br && br.length) items = items.concat(br);
+    }
+
+    return res.json({ success: true, items: items });
+  } catch (e) {
+    console.error("[TID-INTERNAL] sync-queue:", e.message);
+    return res.status(500).json({ error: "Unable to load queue" });
+  }
+});
+
 module.exports = router;
