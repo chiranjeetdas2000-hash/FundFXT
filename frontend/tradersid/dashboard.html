@@ -851,6 +851,39 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
           <label class="form-label" for="acctStartDate">Start Date (optional)</label>
           <input class="form-input" id="acctStartDate" type="date">
         </div>
+        <div class="form-row">
+          <label class="form-label" for="acctPlatformPF">Trading Platform</label>
+          <select class="form-select" id="acctPlatformPF">
+            <option value="MT5" selected>MetaTrader 5 (MT5)</option>
+            <option value="MT4">MetaTrader 4 (MT4)</option>
+            <option value="CTRADER">cTrader</option>
+            <option value="OTHER">Other / Not listed</option>
+            <option value="MANUAL">Manual Upload Only</option>
+          </select>
+        </div>
+        <div id="acctMT5FieldsPF">
+          <div class="form-row">
+            <label class="form-label" for="acctLoginPF">MT5 Login (Account Number)</label>
+            <input class="form-input" id="acctLoginPF" type="text" placeholder="e.g. 191084" maxlength="100" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="acctPasswordPF">Investor Password (Read-only)</label>
+            <input class="form-input" id="acctPasswordPF" type="password" placeholder="Read-only access password" maxlength="200" autocomplete="new-password">
+            <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">Not your trading password. In MT5: Tools → Options → Server → Change password → Investor password.</div>
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="acctServerPF">Server</label>
+            <input class="form-input" id="acctServerPF" type="text" placeholder="e.g. FTTrading-Server, FTMO-Server01" maxlength="200" autocomplete="off" list="acctServerList">
+            <datalist id="acctServerList"></datalist>
+          </div>
+        </div>
+        <div id="acctManualNotePF" style="display:none">
+          <div class="form-row" style="background:var(--bg-light);padding:12px;border-radius:10px;border:1px solid var(--border)">
+            <div style="font-size:12.5px;line-height:1.55;color:var(--muted)">
+              Manual upload only. After creating the account, upload your statement, and admin will verify with a video call.
+            </div>
+          </div>
+        </div>
       </div>
 
       <div id="brokerFields" style="display:none">
@@ -877,6 +910,37 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
           <div class="form-row">
             <label class="form-label" for="acctWithdrawal">Total Withdrawal ($)</label>
             <input class="form-input" id="acctWithdrawal" type="number" min="0" step="0.01" placeholder="0">
+          </div>
+        </div>
+        <div class="form-row">
+          <label class="form-label" for="acctPlatformBR">Trading Platform</label>
+          <select class="form-select" id="acctPlatformBR">
+            <option value="MT5" selected>MetaTrader 5 (MT5)</option>
+            <option value="MT4">MetaTrader 4 (MT4)</option>
+            <option value="CTRADER">cTrader</option>
+            <option value="OTHER">Other / Not listed</option>
+            <option value="MANUAL">Manual Upload Only</option>
+          </select>
+        </div>
+        <div id="acctMT5FieldsBR">
+          <div class="form-row">
+            <label class="form-label" for="acctLoginBR">MT5 Login (Account Number)</label>
+            <input class="form-input" id="acctLoginBR" type="text" placeholder="e.g. 191084" maxlength="100" autocomplete="off">
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="acctPasswordBR">Investor Password (Read-only)</label>
+            <input class="form-input" id="acctPasswordBR" type="password" placeholder="Read-only access password" maxlength="200" autocomplete="new-password">
+          </div>
+          <div class="form-row">
+            <label class="form-label" for="acctServerBR">Server</label>
+            <input class="form-input" id="acctServerBR" type="text" placeholder="e.g. FTTrading-Server" maxlength="200" autocomplete="off" list="acctServerList">
+          </div>
+        </div>
+        <div id="acctManualNoteBR" style="display:none">
+          <div class="form-row" style="background:var(--bg-light);padding:12px;border-radius:10px;border:1px solid var(--border)">
+            <div style="font-size:12.5px;line-height:1.55;color:var(--muted)">
+              Manual upload only. After creating the account, upload your statement, and admin will verify with a video call.
+            </div>
           </div>
         </div>
       </div>
