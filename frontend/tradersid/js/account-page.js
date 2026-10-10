@@ -73,6 +73,7 @@
     el.innerHTML = h;
     renderAcctStats(a);
     renderAcctCharts(a);
+    renderAcctMoney(a);
   }
 
   function renderAcctStats(a){
@@ -153,6 +154,65 @@
       .catch(function(){
         var eq = $('acctEquityChart');
         if(eq){ eq.parentNode.innerHTML = '<div class="chart-empty">Unable to load trade data.</div>'; }
+      });
+  }
+
+  function renderAcctMoney(a){
+    var wrap = $('acctMoneyWrap');
+    if(!wrap) return;
+    var dep = Number(a.total_deposit_cents) || 0;
+    var wd = Number(a.total_withdrawal_cents) || 0;
+    var net = dep - wd;
+    var netColor = net >= 0 ? '#00b56a' : '#DC2626';
+    var netSign = net >= 0 ? '+' : '-';
+    var avgWin = Number(a.avg_win_pips) || 0;
+    var avgLoss = Number(a.avg_loss_pips) || 0;
+    var rr = Number(a.avg_rr) || 0;
+    var best = Number(a.best_trade_pips) || 0;
+    var worst = Number(a.worst_trade_pips) || 0;
+    var cons = Number(a.consistency_score) || 0;
+    var h = '';
+    h += '<div class="grid-2-eq" style="margin-top:20px">';
+    h += '<div class="card"><div class="card-head"><div class="card-title">Money Flow</div><div class="card-sub">Deposits &amp; withdrawals</div></div>';
+    h += '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">';
+    h += '<div class="stat"><div class="stat-icon green">↓</div><div class="stat-label">Deposited</div><div class="stat-value" style="font-size:20px">' + fmtMoney(dep) + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon red">↑</div><div class="stat-label">Withdrawn</div><div class="stat-value" style="font-size:20px">' + fmtMoney(wd) + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon">◆</div><div class="stat-label">Net Balance</div><div class="stat-value" style="font-size:20px;color:' + netColor + '">' + netSign + fmtMoney(Math.abs(net)) + '</div></div>';
+    h += '</div>';
+    h += '<div class="stat-foot" id="acctMoneyMeta" style="margin-top:12px">Loading transaction dates…</div>';
+    h += '</div>';
+    h += '<div class="card"><div class="card-head"><div class="card-title">Pips Analysis</div><div class="card-sub">Trade quality metrics</div></div>';
+    h += '<div class="stat-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:0">';
+    h += '<div class="stat"><div class="stat-icon green">✓</div><div class="stat-label">Avg Win</div><div class="stat-value" style="font-size:20px;color:#00b56a">+' + avgWin.toFixed(1) + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon red">✗</div><div class="stat-label">Avg Loss</div><div class="stat-value" style="font-size:20px;color:#DC2626">-' + avgLoss.toFixed(1) + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon gold">◆</div><div class="stat-label">R : R Ratio</div><div class="stat-value" style="font-size:20px">1 : ' + rr.toFixed(2) + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon">▦</div><div class="stat-label">Consistency</div><div class="stat-value" style="font-size:20px">' + cons + '%</div></div>';
+    h += '</div>';
+    h += '<div style="display:flex;justify-content:space-between;gap:12px;margin-top:12px;font-size:12px;color:#64748B">';
+    h += '<span><b style="color:#00b56a">Best:</b> +' + best.toFixed(1) + ' pips</span>';
+    h += '<span><b style="color:#DC2626">Worst:</b> ' + worst.toFixed(1) + ' pips</span>';
+    h += '</div>';
+    h += '</div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+    fetch(API + '/api/tid/accounts/' + accountId + '/transactions', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var meta = $('acctMoneyMeta');
+        if(!meta) return;
+        var rows = (d && Array.isArray(d.transactions)) ? d.transactions : [];
+        if(!rows.length){ meta.textContent = 'No transaction dates recorded.'; return; }
+        rows.sort(function(x, y){ return String(y.tx_date || y.created_at || '').localeCompare(String(x.tx_date || x.created_at || '')); });
+        var latest = rows[0];
+        var latestType = String(latest.tx_type || '').toUpperCase();
+        var latestLabel = latestType === 'DEPOSIT' ? 'Deposit' : (latestType === 'WITHDRAWAL' ? 'Withdrawal' : 'Adjustment');
+        var latestAmt = fmtMoney(Math.abs(Number(latest.amount_cents) || 0));
+        var latestDate = fmtDate(latest.tx_date || latest.created_at);
+        meta.innerHTML = 'Latest: <b>' + esc(latestLabel) + '</b> ' + latestAmt + ' · ' + esc(latestDate);
+      })
+      .catch(function(){
+        var meta = $('acctMoneyMeta');
+        if(meta) meta.textContent = 'Unable to load transaction dates.';
       });
   }
 
