@@ -784,4 +784,78 @@ router.get("/admin/internal/sync-queue", authenticateInternal, async function (r
   }
 });
 
+// Server review queue — accounts with non-whitelisted servers
+router.get("/admin/tid/server-review-queue", authenticateAdmin, async function (req, res) {
+  try {
+    const [rows] = await db.execute(
+      "SELECT a.id, a.tid_user_id, a.firm_name, a.broker_name, a.account_category, a.account_type, a.account_size_cents, a.status, a.platform, a.platform_login, a.broker_server, a.server_whitelisted, a.platform_sync_status, a.created_at, u.tid, u.legal_name, u.email FROM tid_accounts a LEFT JOIN tid_users u ON u.id = a.tid_user_id WHERE a.platform_login IS NOT NULL AND a.broker_server IS NOT NULL AND (a.server_whitelisted = 0 OR a.server_whitelisted IS NULL) ORDER BY a.created_at DESC LIMIT 200"
+    );
+    return res.json({ success: true, accounts: rows });
+  } catch (e) {
+    console.error("[TID-ADMIN] server review queue:", e.message);
+    return res.status(500).json({ error: "Unable to load queue" });
+  }
+});
+
+// Approve server — add to whitelist + set account PENDING for sync
+router.post("/admin/tid/accounts/:id/approve-server", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const [rows] = await db.execute(
+      "SELECT id, broker_server, firm_name, broker_name, account_category FROM tid_accounts WHERE id = ? LIMIT 1",
+      [id]
+    );
+    if (!rows.length) return res.status(404).json({ error: "Account not found" });
+    const acc = rows[0];
+    const server = String(acc.broker_server || "").trim();
+    if (!server) return res.status(400).json({ error: "Account has no broker_server set" });
+
+    const brokerName = acc.account_category === "BROKER"
+      ? (acc.broker_name || "Unknown Broker")
+      : (acc.firm_name || "Unknown Firm");
+
+    await db.execute(
+      "INSERT INTO tid_broker_servers (broker_name, server_name, platform, verified) VALUES (?, ?, 'MT5', 1) ON DUPLICATE KEY UPDATE verified = 1, broker_name = VALUES(broker_name)",
+      [brokerName, server]
+    );
+
+    await db.execute(
+      "UPDATE tid_accounts SET server_whitelisted = 1, platform_sync_status = 'PENDING', updated_at = NOW() WHERE id = ? LIMIT 1",
+      [id]
+    );
+
+    await db.execute(
+      "INSERT INTO tid_sync_log (account_id, sync_status, triggered_by) VALUES (?, 'PENDING', 'ADMIN') ON DUPLICATE KEY UPDATE sync_status = 'PENDING', triggered_by = 'ADMIN', attempts = 0, error_message = NULL, updated_at = NOW()",
+      [id]
+    );
+
+    return res.json({ success: true, whitelisted: server });
+  } catch (e) {
+    console.error("[TID-ADMIN] approve-server:", e.message);
+    return res.status(500).json({ error: "Unable to approve server" });
+  }
+});
+
+// Reject server — set account status back to NONE with admin note
+router.post("/admin/tid/accounts/:id/reject-server", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const reason = String((req.body && req.body.reason) || "Server not recognized").trim().slice(0, 500);
+
+    await db.execute(
+      "UPDATE tid_accounts SET platform_sync_status = 'NONE', server_whitelisted = 0, admin_notes = ?, updated_at = NOW() WHERE id = ? LIMIT 1",
+      [reason, id]
+    );
+
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("[TID-ADMIN] reject-server:", e.message);
+    return res.status(500).json({ error: "Unable to reject server" });
+  }
+});
+
 module.exports = router;
