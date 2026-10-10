@@ -172,9 +172,6 @@
     if(!wrap) return;
     var dep = Number(a.total_deposit_cents) || 0;
     var wd = Number(a.total_withdrawal_cents) || 0;
-    var net = dep - wd;
-    var netColor = net >= 0 ? '#00b56a' : '#DC2626';
-    var netSign = net >= 0 ? '+' : '-';
     var avgWin = Number(a.avg_win_pips) || 0;
     var avgLoss = Number(a.avg_loss_pips) || 0;
     var rr = Number(a.avg_rr) || 0;
@@ -182,16 +179,15 @@
     var worst = Number(a.worst_trade_pips) || 0;
     var cons = Number(a.consistency_score) || 0;
     var h = '';
-    h += '<div class="grid-2-eq" style="margin-top:20px">';
-    h += '<div class="card"><div class="card-head"><div class="card-title">Money Flow</div><div class="card-sub">Deposits &amp; withdrawals</div></div>';
-    h += '<div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:0">';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Money Flow</div><div class="card-sub" id="acctMoneyMeta">Loading…</div></div>';
+    h += '<div class="stat-grid" style="grid-template-columns:repeat(4,1fr);margin-bottom:0">';
     h += '<div class="stat"><div class="stat-icon green">↓</div><div class="stat-label">Deposited</div><div class="stat-value" style="font-size:20px">' + fmtMoney(dep) + '</div></div>';
     h += '<div class="stat"><div class="stat-icon red">↑</div><div class="stat-label">Withdrawn</div><div class="stat-value" style="font-size:20px">' + fmtMoney(wd) + '</div></div>';
-    h += '<div class="stat"><div class="stat-icon">◆</div><div class="stat-label">Net Balance</div><div class="stat-value" style="font-size:20px;color:' + netColor + '">' + netSign + fmtMoney(Math.abs(net)) + '</div></div>';
+    h += '<div class="stat"><div class="stat-icon gold">◆</div><div class="stat-label">Trading P/L</div><div class="stat-value" style="font-size:20px" id="acctTradingPL">—</div></div>';
+    h += '<div class="stat"><div class="stat-icon" style="background:rgba(37,99,235,.10);color:#2563EB">$</div><div class="stat-label">Current Balance</div><div class="stat-value" style="font-size:20px" id="acctCurrentBalance">—</div></div>';
     h += '</div>';
-    h += '<div class="stat-foot" id="acctMoneyMeta" style="margin-top:12px">Loading transaction dates…</div>';
     h += '</div>';
-    h += '<div class="card"><div class="card-head"><div class="card-title">Pips Analysis</div><div class="card-sub">Trade quality metrics</div></div>';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Pips Analysis</div><div class="card-sub">Trade quality metrics</div></div>';
     h += '<div class="stat-grid" style="grid-template-columns:repeat(2,1fr);margin-bottom:0">';
     h += '<div class="stat"><div class="stat-icon green">✓</div><div class="stat-label">Avg Win</div><div class="stat-value" style="font-size:20px;color:#00b56a">+' + avgWin.toFixed(1) + '</div></div>';
     h += '<div class="stat"><div class="stat-icon red">✗</div><div class="stat-label">Avg Loss</div><div class="stat-value" style="font-size:20px;color:#DC2626">-' + avgLoss.toFixed(1) + '</div></div>';
@@ -203,26 +199,311 @@
     h += '<span><b style="color:#DC2626">Worst:</b> ' + worst.toFixed(1) + ' pips</span>';
     h += '</div>';
     h += '</div>';
-    h += '</div>';
     wrap.innerHTML = h;
-    fetch(API + '/api/tid/accounts/' + accountId + '/transactions', {headers:{Authorization:'Bearer ' + token}})
+    fetch(API + '/api/tid/accounts/' + accountId + '/passbook', {headers:{Authorization:'Bearer ' + token}})
       .then(function(r){ return r.json(); })
       .then(function(d){
+        var entries = (d && Array.isArray(d.entries)) ? d.entries : [];
+        var tradingPL = 0;
+        var lastBalance = 0;
+        var i;
+        for(i = 0; i < entries.length; i++){
+          var e = entries[i];
+          if(String(e.type).toUpperCase() === 'TRADE'){
+            tradingPL += Number(e.amount) || 0;
+          }
+          if(e.balance != null){ lastBalance = Number(e.balance) || 0; }
+        }
+        var plEl = $('acctTradingPL');
+        if(plEl){
+          var plDollars = tradingPL / 100;
+          var plColor = plDollars >= 0 ? '#00b56a' : '#DC2626';
+          plEl.style.color = plColor;
+          plEl.textContent = (plDollars >= 0 ? '+
+
+  function renderAcctPassbook(a){
+    var wrap = $('acctTradesWrap');
+    if(!wrap) return;
+    var h = '';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Account Passbook</div><div class="card-sub" id="acctPassbookSub">Loading…</div></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Amount</th><th>Balance</th><th>Status</th></tr></thead><tbody id="acctPassbookBody"></tbody></table></div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+    fetch(API + '/api/tid/accounts/' + accountId + '/passbook', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var rows = (d && Array.isArray(d.entries)) ? d.entries : [];
+        var sub = $('acctPassbookSub');
+        if(sub) sub.textContent = rows.length + ' entries';
+        var body = $('acctPassbookBody');
+        if(!body) return;
+        if(!rows.length){ body.innerHTML = '<tr><td colspan="13" class="tbl-empty">No entries yet.</td></tr>'; return; }
+        rows.sort(function(x, y){
+          var dx = x.date ? new Date(x.date).getTime() : 0;
+          var dy = y.date ? new Date(y.date).getTime() : 0;
+          return dy - dx;
+        });
+        var out = '';
+        rows.forEach(function(e){
+          var type = String(e.type || '').toUpperCase();
+          var typeCls = type === 'DEPOSIT' ? 'deposit' : type === 'WITHDRAWAL' ? 'withdrawal' : 'trade';
+          var dateStr = fmtDateTime(e.date);
+          var pair = e.pair ? esc(String(e.pair).toUpperCase()) : '—';
+          var dir = e.dir ? String(e.dir).toUpperCase() : '—';
+          var dirCls = e.dir ? (dir === 'BUY' ? 'buy' : 'sell') : '';
+          var lot = (e.lot != null && isFinite(e.lot)) ? Number(e.lot).toFixed(2) : '—';
+          var entryPx = (e.entry != null && isFinite(e.entry)) ? Number(e.entry).toFixed(2) : '—';
+          var exitPx = (e.exit != null && isFinite(e.exit)) ? Number(e.exit).toFixed(2) : '—';
+          var pips = (e.pips != null && isFinite(e.pips)) ? Number(e.pips) : null;
+          var pipsStr = pips != null ? ((pips >= 0 ? '+' : '') + pips.toFixed(1)) : '—';
+          var pipsCls = pips != null ? (pips >= 0 ? 'pos' : 'neg') : '';
+          var pl = (e.pl != null && isFinite(e.pl)) ? Number(e.pl) / 100 : null;
+          var plStr = pl != null ? ((pl >= 0 ? '+$' : '-$') + Math.abs(pl).toFixed(2)) : '—';
+          var plCls = pl != null ? (pl >= 0 ? 'pos' : 'neg') : '';
+          var amt = Number(e.amount) || 0;
+          var amtDollars = amt / 100;
+          var amtStr = (amtDollars >= 0 ? '+$' : '-$') + Math.abs(amtDollars).toFixed(2);
+          var amtCls = amt >= 0 ? 'pos' : 'neg';
+          var balDollars = (Number(e.balance) || 0) / 100;
+          var balStr = '$' + balDollars.toFixed(2);
+          var status = e.status ? esc(String(e.status).toUpperCase()) : '—';
+          out += '<tr>';
+          out += '<td>' + esc(dateStr) + '</td>';
+          out += '<td class="td-type ' + typeCls + '">' + esc(type) + '</td>';
+          out += '<td class="td-desc">' + esc(e.description || '—') + '</td>';
+          out += '<td class="td-symbol">' + pair + '</td>';
+          out += '<td class="td-dir ' + dirCls + '">' + esc(dir) + '</td>';
+          out += '<td>' + lot + '</td>';
+          out += '<td>' + entryPx + '</td>';
+          out += '<td>' + exitPx + '</td>';
+          out += '<td class="td-pips ' + pipsCls + '">' + pipsStr + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plStr + '</td>';
+          out += '<td class="td-amount ' + amtCls + '">' + amtStr + '</td>';
+          out += '<td class="td-balance"><b>' + balStr + '</b></td>';
+          out += '<td class="td-status closed">' + status + '</td>';
+          out += '</tr>';
+        });
+        body.innerHTML = out;
+      })
+      .catch(function(){
+        var body = $('acctPassbookBody');
+        if(body) body.innerHTML = '<tr><td colspan="13" class="tbl-empty">Unable to load passbook.</td></tr>';
+      });
+  }
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})(); : '-
+
+  function renderAcctPassbook(a){
+    var wrap = $('acctTradesWrap');
+    if(!wrap) return;
+    var h = '';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Account Passbook</div><div class="card-sub" id="acctPassbookSub">Loading…</div></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Amount</th><th>Balance</th><th>Status</th></tr></thead><tbody id="acctPassbookBody"></tbody></table></div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+    fetch(API + '/api/tid/accounts/' + accountId + '/passbook', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var rows = (d && Array.isArray(d.entries)) ? d.entries : [];
+        var sub = $('acctPassbookSub');
+        if(sub) sub.textContent = rows.length + ' entries';
+        var body = $('acctPassbookBody');
+        if(!body) return;
+        if(!rows.length){ body.innerHTML = '<tr><td colspan="13" class="tbl-empty">No entries yet.</td></tr>'; return; }
+        rows.sort(function(x, y){
+          var dx = x.date ? new Date(x.date).getTime() : 0;
+          var dy = y.date ? new Date(y.date).getTime() : 0;
+          return dy - dx;
+        });
+        var out = '';
+        rows.forEach(function(e){
+          var type = String(e.type || '').toUpperCase();
+          var typeCls = type === 'DEPOSIT' ? 'deposit' : type === 'WITHDRAWAL' ? 'withdrawal' : 'trade';
+          var dateStr = fmtDateTime(e.date);
+          var pair = e.pair ? esc(String(e.pair).toUpperCase()) : '—';
+          var dir = e.dir ? String(e.dir).toUpperCase() : '—';
+          var dirCls = e.dir ? (dir === 'BUY' ? 'buy' : 'sell') : '';
+          var lot = (e.lot != null && isFinite(e.lot)) ? Number(e.lot).toFixed(2) : '—';
+          var entryPx = (e.entry != null && isFinite(e.entry)) ? Number(e.entry).toFixed(2) : '—';
+          var exitPx = (e.exit != null && isFinite(e.exit)) ? Number(e.exit).toFixed(2) : '—';
+          var pips = (e.pips != null && isFinite(e.pips)) ? Number(e.pips) : null;
+          var pipsStr = pips != null ? ((pips >= 0 ? '+' : '') + pips.toFixed(1)) : '—';
+          var pipsCls = pips != null ? (pips >= 0 ? 'pos' : 'neg') : '';
+          var pl = (e.pl != null && isFinite(e.pl)) ? Number(e.pl) / 100 : null;
+          var plStr = pl != null ? ((pl >= 0 ? '+$' : '-$') + Math.abs(pl).toFixed(2)) : '—';
+          var plCls = pl != null ? (pl >= 0 ? 'pos' : 'neg') : '';
+          var amt = Number(e.amount) || 0;
+          var amtDollars = amt / 100;
+          var amtStr = (amtDollars >= 0 ? '+$' : '-$') + Math.abs(amtDollars).toFixed(2);
+          var amtCls = amt >= 0 ? 'pos' : 'neg';
+          var balDollars = (Number(e.balance) || 0) / 100;
+          var balStr = '$' + balDollars.toFixed(2);
+          var status = e.status ? esc(String(e.status).toUpperCase()) : '—';
+          out += '<tr>';
+          out += '<td>' + esc(dateStr) + '</td>';
+          out += '<td class="td-type ' + typeCls + '">' + esc(type) + '</td>';
+          out += '<td class="td-desc">' + esc(e.description || '—') + '</td>';
+          out += '<td class="td-symbol">' + pair + '</td>';
+          out += '<td class="td-dir ' + dirCls + '">' + esc(dir) + '</td>';
+          out += '<td>' + lot + '</td>';
+          out += '<td>' + entryPx + '</td>';
+          out += '<td>' + exitPx + '</td>';
+          out += '<td class="td-pips ' + pipsCls + '">' + pipsStr + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plStr + '</td>';
+          out += '<td class="td-amount ' + amtCls + '">' + amtStr + '</td>';
+          out += '<td class="td-balance"><b>' + balStr + '</b></td>';
+          out += '<td class="td-status closed">' + status + '</td>';
+          out += '</tr>';
+        });
+        body.innerHTML = out;
+      })
+      .catch(function(){
+        var body = $('acctPassbookBody');
+        if(body) body.innerHTML = '<tr><td colspan="13" class="tbl-empty">Unable to load passbook.</td></tr>';
+      });
+  }
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})();) + Math.abs(plDollars).toFixed(2);
+        }
+        var balEl = $('acctCurrentBalance');
+        if(balEl){
+          balEl.textContent = '
+
+  function renderAcctPassbook(a){
+    var wrap = $('acctTradesWrap');
+    if(!wrap) return;
+    var h = '';
+    h += '<div class="card" style="margin-top:20px"><div class="card-head"><div class="card-title">Account Passbook</div><div class="card-sub" id="acctPassbookSub">Loading…</div></div>';
+    h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Date</th><th>Type</th><th>Description</th><th>Pair</th><th>Dir</th><th>Lot</th><th>Entry</th><th>Exit</th><th>Pips</th><th>P/L</th><th>Amount</th><th>Balance</th><th>Status</th></tr></thead><tbody id="acctPassbookBody"></tbody></table></div>';
+    h += '</div>';
+    wrap.innerHTML = h;
+    fetch(API + '/api/tid/accounts/' + accountId + '/passbook', {headers:{Authorization:'Bearer ' + token}})
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        var rows = (d && Array.isArray(d.entries)) ? d.entries : [];
+        var sub = $('acctPassbookSub');
+        if(sub) sub.textContent = rows.length + ' entries';
+        var body = $('acctPassbookBody');
+        if(!body) return;
+        if(!rows.length){ body.innerHTML = '<tr><td colspan="13" class="tbl-empty">No entries yet.</td></tr>'; return; }
+        rows.sort(function(x, y){
+          var dx = x.date ? new Date(x.date).getTime() : 0;
+          var dy = y.date ? new Date(y.date).getTime() : 0;
+          return dy - dx;
+        });
+        var out = '';
+        rows.forEach(function(e){
+          var type = String(e.type || '').toUpperCase();
+          var typeCls = type === 'DEPOSIT' ? 'deposit' : type === 'WITHDRAWAL' ? 'withdrawal' : 'trade';
+          var dateStr = fmtDateTime(e.date);
+          var pair = e.pair ? esc(String(e.pair).toUpperCase()) : '—';
+          var dir = e.dir ? String(e.dir).toUpperCase() : '—';
+          var dirCls = e.dir ? (dir === 'BUY' ? 'buy' : 'sell') : '';
+          var lot = (e.lot != null && isFinite(e.lot)) ? Number(e.lot).toFixed(2) : '—';
+          var entryPx = (e.entry != null && isFinite(e.entry)) ? Number(e.entry).toFixed(2) : '—';
+          var exitPx = (e.exit != null && isFinite(e.exit)) ? Number(e.exit).toFixed(2) : '—';
+          var pips = (e.pips != null && isFinite(e.pips)) ? Number(e.pips) : null;
+          var pipsStr = pips != null ? ((pips >= 0 ? '+' : '') + pips.toFixed(1)) : '—';
+          var pipsCls = pips != null ? (pips >= 0 ? 'pos' : 'neg') : '';
+          var pl = (e.pl != null && isFinite(e.pl)) ? Number(e.pl) / 100 : null;
+          var plStr = pl != null ? ((pl >= 0 ? '+$' : '-$') + Math.abs(pl).toFixed(2)) : '—';
+          var plCls = pl != null ? (pl >= 0 ? 'pos' : 'neg') : '';
+          var amt = Number(e.amount) || 0;
+          var amtDollars = amt / 100;
+          var amtStr = (amtDollars >= 0 ? '+$' : '-$') + Math.abs(amtDollars).toFixed(2);
+          var amtCls = amt >= 0 ? 'pos' : 'neg';
+          var balDollars = (Number(e.balance) || 0) / 100;
+          var balStr = '$' + balDollars.toFixed(2);
+          var status = e.status ? esc(String(e.status).toUpperCase()) : '—';
+          out += '<tr>';
+          out += '<td>' + esc(dateStr) + '</td>';
+          out += '<td class="td-type ' + typeCls + '">' + esc(type) + '</td>';
+          out += '<td class="td-desc">' + esc(e.description || '—') + '</td>';
+          out += '<td class="td-symbol">' + pair + '</td>';
+          out += '<td class="td-dir ' + dirCls + '">' + esc(dir) + '</td>';
+          out += '<td>' + lot + '</td>';
+          out += '<td>' + entryPx + '</td>';
+          out += '<td>' + exitPx + '</td>';
+          out += '<td class="td-pips ' + pipsCls + '">' + pipsStr + '</td>';
+          out += '<td class="td-pl ' + plCls + '">' + plStr + '</td>';
+          out += '<td class="td-amount ' + amtCls + '">' + amtStr + '</td>';
+          out += '<td class="td-balance"><b>' + balStr + '</b></td>';
+          out += '<td class="td-status closed">' + status + '</td>';
+          out += '</tr>';
+        });
+        body.innerHTML = out;
+      })
+      .catch(function(){
+        var body = $('acctPassbookBody');
+        if(body) body.innerHTML = '<tr><td colspan="13" class="tbl-empty">Unable to load passbook.</td></tr>';
+      });
+  }
+
+  // Sidebar nav (redirect to dashboard with section)
+  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var s = this.getAttribute('data-section');
+      location.href = '/tradersid/dashboard.html#' + s;
+    });
+  });
+
+  // Logout
+  function logout(){
+    localStorage.removeItem('tid_token');
+    localStorage.removeItem('tid_user');
+    location.href = '/tradersid/login.html';
+  }
+  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
+  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
+  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
+
+  loadAccount();
+})(); + (lastBalance / 100).toFixed(2);
+        }
         var meta = $('acctMoneyMeta');
-        if(!meta) return;
-        var rows = (d && Array.isArray(d.transactions)) ? d.transactions : [];
-        if(!rows.length){ meta.textContent = 'No transaction dates recorded.'; return; }
-        rows.sort(function(x, y){ return String(y.tx_date || y.created_at || '').localeCompare(String(x.tx_date || x.created_at || '')); });
-        var latest = rows[0];
-        var latestType = String(latest.tx_type || '').toUpperCase();
-        var latestLabel = latestType === 'DEPOSIT' ? 'Deposit' : (latestType === 'WITHDRAWAL' ? 'Withdrawal' : 'Adjustment');
-        var latestAmt = fmtMoney(Math.abs(Number(latest.amount_cents) || 0));
-        var latestDate = fmtDate(latest.tx_date || latest.created_at);
-        meta.innerHTML = 'Latest: <b>' + esc(latestLabel) + '</b> ' + latestAmt + ' · ' + esc(latestDate);
+        if(meta) meta.textContent = entries.length + ' entries';
       })
       .catch(function(){
         var meta = $('acctMoneyMeta');
-        if(meta) meta.textContent = 'Unable to load transaction dates.';
+        if(meta) meta.textContent = 'Unable to load balance data.';
       });
   }
 
