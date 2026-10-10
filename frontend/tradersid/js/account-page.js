@@ -113,22 +113,31 @@
     h += '<div class="card"><div class="card-head"><div class="card-title">Win / Loss</div><div class="card-sub">' + totalWins + 'W · ' + totalLosses + 'L</div></div><div class="chart-wrap"><canvas id="acctWlChart"></canvas></div></div>';
     h += '</div>';
     wrap.innerHTML = h;
-    fetch(API + '/api/tid/accounts/' + accountId + '/trades', {headers:{Authorization:'Bearer ' + token}})
+    fetch(API + '/api/tid/me/snapshots', {headers:{Authorization:'Bearer ' + token}})
       .then(function(r){ return r.json(); })
       .then(function(d){
-        var trades = (d && Array.isArray(d.trades)) ? d.trades : [];
-        trades.sort(function(x,y){
-          var dx = x.closed_at || x.opened_at || x.created_at || '';
-          var dy = y.closed_at || y.opened_at || y.created_at || '';
-          return String(dx).localeCompare(String(dy));
+        var snaps = (d && Array.isArray(d.snapshots)) ? d.snapshots : [];
+        var mine = snaps.filter(function(s){ return String(s.account_id) === String(accountId); });
+        mine.sort(function(x,y){
+          return String(x.snapshot_date || '').localeCompare(String(y.snapshot_date || ''));
         });
         var labels = ['Start'];
         var pips = [0];
-        var cum = 0;
-        trades.forEach(function(t, i){
-          cum += Number(t.pips) || 0;
-          labels.push('T' + (i + 1));
-          pips.push(cum);
+        var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+        var count = 0;
+        mine.forEach(function(s){
+          count++;
+          var v = Number(s.cumulative_pips) || 0;
+          var dt = s.snapshot_date ? String(s.snapshot_date).substring(0,10) : '';
+          var lb = 'T' + count;
+          try {
+            var dd = new Date(dt + 'T00:00:00Z');
+            if(!isNaN(dd.getTime()) && dd.getFullYear() > 2000){
+              lb = dd.getDate() + ' ' + months[dd.getMonth()];
+            }
+          } catch(_){}
+          labels.push(lb);
+          pips.push(v);
         });
         var eq = $('acctEquityChart');
         if(eq){
