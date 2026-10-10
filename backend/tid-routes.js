@@ -2193,7 +2193,7 @@ router.get("/accounts/:id/passbook", authenticateTid, async (req, res) => {
     if (!accRows.length) return jsonError(res, 404, "Account not found");
 
     const [trades] = await db.execute(
-      "SELECT id, symbol, direction, lot_size, entry_price, exit_price, pips, profit_cents, status, closed_at, opened_at, created_at FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status = 'CLOSED'",
+      "SELECT id, symbol, direction, lot_size, entry_price, exit_price, pips, profit_cents, status, closed_at, opened_at, created_at, broker_trade_id, deal_ticket FROM tid_trades WHERE account_id = ? AND tid_user_id = ? AND status = 'CLOSED'",
       [id, req.tidUser.tidUserId],
     );
 
@@ -2249,6 +2249,8 @@ router.get("/accounts/:id/passbook", authenticateTid, async (req, res) => {
         pl: profit,
         amount: profit,
         status: String(tr.status || "CLOSED").toUpperCase(),
+        broker_trade_id: tr.broker_trade_id || null,
+        deal_ticket: tr.deal_ticket || null,
       });
     }
 
