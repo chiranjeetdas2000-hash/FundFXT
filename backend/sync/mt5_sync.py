@@ -294,6 +294,7 @@ def fetch_mt5_data(login, password, server, last_synced_id):
 
             trades.append({
                 "broker_trade_id": broker_trade_id,
+                "deal_ticket": str(out_d.ticket),
                 "symbol": symbol,
                 "direction": direction,
                 "entry_price": entry_price,
