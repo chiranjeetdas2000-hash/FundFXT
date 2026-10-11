@@ -916,4 +916,42 @@ router.post("/admin/tid/accounts/:id/allow-retry", authenticateAdmin, requireSup
   }
 });
 
+// Admin manually adds account to sync queue (after updating details)
+router.post("/admin/tid/accounts/:id/add-to-queue", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    const [rows] = await db.execute(
+      "SELECT id, platform_login, platform_password_encrypted, broker_server, server_whitelisted FROM tid_accounts WHERE id = ? LIMIT 1",
+      [id],
+    );
+    if (!rows.length) return res.status(404).json({ error: "Account not found" });
+    const acc = rows[0];
+
+    if (!acc.platform_login || !acc.platform_password_encrypted) {
+      return res.status(400).json({ error: "Account has no MT5 credentials saved" });
+    }
+    if (acc.server_whitelisted !== 1) {
+      return res.status(400).json({ error: "Server is not whitelisted — approve server first" });
+    }
+
+    await db.execute(
+      "UPDATE tid_accounts SET platform_sync_status = 'PENDING', updated_at = NOW() WHERE id = ? LIMIT 1",
+      [id],
+    );
+
+    await db.execute(
+      "INSERT INTO tid_sync_log (account_id, sync_status, triggered_by) VALUES (?, 'PENDING', 'ADMIN') ON DUPLICATE KEY UPDATE sync_status = 'PENDING', triggered_by = 'ADMIN', attempts = 0, error_message = NULL, updated_at = NOW()",
+      [id],
+    );
+
+    await logAccess;
+    return res.json({ success: true, status: "PENDING" });
+  } catch (e) {
+    console.error("[TID-ADMIN] add-to-queue:", e.message);
+    return res.status(500).json({ error: "Unable to add to queue" });
+  }
+});
+
 module.exports = router;
