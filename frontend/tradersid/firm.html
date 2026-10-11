@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Firm — Trader ID</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="stylesheet" href="/tradersid/css/account.css">
+</head>
+<body>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-head">
+    <div class="sidebar-logo">TID</div>
+    <div class="sidebar-title">Trader ID</div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="side-link" data-section="dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg><span>Dashboard</span></button>
+    <button class="side-link active" data-section="accounts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18v13H3z"/><path d="M3 7l3-4h12l3 4"/><path d="M9 12h6"/></svg><span>Accounts</span></button>
+    <button class="side-link" data-section="access"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg><span>Access Keys</span></button>
+    <button class="side-link" data-section="profile"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg><span>Profile</span></button>
+    <button class="side-link" data-section="cards"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg><span>Cards</span></button>
+    <button class="side-link" data-section="kyc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg><span>KYC</span></button>
+  </nav>
+  <div class="sidebar-foot">
+    <button class="side-link" id="logoutBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg><span>Logout</span></button>
+  </div>
+</aside>
+
+<header class="topbar">
+  <div class="topbar-logo">
+    <div class="sidebar-logo">TID</div>
+    <span>Trader ID</span>
+  </div>
+  <button class="hamburger" id="logoutBtnTop" aria-label="Logout">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+  </button>
+</header>
+
+<div class="mobile-backdrop" id="mobileBackdrop"></div>
+<aside class="mobile-drawer" id="mobileDrawer">
+  <div class="sidebar-head" style="border:0;padding:4px 8px 18px">
+    <div class="sidebar-logo">TID</div>
+    <div class="sidebar-title" style="opacity:1">Trader ID</div>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="side-link" data-section="dashboard"><span>Dashboard</span></button>
+    <button class="side-link active" data-section="accounts"><span>Accounts</span></button>
+    <button class="side-link" data-section="access"><span>Access Keys</span></button>
+    <button class="side-link" data-section="profile"><span>Profile</span></button>
+    <button class="side-link" data-section="cards"><span>Cards</span></button>
+    <button class="side-link" data-section="kyc"><span>KYC</span></button>
+  </nav>
+  <div class="sidebar-foot">
+    <button class="side-link" id="logoutBtnMobile"><span>Logout</span></button>
+  </div>
+</aside>
+
+<main class="main">
+<div class="container" id="firm-content">
+  <div style="padding:60px 20px;text-align:center;color:#64748B">
+    <div style="font-family:'JetBrains Mono',monospace;font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:#94A3B8;margin-bottom:8px">Loading</div>
+    <div style="font-size:15px">Firm page is being prepared…</div>
+  </div>
+</div>
+</main>
+
+<nav class="bottom-nav" id="bottomNav">
+  <a class="bnav-item" href="/tradersid/dashboard.html#dashboard"><span class="bnav-icon">⌂</span><span>Home</span></a>
+  <a class="bnav-item active" href="/tradersid/dashboard.html#accounts"><span class="bnav-icon">▤</span><span>Accounts</span></a>
+  <a class="bnav-item" href="/tradersid/dashboard.html#access"><span class="bnav-icon">⚿</span><span>Access</span></a>
+  <a class="bnav-item" href="/tradersid/dashboard.html#profile"><span class="bnav-icon">◉</span><span>Profile</span></a>
+  <a class="bnav-item" href="/tradersid/dashboard.html#cards"><span class="bnav-icon">▭</span><span>Cards</span></a>
+</nav>
+
+<script src="/tradersid/js/firm-page.js" defer></script>
+</body>
+</html>
