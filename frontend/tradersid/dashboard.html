@@ -846,6 +846,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
           <input class="form-input" id="acctStartDate" type="date">
         </div>
         <div class="form-row">
+          <label class="form-label">Account Status <span style="color:var(--red)">*</span></label>
+          <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+              <input type="radio" name="acctStatusPF" value="ACTIVE"> Active
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+              <input type="radio" name="acctStatusPF" value="INACTIVE"> Inactive / Closed
+            </label>
+          </div>
+          <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">Active accounts sync daily. Inactive accounts sync once.</div>
+        </div>
+        <div class="form-row">
           <label class="form-label" for="acctPlatformPF">Trading Platform</label>
           <select class="form-select" id="acctPlatformPF">
             <option value="MT5" selected>MetaTrader 5 (MT5)</option>
@@ -895,6 +907,18 @@ body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg)
             <option value="REAL" selected>Real</option>
             <option value="DEMO">Demo</option>
           </select>
+        </div>
+        <div class="form-row">
+          <label class="form-label">Account Status <span style="color:var(--red)">*</span></label>
+          <div style="display:flex;gap:16px;margin-top:6px;flex-wrap:wrap">
+            <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+              <input type="radio" name="acctStatusBR" value="ACTIVE"> Active
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer">
+              <input type="radio" name="acctStatusBR" value="INACTIVE"> Inactive / Closed
+            </label>
+          </div>
+          <div style="margin-top:6px;font-size:11.5px;color:var(--muted-2);line-height:1.5">Active accounts sync daily. Inactive accounts sync once.</div>
         </div>
         <div class="form-grid">
           <div class="form-row">
