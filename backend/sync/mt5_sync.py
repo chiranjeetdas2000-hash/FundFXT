@@ -266,45 +266,89 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     except ImportError:
         raise Exception("MetaTrader5 package not installed. Run: pip install MetaTrader5")
 
-    # Kill any existing MT5 process — fresh launch per account
-    kill_mt5_process()
-    time.sleep(5)
-    clear_mt5_session()
-    time.sleep(3)
-
-    # Find terminal exe
+    # Global terminal — launched ONCE, then login() switches accounts
     terminal_exe = MT5_TERMINAL_PATH or find_terminal_exe()
     if not terminal_exe:
         raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
 
-    # Write per-account INI config
-    import subprocess
-    ini_path = write_mt5_launch_ini(login, password, server)
-    print("    [launch] %s /portable /config:%s" % (terminal_exe, ini_path))
-
+    global _MT5_READY
     try:
-        subprocess.Popen(
-            [terminal_exe, "/portable", "/config:" + ini_path],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-        print("    [launch] waiting 30s for MT5 login...")
-        time.sleep(30)
-    finally:
-        delete_file_safe(ini_path)
+        _MT5_READY
+    except NameError:
+        _MT5_READY = False
 
-    # Attach (no login args — INI already logged in)
-    init_ok = False
-    last_err = None
-    for _attempt in range(5):
-        if mt5.initialize(path=terminal_exe):
-            init_ok = True
-            break
-        last_err = mt5.last_error()
-        print("    [attach] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-        time.sleep(10)
-    if not init_ok:
-        raise Exception("MT5 attach failed: " + str(last_err))
+    if not _MT5_READY:
+        # First-time boot: kill stale, launch with THIS account's config, attach
+        kill_mt5_process()
+        time.sleep(5)
+        clear_mt5_session()
+        time.sleep(3)
+
+        import subprocess
+        ini_path = write_mt5_launch_ini(login, password, server)
+        print("    [boot] %s /portable /config:%s" % (terminal_exe, ini_path))
+        try:
+            subprocess.Popen(
+                [terminal_exe, "/portable", "/config:" + ini_path],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            print("    [boot] waiting 30s for initial login...")
+            time.sleep(30)
+        finally:
+            delete_file_safe(ini_path)
+
+        for _attempt in range(5):
+            if mt5.initialize(path=terminal_exe):
+                _MT5_READY = True
+                break
+            last_err = mt5.last_error()
+            print("    [boot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+            time.sleep(10)
+        if not _MT5_READY:
+            raise Exception("MT5 boot failed")
+        print("    [boot] MT5 ready — switching via login() for next accounts")
+    else:
+        # Fast path: MT5 alive, just login() to switch account
+        print("    [switch] login=%s server=%s" % (login, server))
+        login_ok = False
+        last_err = None
+        for _attempt in range(3):
+            if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
+                login_ok = True
+                break
+            last_err = mt5.last_error()
+            print("    [switch] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+            time.sleep(5)
+        if not login_ok:
+            # Fallback: kill + reboot with this account
+            print("    [switch] failed — falling back to reboot")
+            kill_mt5_process()
+            time.sleep(5)
+            clear_mt5_session()
+            time.sleep(3)
+            import subprocess
+            ini_path = write_mt5_launch_ini(login, password, server)
+            try:
+                subprocess.Popen(
+                    [terminal_exe, "/portable", "/config:" + ini_path],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
+                time.sleep(30)
+            finally:
+                delete_file_safe(ini_path)
+
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
+            time.sleep(3)
+
+            for _attempt in range(5):
+                if mt5.initialize(path=terminal_exe):
+                    break
+                time.sleep(8)
 
     try:
         # Wait for terminal connection + history download
@@ -429,15 +473,8 @@ def fetch_mt5_data(login, password, server, last_synced_id):
             "max_broker_id": max_broker_id,
         }
     finally:
-        try:
-            mt5.shutdown()
-        except Exception:
-            pass
-        time.sleep(2)
-        kill_mt5_process()
-        time.sleep(5)
-        clear_mt5_session()
-        time.sleep(3)
+        # MT5 stays alive — cleanup only at script exit
+        pass
 
 
 # ─── Process single account ───
