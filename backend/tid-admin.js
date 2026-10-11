@@ -946,7 +946,6 @@ router.post("/admin/tid/accounts/:id/add-to-queue", authenticateAdmin, requireSu
       [id],
     );
 
-    await logAccess;
     return res.json({ success: true, status: "PENDING" });
   } catch (e) {
     console.error("[TID-ADMIN] add-to-queue:", e.message);
