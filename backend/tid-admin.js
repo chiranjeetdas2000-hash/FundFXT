@@ -777,7 +777,18 @@ router.get("/admin/internal/sync-queue", authenticateInternal, async function (r
       if (br && br.length) items = items.concat(br);
     }
 
-    return res.json({ success: true, items: items });
+    // Dedup by account_id — keep first occurrence (priority order preserved)
+    var _seen = {};
+    var _deduped = [];
+    for (var _di = 0; _di < items.length; _di++) {
+      var _aid = items[_di].account_id;
+      if (!_seen[_aid]) {
+        _seen[_aid] = true;
+        _deduped.push(items[_di]);
+      }
+    }
+
+    return res.json({ success: true, items: _deduped });
   } catch (e) {
     console.error("[TID-INTERNAL] sync-queue:", e.message);
     return res.status(500).json({ error: "Unable to load queue" });
