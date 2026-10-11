@@ -261,12 +261,6 @@
       html += '<button class="btn secondary" onclick="allowRetry(' + a.id + ')">↺ Allow Retry</button>';
       html += '<button class="btn red" onclick="rejectSync(' + a.id + ')">⊘ Reject Sync</button>';
       html += '</div>';
-      html += '<h3 style="margin:18px 0 10px;font-size:13.5px">Sync Actions</h3>';
-      html += '<div class="actions-row">';
-      html += '<button class="btn secondary" onclick="addToSyncQueue(' + a.id + ')">↻ Add to Sync Queue</button>';
-      html += '<button class="btn secondary" onclick="allowRetry(' + a.id + ')">↺ Allow Retry</button>';
-      html += '<button class="btn red" onclick="rejectSync(' + a.id + ')">⊘ Reject Sync</button>';
-      html += '</div>';
       html += '</div>';
       $('accountDetailWrap').innerHTML = html;
       $('accountDetailWrap').classList.remove('hidden');
@@ -284,25 +278,6 @@
     var reason = prompt('Rejection reason:');
     if(reason === null) return;
     try { await api('/api/admin/tid/accounts/' + id + '/reject', { method: 'POST', body: { reason: reason } }); alert('Rejected'); loadAccountQueue(); }
-    catch(e){ setError(e.message); }
-  };
-
-  window.addToSyncQueue = async function(id){
-    if(!confirm('Add this account to the sync queue now?')) return;
-    try { await api('/api/admin/tid/accounts/' + id + '/add-to-queue', { method: 'POST' }); alert('Added to queue'); openAccount(id); }
-    catch(e){ setError(e.message); }
-  };
-
-  window.allowRetry = async function(id){
-    if(!confirm('Allow one more sync retry for this account?')) return;
-    try { await api('/api/admin/tid/accounts/' + id + '/allow-retry', { method: 'POST' }); alert('Retry allowed'); openAccount(id); }
-    catch(e){ setError(e.message); }
-  };
-
-  window.rejectSync = async function(id){
-    var reason = prompt('Reject sync reason (user will be notified):');
-    if(reason === null) return;
-    try { await api('/api/admin/tid/accounts/' + id + '/reject-sync', { method: 'POST', body: { reason: reason } }); alert('Sync rejected'); openAccount(id); }
     catch(e){ setError(e.message); }
   };
 
