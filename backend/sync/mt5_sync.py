@@ -191,6 +191,23 @@ def main_loop():
 
 
 # ─── MT5 fetch ───
+def clear_mt5_session():
+    terminal_dir = os.path.expandvars(r"%APPDATA%\MetaQuotes\Terminal")
+    if not os.path.exists(terminal_dir):
+        return
+    for instance in os.listdir(terminal_dir):
+        instance_path = os.path.join(terminal_dir, instance)
+        config_path = os.path.join(instance_path, "config")
+        if not os.path.isdir(config_path):
+            continue
+        for fname in ["accounts.dat", "common.ini"]:
+            fpath = os.path.join(config_path, fname)
+            if os.path.exists(fpath):
+                try:
+                    os.remove(fpath)
+                except Exception as e:
+                    print("    [clear] %s: %s" % (fname, e))
+
 def fetch_mt5_data(login, password, server, last_synced_id):
     try:
         import MetaTrader5 as mt5
@@ -201,11 +218,36 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     if MT5_TERMINAL_PATH:
         init_kwargs["path"] = MT5_TERMINAL_PATH
 
-    if not mt5.initialize(**init_kwargs):
-        err = mt5.last_error()
-        raise Exception("MT5 initialize failed: " + str(err))
+    init_ok = False
+    last_err = None
+    for _attempt in range(3):
+        if mt5.initialize(**init_kwargs):
+            init_ok = True
+            break
+        last_err = mt5.last_error()
+        err_str = str(last_err)
+        print("    [init] attempt %d failed: %s" % (_attempt + 1, err_str))
+        if "IPC timeout" in err_str or "-10005" in err_str:
+            time.sleep(12)
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
+            time.sleep(3)
+        else:
+            break
+    if not init_ok:
+        raise Exception("MT5 initialize failed: " + str(last_err))
 
     try:
+        # Wait for terminal connection + history download
+        for _w in range(15):
+            _tinfo = mt5.terminal_info()
+            if _tinfo and _tinfo.connected:
+                break
+            time.sleep(1)
+        time.sleep(5)
+
         info = mt5.account_info()
         if info is None:
             raise Exception("MT5 account_info returned None")
@@ -324,6 +366,9 @@ def fetch_mt5_data(login, password, server, last_synced_id):
             mt5.shutdown()
         except Exception:
             pass
+        time.sleep(2)
+        clear_mt5_session()
+        time.sleep(3)
 
 
 # ─── Process single account ───
