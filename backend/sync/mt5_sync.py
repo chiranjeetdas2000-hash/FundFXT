@@ -266,43 +266,59 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     except ImportError:
         raise Exception("MetaTrader5 package not installed. Run: pip install MetaTrader5")
 
-    # Kill any existing MT5 process to start fresh
-    kill_mt5_process()
-    time.sleep(3)
-
-    # Find terminal exe
+    # Global MT5 terminal — initialized once, then use login() to switch accounts
     terminal_exe = MT5_TERMINAL_PATH or find_terminal_exe()
     if not terminal_exe:
         raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
 
-    # Step 1: launch MT5 via subprocess with /config: (portable)
-    import subprocess
-    ini_path = write_mt5_launch_ini(login, password, server)
-    print("    [launch] %s /portable /config:%s" % (terminal_exe, ini_path))
-
+    global _MT5_INITIALIZED
     try:
+        _MT5_INITIALIZED
+    except NameError:
+        _MT5_INITIALIZED = False
+
+    if not _MT5_INITIALIZED:
+        # First run — kill any stale process and launch fresh
+        kill_mt5_process()
+        time.sleep(3)
+        import subprocess
+        print("    [boot] launching %s /portable" % terminal_exe)
         subprocess.Popen(
-            [terminal_exe, "/portable", "/config:" + ini_path],
+            [terminal_exe, "/portable"],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
-        print("    [launch] waiting 30s for MT5 to login...")
+        print("    [boot] waiting 30s for terminal start...")
         time.sleep(30)
-    finally:
-        delete_file_safe(ini_path)
 
-    # Step 2: attach (no login args) — MT5 already logged in
-    init_ok = False
+        # Attach once
+        init_ok = False
+        last_err = None
+        for _attempt in range(5):
+            if mt5.initialize(path=terminal_exe):
+                init_ok = True
+                break
+            last_err = mt5.last_error()
+            print("    [boot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+            time.sleep(10)
+        if not init_ok:
+            raise Exception("MT5 initialize failed: " + str(last_err))
+        _MT5_INITIALIZED = True
+        print("    [boot] MT5 attached")
+
+    # Switch to this account via login()
+    print("    [login] login=%s server=%s" % (login, server))
+    login_ok = False
     last_err = None
-    for _attempt in range(5):
-        if mt5.initialize(path=terminal_exe):
-            init_ok = True
+    for _attempt in range(3):
+        if mt5.login(login=int(login), password=str(password), server=str(server), timeout=60000):
+            login_ok = True
             break
         last_err = mt5.last_error()
-        print("    [attach] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-        time.sleep(10)
-    if not init_ok:
-        raise Exception("MT5 attach failed: " + str(last_err))
+        print("    [login] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+        time.sleep(8)
+    if not login_ok:
+        raise Exception("MT5 login failed: " + str(last_err))
 
     try:
         # Wait for terminal connection + history download
