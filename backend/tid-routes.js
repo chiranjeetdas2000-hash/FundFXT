@@ -2150,12 +2150,16 @@ router.post("/accounts/:id/platform-credentials", authenticateTid, requireJsonBo
     if (!server) return jsonError(res, 400, "Server required");
 
     let whitelisted = 0;
+    let canonicalServer = server;
     try {
       const [srvRows] = await db.execute(
-        "SELECT id FROM tid_broker_servers WHERE server_name = ? AND verified = 1 LIMIT 1",
+        "SELECT server_name FROM tid_broker_servers WHERE LOWER(server_name) = LOWER(?) AND verified = 1 LIMIT 1",
         [server],
       );
-      if (srvRows.length) whitelisted = 1;
+      if (srvRows.length) {
+        whitelisted = 1;
+        canonicalServer = srvRows[0].server_name;
+      }
     } catch (_) {}
 
     let encrypted = null;
@@ -2167,11 +2171,11 @@ router.post("/accounts/:id/platform-credentials", authenticateTid, requireJsonBo
     }
     if (!encrypted) return jsonError(res, 500, "Unable to encrypt credentials");
 
-    const extra = JSON.stringify({ server: server });
+    const extra = JSON.stringify({ server: canonicalServer });
 
     await db.execute(
       "UPDATE tid_accounts SET platform = ?, platform_login = ?, platform_password_encrypted = ?, platform_extra = ?, broker_server = ?, server_whitelisted = ?, platform_sync_status = 'PENDING', updated_at = NOW() WHERE id = ? AND tid_user_id = ? LIMIT 1",
-      [platform, login, encrypted, extra, server, whitelisted, id, req.tidUser.tidUserId],
+      [platform, login, encrypted, extra, canonicalServer, whitelisted, id, req.tidUser.tidUserId],
     );
 
     await logAccess(req, req.tidUser.tidUserId, req.tidUser.tid, "PLATFORM_CREDS_SAVED");
