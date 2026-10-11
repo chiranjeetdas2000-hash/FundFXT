@@ -81,7 +81,7 @@
     var pipsSign = totalPips >= 0 ? '+' : '';
 
     var h = '';
-    h += '<div class="firm-card" data-name="' + esc(firm.name) + '" data-type="' + esc(firm.type) + '">';
+    h += '<div class="firm-card firm-card-clickable" data-name="' + esc(firm.name) + '" data-type="' + esc(firm.type) + '" style="cursor:pointer">';
     h += '<div class="firm-head">';
     h += '<div>';
     h += '<div class="firm-name">' + esc(firm.name) + '</div>';
@@ -97,38 +97,6 @@
     h += '<div class="firm-meta-item"><b>' + totalTrades + '</b><span>Trades</span></div>';
     h += '<div class="firm-meta-item"><b style="color:' + pipsColor + '">' + pipsSign + totalPips.toFixed(0) + '</b><span>Net Pips</span></div>';
     h += '<div class="firm-meta-item"><b>' + firm.accountCount + '</b><span>Accounts</span></div>';
-    h += '</div>';
-
-    h += '<div class="firm-accounts">';
-    for(i = 0; i < accs.length; i++){
-      var a = accs[i];
-      var isBroker = String(a.account_category || '').toUpperCase() === 'BROKER';
-      var sub = isBroker
-        ? ('ID: ' + (a.broker_account_id || '—') + ' · ' + (String(a.broker_account_mode || '').toUpperCase() === 'DEMO' ? 'Demo' : 'Real'))
-        : ('$' + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US') + ' · ' + (a.account_type || ''));
-      var wins = Number(a.total_wins) || 0;
-      var losses = Number(a.total_losses) || 0;
-      var wl = wins + 'W / ' + losses + 'L';
-      var statusMeta = getAccountStatusMeta(a);
-      var relTime = formatRelTime(a.platform_last_sync_at);
-      var statusLine = statusMeta.label;
-      if(statusMeta.cls === 'st-live' && relTime){
-        statusLine = statusMeta.label + ' · Updated ' + relTime;
-      }
-      h += '<div class="firm-account" data-id="' + a.id + '">';
-      h += '<div class="fa-left">';
-      h += '<div class="fa-top"><div class="fa-sub">' + esc(sub) + '</div><span class="acct-pill ' + statusMeta.cls + '">' + esc(statusLine) + '</span></div>';
-      h += '<div class="fa-stats">';
-      h += '<span>' + (Number(a.total_trades) || 0) + ' trades</span>';
-      h += '<span>·</span>';
-      h += '<span>' + wl + ' W/L</span>';
-      h += '<span>·</span>';
-      h += '<span>' + (a.account_score || 0) + ' score</span>';
-      h += '</div>';
-      h += '</div>';
-      h += '<button class="fa-open" data-id="' + a.id + '">Open →</button>';
-      h += '</div>';
-    }
     h += '</div>';
 
     h += '<div class="firm-actions">';
