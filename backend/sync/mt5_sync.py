@@ -443,15 +443,9 @@ def fetch_mt5_data(login, password, server, last_synced_id):
             "max_broker_id": max_broker_id,
         }
     finally:
-        try:
-            mt5.shutdown()
-        except Exception:
-            pass
-        time.sleep(2)
-        kill_mt5_process()
-        time.sleep(3)
-        clear_mt5_session()
-        time.sleep(3)
+        # Do NOT kill MT5 here — keep it alive for next account login()
+        # Cleanup happens at script exit
+        pass
 
 
 # ─── Process single account ───
