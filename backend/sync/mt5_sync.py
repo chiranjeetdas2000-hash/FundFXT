@@ -293,16 +293,16 @@ def fetch_mt5_data(login, password, server, last_synced_id):
         # Delete INI immediately after launch — password not on disk
         delete_file_safe(ini_path)
 
-    # Attach to running terminal (no login args)
+    # Attach to running terminal — use no-args initialize for auto-detection
     init_ok = False
     last_err = None
-    for _attempt in range(3):
-        if mt5.initialize(path=terminal_exe):
+    for _attempt in range(5):
+        if mt5.initialize():
             init_ok = True
             break
         last_err = mt5.last_error()
         print("    [attach] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-        time.sleep(8)
+        time.sleep(12)
     if not init_ok:
         raise Exception("MT5 attach failed: " + str(last_err))
 
