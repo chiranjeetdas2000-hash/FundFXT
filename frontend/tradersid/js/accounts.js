@@ -618,7 +618,20 @@
         }
         return r.json();
       })
-      .then(function(d){ if(!d.success) throw new Error(d.error || 'Load failed'); renderAccounts(d.accounts || []); })
+      .then(function(d){
+        if(!d.success) throw new Error(d.error || 'Load failed');
+        var list = d.accounts || [];
+        if(accountsCount){
+          accountsCount.textContent = list.length + (list.length === 1 ? ' account' : ' accounts');
+        }
+        // Delegate rendering to firms.js (grouped view)
+        if(typeof window.loadFirmCards === 'function'){
+          window.loadFirmCards();
+        } else {
+          // Fallback if firms.js failed to load
+          renderAccounts(list);
+        }
+      })
       .catch(function(e){ if(e.message !== 'unauth' && accountsCount){ accountsCount.textContent = 'Unable to load'; } });
   }
 
