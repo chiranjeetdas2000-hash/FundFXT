@@ -804,11 +804,19 @@
         if(errBox){ errBox.textContent = 'Enter account size (min $100)'; errBox.classList.add('show'); }
         return;
       }
+      var statusPFEl = document.querySelector('input[name="acctStatusPF"]:checked');
+      if(!statusPFEl){
+        if(errBox){ errBox.textContent = 'Select account status (Active or Inactive)'; errBox.classList.add('show'); }
+        return;
+      }
+      var userStatusPF = statusPFEl.value;
+      var finalStatusPF = userStatusPF === 'INACTIVE' ? 'BREACHED' : 'ACTIVE';
       var sizeCents = Math.round(sizeUsd * 100);
       payload.firm_name = firm;
       payload.account_size_cents = sizeCents;
       payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
       payload.start_date = dateEl && dateEl.value ? dateEl.value : null;
+      payload.status = finalStatusPF;
     } else {
       var bNameEl = $('acctBrokerName');
       var bName = bNameEl ? bNameEl.value.trim() : '';
@@ -825,11 +833,19 @@
       var bModeEl = $('acctBrokerMode');
       var depEl = $('acctDeposit');
       var wdEl = $('acctWithdrawal');
+      var statusBREl = document.querySelector('input[name="acctStatusBR"]:checked');
+      if(!statusBREl){
+        if(errBox){ errBox.textContent = 'Select account status (Active or Inactive)'; errBox.classList.add('show'); }
+        return;
+      }
+      var userStatusBR = statusBREl.value;
+      var finalStatusBR = userStatusBR === 'INACTIVE' ? 'CLOSED' : 'ACTIVE';
       payload.broker_name = bName;
       payload.broker_account_id = bId;
       payload.broker_account_mode = bModeEl ? bModeEl.value : 'REAL';
       payload.total_deposit_cents = Math.round((Number(depEl ? depEl.value : 0) || 0) * 100);
       payload.total_withdrawal_cents = Math.round((Number(wdEl ? wdEl.value : 0) || 0) * 100);
+      payload.status = finalStatusBR;
     }
 
     // Collect platform + MT5 credentials
