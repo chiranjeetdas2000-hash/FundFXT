@@ -797,20 +797,14 @@
         return;
       }
       var sizeEl = $('acctSize');
-      var sizeCustomEl = $('acctSizeCustom');
       var typeEl = $('acctType');
       var dateEl = $('acctStartDate');
-      var sizeCents = 0;
-      if(sizeEl && sizeEl.value === 'custom'){
-        var customUsd = Number(sizeCustomEl ? sizeCustomEl.value : 0) || 0;
-        if(customUsd < 100){
-          if(errBox){ errBox.textContent = 'Enter custom size (min $100)'; errBox.classList.add('show'); }
-          return;
-        }
-        sizeCents = Math.round(customUsd * 100);
-      } else {
-        sizeCents = Number(sizeEl ? sizeEl.value : 0) || 0;
+      var sizeUsd = Number(sizeEl ? sizeEl.value : 0) || 0;
+      if(sizeUsd < 100){
+        if(errBox){ errBox.textContent = 'Enter account size (min $100)'; errBox.classList.add('show'); }
+        return;
       }
+      var sizeCents = Math.round(sizeUsd * 100);
       payload.firm_name = firm;
       payload.account_size_cents = sizeCents;
       payload.account_type = typeEl ? typeEl.value : 'CHALLENGE';
