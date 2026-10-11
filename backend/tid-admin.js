@@ -724,7 +724,7 @@ router.post("/admin/internal/sync-fail/:id", authenticateInternal, express.json(
       [id],
     );
     var attempts = logRows.length ? Number(logRows[0].attempts) : 1;
-    if (attempts >= 3) {
+    if (attempts >= 2) {
       await db.execute(
         "UPDATE tid_accounts SET platform_sync_status = 'FAILED', updated_at = NOW() WHERE id = ? LIMIT 1",
         [id],
