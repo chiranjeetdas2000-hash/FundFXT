@@ -198,6 +198,27 @@ def kill_mt5_process():
     except Exception as e:
         print("    [kill] error:", e)
 
+def find_terminal_exe():
+    import glob
+    candidates = [
+        r"C:\Program Files\MetaTrader 5\terminal64.exe",
+        r"C:\Program Files (x86)\MetaTrader 5\terminal64.exe",
+        r"C:\Program Files\FT Trading MT5\terminal64.exe",
+        r"C:\Program Files\FTTrading MT5\terminal64.exe",
+        r"C:\Program Files\FTTrading-Server\terminal64.exe",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    for base in [r"C:\Program Files", r"C:\Program Files (x86)", os.path.expandvars(r"%LOCALAPPDATA%"), os.path.expandvars(r"%APPDATA%")]:
+        try:
+            matches = glob.glob(os.path.join(base, "**", "terminal64.exe"), recursive=True)
+            if matches:
+                return matches[0]
+        except Exception:
+            pass
+    return None
+
 def clear_mt5_session():
     terminal_dir = os.path.expandvars(r"%APPDATA%\MetaQuotes\Terminal")
     if not os.path.exists(terminal_dir):
@@ -225,30 +246,36 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     kill_mt5_process()
     time.sleep(3)
 
-    init_kwargs = {"login": int(login), "password": str(password), "server": str(server), "timeout": 60000}
-    if MT5_TERMINAL_PATH:
-        init_kwargs["path"] = MT5_TERMINAL_PATH
+    # Find terminal exe
+    terminal_exe = MT5_TERMINAL_PATH or find_terminal_exe()
+    if not terminal_exe:
+        raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
 
+    # Launch MT5 via subprocess with CLI credentials
+    import subprocess
+    print("    [launch] %s" % terminal_exe)
+    subprocess.Popen(
+        [terminal_exe, "/login:%s" % login, "/password:%s" % password, "/server:%s" % server],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+
+    # Wait for MT5 to fully login + download history
+    print("    [launch] waiting 30s for MT5 login...")
+    time.sleep(30)
+
+    # Attach to running terminal (no login args)
     init_ok = False
     last_err = None
     for _attempt in range(3):
-        if mt5.initialize(**init_kwargs):
+        if mt5.initialize(path=terminal_exe):
             init_ok = True
             break
         last_err = mt5.last_error()
-        err_str = str(last_err)
-        print("    [init] attempt %d failed: %s" % (_attempt + 1, err_str))
-        if "IPC timeout" in err_str or "-10005" in err_str:
-            time.sleep(12)
-            try:
-                mt5.shutdown()
-            except Exception:
-                pass
-            time.sleep(3)
-        else:
-            break
+        print("    [attach] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+        time.sleep(8)
     if not init_ok:
-        raise Exception("MT5 initialize failed: " + str(last_err))
+        raise Exception("MT5 attach failed: " + str(last_err))
 
     try:
         # Wait for terminal connection + history download
