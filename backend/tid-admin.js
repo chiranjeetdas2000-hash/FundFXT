@@ -695,7 +695,7 @@ router.post("/admin/internal/sync-complete/:id", authenticateInternal, express.j
       );
     }
     await db.execute(
-      "UPDATE tid_sync_log SET sync_status = 'SUCCESS', completed_at = NOW(), last_sync_at = NOW(), error_message = NULL, updated_at = NOW() WHERE account_id = ? LIMIT 1",
+      "UPDATE tid_sync_log SET sync_status = 'SUCCESS', completed_at = NOW(), last_sync_at = NOW(), error_message = NULL, attempts = 0, updated_at = NOW() WHERE account_id = ? LIMIT 1",
       [id],
     );
     return res.json({
