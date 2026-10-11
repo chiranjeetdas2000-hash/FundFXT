@@ -869,4 +869,51 @@ router.post("/admin/tid/accounts/:id/reject-server", authenticateAdmin, requireS
   }
 });
 
+// Reject account sync — permanent, user ko email, no more retries
+router.post("/admin/tid/accounts/:id/reject-sync", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+    const reason = String((req.body && req.body.reason) || "Sync rejected by admin").slice(0, 500);
+
+    await db.execute(
+      "UPDATE tid_accounts SET platform_sync_status = 'FAILED', admin_notes = CONCAT(COALESCE(admin_notes,''), '\\n[Rejected ', NOW(), '] ', ?), updated_at = NOW() WHERE id = ? LIMIT 1",
+      [reason, id],
+    );
+
+    await db.execute(
+      "UPDATE tid_sync_log SET sync_status = 'FAILED', error_message = ?, updated_at = NOW() WHERE account_id = ? LIMIT 1",
+      [reason, id],
+    );
+
+    return res.json({ success: true, status: "REJECTED" });
+  } catch (e) {
+    console.error("[TID-ADMIN] reject-sync:", e.message);
+    return res.status(500).json({ error: "Unable to reject sync" });
+  }
+});
+
+// Allow retry — reset attempts, set PENDING, push to queue
+router.post("/admin/tid/accounts/:id/allow-retry", authenticateAdmin, requireSuperAdmin, async function (req, res) {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid ID" });
+
+    await db.execute(
+      "UPDATE tid_accounts SET platform_sync_status = 'PENDING', updated_at = NOW() WHERE id = ? LIMIT 1",
+      [id],
+    );
+
+    await db.execute(
+      "INSERT INTO tid_sync_log (account_id, sync_status, triggered_by) VALUES (?, 'PENDING', 'ADMIN') ON DUPLICATE KEY UPDATE sync_status = 'PENDING', triggered_by = 'ADMIN', attempts = 0, error_message = NULL, updated_at = NOW()",
+      [id],
+    );
+
+    return res.json({ success: true, status: "PENDING" });
+  } catch (e) {
+    console.error("[TID-ADMIN] allow-retry:", e.message);
+    return res.status(500).json({ error: "Unable to allow retry" });
+  }
+});
+
 module.exports = router;
