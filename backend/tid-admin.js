@@ -755,7 +755,7 @@ router.get("/admin/internal/sync-queue", authenticateInternal, async function (r
 
     if (items.length < limit) {
       var [ar] = await db.execute(
-        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_PENDING' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND platform_sync_status = 'PENDING' ORDER BY updated_at ASC LIMIT ?",
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_PENDING' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND platform_sync_status = 'PENDING' AND server_whitelisted = 1 ORDER BY updated_at ASC LIMIT ?",
         [limit - items.length]
       );
       if (ar && ar.length) items = items.concat(ar);
@@ -763,7 +763,7 @@ router.get("/admin/internal/sync-queue", authenticateInternal, async function (r
 
     if (items.length < limit) {
       var [sr] = await db.execute(
-        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_STALE' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('ACTIVE','PASSED') AND (platform_last_sync_at IS NULL OR platform_last_sync_at < NOW() - INTERVAL 24 HOUR) AND platform_sync_status != 'IN_PROGRESS' ORDER BY platform_last_sync_at ASC LIMIT ?",
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_STALE' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('ACTIVE','PASSED') AND server_whitelisted = 1 AND platform_sync_status NOT IN ('IN_PROGRESS','FAILED') AND (platform_last_sync_at IS NULL OR platform_last_sync_at < NOW() - INTERVAL 24 HOUR) ORDER BY platform_last_sync_at ASC LIMIT ?",
         [limit - items.length]
       );
       if (sr && sr.length) items = items.concat(sr);
@@ -771,7 +771,7 @@ router.get("/admin/internal/sync-queue", authenticateInternal, async function (r
 
     if (items.length < limit) {
       var [br] = await db.execute(
-        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_BREACHED' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('BREACHED','CLOSED') AND platform_sync_status != 'SUCCESS' ORDER BY updated_at ASC LIMIT ?",
+        "SELECT id AS account_id, tid_user_id, platform, platform_login, platform_password_encrypted, broker_server, status, platform_sync_status, last_synced_broker_trade_id, NULL AS sync_status, 0 AS attempts, 'AUTO_BREACHED' AS source FROM tid_accounts WHERE platform_login IS NOT NULL AND platform_password_encrypted IS NOT NULL AND status IN ('BREACHED','CLOSED') AND server_whitelisted = 1 AND platform_sync_status NOT IN ('SUCCESS','FAILED') ORDER BY updated_at ASC LIMIT ?",
         [limit - items.length]
       );
       if (br && br.length) items = items.concat(br);
