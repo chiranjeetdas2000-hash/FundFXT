@@ -198,6 +198,30 @@ def kill_mt5_process():
     except Exception as e:
         print("    [kill] error:", e)
 
+def write_mt5_launch_ini(login, password, server):
+    import tempfile
+    fd, ini_path = tempfile.mkstemp(prefix="mt5_launch_", suffix=".ini")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write("[Common]\n")
+            f.write("Login=%s\n" % login)
+            f.write("Password=%s\n" % password)
+            f.write("Server=%s\n" % server)
+    except Exception:
+        try:
+            os.close(fd)
+        except Exception:
+            pass
+        raise
+    return ini_path
+
+def delete_file_safe(path):
+    try:
+        if path and os.path.exists(path):
+            os.remove(path)
+    except Exception as e:
+        print("    [del] %s: %s" % (path, e))
+
 def find_terminal_exe():
     import glob
     candidates = [
@@ -251,18 +275,23 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     if not terminal_exe:
         raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
 
-    # Launch MT5 via subprocess with CLI credentials
+    # Write launch INI with credentials (temp file)
     import subprocess
-    print("    [launch] %s" % terminal_exe)
-    subprocess.Popen(
-        [terminal_exe, "/login:%s" % login, "/password:%s" % password, "/server:%s" % server],
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-    )
+    ini_path = write_mt5_launch_ini(login, password, server)
+    print("    [launch] %s (config=%s)" % (terminal_exe, ini_path))
 
-    # Wait for MT5 to fully login + download history
-    print("    [launch] waiting 30s for MT5 login...")
-    time.sleep(30)
+    try:
+        subprocess.Popen(
+            [terminal_exe, "/config:" + ini_path],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        # Wait for MT5 to login + download history
+        print("    [launch] waiting 30s for MT5 login...")
+        time.sleep(30)
+    finally:
+        # Delete INI immediately after launch — password not on disk
+        delete_file_safe(ini_path)
 
     # Attach to running terminal (no login args)
     init_ok = False
