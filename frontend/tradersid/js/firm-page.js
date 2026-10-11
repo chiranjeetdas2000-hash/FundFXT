@@ -125,6 +125,7 @@
       h += '<a href="/tradersid/account.html?id=' + a.id + '" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid #E8EBF0;border-radius:10px;text-decoration:none;color:inherit;background:#fff" onmouseover="this.style.borderColor=\'#CBD5E1\'" onmouseout="this.style.borderColor=\'#E8EBF0\'">';
       h += '<div>';
       h += '<div style="font-weight:700;color:#0F1B2D;margin-bottom:4px">' + esc(size) + ' · ' + esc(type) + '</div>';
+      h += '<div style="font-size:12px;color:#64748B;font-family:JetBrains Mono,monospace;margin-bottom:2px">Login: ' + esc(String(a.platform_login || a.broker_account_id || '—')) + '</div>';
       h += '<div style="font-size:12px;color:#64748B">' + (Number(a.total_trades) || 0) + ' trades · ' + wins + 'W / ' + losses + 'L · ' + (Number(a.account_score) || 0) + ' score</div>';
       h += '</div>';
       h += '<span class="acct-pill ' + st.cls + '">' + esc(st.label) + '</span>';
