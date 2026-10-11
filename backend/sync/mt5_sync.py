@@ -293,11 +293,11 @@ def fetch_mt5_data(login, password, server, last_synced_id):
         # Delete INI immediately after launch — password not on disk
         delete_file_safe(ini_path)
 
-    # Attach to running terminal — use no-args initialize for auto-detection
+    # Attach to running portable terminal — use explicit path (2 instances installed)
     init_ok = False
     last_err = None
     for _attempt in range(5):
-        if mt5.initialize():
+        if mt5.initialize(path=terminal_exe):
             init_ok = True
             break
         last_err = mt5.last_error()
