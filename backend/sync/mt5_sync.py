@@ -202,7 +202,8 @@ def write_mt5_launch_ini(login, password, server):
     import tempfile
     fd, ini_path = tempfile.mkstemp(prefix="mt5_launch_", suffix=".ini")
     try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
+        # MT5 INI requires ANSI (Windows-1252), NOT UTF-8
+        with os.fdopen(fd, "w", encoding="mbcs", newline="\r\n") as f:
             f.write("[Common]\n")
             f.write("Login=%s\n" % login)
             f.write("Password=%s\n" % password)
@@ -307,6 +308,19 @@ def fetch_mt5_data(login, password, server, last_synced_id):
             time.sleep(10)
         if not _MT5_READY:
             raise Exception("MT5 boot failed")
+
+        # Explicit login after boot (INI may fail silently on some MT5 builds)
+        print("    [boot-login] login=%s server=%s" % (login, server))
+        boot_login_ok = False
+        for _attempt in range(3):
+            if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
+                boot_login_ok = True
+                break
+            last_err = mt5.last_error()
+            print("    [boot-login] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+            time.sleep(5)
+        if not boot_login_ok:
+            raise Exception("MT5 boot-login failed: " + str(last_err))
         print("    [boot] MT5 ready — switching via login() for next accounts")
     else:
         # Fast path: MT5 alive, just login() to switch account
