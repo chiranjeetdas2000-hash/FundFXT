@@ -191,6 +191,13 @@ def main_loop():
 
 
 # ─── MT5 fetch ───
+def kill_mt5_process():
+    try:
+        import subprocess
+        subprocess.run(["taskkill", "/IM", "terminal64.exe", "/F"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=10)
+    except Exception as e:
+        print("    [kill] error:", e)
+
 def clear_mt5_session():
     terminal_dir = os.path.expandvars(r"%APPDATA%\MetaQuotes\Terminal")
     if not os.path.exists(terminal_dir):
@@ -213,6 +220,10 @@ def fetch_mt5_data(login, password, server, last_synced_id):
         import MetaTrader5 as mt5
     except ImportError:
         raise Exception("MetaTrader5 package not installed. Run: pip install MetaTrader5")
+
+    # Kill any existing MT5 process to start fresh
+    kill_mt5_process()
+    time.sleep(3)
 
     init_kwargs = {"login": int(login), "password": str(password), "server": str(server), "timeout": 60000}
     if MT5_TERMINAL_PATH:
@@ -367,6 +378,8 @@ def fetch_mt5_data(login, password, server, last_synced_id):
         except Exception:
             pass
         time.sleep(2)
+        kill_mt5_process()
+        time.sleep(3)
         clear_mt5_session()
         time.sleep(3)
 
