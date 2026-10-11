@@ -2359,7 +2359,7 @@ router.post("/accounts/:id/transactions", authenticateTid, requireJsonBody, asyn
 router.get("/firms", authenticateTid, async (req, res) => {
   try {
     const [rows] = await db.execute(
-      "SELECT id, firm_name, broker_name, account_category, account_type, account_score, total_trades, total_wins, total_losses, total_pips, win_rate_bps, verification_status, account_size_cents, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents, created_at FROM tid_accounts WHERE tid_user_id = ? ORDER BY created_at DESC LIMIT 100",
+      "SELECT id, firm_name, broker_name, account_category, account_type, account_score, total_trades, total_wins, total_losses, total_pips, win_rate_bps, verification_status, account_size_cents, broker_account_id, broker_account_mode, total_deposit_cents, total_withdrawal_cents, platform, platform_login, platform_sync_status, platform_last_sync_at, broker_server, server_whitelisted, created_at FROM tid_accounts WHERE tid_user_id = ? ORDER BY created_at DESC LIMIT 100",
       [req.tidUser.tidUserId],
     );
     return res.json({ success: true, count: rows.length, rows: rows });
