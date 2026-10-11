@@ -118,45 +118,10 @@
     for(i = 0; i < accounts.length; i++){
       var a = accounts[i];
       var st = getStatusMeta(a);
-      var size = '
-      h += '<a href="/tradersid/account.html?id=' + a.id + '" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid #E8EBF0;border-radius:10px;text-decoration:none;color:inherit;background:#fff" onmouseover="this.style.borderColor=\'#CBD5E1\'" onmouseout="this.style.borderColor=\'#E8EBF0\'">';
-      h += '<div>';
-      h += '<div style="font-weight:700;color:#0F1B2D;margin-bottom:4px">' + esc(size) + ' · ' + esc(type) + '</div>';
-      h += '<div style="font-size:12px;color:#64748B">' + (Number(a.total_trades) || 0) + ' trades · ' + wins + 'W / ' + losses + 'L · ' + (Number(a.account_score) || 0) + ' score</div>';
-      h += '</div>';
-      h += '<span class="acct-pill ' + st.cls + '">' + esc(st.label) + '</span>';
-      h += '</a>';
-    }
-    h += '</div></div>';
-    wrap.innerHTML = h;
-  }
-
-  // Sidebar nav
-  document.querySelectorAll('.side-link[data-section]').forEach(function(btn){
-    btn.addEventListener('click', function(){
-      var s = this.getAttribute('data-section');
-      location.href = '/tradersid/dashboard.html#' + s;
-    });
-  });
-
-  // Logout
-  function logout(){
-    localStorage.removeItem('tid_token');
-    localStorage.removeItem('tid_user');
-    location.href = '/tradersid/login.html';
-  }
-  var lb = $('logoutBtn'); if(lb) lb.addEventListener('click', logout);
-  var lbt = $('logoutBtnTop'); if(lbt) lbt.addEventListener('click', logout);
-  var lbm = $('logoutBtnMobile'); if(lbm) lbm.addEventListener('click', logout);
-
-  loadFirm();
-})(); + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US');
+      var size = '$' + ((Number(a.account_size_cents) || 0) / 100).toLocaleString('en-US');
       var type = String(a.account_type || '').toUpperCase() || 'ACCOUNT';
       var wins = Number(a.total_wins) || 0;
       var losses = Number(a.total_losses) || 0;
-      var isBrokerAcct = String(a.account_category || '').toUpperCase() === 'BROKER';
-      var acctNum = isBrokerAcct ? (a.broker_account_id || '—') : (a.platform_login || '—');
-      var numLabel = isBrokerAcct ? 'ID' : 'Login';
       h += '<a href="/tradersid/account.html?id=' + a.id + '" style="display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border:1px solid #E8EBF0;border-radius:10px;text-decoration:none;color:inherit;background:#fff" onmouseover="this.style.borderColor=\'#CBD5E1\'" onmouseout="this.style.borderColor=\'#E8EBF0\'">';
       h += '<div>';
       h += '<div style="font-weight:700;color:#0F1B2D;margin-bottom:4px">' + esc(size) + ' · ' + esc(type) + '</div>';
