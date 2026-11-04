@@ -184,7 +184,7 @@
 
                         <div class="pnl-preview" id="modifyPnlPreview" hidden>
                             <div class="pnl-row">
-                                <span class="pnl-label">Loss at SL</span>
+                                <span class="pnl-label">Result at SL</span>
                                 <span class="pnl-value red" id="modifyPreviewLoss">—</span>
                             </div>
                             <div class="pnl-row">
