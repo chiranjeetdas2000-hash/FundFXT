@@ -367,17 +367,10 @@ async function installTradeRepair(app) {
 
                 if (
                     sl !== null
-                    && (
-                        !Number.isFinite(sl)
-                        || (
-                            side === "BUY"
-                                ? sl >= entry
-                                : sl <= entry
-                        )
-                    )
+                    && !Number.isFinite(sl)
                 ) {
                     return res.status(400).json({
-                        error: "Invalid Stop Loss for this position",
+                        error: "Invalid Stop Loss price",
                     });
                 }
 
