@@ -2742,13 +2742,8 @@ app.patch("/api/trades/:tradeId", authenticateToken, tradeModifyRateLimiter, asy
         });
       }
 
-      if (nextStopLoss !== null && (String(trade.side).toUpperCase() === "BUY" ? nextStopLoss >= Number(trade.entry_price) : nextStopLoss <= Number(trade.entry_price))) {
-        return res.status(400).json({ error: "Invalid Stop Loss for this direction" });
-      }
-
-      if (nextTakeProfit !== null && (String(trade.side).toUpperCase() === "BUY" ? nextTakeProfit <= Number(trade.entry_price) : nextTakeProfit >= Number(trade.entry_price))) {
-        return res.status(400).json({ error: "Invalid Take Profit for this direction" });
-      }
+      // Note: We removed entry-price based validation so trailing stops can lock in profit.
+      // The engine will instantly trigger the SL if it's on the wrong side of the current price.
 
       // Prevent a race from updating a position after it has been closed.
       const [updateResult] = await db.execute(
@@ -3350,13 +3345,6 @@ async function processLivePrices() {
     if (!freshAccounts.length) continue;
 
     const freshAccount = freshAccounts[0];
-    const risk = await checkAccountRisk(freshAccount);
-
-    if (risk.breached) {
-      await settleBreachedAccount(account.id, risk.reason);
-      continue;
-    }
-
     let closeReason = null;
 
     if (trade.side === "BUY") {
@@ -3367,7 +3355,14 @@ async function processLivePrices() {
       if (trade.take_profit && currentPrice <= Number(trade.take_profit)) closeReason = "TP";
     }
 
-    if (!closeReason) continue;
+    if (!closeReason) {
+      // SL/TP not hit, now check for account risk breach
+      const risk = await checkAccountRisk(freshAccount);
+      if (risk.breached) {
+        await settleBreachedAccount(account.id, risk.reason);
+      }
+      continue;
+    }
 
     let connection;
 
