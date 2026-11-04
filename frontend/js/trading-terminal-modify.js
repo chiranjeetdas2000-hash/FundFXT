@@ -244,13 +244,9 @@
                     notify("Enter valid TP/SL prices.");
                     return;
                 }
-                if (
-                sl !== null &&
-                (side === "BUY" ? sl >= entry : sl <= entry)
-                ) {
-                    notify("Invalid Stop Loss for this direction.");
-                    return;
-                }
+                // Entry-relative SL validation removed to allow 
+                // profit-locking trailing stops. The trade engine will 
+                // handle execution if SL is crossed.
                 if (
                 tp !== null &&
                 (side === "BUY" ? tp <= entry : tp >= entry)
