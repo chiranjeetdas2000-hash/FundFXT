@@ -38,6 +38,10 @@ BATCH_SIZE = int(os.environ.get("BATCH_SIZE", "10"))
 DRY_RUN = os.environ.get("DRY_RUN", "0") == "1"
 MT5_TERMINAL_PATH = os.environ.get("MT5_TERMINAL_PATH", "")
 
+# MT5 terminal lifecycle state
+_MT5_READY = False
+_MT5_CURRENT_SERVER = None
+
 if not INTERNAL_SYNC_KEY:
     print("FATAL: INTERNAL_SYNC_KEY not set in .env")
     sys.exit(1)
@@ -272,10 +276,19 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     if not terminal_exe:
         raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
 
-    global _MT5_READY
-    try:
-        _MT5_READY
-    except NameError:
+    global _MT5_READY, _MT5_CURRENT_SERVER
+
+    # A ready terminal cannot be reused across different broker servers.
+    if _MT5_READY and _MT5_CURRENT_SERVER != server:
+        print("    [switch] Server changed from %s to %s — forcing restart" % (_MT5_CURRENT_SERVER, server))
+        try:
+            mt5.shutdown()
+        except Exception:
+            pass
+        kill_mt5_process()
+        time.sleep(5)
+        clear_mt5_session()
+        time.sleep(3)
         _MT5_READY = False
 
     if not _MT5_READY:
@@ -321,6 +334,7 @@ def fetch_mt5_data(login, password, server, last_synced_id):
             time.sleep(5)
         if not boot_login_ok:
             raise Exception("MT5 boot-login failed: " + str(last_err))
+        _MT5_CURRENT_SERVER = server
         print("    [boot] MT5 ready — switching via login() for next accounts")
     else:
         # Fast path: MT5 alive, just login() to switch account
@@ -330,6 +344,7 @@ def fetch_mt5_data(login, password, server, last_synced_id):
         for _attempt in range(3):
             if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
                 login_ok = True
+                _MT5_CURRENT_SERVER = server
                 break
             last_err = mt5.last_error()
             print("    [switch] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
@@ -359,10 +374,26 @@ def fetch_mt5_data(login, password, server, last_synced_id):
                 pass
             time.sleep(3)
 
+            initialize_ok = False
             for _attempt in range(5):
                 if mt5.initialize(path=terminal_exe):
+                    initialize_ok = True
+                    _MT5_READY = True
                     break
+                last_err = mt5.last_error()
+                print("    [switch-reboot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
                 time.sleep(8)
+
+            if not initialize_ok:
+                _MT5_READY = False
+                _MT5_CURRENT_SERVER = None
+                raise Exception("MT5 reboot failed")
+
+            if not mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
+                _MT5_READY = False
+                _MT5_CURRENT_SERVER = None
+                raise Exception("MT5 re-login failed after reboot")
+            _MT5_CURRENT_SERVER = server
 
     try:
         # Wait for terminal connection + history download
