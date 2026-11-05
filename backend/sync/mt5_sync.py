@@ -271,129 +271,173 @@ def fetch_mt5_data(login, password, server, last_synced_id):
     except ImportError:
         raise Exception("MetaTrader5 package not installed. Run: pip install MetaTrader5")
 
-    # Global terminal — launched ONCE, then login() switches accounts
-    terminal_exe = MT5_TERMINAL_PATH or find_terminal_exe()
-    if not terminal_exe:
-        raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
+    info = mt5.account_info()
+    already_logged_in = (
+        info is not None
+        and int(info.login) == int(login)
+        and str(info.server) == str(server)
+    )
+    if already_logged_in:
+        print("    [skip] Terminal is already logged into %s on %s. Skipping restart." % (login, server))
 
-    global _MT5_READY, _MT5_CURRENT_SERVER
+    if not already_logged_in:
+        # Global terminal — launched ONCE, then login() switches accounts
+        terminal_exe = MT5_TERMINAL_PATH or find_terminal_exe()
+        if not terminal_exe:
+            raise Exception("MT5 terminal64.exe not found. Set MT5_TERMINAL_PATH in .env")
 
-    # A ready terminal cannot be reused across different broker servers.
-    if _MT5_READY and _MT5_CURRENT_SERVER != server:
-        print("    [switch] Server changed from %s to %s — forcing restart" % (_MT5_CURRENT_SERVER, server))
-        try:
-            mt5.shutdown()
-        except Exception:
-            pass
-        kill_mt5_process()
-        time.sleep(5)
-        clear_mt5_session()
-        time.sleep(3)
-        _MT5_READY = False
+        global _MT5_READY, _MT5_CURRENT_SERVER
 
-    if not _MT5_READY:
-        # First-time boot: kill stale, launch with THIS account's config, attach
-        kill_mt5_process()
-        time.sleep(5)
-        clear_mt5_session()
-        time.sleep(3)
-
-        import subprocess
-        ini_path = write_mt5_launch_ini(login, password, server)
-        print("    [boot] %s /portable /config:%s" % (terminal_exe, ini_path))
-        try:
-            subprocess.Popen(
-                [terminal_exe, "/portable", "/config:" + ini_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
-            )
-            print("    [boot] waiting 30s for initial login...")
-            time.sleep(30)
-        finally:
-            delete_file_safe(ini_path)
-
-        for _attempt in range(5):
-            if mt5.initialize(path=terminal_exe):
-                _MT5_READY = True
-                break
-            last_err = mt5.last_error()
-            print("    [boot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-            time.sleep(10)
-        if not _MT5_READY:
-            raise Exception("MT5 boot failed")
-
-        # Explicit login after boot (INI may fail silently on some MT5 builds)
-        print("    [boot-login] login=%s server=%s" % (login, server))
-        boot_login_ok = False
-        for _attempt in range(3):
-            if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
-                boot_login_ok = True
-                break
-            last_err = mt5.last_error()
-            print("    [boot-login] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-            time.sleep(5)
-        if not boot_login_ok:
-            raise Exception("MT5 boot-login failed: " + str(last_err))
-        _MT5_CURRENT_SERVER = server
-        print("    [boot] MT5 ready — switching via login() for next accounts")
-    else:
-        # Fast path: MT5 alive, just login() to switch account
-        print("    [switch] login=%s server=%s" % (login, server))
-        login_ok = False
-        last_err = None
-        for _attempt in range(3):
-            if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
-                login_ok = True
-                _MT5_CURRENT_SERVER = server
-                break
-            last_err = mt5.last_error()
-            print("    [switch] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-            time.sleep(5)
-        if not login_ok:
-            # Fallback: kill + reboot with this account
-            print("    [switch] failed — falling back to reboot")
+        # A ready terminal cannot be reused across different broker servers.
+        if _MT5_READY and _MT5_CURRENT_SERVER != server:
+            print("    [switch] Server changed from %s to %s — forcing restart" % (_MT5_CURRENT_SERVER, server))
+            try:
+                mt5.shutdown()
+            except Exception:
+                pass
             kill_mt5_process()
             time.sleep(5)
             clear_mt5_session()
             time.sleep(3)
+            _MT5_READY = False
+
+        if not _MT5_READY:
+            # First-time boot: kill stale, launch with THIS account's config, attach
+            kill_mt5_process()
+            time.sleep(5)
+            clear_mt5_session()
+            time.sleep(3)
+
             import subprocess
             ini_path = write_mt5_launch_ini(login, password, server)
+            print("    [boot] %s /portable /config:%s" % (terminal_exe, ini_path))
             try:
                 subprocess.Popen(
                     [terminal_exe, "/portable", "/config:" + ini_path],
                     stdout=subprocess.DEVNULL,
                     stderr=subprocess.DEVNULL,
                 )
-                time.sleep(30)
+                print("    [boot] waiting 60s for initial login...")
+                time.sleep(60)
             finally:
                 delete_file_safe(ini_path)
 
-            try:
-                mt5.shutdown()
-            except Exception:
-                pass
-            time.sleep(3)
-
-            initialize_ok = False
+            direct_login_ok = False
             for _attempt in range(5):
                 if mt5.initialize(path=terminal_exe):
-                    initialize_ok = True
                     _MT5_READY = True
                     break
                 last_err = mt5.last_error()
-                print("    [switch-reboot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
-                time.sleep(8)
+                print("    [boot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+                if mt5.initialize(
+                    path=terminal_exe,
+                    login=int(login),
+                    password=str(password),
+                    server=str(server),
+                    timeout=60000,
+                ):
+                    direct_login_ok = True
+                    _MT5_READY = True
+                    _MT5_CURRENT_SERVER = server
+                    print("    [boot] credential-bearing initialize succeeded")
+                    break
+                last_err = mt5.last_error()
+                print("    [boot] credential initialize attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+                time.sleep(10)
+            if not _MT5_READY:
+                raise Exception("MT5 boot failed")
 
-            if not initialize_ok:
-                _MT5_READY = False
-                _MT5_CURRENT_SERVER = None
-                raise Exception("MT5 reboot failed")
+            if not direct_login_ok:
+                print("    [boot-login] login=%s server=%s" % (login, server))
+                boot_login_ok = False
+                for _attempt in range(3):
+                    if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
+                        boot_login_ok = True
+                        _MT5_CURRENT_SERVER = server
+                        break
+                    last_err = mt5.last_error()
+                    print("    [boot-login] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+                    time.sleep(5)
+                if not boot_login_ok:
+                    raise Exception("MT5 boot-login failed: " + str(last_err))
+            else:
+                _MT5_CURRENT_SERVER = server
+            print("    [boot] MT5 ready — switching via login() for next accounts")
+        else:
+            # Fast path: MT5 alive, just login() to switch account
+            print("    [switch] login=%s server=%s" % (login, server))
+            login_ok = False
+            last_err = None
+            for _attempt in range(3):
+                if mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
+                    login_ok = True
+                    _MT5_CURRENT_SERVER = server
+                    break
+                last_err = mt5.last_error()
+                print("    [switch] attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+                time.sleep(5)
+            if not login_ok:
+                # Fallback: kill + reboot with this account
+                print("    [switch] failed — falling back to reboot")
+                kill_mt5_process()
+                time.sleep(5)
+                clear_mt5_session()
+                time.sleep(3)
+                import subprocess
+                ini_path = write_mt5_launch_ini(login, password, server)
+                try:
+                    subprocess.Popen(
+                        [terminal_exe, "/portable", "/config:" + ini_path],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                    )
+                    time.sleep(30)
+                finally:
+                    delete_file_safe(ini_path)
 
-            if not mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
-                _MT5_READY = False
-                _MT5_CURRENT_SERVER = None
-                raise Exception("MT5 re-login failed after reboot")
-            _MT5_CURRENT_SERVER = server
+                try:
+                    mt5.shutdown()
+                except Exception:
+                    pass
+                time.sleep(3)
+
+                initialize_ok = False
+                direct_login_ok = False
+                for _attempt in range(5):
+                    if mt5.initialize(path=terminal_exe):
+                        initialize_ok = True
+                        _MT5_READY = True
+                        break
+                    last_err = mt5.last_error()
+                    print("    [switch-reboot] attach attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+                    if mt5.initialize(
+                        path=terminal_exe,
+                        login=int(login),
+                        password=str(password),
+                        server=str(server),
+                        timeout=60000,
+                    ):
+                        initialize_ok = True
+                        direct_login_ok = True
+                        _MT5_READY = True
+                        _MT5_CURRENT_SERVER = server
+                        print("    [switch-reboot] credential-bearing initialize succeeded")
+                        break
+                    last_err = mt5.last_error()
+                    print("    [switch-reboot] credential initialize attempt %d failed: %s" % (_attempt + 1, str(last_err)))
+                    time.sleep(8)
+
+                if not initialize_ok:
+                    _MT5_READY = False
+                    _MT5_CURRENT_SERVER = None
+                    raise Exception("MT5 reboot failed")
+
+                if not direct_login_ok:
+                    if not mt5.login(login=int(login), password=str(password), server=str(server), timeout=30000):
+                        _MT5_READY = False
+                        _MT5_CURRENT_SERVER = None
+                        raise Exception("MT5 re-login failed after reboot")
+                    _MT5_CURRENT_SERVER = server
 
     try:
         # Wait for terminal connection + history download
