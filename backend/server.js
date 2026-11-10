@@ -41,13 +41,21 @@ const accountsRateLimiter = userRateLimiter(60, 60 * 1000);
 const walletWithdrawalRateLimiter = userRateLimiter(5, 60 * 60 * 1000);
 const accountPayoutRateLimiter = userRateLimiter(5, 60 * 60 * 1000);
 
-app.get("/api/health", (req, res) => {
-  res.json({
-    status: "ok",
-    uptime: process.uptime(),
-    timestamp: Date.now(),
-    service: "FundFXT Backend"
-  });
+app.get("/api/health", async (req, res) => {
+  try {
+    // Wake up the engine immediately when pinged by UptimeRobot
+    if (typeof refreshBiQuotePrices === "function") {
+      await refreshBiQuotePrices();
+    }
+    res.json({
+      status: "ok",
+      uptime: process.uptime(),
+      timestamp: Date.now(),
+      service: "FundFXT Backend"
+    });
+  } catch (error) {
+    res.json({ status: "ok", engine_error: error.message });
+  }
 });
 
 
@@ -1360,7 +1368,22 @@ function normalizeBiQuoteTick(t) {
   };
 }
 
+let isRefreshingPrices = false;
+
 async function refreshBiQuotePrices() {
+  if (isRefreshingPrices) return;
+  isRefreshingPrices = true;
+  try {
+    await _refreshBiQuotePricesOriginal();
+  } catch (err) {
+    console.error("BiQuote refresh error:", err.message);
+    throw err;
+  } finally {
+    isRefreshingPrices = false;
+  }
+}
+
+async function _refreshBiQuotePricesOriginal() {
   const qs = BIQUOTE_SYMBOLS.map(
     (x) => "symbols=" + encodeURIComponent(x),
   ).join("&");
